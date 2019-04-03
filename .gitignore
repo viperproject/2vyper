@@ -16,3 +16,4 @@ docs/build
 *.pyc
 .DS_Store
 .vscode/settings.json
+.mypy_cache/

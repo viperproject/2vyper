@@ -17,7 +17,7 @@ import traceback
 
 # These imports monkey-patch mypy and should happen as early as possible.
 import nagini_translation.mypy_patches.column_info_patch
-import nagini_translation.mypy_patches.optional_patch
+#import nagini_translation.mypy_patches.optional_patch
 
 
 from jpype import JavaException

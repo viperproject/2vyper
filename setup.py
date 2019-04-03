@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
         name='nagini',
-        version='0.8.3',
+        version='0.8.2',
         author='Viper Team',
         author_email='viper@inf.ethz.ch',
         license='MPL-2.0',
@@ -19,11 +19,11 @@ setup(
             'distribute',
             ],
         install_requires=[
-            'mypy-lang==0.4.5',
+            'mypy==0.670',
             'toposort==1.5',
             'jpype1==0.6.2',
             'astunparse==1.6.2',
-            'typed-ast==0.6.3',
+            'typed-ast==1.3.1',
             'pytest==3.3.0',
             'z3-solver'
             ],

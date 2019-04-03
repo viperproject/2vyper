@@ -140,7 +140,7 @@ class TypeVisitor(mypy.traverser.TraverserVisitor):
         super().visit_func_def(node)
         self.prefix = oldprefix
 
-    def visit_func_expr(self, node: mypy.nodes.FuncExpr):
+    def visit_func_expr(self, node: mypy.nodes.LambdaExpr):
         oldprefix = self.prefix
         prefix_string = construct_lambda_prefix(node.line, col(node))
         self.prefix = self.prefix + [prefix_string]
@@ -258,7 +258,9 @@ class TypeInfo:
         result.show_traceback = True
         # This is an experimental feature atm and you actually have to
         # enable it like this
-        mypy.experiments.STRICT_OPTIONAL = strict_optional
+        
+        #mypy.experiments.STRICT_OPTIONAL = strict_optional
+
         result.fast_parser = True
         return result
 
@@ -277,7 +279,7 @@ class TypeInfo:
             options_strict = self._create_options(True)
             res_strict = mypy.build.build(
                 [BuildSource(filename, None, None)],
-                options_strict, bin_dir=config.mypy_dir
+                options_strict, alt_lib_path=config.mypy_dir
                 )
 
             if res_strict.errors:
@@ -286,7 +288,7 @@ class TypeInfo:
                 options_non_strict = self._create_options(False)
                 res_non_strict = mypy.build.build(
                     [BuildSource(filename, None, None)],
-                    options_non_strict, bin_dir=config.mypy_dir
+                    options_non_strict, alt_lib_path=config.mypy_dir
                 )
                 if res_non_strict.errors:
                     report_errors(res_non_strict.errors)
