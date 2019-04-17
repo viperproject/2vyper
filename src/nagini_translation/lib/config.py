@@ -170,11 +170,13 @@ def _construct_classpath(verifier : str = None):
                                (arpplugin_jar, 'arpplugin'))
             if jar and v != verifier)
 
-    if sys.platform.startswith('linux'):
+    if sys.platform.startswith('linux') or sys.platform.startswith('darwin'):
         if os.path.isdir('/usr/lib/viper'):
             # Check if we have Viper installed via package manager.
-            return os.pathsep.join(
-                glob.glob('/usr/lib/viper/*.jar'))
+            return os.pathsep.join(glob.glob('/usr/lib/viper/*.jar'))
+
+        if os.path.isdir('/usr/local/Viper/backends'):
+            return os.pathsep.join(glob.glob('/usr/local/Viper/backends/*.jar'))
 
     resources = resources_folder()
     silicon = os.path.join(resources, 'backends', 'silicon.jar')

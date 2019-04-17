@@ -379,6 +379,7 @@ class PythonClass(PythonType, PythonNode, PythonScope, ContainerInterface):
         self.predicates = OrderedDict()
         self.fields = OrderedDict()
         self.static_fields = OrderedDict()
+        self.default_value = None
         self.type = None  # infer, domain type
         self.interface = interface
         self.defined = False

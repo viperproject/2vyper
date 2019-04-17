@@ -277,6 +277,7 @@ class Analyzer(ast.NodeVisitor):
             cls = self.find_or_create_class(class_name)
             object_class = self.find_or_create_class(OBJECT_TYPE,
                                                      self.module.global_module)
+            cls.default_value = if_cls.get('default')
             if 'type_vars' in if_cls:
                 for i in range(if_cls['type_vars']):
                     name = 'var' + str(i)
@@ -1119,8 +1120,7 @@ class Analyzer(ast.NodeVisitor):
         """
         Converts an internal mypy type to a PythonType.
         """
-        if (self.types.is_void_type(mypy_type) or
-                self.types.is_none_type(mypy_type)):
+        if (self.types.is_none_type(mypy_type)):
             result = None
         elif self.types.is_instance_type(mypy_type):
             result = self.convert_type(mypy_type.type, node)
@@ -1392,6 +1392,7 @@ class Analyzer(ast.NodeVisitor):
             self.stmt_container.labels.append(finally_name)
         self.visit_default(node)
 
+# TODO: add public / private
     def _incompatible_decorators(self, decorators) -> bool:
         return ((('Predicate' in decorators) and ('Pure' in decorators)) or
                 (('IOOperation' in decorators) and (len(decorators) != 1)) or

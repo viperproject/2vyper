@@ -196,10 +196,23 @@ class TypeVisitor(mypy.traverser.TraverserVisitor):
             a.accept(self)
         node.callee.accept(self)
 
+    def tp(self, t):
+        print(type(t))
+
     def type_of(self, node):
         if hasattr(node, 'node') and isinstance(node.node, mypy.nodes.MypyFile):
             return node.fullname
         if isinstance(node, mypy.nodes.FuncDef):
+            
+            print(node.type)
+            print(node.type.ret_type)
+            self.tp(node.type.ret_type)
+            print(node.type.fallback)
+            self.tp(node.type.fallback)
+            print(node.type.line)
+            print(mypy.types.function_type)
+            self.tp(mypy.types.function_type)
+            print(mypy.types.CallableType([], [], [], mypy.types.NoneTyp, mypy.types.function_type))
             if node.type:
                 return node.type
         if isinstance(node, mypy.nodes.NameExpr):
@@ -245,7 +258,7 @@ class TypeInfo:
         self.type_aliases = {}
         self.type_vars = {}
 
-    def _create_options(self, strict_optional: bool):
+    def _create_options(self):
         """
         Creates an Options object for mypy and activates strict optional typing
         based on the given argument.
@@ -253,15 +266,13 @@ class TypeInfo:
         the STRICT_OPTIONAL flag in the experimental module to the given value.
         """
         result = mypy.options.Options()
-        result.strict_optional = strict_optional
-        result.show_none_errors = strict_optional
+        result.incremental = False #TODO do again?
+        result.strict_optional = False
+        result.show_none_errors = False
         result.show_traceback = True
-        # This is an experimental feature atm and you actually have to
-        # enable it like this
-        
-        #mypy.experiments.STRICT_OPTIONAL = strict_optional
-
         result.fast_parser = True
+        result.mypy_path = [config.mypy_path]
+        result.export_types = True    
         return result
 
     def check(self, filename: str) -> bool:
@@ -276,28 +287,32 @@ class TypeInfo:
             raise TypeException(errors)
 
         try:
-            options_strict = self._create_options(True)
-            res_strict = mypy.build.build(
-                [BuildSource(filename, None, None)],
-                options_strict, alt_lib_path=config.mypy_dir
-                )
+            options = self._create_options()
+            res = mypy.build.build([BuildSource(filename, None, None)], options, alt_lib_path=config.mypy_dir)
 
-            if res_strict.errors:
-                # Run mypy a second time with strict optional checking disabled,
-                # s.t. we don't get overapproximated none-related errors.
-                options_non_strict = self._create_options(False)
-                res_non_strict = mypy.build.build(
-                    [BuildSource(filename, None, None)],
-                    options_non_strict, alt_lib_path=config.mypy_dir
-                )
-                if res_non_strict.errors:
-                    report_errors(res_non_strict.errors)
-            for name, file in res_strict.files.items():
-                if name in IGNORED_IMPORTS:
-                    continue
+            if res.errors:
+                report_errors(res.errors)
+                
+            # TODO: probably not needed anymore
+            if False:
+                for name, file in res.files.items():
+                    if name in IGNORED_IMPORTS:
+                        continue
+                    self.files[name] = file.path
+                    visitor = TypeVisitor(res.types, name,
+                                        file.ignored_lines)
+                    visitor.prefix = name.split('.')
+                    file.accept(visitor)
+                    self.all_types.update(visitor.all_types)
+                    self.alt_types.update(visitor.alt_types)
+                    self.type_aliases.update(visitor.type_aliases)
+                    self.type_vars.update(visitor.type_vars)
+            else:
+                name = '__main__'
+                file = res.files[name]
                 self.files[name] = file.path
-                visitor = TypeVisitor(res_strict.types, name,
-                                      file.ignored_lines)
+                visitor = TypeVisitor(res.types, name,
+                                    file.ignored_lines)
                 visitor.prefix = name.split('.')
                 file.accept(visitor)
                 self.all_types.update(visitor.all_types)
@@ -355,9 +370,6 @@ class TypeInfo:
 
     def is_tuple_type(self, type: mypy.types.Type) -> bool:
         return isinstance(type, mypy.types.TupleType)
-
-    def is_void_type(self, type: mypy.types.Type) -> bool:
-        return isinstance(type, mypy.types.Void)
 
     def is_union_type(self, type: mypy.types.Type) -> bool:
         return isinstance(type, mypy.types.UnionType)

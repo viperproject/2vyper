@@ -109,6 +109,28 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     if sif and not viper_ast.is_extension_available():
         raise Exception('Viper AST SIF extension not found on classpath.')
     types = TypeInfo()
+
+    from nagini_translation.parsing import parser
+
+    with open(path) as file:
+        vyper_program = parser.parse(file.read())
+
+    from nagini_translation.translation import translator
+
+    viper_program = translator.translate(vyper_program, viper_ast)
+    print(viper_program)
+
+    consistency_errors = viper_ast.to_list(viper_program.checkTransitively())
+    for error in consistency_errors:
+        print(error.toString())
+    if consistency_errors:
+        print(prog)
+        raise ConsistencyException('consistency.error')
+
+    return viper_program
+
+    raise AssertionError()
+
     type_correct = types.check(path)
     if not type_correct:
         return None
@@ -365,6 +387,8 @@ def translate_and_verify(python_file, jvm, args, print=print, arp=False):
         print('Verification took ' + duration + ' seconds.')
     except (TypeException, InvalidProgramException, UnsupportedException) as e:
         print("Translation failed")
+        import traceback
+        traceback.print_exc()
         if isinstance(e, (InvalidProgramException, UnsupportedException)):
             if isinstance(e, InvalidProgramException):
                 issue = 'Invalid program: '

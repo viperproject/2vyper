@@ -289,6 +289,7 @@ EVAL_IO_SIGNATURE = ('eval_io', 'func', 'arg', 'result')
 
 IGNORED_IMPORTS = {'_importlib_modulespec',
                    'abc',
+                   'ast',
                    'builtins',
                    'nagini_contracts',
                    'nagini_contracts.contracts',
@@ -298,11 +299,13 @@ IGNORED_IMPORTS = {'_importlib_modulespec',
                    'sys',
                    'types',
                    'typing',
+                   'vyper_native.vyper',
                    }
 
 IGNORED_MODULE_NAMES = {
     '_importlib_modulespec': [],
     'abc': [],
+    'ast': [],
     'builtins': [],
     'nagini_contracts': [],
     'nagini_contracts.contracts': [],
@@ -311,6 +314,7 @@ IGNORED_MODULE_NAMES = {
     'sys': [],
     'types': [],
     'typing': [],
+    'vyper_native.vyper': []
 }
 
 OPERATOR_FUNCTIONS = {

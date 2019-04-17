@@ -1224,6 +1224,32 @@ class StatementTranslator(CommonTranslator):
         assign_val = self.viper.EqCmp(list_field_acc, seq_from, position, info)
         return stmt + [assign_stmt] + after_assign, val + [assign_val]
 
+    def translate_stmt_AnnAssign(self, node: ast.AnnAssign, ctx: Context) -> List[Stmt]:
+        if isinstance(node.target, ast.Name):
+            if node.target.id in ctx.module.type_vars:
+                # this is a type var assignment
+                return []
+            if node.target.id in ctx.module.classes:
+                # this is a type alias assignment
+                return []
+        if is_get_ghost_output(node):
+            return self.translate_get_ghost_output(node, ctx)
+        
+        if node.value is not None:
+            value = node.value   
+        else:
+            # No value is given, therefore Vyper inizializes the variable with a
+            # default value defined in preamble.index
+            target_type = self.get_type(node.target, ctx)
+            # TODO: add line numbers to this
+            value = ast.parse(target_type.default_value, mode='eval').body
+
+        rhs_type = self.get_type(value, ctx)
+        rhs_stmt, rhs = self.translate_expr(value, ctx)
+        target_stmts, _ = self.assign_to(node.target, rhs, None, None, rhs_type,
+                                            node, ctx, allow_impure=True)
+        return rhs_stmt + target_stmts
+
     def translate_stmt_Assign(self, node: ast.Assign,
                               ctx: Context) -> List[Stmt]:
         if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
