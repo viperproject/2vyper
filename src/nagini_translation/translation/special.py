@@ -22,6 +22,12 @@ class SpecialTranslator(NodeTranslator):
         self.viper_ast = viper_ast
         self.expression_translator = ExpressionTranslator(viper_ast)
 
+    def is_range(self, node) -> bool:
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            return node.func.id == 'range'
+        else:
+            return False
+
     def translate_range(self, node: ast.Call, ctx: Context) -> Tuple[List[Stmt], Expr, int]:
         if len(node.args) == 1:
             # A range expression of the form 'range(n)' where 'n' is a constant
@@ -29,22 +35,15 @@ class SpecialTranslator(NodeTranslator):
             info = self.no_info()
 
             start = self.viper_ast.IntLit(0, pos, info)
-            times = self.translate_constant(node.args[0], ctx)
+            times = node.args[0].n
             
             return [], start, times
         elif len(node.args) == 2:
             # A range expression of the form 'range(x, x + n)' where 'n' is a constant
             stmts, start = self.expression_translator.translate(node.args[0], ctx)
-            times = self.translate_constant(node.args[1].right, ctx)
+            times = node.args[1].right.n
 
             return stmts, start, times
         else:
             # TODO: create exception for this
             raise AssertionError("Range has to have 1 or 2 arguments.")
-
-    def translate_constant(self, node, ctx: Context):
-        if isinstance(node, ast.Num):
-            return node.n
-        else:
-            # TODO: create exception for this
-            raise AssertionError("Constant not allowed")

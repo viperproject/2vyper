@@ -56,7 +56,7 @@ class StatementTranslator(NodeTranslator):
         #TODO: allow assignments to other things
         pos = self.to_position(node)
         info = self.no_info()
-        
+
         lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
         op = self.expression_translator.translate_operator(node.op)
@@ -93,13 +93,7 @@ class StatementTranslator(NodeTranslator):
         no_pos = self.no_position()
         info = self.no_info()
 
-        def is_range(node):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                return node.func.id == 'range'
-            else:
-                return False
-
-        if not is_range(node.iter):
+        if not self.special_translator.is_range(node.iter):
             raise AssertionError("Not supported yet")
 
         current_break_label = ctx.break_label
@@ -108,7 +102,8 @@ class StatementTranslator(NodeTranslator):
         loop_var = ctx.all_vars[node.target.id].localVar()
         lpos = self.to_position(node.target)
         stmts, start, times = self.special_translator.translate_range(node.iter, ctx)
-        var_init = self.viper_ast.LocalVarAssign(loop_var, start, lpos, info)
+        init_info = self.to_info(["Loop variable initialization.\n"])
+        var_init = self.viper_ast.LocalVarAssign(loop_var, start, lpos, init_info)
         stmts.append(var_init)
         plus = self.viper_ast.Add(loop_var, self.viper_ast.IntLit(1, no_pos, info), lpos, info)
         var_inc = self.viper_ast.LocalVarAssign(loop_var, plus, lpos, info)
@@ -117,12 +112,14 @@ class StatementTranslator(NodeTranslator):
             current_continue_label = ctx.continue_label
             ctx.continue_label = ctx.next_continue_label()
             stmts += self.translate_stmts(node.body, ctx)
-            stmts.append(self.viper_ast.Label(ctx.continue_label, pos, info))
+            continue_info = self.to_info(["End of loop iteration.\n"])
+            stmts.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
             ctx.continue_label = current_continue_label
             stmts.append(var_inc)
 
         stmts += self.translate_stmts(node.orelse, ctx)
-        stmts.append(self.viper_ast.Label(ctx.break_label, pos, info))
+        break_info = self.to_info(["End of loop.\n"])
+        stmts.append(self.viper_ast.Label(ctx.break_label, pos, break_info))
 
         ctx.break_label = current_break_label
         return stmts

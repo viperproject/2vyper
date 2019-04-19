@@ -104,10 +104,6 @@ class ConstantInterpreter(ast.NodeVisitor):
         return self.constants[node.id]
 
 
-def _is_constant(node):
-    return isinstance(node, ast.Call) and node.func.id == 'constant'
-
-
 class ConstantCollector(ast.NodeTransformer):
     """
     Collects constants and deletes their declarations from the AST.
@@ -116,12 +112,15 @@ class ConstantCollector(ast.NodeTransformer):
     def __init__(self):
         self.constants = []
 
+    def _is_constant(self, node):
+        return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'constant'
+
     def collect_constants(self, node):
         new_node = self.visit(node)
         return self.constants, new_node
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
-        if _is_constant(node.annotation):
+        if self._is_constant(node.annotation):
             self.constants.append(node)
             return None
         else:
