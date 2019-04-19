@@ -5,6 +5,8 @@ c3: constant(128) = 12 / 5
 c4: constant(bool) = True and False and not True
 c5: constant(bool) = not True or False or True
 c6: constant(bool) = True and False
+c7: constant(int128) = min(c1, c2)
+c8: constant(int128) = max(c7, 1 + 3)
 
 
 @public

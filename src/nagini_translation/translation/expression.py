@@ -121,3 +121,22 @@ class ExpressionTranslator(NodeTranslator):
     def translate_operator(self, operator):
         return self._operations[type(operator)]
 
+    def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node)
+        info = self.no_info()
+
+        if isinstance(node.func, ast.Name):
+            is_min = node.func.id == 'min'
+            is_max = node.func.id == 'max'
+            if is_min or is_max:
+                lhs_stmts, lhs = self.translate(node.args[0], ctx)
+                rhs_stmts, rhs = self.translate(node.args[1], ctx)
+                op = self.viper_ast.GtCmp if is_max else self.viper_ast.LtCmp
+                comp = op(lhs, rhs, pos, info) 
+                stmts = lhs_stmts + rhs_stmts
+                return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos, info)
+        
+        # TODO: error handling
+        raise AssertionError("Not yet supported")
+                
+

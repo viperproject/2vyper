@@ -92,6 +92,13 @@ class ConstantInterpreter(ast.NodeVisitor):
             assert False
 
     def visit_Call(self, node: ast.Call):
+        args = [self.visit(arg) for arg in node.args]
+        if isinstance(node.func, ast.Name):
+            if node.func.id == 'min':
+                return min(args)
+            elif node.func.id == 'max':
+                return max(args)
+
         assert False
 
     def visit_Num(self, node: ast.Num):
