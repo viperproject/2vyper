@@ -25,10 +25,12 @@ VYPER_BOOL = PrimitiveType('bool', 'False')
 VYPER_WEI_VALUE = PrimitiveType('wei_value', '0')
 VYPER_INT128 = PrimitiveType('int128', '0')
 VYPER_UINT256 = PrimitiveType('uint256', '0')
+VYPER_ADDRESS = PrimitiveType('address', '0')
 
 TYPES = {
     VYPER_BOOL.name: VYPER_BOOL,
     VYPER_WEI_VALUE.name: VYPER_WEI_VALUE,
     VYPER_INT128.name: VYPER_INT128,
-    VYPER_UINT256.name: VYPER_UINT256
+    VYPER_UINT256.name: VYPER_UINT256,
+    VYPER_ADDRESS.name: VYPER_ADDRESS
 }
