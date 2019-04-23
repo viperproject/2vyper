@@ -10,7 +10,7 @@ import ast
 from nagini_translation.parsing.transformer import transform
 from nagini_translation.parsing.types import VyperType
 from nagini_translation.parsing.types import TYPES, VYPER_INT128
-from nagini_translation.parsing.ast import VyperProgram, VyperFunction, VyperVar, VyperConst
+from nagini_translation.parsing.ast import VyperProgram, VyperFunction, VyperVar
 
 
 def parse(contract: str) -> VyperProgram:

@@ -19,15 +19,6 @@ class VyperVar:
         self.node = node
 
 
-class VyperConst:
-
-    def __init__(self, name: str, type: VyperType, value, node):
-        self.name = name
-        self.type = type
-        self.value = value
-        self.node = node
-
-
 class VyperFunction:
 
     def __init__(self, name: str, args: Dict[str, VyperVar], local_vars: Dict[str, VyperVar], ret: VyperType, node: ast.FunctionDef):
