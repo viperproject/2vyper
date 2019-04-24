@@ -9,6 +9,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 class Context:
     
     def __init__(self):
+        self.invariants = []
+        
         self.all_vars = {}
         self.args = {}
         self.locals = {}

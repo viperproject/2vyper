@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
 from nagini_translation.parsing.types import VyperType
 from nagini_translation.parsing.types import TYPES, VYPER_INT128
@@ -14,6 +15,7 @@ from nagini_translation.parsing.ast import VyperProgram, VyperFunction, VyperVar
 
 
 def parse(contract: str) -> VyperProgram:
+    contract = preprocess(contract)
     contract_ast = ast.parse(contract)
     contract_ast = transform(contract_ast)
     program_builder = ProgramBuilder()
@@ -21,30 +23,86 @@ def parse(contract: str) -> VyperProgram:
 
 
 class ProgramBuilder(ast.NodeVisitor):
+    # TODO: error handling
+    """
+    The program builder creates a Vyper program out of the AST. It collects contract 
+    state variables and functions. It should only be used by calling the build method once.
+    """
+
+    # Pre and postconditions are only allowed before a function. As we walk through all
+    # top-level statements we gather pre and postconditions until we reach a function
+    # definition.
 
     def __init__(self):
         self.state = {}
         self.functions = {}
+        self.invariants = []
+
+        self.preconditions = []
+        self.postconditions = []
 
         self.type_builder = TypeBuilder()
 
     def build(self, node) -> VyperProgram:
         self.visit(node)
-        return VyperProgram(self.state, self.functions)
+        # No trailing pre and postconditions allowed
+        assert not self.preconditions
+        assert not self.postconditions
+        return VyperProgram(self.state, self.functions, self.invariants)
 
     def visit_AnnAssign(self, node):
+        # No preconditions and postconditions are allowed before contract state variables
+        assert not self.preconditions
+        assert not self.postconditions
+
         ctx = self.type_builder.build(node.annotation)
         variable_name = node.target.id
         variable_type = ctx.type
         var = VyperVar(variable_name, variable_type, node)
         self.state[variable_name] = var
 
+    def visit_Assign(self, node):
+        # This is for invariants and pre/postconditions which get translated to
+        # assignments during preprocessing.
+
+        if not len(node.targets) == 1:
+            assert False
+        if not isinstance(node.targets[0], ast.Name):
+            assert False
+        
+        name = node.targets[0].id
+        if name == 'invariant':
+            # No preconditions and posconditions allowed before invariants
+            assert not self.preconditions
+            assert not self.postconditions
+            self.invariants.append(node.value)
+        elif name == 'requires':
+            self.preconditions.append(node.value)
+        elif name == 'ensures':
+            self.postconditions.append(node.value)
+        else:
+            assert False
+
+
+    def _is_public(self, node: ast.FunctionDef) -> bool:
+        for decorator in node.decorator_list:
+            if isinstance(decorator, ast.Name) and decorator.id == 'public':
+                return True
+            elif isinstance(decorator, ast.Name) and decorator.id == 'private':
+                return False
+        # TODO: handle. Every function should be either public or private
+        assert False
+
+
     def visit_FunctionDef(self, node):
         local = LocalProgramBuilder()
         args, local_vars = local.build(node)
         return_type = None if node.returns is None else self.type_builder.build(node.returns).type
-        function = VyperFunction(node.name, args, local_vars, return_type, node)
+        is_public = self._is_public(node)
+        function = VyperFunction(node.name, args, local_vars, return_type, self.preconditions, self.postconditions, is_public, node)
         self.functions[node.name] = function
+        self.preconditions = []
+        self.postconditions = []
 
 
 class LocalProgramBuilder(ast.NodeVisitor):
