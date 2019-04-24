@@ -231,7 +231,7 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'python_file',
+        'vyper_file',
         help='Python file to verify')
     parser.add_argument(
         '--viper-jar-path',
@@ -345,14 +345,14 @@ def main() -> None:
             translate_and_verify(file, jvm, args, add_response, arp=args.arp)
             socket.send_string(response[0])
     else:
-        translate_and_verify(args.python_file, jvm, args, arp=args.arp)
+        translate_and_verify(args.vyper_file, jvm, args, arp=args.arp)
 
 
-def translate_and_verify(python_file, jvm, args, print=print, arp=False):
+def translate_and_verify(vyper_file, jvm, args, print=print, arp=False):
     try:
         start = time.time()
         selected = set(args.select.split(',')) if args.select else set()
-        prog = translate(python_file, jvm, selected, args.sif,
+        prog = translate(vyper_file, jvm, selected, args.sif,
                          ignore_global=args.ignore_global, arp=arp, verbose=args.verbose)
         if args.print_silver:
             if args.verbose:
@@ -371,13 +371,13 @@ def translate_and_verify(python_file, jvm, args, print=print, arp=False):
             print("Run, Total, Start, End, Time".format())
             for i in range(args.benchmark):
                 start = time.time()
-                prog = translate(python_file, jvm, selected, args.sif, arp=arp)
-                vresult = verify(prog, python_file, jvm, backend=backend, arp=arp)
+                prog = translate(vyper_file, jvm, selected, args.sif, arp=arp)
+                vresult = verify(prog, vyper_file, jvm, backend=backend, arp=arp)
                 end = time.time()
                 print("{}, {}, {}, {}, {}".format(
                     i, args.benchmark, start, end, end - start))
         else:
-            vresult = verify(prog, python_file, jvm, backend=backend, arp=arp)
+            vresult = verify(prog, vyper_file, jvm, backend=backend, arp=arp)
         if args.verbose:
             print("Verification completed.")
         print(vresult.to_string(args.ide_mode, args.show_viper_errors))
@@ -385,7 +385,7 @@ def translate_and_verify(python_file, jvm, args, print=print, arp=False):
         print('Verification took ' + duration + ' seconds.')
     except TranslationException as e:
         print("Translation failed")
-        print(e.error_string(file))
+        print(e.error_string(vyper_file))
     except (TypeException, InvalidProgramException, UnsupportedException) as e:
         # TODO: remove this branch
         print("Translation failed")
@@ -407,7 +407,7 @@ def translate_and_verify(python_file, jvm, args, print=print, arp=False):
                     issue += astunparse.unparse(e.node)
             line = str(e.node.lineno)
             col = str(e.node.col_offset)
-            print(issue + ' (' + python_file + '@' + line + '.' + col + ')')
+            print(issue + ' (' + vyper_file + '@' + line + '.' + col + ')')
         if isinstance(e, TypeException):
             for msg in e.messages:
                 parts = TYPE_ERROR_MATCHER.match(msg)
@@ -415,7 +415,7 @@ def translate_and_verify(python_file, jvm, args, print=print, arp=False):
                     parts = parts.groupdict()
                     file = parts['file']
                     if file == '__main__':
-                        file = python_file
+                        file = vyper_file
                     msg = parts['msg']
                     line = parts['line']
                     print('Type error: ' + msg + ' (' + file + '@' + line + '.0)')
