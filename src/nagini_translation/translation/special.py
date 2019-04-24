@@ -15,6 +15,8 @@ from nagini_translation.translation.context import Context
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 
+from nagini_translation.errors.translation_exceptions import InvalidProgramException
+
 
 class SpecialTranslator(NodeTranslator):
 
@@ -45,5 +47,4 @@ class SpecialTranslator(NodeTranslator):
 
             return stmts, start, times
         else:
-            # TODO: create exception for this
-            raise AssertionError("Range has to have 1 or 2 arguments.")
+            raise InvalidProgramException(node, "Range has to have 1 or 2 arguments.")

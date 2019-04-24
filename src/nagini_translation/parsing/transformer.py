@@ -8,6 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from typing import List, Dict, Any
+from nagini_translation.errors.translation_exceptions import InvalidProgramException
 
 
 def transform(ast: ast.Module) -> ast.Module:
@@ -31,7 +32,6 @@ def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
 
 
 class ConstantInterpreter(ast.NodeVisitor):
-    # TODO: error handling
 
     def __init__(self, constants: Dict[str, Any]):
         self.constants = constants
@@ -61,7 +61,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         elif isinstance(op, ast.Pow):
             return lhs ** rhs
         else:
-            assert False
+            raise InvalidProgramException(node)
 
     def visit_UnaryOp(self, node: ast.UnaryOp):
         operand = self.visit(node.operand)
@@ -70,7 +70,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         elif isinstance(node.op, ast.Not):
             return not operand
         else:
-            assert False
+            raise InvalidProgramException(node)
 
     def visit_Compare(self, node: ast.Compare):
         lhs = self.visit(node.left)
@@ -89,7 +89,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         elif isinstance(op, ast.GtE):
             return lhs >= rhs
         else:
-            assert False
+            raise InvalidProgramException(node)
 
     def visit_Call(self, node: ast.Call):
         args = [self.visit(arg) for arg in node.args]
@@ -99,7 +99,7 @@ class ConstantInterpreter(ast.NodeVisitor):
             elif node.func.id == 'max':
                 return max(args)
 
-        assert False
+        raise InvalidProgramException(node)
 
     def visit_Num(self, node: ast.Num):
         return node.n

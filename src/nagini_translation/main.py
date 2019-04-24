@@ -29,11 +29,6 @@ from nagini_translation.lib.errors import error_manager
 from nagini_translation.lib.jvmaccess import JVM
 from nagini_translation.lib.typedefs import Program
 from nagini_translation.lib.typeinfo import TypeException, TypeInfo
-from nagini_translation.lib.util import (
-    ConsistencyException,
-    InvalidProgramException,
-    UnsupportedException,
-)
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.sif.lib.util import (
     configure_mpp_transformation,
@@ -50,6 +45,9 @@ from nagini_translation.verifier import (
     ViperVerifier
 )
 from typing import Set
+
+
+from nagini_translation.errors.translation_exceptions import *
 
 
 TYPE_ERROR_PATTERN = r"^(?P<file>.*):(?P<line>\d+): error: (?P<msg>.*)$"
@@ -385,8 +383,13 @@ def translate_and_verify(python_file, jvm, args, print=print, arp=False):
         print(vresult.to_string(args.ide_mode, args.show_viper_errors))
         duration = '{:.2f}'.format(time.time() - start)
         print('Verification took ' + duration + ' seconds.')
-    except (TypeException, InvalidProgramException, UnsupportedException) as e:
+    except TranslationException as e:
         print("Translation failed")
+        print(e.error_string(file))
+    except (TypeException, InvalidProgramException, UnsupportedException) as e:
+        # TODO: remove this branch
+        print("Translation failed")
+        # TODO: put this in debug mode
         import traceback
         traceback.print_exc()
         if isinstance(e, (InvalidProgramException, UnsupportedException)):

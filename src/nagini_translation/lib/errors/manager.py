@@ -11,7 +11,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from collections import namedtuple
 from uuid import uuid1
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from nagini_translation.lib.errors.wrappers import Error
 from nagini_translation.lib.errors.rules import Rules
@@ -25,8 +25,8 @@ class ErrorManager:
     """A singleton object that stores the state needed for error handling."""
 
     def __init__(self) -> None:
-        self._items = {}                # type: Dict[str, Item]
-        self._conversion_rules = {}     # type: Dict[str, Rules]
+        self._items: Dict[str, Item] = {}                
+        self._conversion_rules: Dict[str, Rules] = {}     
 
     def add_error_information(
             self, node: 'ast.Node', vias: List[Any], reason_string: str,

@@ -13,6 +13,8 @@ from nagini_translation.parsing.types import VyperType
 from nagini_translation.parsing.types import TYPES, VYPER_INT128
 from nagini_translation.parsing.ast import VyperProgram, VyperFunction, VyperVar
 
+from nagini_translation.errors.translation_exceptions import UnsupportedException, InvalidProgramException
+
 
 def parse(contract: str) -> VyperProgram:
     contract = preprocess(contract)
@@ -23,7 +25,6 @@ def parse(contract: str) -> VyperProgram:
 
 
 class ProgramBuilder(ast.NodeVisitor):
-    # TODO: error handling
     """
     The program builder creates a Vyper program out of the AST. It collects contract 
     state variables and functions. It should only be used by calling the build method once.
@@ -46,14 +47,23 @@ class ProgramBuilder(ast.NodeVisitor):
     def build(self, node) -> VyperProgram:
         self.visit(node)
         # No trailing pre and postconditions allowed
-        assert not self.preconditions
-        assert not self.postconditions
+        self._check_no_prepostconditions()
         return VyperProgram(self.state, self.functions, self.invariants)
+    
+    def _check_no_prepostconditions(self):
+        if self.preconditions:
+            cond = "Precondition"
+            node = self.preconditions[0]
+        elif self.postconditions:
+            cond = "Postcondition"
+            node = self.postconditions[0]
+        else:
+            return
+        raise InvalidProgramException(node, f"{cond} only allowed before function")
 
     def visit_AnnAssign(self, node):
         # No preconditions and postconditions are allowed before contract state variables
-        assert not self.preconditions
-        assert not self.postconditions
+        self._check_no_prepostconditions()
 
         ctx = self.type_builder.build(node.annotation)
         variable_name = node.target.id
@@ -66,23 +76,22 @@ class ProgramBuilder(ast.NodeVisitor):
         # assignments during preprocessing.
 
         if not len(node.targets) == 1:
-            assert False
+            raise AssertionError("Contracts should only have a single target.")
         if not isinstance(node.targets[0], ast.Name):
-            assert False
+            raise AssertionError("The target of a contract should be a name.")
         
         name = node.targets[0].id
         if name == 'invariant':
             # No preconditions and posconditions allowed before invariants
-            assert not self.preconditions
-            assert not self.postconditions
+            self._check_no_prepostconditions()
+
             self.invariants.append(node.value)
         elif name == 'requires':
             self.preconditions.append(node.value)
         elif name == 'ensures':
             self.postconditions.append(node.value)
         else:
-            assert False
-
+            raise AssertionError("Top-level assigns that are not specifications should never happen.")
 
     def _is_public(self, node: ast.FunctionDef) -> bool:
         for decorator in node.decorator_list:
@@ -90,8 +99,8 @@ class ProgramBuilder(ast.NodeVisitor):
                 return True
             elif isinstance(decorator, ast.Name) and decorator.id == 'private':
                 return False
-        # TODO: handle. Every function should be either public or private
-        assert False
+        
+        raise InvalidProgramException(node, "Function must be public or private.")
 
 
     def visit_FunctionDef(self, node):
@@ -150,7 +159,7 @@ class TypeBuilder(ast.NodeVisitor):
         return self.visit(node)
 
     def generic_visit(self, node):
-        raise AssertionError("Complex types not yet supported.")
+        raise UnsupportedException(node, "Complex types not supported.")
 
     def visit_Name(self, node: ast.Name) -> TypeContext:
         return TypeContext(TYPES[node.id], False, False)
