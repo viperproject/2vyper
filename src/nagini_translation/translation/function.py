@@ -18,7 +18,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context
+from nagini_translation.translation.context import Context, function_scope
 
 
 class FunctionTranslator(NodeTranslator):
@@ -34,39 +34,40 @@ class FunctionTranslator(NodeTranslator):
         pos = self.to_position(function.node)
         info = self.no_info()
 
-        args = {name: self._translate_var(var) for name, var in function.args.items()}
-        locals = {name: self._translate_var(var) for name, var in function.local_vars.items()}
-        ctx.args = args
-        ctx.locals = locals
-        ctx.all_vars = {**args, **locals}
-        ctx.types = {name: var.type for name, var in function.local_vars.items()}
+        with function_scope(ctx):
+            args = {name: self._translate_var(var) for name, var in function.args.items()}
+            locals = {name: self._translate_var(var) for name, var in function.local_vars.items()}
+            ctx.args = args
+            ctx.locals = locals
+            ctx.all_vars = {**args, **locals}
+            ctx.types = {name: var.type for name, var in function.local_vars.items()}
 
-        rets = []
-        end_label = self.viper_ast.Label('end', pos, info)
-        ctx.end_label = end_label
+            rets = []
+            end_label = self.viper_ast.Label('end', pos, info)
+            ctx.end_label = end_label
 
-        if function.ret:
-            retType = self.type_translator.translate(function.ret)
-            retVar = self.viper_ast.LocalVarDecl('$ret', retType, pos, info)
-            rets.append(retVar)
-            ctx.result_var = retVar
+            if function.ret:
+                retType = self.type_translator.translate(function.ret)
+                retVar = self.viper_ast.LocalVarDecl('$ret', retType, pos, info)
+                rets.append(retVar)
+                ctx.result_var = retVar
 
-        body = self.statement_translator.translate_stmts(function.node.body, ctx)
-        body.append(end_label)
+            body = self.statement_translator.translate_stmts(function.node.body, ctx)
+            body.append(end_label)
 
-        seqn = self.viper_ast.Seqn(body, pos, info)
-        args_list = list(args.values())
-        locals_list = list(locals.values())
+            seqn = self.viper_ast.Seqn(body, pos, info)
+            args_list = list(args.values())
+            locals_list = list(locals.values())
 
-        # TODO: think about whether invariants should come first or second
-        # TODO: implement via so that error messages for invariants include method that
-        # violates it
+            # TODO: think about whether invariants should come first or second
+            # TODO: implement via so that error messages for invariants include method that
+            # violates it
 
-        pres = [self.specification_translator.translate_spec(p, ctx) for p in function.preconditions]
-        posts = [self.specification_translator.translate_spec(p, ctx) for p in function.postconditions]
-        
-        pres += ctx.invariants
-        posts += ctx.invariants
+            pres = [self.specification_translator.translate_spec(p, ctx) for p in function.preconditions]
+            posts = [self.specification_translator.translate_spec(p, ctx) for p in function.postconditions]
+            
+            pres += ctx.invariants
+            posts += ctx.invariants
 
         method = self.viper_ast.Method(function.name, args_list, rets, pres, posts, locals_list, seqn, pos, info)
         return method

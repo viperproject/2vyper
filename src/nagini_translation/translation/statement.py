@@ -14,7 +14,7 @@ from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Stmt
 from nagini_translation.parsing.types import VYPER_INT128
 
-from nagini_translation.translation.context import Context
+from nagini_translation.translation.context import Context, break_scope, continue_scope
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.type import TypeTranslator
@@ -96,33 +96,27 @@ class StatementTranslator(NodeTranslator):
         if not self.special_translator.is_range(node.iter):
             raise AssertionError("Not supported yet")
 
-        current_break_label = ctx.break_label
-        ctx.break_label = ctx.next_break_label()
+        with break_scope(ctx):
+            loop_var = ctx.all_vars[node.target.id].localVar()
+            lpos = self.to_position(node.target)
+            stmts, start, times = self.special_translator.translate_range(node.iter, ctx)
+            init_info = self.to_info(["Loop variable initialization.\n"])
+            var_init = self.viper_ast.LocalVarAssign(loop_var, start, lpos, init_info)
+            stmts.append(var_init)
+            plus = self.viper_ast.Add(loop_var, self.viper_ast.IntLit(1, no_pos, info), lpos, info)
+            var_inc = self.viper_ast.LocalVarAssign(loop_var, plus, lpos, info)
 
-        loop_var = ctx.all_vars[node.target.id].localVar()
-        lpos = self.to_position(node.target)
-        stmts, start, times = self.special_translator.translate_range(node.iter, ctx)
-        init_info = self.to_info(["Loop variable initialization.\n"])
-        var_init = self.viper_ast.LocalVarAssign(loop_var, start, lpos, init_info)
-        stmts.append(var_init)
-        plus = self.viper_ast.Add(loop_var, self.viper_ast.IntLit(1, no_pos, info), lpos, info)
-        var_inc = self.viper_ast.LocalVarAssign(loop_var, plus, lpos, info)
+            for i in range(times):
+                with continue_scope(ctx):
+                    stmts += self.translate_stmts(node.body, ctx)
+                    continue_info = self.to_info(["End of loop iteration.\n"])
+                    stmts.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
+                    stmts.append(var_inc)
 
-        for i in range(times):
-            current_continue_label = ctx.continue_label
-            ctx.continue_label = ctx.next_continue_label()
-            stmts += self.translate_stmts(node.body, ctx)
-            continue_info = self.to_info(["End of loop iteration.\n"])
-            stmts.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
-            ctx.continue_label = current_continue_label
-            stmts.append(var_inc)
-
-        stmts += self.translate_stmts(node.orelse, ctx)
-        break_info = self.to_info(["End of loop.\n"])
-        stmts.append(self.viper_ast.Label(ctx.break_label, pos, break_info))
-
-        ctx.break_label = current_break_label
-        return stmts
+            stmts += self.translate_stmts(node.orelse, ctx)
+            break_info = self.to_info(["End of loop.\n"])
+            stmts.append(self.viper_ast.Label(ctx.break_label, pos, break_info))
+            return stmts
 
     def translate_Break(self, node: ast.Break, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node)
