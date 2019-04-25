@@ -7,34 +7,29 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 """Error handling state is stored in singleton ``manager``."""
 
+import ast
 
-from collections import namedtuple
 from uuid import uuid1
 
 from typing import Any, Dict, List, Optional
 
-from nagini_translation.lib.errors.wrappers import Error
+from nagini_translation.lib.errors.wrappers import Error, ErrorInfo
 from nagini_translation.lib.errors.rules import Rules
 from nagini_translation.lib.jvmaccess import JVM
-
-
-Item = namedtuple('Item', 'node vias reason_string')
 
 
 class ErrorManager:
     """A singleton object that stores the state needed for error handling."""
 
     def __init__(self) -> None:
-        self._items: Dict[str, Item] = {}                
+        self._items: Dict[str, ErrorInfo] = {}                
         self._conversion_rules: Dict[str, Rules] = {}     
 
-    def add_error_information(
-            self, node: 'ast.Node', vias: List[Any], reason_string: str,
-            conversion_rules: Rules = None) -> str:
+    def add_error_information(self, error_info: ErrorInfo, conversion_rules: Rules) -> str:
         """Add error information to state."""
         item_id = str(uuid1())
         assert item_id not in self._items
-        self._items[item_id] = Item(node, vias, reason_string)
+        self._items[item_id] = error_info
         if conversion_rules is not None:
             self._conversion_rules[item_id] = conversion_rules
         return item_id
@@ -63,7 +58,7 @@ class ErrorManager:
         item = self._items[node_id]
         return item.vias
 
-    def _get_item(self, pos: 'ast.AbstractSourcePosition') -> Optional[Item]:
+    def _get_error_info(self, pos: 'ast.AbstractSourcePosition') -> Optional[ErrorInfo]:
         if hasattr(pos, 'id'):
             node_id = pos.id()
             return self._items[node_id]
@@ -114,7 +109,7 @@ class ErrorManager:
             jvm: Optional[JVM]) -> Error:
         error = self.transformError(error)
         reason_pos = error.reason().offendingNode().pos()
-        reason_item = self._get_item(reason_pos)
+        reason_item = self._get_error_info(reason_pos)
         position = error.pos()
         rules = self._try_get_rules_workaround(
             error.offendingNode(), jvm)
@@ -123,10 +118,9 @@ class ErrorManager:
                 error.reason().offendingNode(), jvm)
         if rules is None:
             rules = {}
-        error_item = self._get_item(position)
+        error_item = self._get_error_info(position)
         if error_item:
-            return Error(error, rules, reason_item, error_item.node,
-                         error_item.vias)
+            return Error(error, rules, reason_item, error_item)
         else:
             return Error(error, rules, reason_item)
 

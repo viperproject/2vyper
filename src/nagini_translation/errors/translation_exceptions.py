@@ -13,6 +13,7 @@ class TranslationException(Exception):
 
     def __init__(self, node: ast.AST, message: str):
         super().__init__(message)
+        self.message = message
         self.node = node
 
     def error_string(self, file: str) -> str:
@@ -53,3 +54,4 @@ class ConsistencyException(Exception):
 
     def __init__(self, message: str = None) -> None:
         super().__init__(message)
+        self.message = message

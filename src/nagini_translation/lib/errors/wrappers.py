@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 """Wrappers for Scala error objects."""
 
+import ast
 
 from typing import Any, List
 
@@ -43,17 +44,22 @@ class Position:
         return str(self._position)
 
 
+class ErrorInfo:
+
+    def __init__(self, function: str, node: ast.AST, vias, reason_string: str):
+        self.function = function
+        self.node = node
+        self.vias = vias
+        self.reason_string = reason_string 
+
+
 class Reason:
     """Wrapper around ``AbstractErrorReason``."""
 
-    def __init__(self, reason_id: str, reason: 'AbstractErrorReason',
-                 node: 'ast.Node' = None, vias: List[Any] = None,
-                 reason_string: str = None) -> None:
+    def __init__(self, reason_id: str, reason: 'AbstractErrorReason', reason_info: ErrorInfo):
         self._reason = reason
-        self._node = node
-        self._reason_string = reason_string
         self.identifier = reason_id
-        self.vias = vias
+        self._reason_info = reason_info
         self.offending_node = reason.offendingNode()
         self.position = Position(self.offending_node.pos())
 
@@ -68,21 +74,20 @@ class Reason:
         kind of error in general, or outputs the concrete Viper-level description of the
         error, depending on the parameter ``show_viper_reason``.
         """
-        reason = self._reason_string or self._node
+        reason = self._reason_info.reason_string or self._reason_info.node
         if reason is None and self.identifier in VAGUE_REASONS:
             if not show_viper_reason:
                 return VAGUE_REASONS[self.identifier]
             else:
                 return self._reason.readableMessage()
-        return REASONS[self.identifier](reason)
+        return REASONS[self.identifier](self._reason_info)
 
 
 class Error:
     """Wrapper around ``AbstractVerificationError``."""
 
     def __init__(self, error: 'AbstractVerificationError', rules: Rules,
-                 reason_item: Any, node: 'ast.Node' = None,
-                 vias: List[Any] = None) -> None:
+                 reason_item: ErrorInfo, error_item: ErrorInfo) -> None:
 
         # Translate error id.
         viper_reason = error.reason()
@@ -94,13 +99,11 @@ class Error:
 
         # Construct object.
         self._error = error
-        self._node = node
-        self._vias = vias
         self.identifier = error_id
+        self._error_info = error_item
         if reason_item:
             self.reason = Reason(
-                reason_id, viper_reason, reason_item.node,
-                reason_item.vias, reason_item.reason_string)
+                reason_id, viper_reason, reason_item)
         else:
             self.reason = Reason(reason_id, viper_reason)
         self.position = Position(error.pos())
@@ -133,7 +136,7 @@ class Error:
     @property
     def position_string(self) -> str:
         """Full error position as a string."""
-        vias = self.reason.vias or self._vias or []
+        vias = self.reason._reason_info.vias or self._error_info.vias or []
         vias_string = ''.join(
             ', via {0} at {1}'.format(reason, pos)
             for reason, pos in vias)
@@ -142,8 +145,8 @@ class Error:
     @property
     def message(self) -> str:
         """Human readable error message."""
-        if self._node:
-            return ERRORS[self.identifier](self._node)
+        if self._error_info:
+            return ERRORS[self.identifier](self._error_info)
         # If we don't have a node, fall back to the original Silver message,
         # it's better than nothing.
         return self._error.text()

@@ -18,8 +18,8 @@ from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.context import Context
 
 
-def translate(vyper_program: VyperProgram, viper_ast: ViperAST) -> Program:
-    return ProgramTranslator(viper_ast).translate(vyper_program)
+def translate(vyper_program: VyperProgram, viper_ast: ViperAST, file: str) -> Program:
+    return ProgramTranslator(viper_ast).translate(vyper_program, file)
 
 
 class ProgramTranslator(NodeTranslator):
@@ -29,10 +29,10 @@ class ProgramTranslator(NodeTranslator):
         self.function_translator = FunctionTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast, True)
 
-    def translate(self, vyper_program: VyperProgram) -> Program:
+    def translate(self, vyper_program: VyperProgram, file: str) -> Program:
         pos = self.no_position()
         info = self.no_info()
-        ctx = Context()
+        ctx = Context(file)
         invariants = [self.specification_translator.translate_spec(iv, ctx) for iv in vyper_program.invariants]
         ctx.invariants = invariants
         functions = vyper_program.functions.values()

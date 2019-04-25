@@ -38,7 +38,7 @@ class ExpressionTranslator(NodeTranslator):
         }
 
     def translate_Num(self, node: ast.Num, ctx: Context) -> StmtsAndExpr:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         if isinstance(node.n, int):
@@ -50,7 +50,7 @@ class ExpressionTranslator(NodeTranslator):
             raise UnsupportedException(node, 'Unsupported number literal')
 
     def translate_NameConstant(self, node: ast.NameConstant, ctx: Context) -> StmtsAndExpr:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         if node.value is True:
@@ -64,13 +64,13 @@ class ExpressionTranslator(NodeTranslator):
             raise UnsupportedException(node)
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         return [], ctx.all_vars[node.id].localVar()
 
     def translate_BinOp(self, node: ast.BinOp, ctx: Context) -> StmtsAndExpr:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         left_stmt, left = self.translate(node.left, ctx)
@@ -82,7 +82,7 @@ class ExpressionTranslator(NodeTranslator):
         return stmt, op(left, right, pos, info)
 
     def translate_BoolOp(self, node: ast.BoolOp, ctx: Context) -> StmtsAndExpr:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         op = self.translate_operator(node.op)
@@ -99,7 +99,7 @@ class ExpressionTranslator(NodeTranslator):
         return build(node.values)
 
     def translate_UnaryOp(self, node: ast.UnaryOp, ctx: Context) -> StmtsAndExpr:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         op = self.translate_operator(node.op)
@@ -109,7 +109,7 @@ class ExpressionTranslator(NodeTranslator):
 
     def translate_Compare(self, node: ast.Compare, ctx: Context) -> StmtsAndExpr:
         # TODO: treat in and not in differently
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         lhs_stmts, lhs = self.translate(node.left, ctx)
@@ -122,7 +122,7 @@ class ExpressionTranslator(NodeTranslator):
         return self._operations[type(operator)]
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         if isinstance(node.func, ast.Name):

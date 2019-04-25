@@ -33,7 +33,7 @@ class StatementTranslator(NodeTranslator):
         return flatten([self.translate(s, ctx) for s in stmts])
 
     def translate_AnnAssign(self, node: ast.AnnAssign, ctx: Context) -> List[Stmt]:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
         lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
         # TODO: put into own class default_value_translator?
@@ -46,7 +46,7 @@ class StatementTranslator(NodeTranslator):
 
     def translate_Assign(self, node: ast.Assign, ctx: Context) -> List[Stmt]:
         # TODO: allow assignments to other things
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
         lhs_stmts, lhs = self.expression_translator.translate(node.targets[0], ctx)
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
@@ -54,7 +54,7 @@ class StatementTranslator(NodeTranslator):
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
         #TODO: allow assignments to other things
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
@@ -65,7 +65,7 @@ class StatementTranslator(NodeTranslator):
         return lhs_stmts + rhs_stmts + [assign]
 
     def translate_Return(self, node: ast.Return, ctx: Context) -> List[Stmt]:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         stmts, expr = self.expression_translator.translate(node.value, ctx)
@@ -76,7 +76,7 @@ class StatementTranslator(NodeTranslator):
         return stmts + [assign, jmp_to_end]
 
     def translate_If(self, node: ast.If, ctx: Context) -> List[Stmt]:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         cond_stmts, cond = self.expression_translator.translate(node.test, ctx)
@@ -89,7 +89,7 @@ class StatementTranslator(NodeTranslator):
         return cond_stmts + [if_stmt]
 
     def translate_For(self, node: ast.For, ctx: Context) -> List[Stmt]:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         no_pos = self.no_position()
         info = self.no_info()
 
@@ -98,7 +98,7 @@ class StatementTranslator(NodeTranslator):
 
         with break_scope(ctx):
             loop_var = ctx.all_vars[node.target.id].localVar()
-            lpos = self.to_position(node.target)
+            lpos = self.to_position(node, ctx.target)
             stmts, start, times = self.special_translator.translate_range(node.iter, ctx)
             init_info = self.to_info(["Loop variable initialization.\n"])
             var_init = self.viper_ast.LocalVarAssign(loop_var, start, lpos, init_info)
@@ -119,12 +119,12 @@ class StatementTranslator(NodeTranslator):
             return stmts
 
     def translate_Break(self, node: ast.Break, ctx: Context) -> List[Stmt]:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
         return [self.viper_ast.Goto(ctx.break_label, pos, info)]
 
     def translate_Continue(self, node: ast.Continue, ctx: Context) -> List[Stmt]:
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
         return [self.viper_ast.Goto(ctx.continue_label, pos, info)]
 

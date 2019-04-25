@@ -31,12 +31,14 @@ class FunctionTranslator(NodeTranslator):
         self.type_translator = TypeTranslator(viper_ast)
 
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
-        pos = self.to_position(function.node)
-        info = self.no_info()
-
         with function_scope(ctx):
-            args = {name: self._translate_var(var) for name, var in function.args.items()}
-            locals = {name: self._translate_var(var) for name, var in function.local_vars.items()}
+            pos = self.to_position(function.node, ctx)
+            info = self.no_info()
+
+            ctx.function = function.name
+
+            args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
+            locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
             ctx.args = args
             ctx.locals = locals
             ctx.all_vars = {**args, **locals}
@@ -73,8 +75,8 @@ class FunctionTranslator(NodeTranslator):
         return method
         
 
-    def _translate_var(self, var: VyperVar):
-        pos = self.to_position(var.node)
+    def _translate_var(self, var: VyperVar, ctx: Context):
+        pos = self.to_position(var.node, ctx)
         info = self.no_info()
         type = self.type_translator.translate(var.type)
         return self.viper_ast.LocalVarDecl(var.name, type, pos, info)

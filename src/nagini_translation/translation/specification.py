@@ -27,7 +27,7 @@ class SpecificationTranslator(ExpressionTranslator):
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         assert isinstance(node.func, ast.Name)
 
-        pos = self.to_position(node)
+        pos = self.to_position(node, ctx)
         info = self.no_info()
 
         name = node.func.id

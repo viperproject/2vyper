@@ -10,8 +10,11 @@ from contextlib import contextmanager
 
 class Context:
     
-    def __init__(self):
+    def __init__(self, file: str):
+        self.file = file
         self.invariants = []
+
+        self.function = None
         
         self.all_vars = {}
         self.args = {}
@@ -43,6 +46,8 @@ def function_scope(ctx: Context):
     of the ``with`` statement and restores the previous one in the end.
     """
 
+    function = ctx.function
+
     all_vars = ctx.all_vars
     args = ctx.args
     locals = ctx.locals
@@ -56,10 +61,7 @@ def function_scope(ctx: Context):
     result_var = ctx.result_var
     end_label = ctx.end_label
 
-    all_vars = ctx.all_vars
-    args = ctx.args
-    locals = ctx.locals
-    types = ctx.types
+    ctx.function = None
 
     ctx.all_vars = {}
     ctx.args = {}
@@ -75,6 +77,8 @@ def function_scope(ctx: Context):
     ctx.end_label = None
 
     yield
+
+    ctx.function = function
 
     ctx.all_vars = all_vars
     ctx.args = args

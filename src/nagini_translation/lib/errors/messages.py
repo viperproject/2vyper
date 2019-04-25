@@ -17,149 +17,146 @@ from nagini_translation.lib.util import (
 
 ERRORS = {
     'assignment.failed':
-        lambda n: 'Assignment might fail.',
+        lambda i: 'Assignment might fail.',
     'call.failed':
-        lambda n: 'Method call might fail.',
+        lambda i: 'Method call might fail.',
     'not.wellformed':
-        lambda n: 'Contract might not be well-formed.',
+        lambda i: 'Contract might not be well-formed.',
     'call.precondition':
-        lambda n: ('The precondition of method {} might not '
-                   'hold.'.format(get_target_name(n))
-                   if isinstance(n, (ast.Call, ast.FunctionDef)) else
-                   'The precondition of {} might not hold.'.format(pprint(n))),
+        lambda i: (f"The precondition of function {i.function} might not hold."
+                   if isinstance(i.node, (ast.Call, ast.FunctionDef)) else
+                   'The precondition of {} might not hold.'.format(pprint(i.node))),
     'application.precondition':
-        lambda n: ('The precondition of function {} might not '
-                   'hold.'.format(get_target_name(n))
-                   if isinstance(n, (ast.Call, ast.FunctionDef)) else
-                   'The precondition of {} might not hold.'.format(pprint(n))),
+        lambda i: (f"The precondition of function {i.function} might not hold."
+                   if isinstance(i.node, (ast.Call, ast.FunctionDef)) else
+                   'The precondition of {} might not hold.'.format(pprint(i.node))),
     'exhale.failed':
-        lambda n: 'Exhale might fail.',
+        lambda i: 'Exhale might fail.',
     'inhale.failed':
-        lambda n: 'Inhale might fail.',
+        lambda i: 'Inhale might fail.',
     'if.failed':
-        lambda n: 'Conditional statement might fail.',
+        lambda i: 'Conditional statement might fail.',
     'while.failed':
-        lambda n: 'While statement might fail.',
+        lambda i: 'While statement might fail.',
     'assert.failed':
-        lambda n: 'Assert might fail.',
+        lambda i: 'Assert might fail.',
     'postcondition.violated':
-        lambda n: ('Postcondition of {} might not '
-                   'hold.').format(get_containing_member(n).name),
+        lambda i: (f"Postcondition of {i.function} might not hold."),
     'fold.failed':
-        lambda n: 'Fold might fail.',
+        lambda i: 'Fold might fail.',
     'unfold.failed':
-        lambda n: 'Unfold might fail.',
+        lambda i: 'Unfold might fail.',
     'invariant.not.preserved':
-        lambda n: 'Loop invariant might not be preserved.',
+        lambda i: 'Loop invariant might not be preserved.',
     'invariant.not.established':
-        lambda n: 'Loop invariant might not hold on entry.',
+        lambda i: 'Loop invariant might not hold on entry.',
     'function.not.wellformed':
-        lambda n: ('Function {} might not be '
+        lambda i: ('Function {} might not be '
                    'well-formed.').format(get_containing_member(n).name),
     'predicate.not.wellformed':
-        lambda n: ('Predicate {} might not be '
+        lambda i: ('Predicate {} might not be '
                    'well-formed.').format(get_containing_member(n).name),
     'termination_check.failed':
-        lambda n: 'Operation might not terminate.',
+        lambda i: 'Operation might not terminate.',
     'leak_check.failed':
-        lambda n: 'Obligation leak check failed.',
+        lambda i: 'Obligation leak check failed.',
     'internal':
-        lambda n: 'An internal error occurred.',
+        lambda i: 'An internal error occurred.',
     'expression.undefined':
-        lambda n: 'Expression {} may not be defined.'.format(pprint(n)),
+        lambda i: 'Expression {} may not be defined.'.format(pprint(i.node)),
     'thread.creation.failed':
-        lambda n: 'Thread creation may fail.',
+        lambda i: 'Thread creation may fail.',
     'thread.start.failed':
-        lambda n: 'Thread start may fail.',
+        lambda i: 'Thread start may fail.',
     'thread.join.failed':
-        lambda n: 'Thread join may fail.',
+        lambda i: 'Thread join may fail.',
     'termination_channel_check.failed':
-        lambda n: 'Termination channel might exist.',
+        lambda i: 'Termination channel might exist.',
     'lock.invariant.not.established':
-        lambda n: 'Lock invariant might not hold.',
+        lambda i: 'Lock invariant might not hold.',
 }
 
 REASONS = {
     'assertion.false':
-        lambda n: 'Assertion {} might not hold.'.format(pprint(n)),
+        lambda i: 'Assertion {} might not hold.'.format(pprint(i.node)),
     'receiver.null':
-        lambda n: 'Receiver of {} might be null.'.format(pprint(n)),
+        lambda i: 'Receiver of {} might be null.'.format(pprint(i.node)),
     'division.by.zero':
-        lambda n: 'Divisor {} might be zero.'.format(pprint(n)),
+        lambda i: 'Divisor {} might be zero.'.format(pprint(i.node)),
     'negative.permission':
-        lambda n: 'Fraction {} might be negative.'.format(pprint(n)),
+        lambda i: 'Fraction {} might be negative.'.format(pprint(i.node)),
     'insufficient.permission':
-        lambda n: ('There might be insufficient permission to '
-                   'access {}.').format(pprint(n)),
+        lambda i: ('There might be insufficient permission to '
+                   'access {}.').format(pprint(i.node)),
     'termination_measure.non_positive':
-        lambda n: ('Termination measure {} might be '
-                   'non-positive.').format(pprint(n)),
+        lambda i: ('Termination measure {} might be '
+                   'non-positive.').format(pprint(i.node)),
     'measure.non_decreasing':
-        lambda n: ('Termination measure of {} might be not '
-                   'smaller.').format(pprint(n)),
+        lambda i: ('Termination measure of {} might be not '
+                   'smaller.').format(pprint(i.node)),
     'gap.enabled':
-        lambda n: ('Gap {} might be enabled in terminating IO '
-                   'operation.').format(pprint(n)),
+        lambda i: ('Gap {} might be enabled in terminating IO '
+                   'operation.').format(pprint(i.node)),
     'child_termination.not_implied':
-        lambda n: ('Parent IO operation termination condition does not '
-                   'imply {} termination condition.').format(pprint(n)),
+        lambda i: ('Parent IO operation termination condition does not '
+                   'imply {} termination condition.').format(pprint(i.node)),
     'obligation_measure.non_positive':
-        lambda n: ('Obligation {} measure might be '
-                   'non-positive.').format(pprint(n)),
+        lambda i: ('Obligation {} measure might be '
+                   'non-positive.').format(pprint(i.node)),
     'must_terminate.not_taken':
-        lambda n: ('Callee {} might not take MustTerminate '
+        lambda i: ('Callee {} might not take MustTerminate '
                    'obligation.').format(get_target_name(n)),
     'must_terminate.loop_not_promised':
-        lambda n: ('Loop might not promise to terminate.'),
+        lambda i: ('Loop might not promise to terminate.'),
     'must_terminate.loop_promise_not_kept':
-        lambda n: ('Loop might not keep promise to terminate.'),
+        lambda i: ('Loop might not keep promise to terminate.'),
     'caller.has_unsatisfied_obligations':
-        lambda n: ('Callee {} might not take all unsatisfied obligations '
+        lambda i: ('Callee {} might not take all unsatisfied obligations '
                    'from the caller.'.format(get_target_name(n))),
     'method_body.leaks_obligations':
-        lambda n: ('Body of method {} might leak '
+        lambda i: ('Body of method {} might leak '
                    'obligations.'.format(get_target_name(n))),
     'loop_context.has_unsatisfied_obligations':
-        lambda n: ('Loop might not take all unsatisfied obligations '
+        lambda i: ('Loop might not take all unsatisfied obligations '
                    'from the context.'),
     'loop_body.leaks_obligations':
-        lambda n: ('Loop body might leak obligations.'),
+        lambda i: ('Loop body might leak obligations.'),
     'loop_condition.not_framed_for_obligation_use':
-        lambda n: ('Loop condition part {} is not framed at the point where '
-                   'obligation is used.'.format(pprint(n))),
+        lambda i: ('Loop condition part {} is not framed at the point where '
+                   'obligation is used.'.format(pprint(i.node))),
     'undefined.local.variable':
-        lambda n: 'Local variable may not have been defined.',
+        lambda i: 'Local variable may not have been defined.',
     'undefined.global.name':
-        lambda n: 'Global name may not have been defined.',
+        lambda i: 'Global name may not have been defined.',
     'missing.dependencies':
-        lambda n: 'Global dependencies may not be defined.',
+        lambda i: 'Global dependencies may not be defined.',
     'internal':
-        lambda n: 'Internal Viper error.',
+        lambda i: 'Internal Viper error.',
     'receiver.not.injective':
-        lambda n: 'Receiver expression of quantified permission is not injective.',
+        lambda i: 'Receiver expression of quantified permission is not injective.',
     'wait.level.invalid':
-        lambda n: 'Thread level may not be lower than current thread.',
+        lambda i: 'Thread level may not be lower than current thread.',
     'thread.not.joinable':
-        lambda n: 'Thread may not be joinable.',
+        lambda i: 'Thread may not be joinable.',
     'invalid.argument.type':
-        lambda n: 'Thread argument may not fit target method parameter type.',
+        lambda i: 'Thread argument may not fit target method parameter type.',
     'method.not.listed':
-        lambda n: "Thread's target method may not be listed in start statement.",
+        lambda i: "Thread's target method may not be listed in start statement.",
     'missing.start.permission':
-        lambda n: 'May not have permission to start thread.',
+        lambda i: 'May not have permission to start thread.',
     'sif.fold':
-        lambda n: 'The low parts of predicate {} might not hold.'.format(
+        lambda i: 'The low parts of predicate {} might not hold.'.format(
             get_target_name(n.args[0])),
     'sif.unfold':
-        lambda n: 'The low parts of predicate {} might not hold.'.format(
+        lambda i: 'The low parts of predicate {} might not hold.'.format(
             get_target_name(n.args[0])),
     'sif_termination.condition_not_low':
-        lambda n: 'Termination condition {} might not be low.'.format(pprint(n.args[0])),
+        lambda i: 'Termination condition {} might not be low.'.format(pprint(n.args[0])),
     'sif_termination.not_lowevent':
-        lambda n: ('Termination condition {} evaluating to false might not imply that '
+        lambda i: ('Termination condition {} evaluating to false might not imply that '
                    'both executions don\'t terminate.').format(pprint(n.args[0])),
     'sif_termination.condition_not_tight':
-        lambda n: 'Termination condition {} might not be tight.'.format(pprint(n.args[0])),
+        lambda i: 'Termination condition {} might not be tight.'.format(pprint(n.args[0])),
 }
 
 VAGUE_REASONS = {

@@ -111,18 +111,18 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     from nagini_translation.parsing import parser
 
     with open(path) as file:
-        vyper_program = parser.parse(file.read())
+        vyper_program = parser.parse(file.read(), path)
 
     from nagini_translation.translation import translator
 
-    viper_program = translator.translate(vyper_program, viper_ast)
+    viper_program = translator.translate(vyper_program, viper_ast, path)
     print(viper_program)
 
     consistency_errors = viper_ast.to_list(viper_program.checkTransitively())
     for error in consistency_errors:
         print(error.toString())
     if consistency_errors:
-        print(prog)
+        print(viper_program)
         raise ConsistencyException('consistency.error')
 
     return viper_program

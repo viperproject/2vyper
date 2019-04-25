@@ -16,9 +16,9 @@ from nagini_translation.parsing.ast import VyperProgram, VyperFunction, VyperVar
 from nagini_translation.errors.translation_exceptions import UnsupportedException, InvalidProgramException
 
 
-def parse(contract: str) -> VyperProgram:
+def parse(contract: str, filename: str) -> VyperProgram:
     contract = preprocess(contract)
-    contract_ast = ast.parse(contract)
+    contract_ast = ast.parse(contract, filename)
     contract_ast = transform(contract_ast)
     program_builder = ProgramBuilder()
     return program_builder.build(contract_ast)

@@ -8,7 +8,12 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from typing import List
+
 from nagini_translation.lib.viper_ast import ViperAST
+from nagini_translation.lib.errors import error_manager, Rules
+from nagini_translation.lib.errors.wrappers import ErrorInfo
+
+from nagini_translation.translation.context import Context
 
 
 def _iter_fields(node):
@@ -37,15 +42,21 @@ class NodeTranslator(object):
     def generic_translate(self, node, ctx):
         raise AssertionError(f"Node of type {type(node)} not supported.")
 
-    def to_position(self, node: ast.AST, error_string: str=None) -> 'silver.ast.Position':
+    def _register_potential_error(self, node, ctx: Context, error_string: str) -> str:
+        error_info = ErrorInfo(ctx.function, node, [], error_string)
+        id = error_manager.add_error_information(error_info, None)
+        return id
+
+    def to_position(self, node: ast.AST, ctx: Context, error_string: str = None) -> 'silver.ast.Position':
         """
         Extracts the position from a node, assigns an ID to the node and stores
         the node and the position in the context for it.
         """
-        return self.viper_ast.to_position(node, [], error_string)
+        id = self._register_potential_error(node, ctx, error_string)
+        return self.viper_ast.to_position(node, id, ctx.file)
 
     def no_position(self, error_string: str=None) -> 'silver.ast.Position':
-        return self.to_position(None, error_string)
+        return self.viper_ast.NoPosition
 
     def to_info(self, comments: List[str]) -> 'silver.ast.Info':
         """

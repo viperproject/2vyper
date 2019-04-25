@@ -509,8 +509,7 @@ class ViperAST:
     def ConsInfo(self, head, tail):
         return self.ast.ConsInfo(head, tail)
 
-    def to_position(self, expr, vias, error_string: str=None,
-                    rules: Rules=None, file: str = None):
+    def to_position(self, expr, id, file: str = None):
         if expr is None:
             return self.NoPosition
         if not hasattr(expr, 'lineno'):
@@ -523,8 +522,6 @@ class ViperAST:
             file = str(self.sourcefile)
         path = self.java.nio.file.Paths.get(file, [])
         start = self.ast.LineColumnPosition(expr.lineno, expr.col_offset)
-        id = error_manager.add_error_information(
-            expr, list(vias), error_string, rules)
         if hasattr(expr, 'end_lineno') and hasattr(expr, 'end_col_offset'):
             end = self.ast.LineColumnPosition(expr.end_lineno,
                                               expr.end_col_offset)
