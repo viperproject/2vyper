@@ -12,9 +12,10 @@ from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context
 
+from nagini_translation.errors.translation_exceptions import InvalidProgramException
+
 
 class SpecificationTranslator(ExpressionTranslator):
-    # TODO: error handling
     
     def __init__(self, viper_ast: ViperAST, invariant_mode: bool):
         super().__init__(viper_ast)
@@ -32,15 +33,18 @@ class SpecificationTranslator(ExpressionTranslator):
 
         name = node.func.id
         if name == 'result':
-            # TODO
-            assert not self.invariant_mode
-            assert not node.args
+            if self.invariant_mode:
+                raise InvalidProgramException(node, "Result not allowed in invariant.")
+            if node.args:
+                raise InvalidProgramException(node, "Result must not have arguments.")
+
             return [], ctx.result_var.localVar()
         elif name == 'old':
-            # TODO
-            assert len(node.args) == 1
+            if len(node.args) != 1:
+                raise InvalidProgramException(node, "Old expression require a single argument.")
+            
             _, expr = self.translate(node.args[0], ctx)
             return [], self.viper_ast.Old(expr, pos, info)
         else:
-            assert False
+            raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
 
