@@ -67,8 +67,8 @@ class FunctionTranslator(NodeTranslator):
             # TODO: implement via so that error messages for invariants include method that
             # violates it
 
-            pres = ctx.invariants
-            posts = ctx.invariants
+            posts = ctx.general_invariants + ctx.invariants
+            pres = ctx.general_invariants if function.name == '__init__' else posts
 
             pres += [self.specification_translator.translate_spec(p, ctx) for p in function.preconditions]
             posts += [self.specification_translator.translate_spec(p, ctx) for p in function.postconditions]

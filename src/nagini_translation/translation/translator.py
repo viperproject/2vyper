@@ -57,10 +57,9 @@ class ProgramTranslator(NodeTranslator):
         ctx.fields = {var.name: self._translate_field(var, ctx) for var in vyper_program.state.values()}
         fields_list = list(ctx.fields.values())
         # Pass around the permissions for all fields
-        invariants = [self._create_field_access_predicate(field, ctx) for field in fields_list]
+        ctx.general_invariants = [self._create_field_access_predicate(field, ctx) for field in fields_list]
         # Add the actual invariants
-        invariants += [self.specification_translator.translate_spec(iv, ctx) for iv in vyper_program.invariants]
-        ctx.invariants = invariants
+        ctx.invariants = [self.specification_translator.translate_spec(iv, ctx) for iv in vyper_program.invariants]
         functions = vyper_program.functions.values()
         methods = [self.function_translator.translate(function, ctx) for function in functions]
         viper_program = self.viper_ast.Program([], fields_list, [], [], methods, pos, info)

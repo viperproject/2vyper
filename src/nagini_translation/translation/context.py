@@ -13,6 +13,9 @@ class Context:
     def __init__(self, file: str):
         self.file = file
         self.fields = {}
+        # Invariants that even have to hold before __init__
+        self.general_invariants = []
+        # Normal invariants that do not have to hold before __init__
         self.invariants = []
         self.self_var = None
 
