@@ -2,5 +2,5 @@
 
 did_pay: bool
 reward: wei_value
-bla: int256
+bla: uint256
 

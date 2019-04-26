@@ -12,7 +12,9 @@ class Context:
     
     def __init__(self, file: str):
         self.file = file
+        self.fields = {}
         self.invariants = []
+        self.self_var = None
 
         self.function = None
         

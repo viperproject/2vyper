@@ -45,12 +45,22 @@ class StatementTranslator(NodeTranslator):
         return lhs_stmts + rhs_stmts + [self.viper_ast.LocalVarAssign(lhs, rhs, pos, info)]
 
     def translate_Assign(self, node: ast.Assign, ctx: Context) -> List[Stmt]:
-        # TODO: allow assignments to other things
         pos = self.to_position(node, ctx)
         info = self.no_info()
-        lhs_stmts, lhs = self.expression_translator.translate(node.targets[0], ctx)
+
+        left = node.targets[0]
+        lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
-        return lhs_stmts + rhs_stmts + [self.viper_ast.LocalVarAssign(lhs, rhs, pos, info)]
+
+        if isinstance(left, ast.Name):
+            assign = self.viper_ast.LocalVarAssign
+        elif isinstance(left, ast.Attribute):
+            assign = self.viper_ast.FieldAssign
+        else:
+            # TODO: allow assignments to other things
+            assert False
+
+        return lhs_stmts + rhs_stmts + [assign(lhs, rhs, pos, info)]
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
         #TODO: allow assignments to other things

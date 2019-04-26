@@ -121,6 +121,13 @@ class ExpressionTranslator(NodeTranslator):
     def translate_operator(self, operator):
         return self._operations[type(operator)]
 
+    def translate_Attribute(self, node: ast.Attribute, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
+        info = self.no_info()
+
+        stmts, expr = self.translate(node.value, ctx)
+        return stmts, self.viper_ast.FieldAccess(expr, ctx.fields[node.attr], pos, info)
+
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
         info = self.no_info()

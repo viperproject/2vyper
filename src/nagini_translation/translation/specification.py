@@ -25,6 +25,13 @@ class SpecificationTranslator(ExpressionTranslator):
         _, expr = self.translate(node, ctx)
         return expr
 
+    def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
+        if node.id == 'self':
+            return [], ctx.self_var.localVar()
+        else:
+            # TODO: is this always an error?
+            assert False
+
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         assert isinstance(node.func, ast.Name)
 

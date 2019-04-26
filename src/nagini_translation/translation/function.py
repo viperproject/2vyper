@@ -33,11 +33,13 @@ class FunctionTranslator(NodeTranslator):
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
         with function_scope(ctx):
             pos = self.to_position(function.node, ctx)
+            nopos = self.no_position()
             info = self.no_info()
 
             ctx.function = function.name
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
+            args['self'] = ctx.self_var
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
             ctx.args = args
             ctx.locals = locals
@@ -65,12 +67,12 @@ class FunctionTranslator(NodeTranslator):
             # TODO: implement via so that error messages for invariants include method that
             # violates it
 
-            pres = [self.specification_translator.translate_spec(p, ctx) for p in function.preconditions]
-            posts = [self.specification_translator.translate_spec(p, ctx) for p in function.postconditions]
-            
-            pres += ctx.invariants
-            posts += ctx.invariants
+            pres = ctx.invariants
+            posts = ctx.invariants
 
+            pres += [self.specification_translator.translate_spec(p, ctx) for p in function.preconditions]
+            posts += [self.specification_translator.translate_spec(p, ctx) for p in function.postconditions]
+            
         method = self.viper_ast.Method(function.name, args_list, rets, pres, posts, locals_list, seqn, pos, info)
         return method
         
