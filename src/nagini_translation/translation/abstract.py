@@ -28,7 +28,7 @@ def _iter_fields(node):
             pass
 
 
-class NodeTranslator(object):
+class NodeTranslator:
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
@@ -55,7 +55,7 @@ class NodeTranslator(object):
         id = self._register_potential_error(node, ctx, error_string)
         return self.viper_ast.to_position(node, id, ctx.file)
 
-    def no_position(self, error_string: str=None) -> 'silver.ast.Position':
+    def no_position(self, error_string: str = None) -> 'silver.ast.Position':
         return self.viper_ast.NoPosition
 
     def to_info(self, comments: List[str]) -> 'silver.ast.Info':

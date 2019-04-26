@@ -39,13 +39,15 @@ class SpecificationTranslator(ExpressionTranslator):
         info = self.no_info()
 
         name = node.func.id
-        if name == 'result':
+        if name == 'result' or name == 'success':
+            cap = name.capitalize()
             if self.invariant_mode:
-                raise InvalidProgramException(node, "Result not allowed in invariant.")
+                raise InvalidProgramException(node, f"{cap} not allowed in invariant.")
             if node.args:
-                raise InvalidProgramException(node, "Result must not have arguments.")
+                raise InvalidProgramException(node, f"{cap} must not have arguments.")
 
-            return [], ctx.result_var.localVar()
+            var = ctx.result_var if name == 'result' else ctx.success_var
+            return [], var.localVar()
         elif name == 'old':
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Old expression require a single argument.")

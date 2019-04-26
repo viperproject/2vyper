@@ -74,6 +74,19 @@ class StatementTranslator(NodeTranslator):
         
         return lhs_stmts + rhs_stmts + [assign]
 
+    def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
+        pos = self.to_position(node, ctx)
+        noinfo = self.no_info()
+
+        stmts, expr = self.expression_translator.translate(node.test, ctx)
+        
+        cond = self.viper_ast.Not(expr, pos, noinfo)
+        body = [self.viper_ast.Goto(ctx.revert_label, pos, noinfo)]
+        block = self.viper_ast.Seqn(body, pos, noinfo)
+        empty = self.viper_ast.Seqn([], pos, noinfo)
+        if_stmt = self.viper_ast.If(cond, block, empty, pos, noinfo)
+        return stmts + [if_stmt]
+
     def translate_Return(self, node: ast.Return, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
         info = self.no_info()
@@ -81,7 +94,7 @@ class StatementTranslator(NodeTranslator):
         stmts, expr = self.expression_translator.translate(node.value, ctx)
         result_var = ctx.result_var
         assign = self.viper_ast.LocalVarAssign(result_var.localVar(), expr, pos, info)
-        jmp_to_end = self.viper_ast.Goto(ctx.end_label.name(), pos, info)
+        jmp_to_end = self.viper_ast.Goto(ctx.end_label, pos, info)
 
         return stmts + [assign, jmp_to_end]
 

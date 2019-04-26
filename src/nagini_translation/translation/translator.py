@@ -48,7 +48,7 @@ class ProgramTranslator(NodeTranslator):
         field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, pos, info)
         perm = self.viper_ast.FullPerm(pos, info)
         return self.viper_ast.FieldAccessPredicate(field_acc, perm, pos, info)
-
+ 
     def translate(self, vyper_program: VyperProgram, file: str) -> Program:
         pos = self.no_position()
         info = self.no_info()

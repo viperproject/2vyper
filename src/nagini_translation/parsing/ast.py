@@ -35,6 +35,7 @@ class VyperFunction:
         self.ret = ret
         self.preconditions = preconditions
         self.postconditions = postconditions
+        self.is_public = is_public
         self.node = node
 
 

@@ -31,6 +31,8 @@ class Context:
         self.break_label = None
         self.continue_label = None
 
+        self.success_var = None
+        self.revert_label = None
         self.result_var = None
         self.end_label = None
 
@@ -63,6 +65,8 @@ def function_scope(ctx: Context):
     break_label = ctx.break_label
     continue_label = ctx.continue_label
 
+    success_var = ctx.success_var
+    revert_label = ctx.revert_label
     result_var = ctx.result_var
     end_label = ctx.end_label
 
@@ -78,6 +82,8 @@ def function_scope(ctx: Context):
     ctx.break_label = None
     ctx.continue_label = None
 
+    ctx.success_var = None
+    ctx.revert_label = None
     ctx.result_var = None
     ctx.end_label = None
 
@@ -95,6 +101,8 @@ def function_scope(ctx: Context):
     ctx.break_label = break_label
     ctx.continue_label = continue_label
 
+    ctx.success_var = success_var
+    ctx.revert_label = revert_label
     ctx.result_var = result_var
     ctx.end_label = end_label
 

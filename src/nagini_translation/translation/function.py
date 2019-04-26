@@ -11,7 +11,7 @@ from typing import Dict
 
 from nagini_translation.parsing.ast import VyperFunction, VyperVar
 from nagini_translation.lib.viper_ast import ViperAST
-from nagini_translation.lib.typedefs import Method
+from nagini_translation.lib.typedefs import Method, Stmt
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
@@ -46,9 +46,14 @@ class FunctionTranslator(NodeTranslator):
             ctx.all_vars = {**args, **locals}
             ctx.types = {name: var.type for name, var in function.local_vars.items()}
 
-            rets = []
+            success_var = self.viper_ast.LocalVarDecl('$succ', self.viper_ast.Bool, nopos, info)
+            ctx.success_var = success_var
+            revert_label = self.viper_ast.Label('revert', nopos, info)
+            ctx.revert_label = 'revert'
+
+            rets = [success_var]
             end_label = self.viper_ast.Label('end', pos, info)
-            ctx.end_label = end_label
+            ctx.end_label = 'end'
 
             if function.ret:
                 retType = self.type_translator.translate(function.ret)
@@ -56,7 +61,27 @@ class FunctionTranslator(NodeTranslator):
                 rets.append(retVar)
                 ctx.result_var = retVar
 
-            body = self.statement_translator.translate_stmts(function.node.body, ctx)
+            def returnBool(value: bool) -> Stmt:
+                local_var = success_var.localVar()
+                lit = self.viper_ast.TrueLit if value else self.viper_ast.FalseLit
+                return self.viper_ast.LocalVarAssign(local_var, lit(nopos, info), nopos, info)
+
+            # If we do not encounter an exception we will return success
+            body = [returnBool(True)]
+            body += self.statement_translator.translate_stmts(function.node.body, ctx)
+            # If we reach this point do not revert the state
+            body.append(self.viper_ast.Goto(ctx.end_label, nopos, info))
+            # Revert the state
+            body.append(revert_label)
+            # Return False
+            body.append(returnBool(False))
+            # TODO: revert the state, havoc the return value
+            for field in ctx.fields.values():
+                self_var = ctx.self_var.localVar()
+                field_acc = self.viper_ast.FieldAccess(self_var, field, nopos, info)
+                old = self.viper_ast.Old(field_acc, nopos, info)
+                revert = self.viper_ast.FieldAssign(field_acc, old, nopos, info)
+                body.append(revert)
             body.append(end_label)
 
             seqn = self.viper_ast.Seqn(body, pos, info)
@@ -67,8 +92,15 @@ class FunctionTranslator(NodeTranslator):
             # TODO: implement via so that error messages for invariants include method that
             # violates it
 
-            posts = ctx.general_invariants + ctx.invariants
-            pres = ctx.general_invariants if function.name == '__init__' else posts
+            if function.is_public:
+                # All invariants have to hold after all public functions
+                posts = ctx.general_invariants + ctx.invariants
+                # General invariants have to hold before every public function except init
+                pres = ctx.general_invariants if function.name == '__init__' else posts.copy()
+            else:
+                # Private functions only use pre and post conditions that are specified
+                pres = []
+                posts = []
 
             pres += [self.specification_translator.translate_spec(p, ctx) for p in function.preconditions]
             posts += [self.specification_translator.translate_spec(p, ctx) for p in function.postconditions]
