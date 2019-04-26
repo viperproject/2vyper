@@ -108,7 +108,7 @@ class StatementTranslator(NodeTranslator):
 
         with break_scope(ctx):
             loop_var = ctx.all_vars[node.target.id].localVar()
-            lpos = self.to_position(node, ctx.target)
+            lpos = self.to_position(node.target, ctx)
             stmts, start, times = self.special_translator.translate_range(node.iter, ctx)
             init_info = self.to_info(["Loop variable initialization.\n"])
             var_init = self.viper_ast.LocalVarAssign(loop_var, start, lpos, init_info)
