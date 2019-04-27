@@ -26,11 +26,14 @@ class SpecificationTranslator(ExpressionTranslator):
         return expr
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
-        if node.id == 'self':
-            return [], ctx.self_var.localVar()
+        if self.invariant_mode:
+            if node.id == 'self':
+                return [], ctx.self_var.localVar()
+            else:
+                # TODO: is this always an error?
+                assert False
         else:
-            # TODO: is this always an error?
-            assert False
+            return super().translate_Name(node, ctx)
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         assert isinstance(node.func, ast.Name)
