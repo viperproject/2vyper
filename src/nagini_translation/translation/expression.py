@@ -73,13 +73,22 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
         info = self.no_info()
 
-        left_stmt, left = self.translate(node.left, ctx)
-        right_stmt, right = self.translate(node.right, ctx)
-        stmt = left_stmt + right_stmt
+        left_stmts, left = self.translate(node.left, ctx)
+        right_stmts, right = self.translate(node.right, ctx)
+        stmts = left_stmts + right_stmts
         
         op = self.translate_operator(node.op)
 
-        return stmt, op(left, right, pos, info)
+        # If the divisor is 0 revert the transaction
+        if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
+            cond = self.viper_ast.EqCmp(right, self.viper_ast.IntLit(0, pos, info), pos, info)
+            body = [self.viper_ast.Goto(ctx.revert_label, pos, info)]
+            block = self.viper_ast.Seqn(body, pos, info)
+            empty = self.viper_ast.Seqn([], pos, info)
+            if_stmt = self.viper_ast.If(cond, block, empty, pos, info)
+            stmts.append(if_stmt)
+
+        return stmts, op(left, right, pos, info)
 
     def translate_BoolOp(self, node: ast.BoolOp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
