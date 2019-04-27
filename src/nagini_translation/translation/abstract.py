@@ -43,7 +43,9 @@ class NodeTranslator:
         raise AssertionError(f"Node of type {type(node)} not supported.")
 
     def _register_potential_error(self, node, ctx: Context, error_string: str) -> str:
-        error_info = ErrorInfo(ctx.function, node, [], error_string)
+        # TODO: fix this
+        name = None if not ctx.function else ctx.function.name
+        error_info = ErrorInfo(name, node, [], error_string)
         id = error_manager.add_error_information(error_info, None)
         return id
 

@@ -18,6 +18,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
+from nagini_translation.translation.default_value import DefaultValueTranslator
 from nagini_translation.translation.context import Context, function_scope
 
 
@@ -29,6 +30,7 @@ class FunctionTranslator(NodeTranslator):
         self.statement_translator = StatementTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast, False)
         self.type_translator = TypeTranslator(viper_ast)
+        self.default_value_translator = DefaultValueTranslator(viper_ast)
 
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
         with function_scope(ctx):
@@ -36,7 +38,7 @@ class FunctionTranslator(NodeTranslator):
             nopos = self.no_position()
             info = self.no_info()
 
-            ctx.function = function.name
+            ctx.function = function
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
             args['self'] = ctx.self_var
@@ -44,7 +46,6 @@ class FunctionTranslator(NodeTranslator):
             ctx.args = args
             ctx.locals = locals
             ctx.all_vars = {**args, **locals}
-            ctx.types = {name: var.type for name, var in function.local_vars.items()}
 
             success_var = self.viper_ast.LocalVarDecl('$succ', self.viper_ast.Bool, nopos, info)
             ctx.success_var = success_var
@@ -68,6 +69,16 @@ class FunctionTranslator(NodeTranslator):
 
             # If we do not encounter an exception we will return success
             body = [returnBool(True)]
+
+            # In the initializer initialize all fields to their default values
+            if function.name == '__init__':
+                for name, field in ctx.fields.items():
+                    field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, nopos, info)
+                    type = ctx.program.state[name].type
+                    stmts, expr = self.default_value_translator.translate_default_value(type, ctx)
+                    assign = self.viper_ast.FieldAssign(field_acc, expr, nopos, info)
+                    body += stmts + [assign]
+
             body += self.statement_translator.translate_stmts(function.node.body, ctx)
             # If we reach this point do not revert the state
             body.append(self.viper_ast.Goto(ctx.end_label, nopos, info))

@@ -1,6 +1,6 @@
 
 #@ requires: start > 0
-#@ ensures: result() == (100 * 99) / 2 - 100 * start
+#@ ensures: result() == (99 * 100) / 2 + 100 * start
 @public
 def sum_of_numbers(start: int128) -> int128:
     sum: int128

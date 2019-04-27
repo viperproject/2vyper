@@ -53,6 +53,7 @@ class ProgramTranslator(NodeTranslator):
         pos = self.no_position()
         info = self.no_info()
         ctx = Context(file)
+        ctx.program = vyper_program
         ctx.self_var = self.viper_ast.LocalVarDecl('self', self.viper_ast.Ref, pos, info)
         ctx.fields = {var.name: self._translate_field(var, ctx) for var in vyper_program.state.values()}
         fields_list = list(ctx.fields.values())

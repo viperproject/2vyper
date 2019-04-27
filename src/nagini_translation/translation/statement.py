@@ -18,6 +18,7 @@ from nagini_translation.translation.context import Context, break_scope, continu
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.type import TypeTranslator
+from nagini_translation.translation.default_value import DefaultValueTranslator
 from nagini_translation.translation.special import SpecialTranslator
 
 
@@ -27,6 +28,7 @@ class StatementTranslator(NodeTranslator):
         self.viper_ast = viper_ast
         self.expression_translator = ExpressionTranslator(self.viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
+        self.default_value_translator = DefaultValueTranslator(self.viper_ast)
         self.special_translator = SpecialTranslator(viper_ast)
 
     def translate_stmts(self, stmts: List[Stmt], ctx: Context) -> List[Stmt]:
@@ -36,12 +38,13 @@ class StatementTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
         info = self.no_info()
         lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
-        # TODO: put into own class default_value_translator?
+
         if node.value is None:
-            rhs_ast = ast.parse(ctx.types[node.target.id].default_value, mode='eval').body
-            rhs_stmts, rhs = self.expression_translator.translate(rhs_ast, ctx)
+            type = ctx.function.locals[node.target.id]
+            rhs_stmts, rhs = self.default_value_translator.translate_default_value(type, ctx)
         else:
             rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
+
         return lhs_stmts + rhs_stmts + [self.viper_ast.LocalVarAssign(lhs, rhs, pos, info)]
 
     def translate_Assign(self, node: ast.Assign, ctx: Context) -> List[Stmt]:

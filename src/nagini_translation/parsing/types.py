@@ -16,16 +16,15 @@ class VyperType:
 
 class PrimitiveType(VyperType):
 
-    def __init__(self, name: str, default_value: str):
-        VyperType.__init__(self, name)
-        self.default_value = default_value
+    def __init__(self, name: str):
+        super().__init__(name)
 
 
-VYPER_BOOL = PrimitiveType('bool', 'False')
-VYPER_WEI_VALUE = PrimitiveType('wei_value', '0')
-VYPER_INT128 = PrimitiveType('int128', '0')
-VYPER_UINT256 = PrimitiveType('uint256', '0')
-VYPER_ADDRESS = PrimitiveType('address', '0')
+VYPER_BOOL = PrimitiveType('bool')
+VYPER_WEI_VALUE = PrimitiveType('wei_value')
+VYPER_INT128 = PrimitiveType('int128')
+VYPER_UINT256 = PrimitiveType('uint256')
+VYPER_ADDRESS = PrimitiveType('address')
 
 TYPES = {
     VYPER_BOOL.name: VYPER_BOOL,

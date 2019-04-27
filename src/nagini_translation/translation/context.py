@@ -12,6 +12,7 @@ class Context:
     
     def __init__(self, file: str):
         self.file = file
+        self.program = None
         self.fields = {}
         # Invariants that even have to hold before __init__
         self.general_invariants = []
@@ -24,7 +25,6 @@ class Context:
         self.all_vars = {}
         self.args = {}
         self.locals = {}
-        self.types = {}
 
         self._break_label_counter = -1
         self._continue_label_counter = -1
@@ -58,7 +58,6 @@ def function_scope(ctx: Context):
     all_vars = ctx.all_vars
     args = ctx.args
     locals = ctx.locals
-    types = ctx.types
 
     _break_label_counter = ctx._break_label_counter
     _continue_label_counter = ctx._continue_label_counter
@@ -75,7 +74,6 @@ def function_scope(ctx: Context):
     ctx.all_vars = {}
     ctx.args = {}
     ctx.locals = {}
-    ctx.types = {}
 
     ctx._break_label_counter = -1
     ctx._continue_label_counter = -1
@@ -94,7 +92,6 @@ def function_scope(ctx: Context):
     ctx.all_vars = all_vars
     ctx.args = args
     ctx.locals = locals
-    ctx.types = types
 
     ctx._break_label_counter = _break_label_counter
     ctx._continue_label_counter = _continue_label_counter
