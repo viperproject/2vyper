@@ -6,12 +6,13 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 import ast
-import functools
 
 from nagini_translation.lib.typedefs import StmtsAndExpr
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.translation.context import Context
+from nagini_translation.translation.builtins import map_get
+from nagini_translation.translation.builtins import MIN, MAX
 
 
 class ExpressionTranslator(NodeTranslator):
@@ -137,13 +138,23 @@ class ExpressionTranslator(NodeTranslator):
         stmts, expr = self.translate(node.value, ctx)
         return stmts, self.viper_ast.FieldAccess(expr, ctx.fields[node.attr], pos, info)
 
+    def translate_Subscript(self, node: ast.Subscript, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
+        info = self.no_info()
+
+        value_stmts, value = self.translate(node.value, ctx)
+        index_stmts, index = self.translate(node.slice.value, ctx)
+
+        call = map_get(self.viper_ast, value, index, pos, info)
+        return value_stmts + index_stmts, call
+
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
         info = self.no_info()
 
         if isinstance(node.func, ast.Name):
-            is_min = node.func.id == 'min'
-            is_max = node.func.id == 'max'
+            is_min = node.func.id == MIN
+            is_max = node.func.id == MAX
             if is_min or is_max:
                 lhs_stmts, lhs = self.translate(node.args[0], ctx)
                 rhs_stmts, rhs = self.translate(node.args[1], ctx)

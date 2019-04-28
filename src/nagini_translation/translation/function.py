@@ -18,8 +18,9 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.default_value import DefaultValueTranslator
 from nagini_translation.translation.context import Context, function_scope
+
+from nagini_translation.translation.builtins import INIT, SELF
 
 
 class FunctionTranslator(NodeTranslator):
@@ -30,7 +31,6 @@ class FunctionTranslator(NodeTranslator):
         self.statement_translator = StatementTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast, False)
         self.type_translator = TypeTranslator(viper_ast)
-        self.default_value_translator = DefaultValueTranslator(viper_ast)
 
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
         with function_scope(ctx):
@@ -41,7 +41,7 @@ class FunctionTranslator(NodeTranslator):
             ctx.function = function
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
-            args['self'] = ctx.self_var
+            args[SELF] = ctx.self_var
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
             ctx.args = args
             ctx.locals = locals
@@ -57,7 +57,7 @@ class FunctionTranslator(NodeTranslator):
             ctx.end_label = 'end'
 
             if function.ret:
-                retType = self.type_translator.translate(function.ret)
+                retType = self.type_translator.translate(function.ret, ctx)
                 retVar = self.viper_ast.LocalVarDecl('$ret', retType, pos, info)
                 rets.append(retVar)
                 ctx.result_var = retVar
@@ -71,11 +71,11 @@ class FunctionTranslator(NodeTranslator):
             body = [returnBool(True)]
 
             # In the initializer initialize all fields to their default values
-            if function.name == '__init__':
+            if function.name == INIT:
                 for name, field in ctx.fields.items():
                     field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, nopos, info)
                     type = ctx.program.state[name].type
-                    stmts, expr = self.default_value_translator.translate_default_value(type, ctx)
+                    stmts, expr = self.type_translator.translate_default_value(type, ctx)
                     assign = self.viper_ast.FieldAssign(field_acc, expr, nopos, info)
                     body += stmts + [assign]
 
@@ -86,18 +86,19 @@ class FunctionTranslator(NodeTranslator):
             body.append(revert_label)
             # Return False
             body.append(returnBool(False))
-            # TODO: revert the state, havoc the return value
-            for field in ctx.fields.values():
-                self_var = ctx.self_var.localVar()
-                field_acc = self.viper_ast.FieldAccess(self_var, field, nopos, info)
-                old = self.viper_ast.Old(field_acc, nopos, info)
-                revert = self.viper_ast.FieldAssign(field_acc, old, nopos, info)
-                body.append(revert)
+            # Revert the fields, the return value does not have to be havoced because
+            # it was never assigned to
+            for name, field in ctx.fields.items():
+                type = ctx.program.state[name].type
+                body += self.type_translator.revert(type, field, ctx)
+
+            # The end of a program, label where return statements jump to
             body.append(end_label)
 
             seqn = self.viper_ast.Seqn(body, pos, info)
             args_list = list(args.values())
-            locals_list = list(locals.values())
+            new_locals = ctx.new_local_vars
+            locals_list = list(locals.values()) + new_locals
 
             # TODO: think about whether invariants should come first or second
             # TODO: implement via so that error messages for invariants include method that
@@ -105,9 +106,9 @@ class FunctionTranslator(NodeTranslator):
 
             if function.is_public:
                 # All invariants have to hold after all public functions
-                posts = ctx.general_invariants + ctx.invariants
-                # General invariants have to hold before every public function except init
-                pres = ctx.general_invariants if function.name == '__init__' else posts.copy()
+                posts = ctx.ghost_general_invariants + ctx.ghost_invariants + ctx.invariants
+                # General invariants have to hold before every public function except __init__
+                pres = ctx.ghost_general_invariants if function.name == INIT else posts.copy()
             else:
                 # Private functions only use pre and post conditions that are specified
                 pres = []
@@ -123,6 +124,6 @@ class FunctionTranslator(NodeTranslator):
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
         info = self.no_info()
-        type = self.type_translator.translate(var.type)
+        type = self.type_translator.translate(var.type, ctx)
         return self.viper_ast.LocalVarDecl(var.name, type, pos, info)
         

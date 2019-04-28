@@ -18,8 +18,9 @@ from nagini_translation.translation.context import Context, break_scope, continu
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.default_value import DefaultValueTranslator
 from nagini_translation.translation.special import SpecialTranslator
+
+from nagini_translation.translation.builtins import map_set
 
 
 class StatementTranslator(NodeTranslator):
@@ -28,7 +29,6 @@ class StatementTranslator(NodeTranslator):
         self.viper_ast = viper_ast
         self.expression_translator = ExpressionTranslator(self.viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
-        self.default_value_translator = DefaultValueTranslator(self.viper_ast)
         self.special_translator = SpecialTranslator(viper_ast)
 
     def translate_stmts(self, stmts: List[Stmt], ctx: Context) -> List[Stmt]:
@@ -37,11 +37,14 @@ class StatementTranslator(NodeTranslator):
     def translate_AnnAssign(self, node: ast.AnnAssign, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
         info = self.no_info()
+
+        # An annotated assignment can only have a local variable on the lhs,
+        # therefore we can simply use the expression translator
         lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
 
         if node.value is None:
-            type = ctx.function.locals[node.target.id]
-            rhs_stmts, rhs = self.default_value_translator.translate_default_value(type, ctx)
+            type = ctx.function.local_vars[node.target.id].type
+            rhs_stmts, rhs = self.type_translator.translate_default_value(type, ctx)
         else:
             rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 
@@ -51,22 +54,34 @@ class StatementTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
         info = self.no_info()
 
+        # We only support single assignments for now
         left = node.targets[0]
-        lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
+
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 
         if isinstance(left, ast.Name):
-            assign = self.viper_ast.LocalVarAssign
+            # If we assign to a name or attribute, just translate normally
+            lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
+            stmt = self.viper_ast.LocalVarAssign(lhs, rhs, pos, info)
         elif isinstance(left, ast.Attribute):
-            assign = self.viper_ast.FieldAssign
+            lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
+            stmt = self.viper_ast.FieldAssign(lhs, rhs, pos, info)
+        elif isinstance(left, ast.Subscript):
+            # If we assign to a map, use the built-in $map_set method
+            mp_stmts, mp = self.expression_translator.translate(left.value, ctx)
+            index_stmts, index = self.expression_translator.translate(left.slice.value, ctx)
+
+            lhs_stmts = mp_stmts + index_stmts
+            stmt = map_set(self.viper_ast, mp, index, rhs, pos, info)
         else:
             # TODO: allow assignments to other things
             assert False
 
-        return lhs_stmts + rhs_stmts + [assign(lhs, rhs, pos, info)]
+        return lhs_stmts + rhs_stmts + [stmt]
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
         #TODO: allow assignments to other things
+        # TODO use lhs translator
         pos = self.to_position(node, ctx)
         info = self.no_info()
 

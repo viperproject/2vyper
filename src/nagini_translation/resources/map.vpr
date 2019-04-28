@@ -1,0 +1,15 @@
+field $map : Int
+
+method $map_init() returns (res: Ref)
+    ensures acc(res.$map)
+    ensures forall k: Int :: {$map_get(res, k)} $map_get(res, k) == 0
+
+function $map_get(self: Ref, key: Int) : Int
+    requires acc(self.$map, 1/2)
+
+method $map_set(self: Ref, key: Int, item: Int) returns ()
+    requires acc(self.$map)
+    ensures acc(self.$map)
+    ensures $map_get(self, key) == item
+    ensures forall k : Int :: {$map_get(self, k)} 
+        (k != key) ==> ($map_get(self, k) == old($map_get(self, k)))

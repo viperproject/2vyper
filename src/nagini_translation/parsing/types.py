@@ -14,6 +14,15 @@ class VyperType:
         self.name = name
 
 
+class MapType(VyperType):
+
+    def __init__(self, key_type: VyperType, value_type: VyperType):
+        self.key_type = key_type
+        self.value_type = value_type
+        name = f'map({key_type}, {value_type})'
+        super().__init__(name)
+
+
 class PrimitiveType(VyperType):
 
     def __init__(self, name: str):

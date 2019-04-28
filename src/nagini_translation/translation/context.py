@@ -14,8 +14,10 @@ class Context:
         self.file = file
         self.program = None
         self.fields = {}
-        # Invariants that even have to hold before __init__
-        self.general_invariants = []
+        # Ghost invariants that even have to hold before __init__
+        self.ghost_general_invariants = []
+        # Normal ghost invariants that do not have to hold before __init__
+        self.ghost_invariants = []
         # Normal invariants that do not have to hold before __init__
         self.invariants = []
         self.self_var = None
@@ -36,13 +38,20 @@ class Context:
         self.result_var = None
         self.end_label = None
 
+        self._local_var_counter = -1
+        self.new_local_vars = []
+
+    def new_local_var_name(self) -> str:
+        self._local_var_counter += 1
+        return f'$local_{self._local_var_counter}'
+
     def _next_break_label(self) -> str:
         self._break_label_counter += 1
-        return f"break_{self._break_label_counter}"
+        return f'break_{self._break_label_counter}'
 
     def _next_continue_label(self) -> str:
         self._continue_label_counter += 1
-        return f"continue_{self._continue_label_counter}"
+        return f'continue_{self._continue_label_counter}'
 
 
 @contextmanager
@@ -69,6 +78,9 @@ def function_scope(ctx: Context):
     result_var = ctx.result_var
     end_label = ctx.end_label
 
+    local_var_counter = ctx._local_var_counter
+    new_local_vars = ctx.new_local_vars
+
     ctx.function = None
 
     ctx.all_vars = {}
@@ -84,6 +96,9 @@ def function_scope(ctx: Context):
     ctx.revert_label = None
     ctx.result_var = None
     ctx.end_label = None
+
+    ctx._local_var_counter = -1
+    ctx.new_local_vars = []
 
     yield
 
@@ -102,6 +117,9 @@ def function_scope(ctx: Context):
     ctx.revert_label = revert_label
     ctx.result_var = result_var
     ctx.end_label = end_label
+
+    ctx._local_var_counter = local_var_counter
+    ctx.new_local_vars = new_local_vars
 
 
 @contextmanager

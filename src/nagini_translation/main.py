@@ -47,7 +47,11 @@ from nagini_translation.verifier import (
 from typing import Set
 
 
+from nagini_translation.parsing import parser
+from nagini_translation.translation.translator import ProgramTranslator
+
 from nagini_translation.errors.translation_exceptions import *
+
 
 
 TYPE_ERROR_PATTERN = r"^(?P<file>.*):(?P<line>\d+): error: (?P<msg>.*)$"
@@ -84,7 +88,7 @@ def load_sil_files(jvm: JVM, sif: bool = False):
         resources_path = os.path.join(current_path, 'sif', 'resources')
     else:
         resources_path = os.path.join(current_path, 'resources')
-    return parse_sil_file(os.path.join(resources_path, 'all.sil'), jvm)
+    return parse_sil_file(os.path.join(resources_path, 'all.vpr'), jvm)
 
 
 def translate(path: str, jvm: JVM, selected: Set[str] = set(),
@@ -108,18 +112,17 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
         raise Exception('Viper AST SIF extension not found on classpath.')
     types = TypeInfo()
 
-    from nagini_translation.parsing import parser
-
     with open(path) as file:
         vyper_program = parser.parse(file.read(), path)
 
-    from nagini_translation.translation import translator
-
-    viper_program = translator.translate(vyper_program, viper_ast, path)
+    builtins = load_sil_files(jvm)
+    translator = ProgramTranslator(viper_ast, builtins)
+    viper_program = translator.translate(vyper_program, path)
     print(viper_program)
 
     consistency_errors = viper_ast.to_list(viper_program.checkTransitively())
     for error in consistency_errors:
+        # TODO: Why?
         print(error.toString())
     if consistency_errors:
         print(viper_program)
@@ -128,7 +131,7 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     return viper_program
 
     raise AssertionError()
-
+"""
     type_correct = types.check(path)
     if not type_correct:
         return None
@@ -177,6 +180,7 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
         print(prog)
         raise ConsistencyException('consistency.error')
     return prog
+    """
 
 
 def collect_modules(analyzer: Analyzer, path: str) -> None:

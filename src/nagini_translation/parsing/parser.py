@@ -9,7 +9,7 @@ import ast
 
 from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
-from nagini_translation.parsing.types import VyperType
+from nagini_translation.parsing.types import VyperType, MapType
 from nagini_translation.parsing.types import TYPES, VYPER_INT128
 from nagini_translation.parsing.ast import VyperProgram, VyperFunction, VyperVar
 
@@ -148,7 +148,7 @@ class LocalProgramBuilder(ast.NodeVisitor):
 
 class TypeContext:
 
-    def __init__(self, type: VyperType, is_constant: bool, is_public: bool):
+    def __init__(self, type: VyperType, is_public: bool):
         self.type = type
         self.is_public = is_public
 
@@ -162,14 +162,20 @@ class TypeBuilder(ast.NodeVisitor):
         raise UnsupportedException(node, "Complex types not supported.")
 
     def visit_Name(self, node: ast.Name) -> TypeContext:
-        return TypeContext(TYPES[node.id], False, False)
+        return TypeContext(TYPES[node.id], False)
 
     def visit_Call(self, node: ast.Call) -> TypeContext:
-        # TODO: make work for maps
-        ctx = self.visit(node.args[0])
-        
+        # We allow public and map, constant should already be replaced
         if node.func.id == 'public':
+            ctx = self.visit(node.args[0])
             ctx.is_public = True
+        elif node.func.id == 'map':
+            key_type_ctx = self.visit(node.args[0])
+            value_type_ctx = self.visit(node.args[1])
+            type = MapType(key_type_ctx.type, value_type_ctx.type)
+            ctx = TypeContext(type, False)
+        else:
+            raise UnsupportedException(node, "Unsupported type.")
 
         return ctx
 
