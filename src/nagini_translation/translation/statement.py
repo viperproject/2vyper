@@ -20,7 +20,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.special import SpecialTranslator
 
-from nagini_translation.translation.builtins import map_set
+from nagini_translation.translation.builtins import map_get, map_set
 
 
 class StatementTranslator(NodeTranslator):
@@ -80,17 +80,34 @@ class StatementTranslator(NodeTranslator):
         return lhs_stmts + rhs_stmts + [stmt]
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
-        #TODO: allow assignments to other things
-        # TODO use lhs translator
+        # TODO: combine with normal assign?
         pos = self.to_position(node, ctx)
         info = self.no_info()
 
-        lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
-        rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
+        left = node.target
+
         op = self.expression_translator.translate_operator(node.op)
-        assign = self.viper_ast.LocalVarAssign(lhs, op(lhs, rhs, pos, info), pos, info)
-        
-        return lhs_stmts + rhs_stmts + [assign]
+        rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
+
+        if isinstance(left, ast.Name):
+            lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
+            stmt = self.viper_ast.LocalVarAssign(lhs, op(lhs, rhs, pos, info), pos, info)
+        elif isinstance(left, ast.Attribute):
+            lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
+            stmt = self.viper_ast.FieldAssign(lhs, op(lhs, rhs, pos, info), pos, info)
+        elif isinstance(left, ast.Subscript):
+            # If we assign to a map, use the built-in $map_set method
+            mp_stmts, mp = self.expression_translator.translate(left.value, ctx)
+            index_stmts, index = self.expression_translator.translate(left.slice.value, ctx)
+
+            lhs_stmts = mp_stmts + index_stmts
+            mp_get = map_get(self.viper_ast, mp, index, pos, info)
+            stmt = map_set(self.viper_ast, mp, index, op(mp_get, rhs, pos, info), pos, info)
+        else:
+            # TODO: allow assignments to other things
+            assert False
+
+        return lhs_stmts + rhs_stmts + [stmt]
 
     def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
