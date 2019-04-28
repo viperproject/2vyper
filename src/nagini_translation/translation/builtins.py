@@ -26,7 +26,7 @@ MAP_SET = '$map_set'
 
 def init_function() -> ast.FunctionDef:
     node = ast.FunctionDef(INIT, [], [], [], None)
-    return VyperFunction(INIT, {}, {}, None, [], [], True, node)
+    return VyperFunction(INIT, {}, {}, None, [], [], ['public'], node)
 
 def self_var(viper_ast: ViperAST, pos, info):
     return viper_ast.LocalVarDecl(SELF, viper_ast.Ref, pos, info)
