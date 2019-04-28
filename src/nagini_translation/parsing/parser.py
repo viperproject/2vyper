@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from typing import List
+
 from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
 from nagini_translation.parsing.types import VyperType, MapType
@@ -93,22 +95,20 @@ class ProgramBuilder(ast.NodeVisitor):
         else:
             raise AssertionError("Top-level assigns that are not specifications should never happen.")
 
-    def _is_public(self, node: ast.FunctionDef) -> bool:
+    def _decorators(self, node: ast.FunctionDef) -> List[str]:
+        decorators = []
         for decorator in node.decorator_list:
-            if isinstance(decorator, ast.Name) and decorator.id == 'public':
-                return True
-            elif isinstance(decorator, ast.Name) and decorator.id == 'private':
-                return False
+            if isinstance(decorator, ast.Name):
+                decorators.append(decorator.id)
         
-        raise InvalidProgramException(node, "Function must be public or private.")
-
+        return decorators
 
     def visit_FunctionDef(self, node):
         local = LocalProgramBuilder()
         args, local_vars = local.build(node)
         return_type = None if node.returns is None else self.type_builder.build(node.returns).type
-        is_public = self._is_public(node)
-        function = VyperFunction(node.name, args, local_vars, return_type, self.preconditions, self.postconditions, is_public, node)
+        decs = self._decorators(node)
+        function = VyperFunction(node.name, args, local_vars, return_type, self.preconditions, self.postconditions, decs, node)
         self.functions[node.name] = function
         self.preconditions = []
         self.postconditions = []

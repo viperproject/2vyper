@@ -27,7 +27,7 @@ class VyperFunction:
                        ret: Optional[VyperType],
                        preconditions: List[ast.Expr],
                        postconditions: List[ast.Expr],
-                       is_public: bool,
+                       decorators: List[str],
                        node: ast.FunctionDef):
         self.name = name
         self.args = args
@@ -35,8 +35,14 @@ class VyperFunction:
         self.ret = ret
         self.preconditions = preconditions
         self.postconditions = postconditions
-        self.is_public = is_public
+        self.decorators = decorators
         self.node = node
+    
+    def is_public(self) -> bool:
+        return 'public' in self.decorators
+
+    def is_payable(self) -> bool:
+        return 'payable' in self.decorators
 
 
 class VyperProgram:

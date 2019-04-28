@@ -104,7 +104,7 @@ class FunctionTranslator(NodeTranslator):
             # TODO: implement via so that error messages for invariants include method that
             # violates it
 
-            if function.is_public:
+            if function.is_public():
                 # All invariants have to hold after all public functions
                 posts = ctx.ghost_general_invariants + ctx.ghost_invariants + ctx.invariants
                 # General invariants have to hold before every public function except __init__
