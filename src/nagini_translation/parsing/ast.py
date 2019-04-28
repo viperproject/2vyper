@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from nagini_translation.parsing.types import VyperType
 
 
@@ -24,7 +24,7 @@ class VyperFunction:
     def __init__(self, name: str, 
                        args: Dict[str, VyperVar], 
                        local_vars: Dict[str, VyperVar], 
-                       ret: VyperType, 
+                       ret: Optional[VyperType],
                        preconditions: List[ast.Expr],
                        postconditions: List[ast.Expr],
                        is_public: bool,

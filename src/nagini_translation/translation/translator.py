@@ -41,15 +41,21 @@ class ProgramTranslator(NodeTranslator):
 
         return field
 
-    def _create_field_access_predicate(self, field, ctx: Context):
+    def _create_field_access_predicate(self, receiver, field, ctx: Context):
         pos = self.no_position()
         info = self.no_info()
 
-        field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, pos, info)
+        field_acc = self.viper_ast.FieldAccess(receiver, field, pos, info)
         perm = self.viper_ast.FullPerm(pos, info)
         return self.viper_ast.FieldAccessPredicate(field_acc, perm, pos, info)
+
+    def _create_default_init(self):
+        node = ast.FunctionDef('__init__', [], [], [], None)
+        return VyperFunction('__init__', {}, {}, None, [], [], True, node)
  
     def translate(self, vyper_program: VyperProgram, file: str) -> Program:
+        if '__init__' not in vyper_program.functions:
+            vyper_program.functions['__init__'] = self._create_default_init()
         pos = self.no_position()
         info = self.no_info()
         ctx = Context(file)
@@ -58,7 +64,7 @@ class ProgramTranslator(NodeTranslator):
         ctx.fields = {var.name: self._translate_field(var, ctx) for var in vyper_program.state.values()}
         fields_list = list(ctx.fields.values())
         # Pass around the permissions for all fields
-        ctx.general_invariants = [self._create_field_access_predicate(field, ctx) for field in fields_list]
+        ctx.general_invariants = [self._create_field_access_predicate(ctx.self_var.localVar(), field, ctx) for field in fields_list]
         # Add the actual invariants
         ctx.invariants = [self.specification_translator.translate_spec(iv, ctx) for iv in vyper_program.invariants]
         functions = vyper_program.functions.values()
