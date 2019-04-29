@@ -15,9 +15,6 @@ from nagini_translation.parsing.ast import VyperFunction
 INIT = '__init__'
 SELF = 'self'
 
-MIN = 'min'
-MAX = 'max'
-
 MAP_ACC = '$map'
 MAP_INIT = '$map_init'
 MAP_GET = '$map_get'

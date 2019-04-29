@@ -12,7 +12,6 @@ from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.translation.context import Context
 from nagini_translation.translation.builtins import map_get
-from nagini_translation.translation.builtins import MIN, MAX
 
 
 class ExpressionTranslator(NodeTranslator):
@@ -153,8 +152,8 @@ class ExpressionTranslator(NodeTranslator):
         info = self.no_info()
 
         if isinstance(node.func, ast.Name):
-            is_min = node.func.id == MIN
-            is_max = node.func.id == MAX
+            is_min = node.func.id == 'min'
+            is_max = node.func.id == 'max'
             if is_min or is_max:
                 lhs_stmts, lhs = self.translate(node.args[0], ctx)
                 rhs_stmts, rhs = self.translate(node.args[1], ctx)
