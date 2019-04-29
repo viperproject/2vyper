@@ -18,9 +18,15 @@ def transform(ast: ast.Module) -> ast.Module:
     return transformed_ast
 
 
+def _builtin_constants():
+    # The zero address
+    name = 'ZERO_ADDRESS'
+    value = 0
+    node = ast.Num(value)
+    return {name: value}, {name: node}
+
 def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
-    env = {}
-    constants = {}
+    env, constants = _builtin_constants()
     interpreter = ConstantInterpreter(env)
     for node in nodes:
         name = node.target.id

@@ -23,3 +23,7 @@ def some() -> bool:
     b = c5
     b = c4
     return b
+
+@public
+def zero_add() -> address:
+    return ZERO_ADDRESS
