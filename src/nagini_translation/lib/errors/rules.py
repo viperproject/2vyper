@@ -15,6 +15,14 @@ class Rules(Dict[Tuple[str, str], Tuple[str, str]]):
     """Error conversion rules."""
 
 
+INVARIANT_FAIL = {
+    ('postcondition.violated', 'assertion.false'):
+        ('invariant.violated', 'assertion.false')
+}
+
+
+
+
 TERMINATION_CHECK_MEASURE_NON_POSITIVE = {
     ('assert.failed', 'assertion.false'):
         ('termination_check.failed', 'termination_measure.non_positive')

@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+import nagini_translation.lib.errors.rules as conversion_rules
+
 from nagini_translation.lib.typedefs import StmtsAndExpr
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.translation.expression import ExpressionTranslator
@@ -24,6 +26,10 @@ class SpecificationTranslator(ExpressionTranslator):
     def translate_spec(self, node, ctx: Context):
         _, expr = self.translate(node, ctx)
         return expr
+
+    def to_position(self, node: ast.AST, ctx: Context, rules = None, error_string = None):
+        r = conversion_rules.INVARIANT_FAIL if self.invariant_mode else None
+        return super().to_position(node, ctx, r, error_string)
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
         if self.invariant_mode:

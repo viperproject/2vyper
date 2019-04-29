@@ -100,13 +100,10 @@ class FunctionTranslator(NodeTranslator):
             new_locals = ctx.new_local_vars
             locals_list = list(locals.values()) + new_locals
 
-            # TODO: think about whether invariants should come first or second
-            # TODO: implement via so that error messages for invariants include method that
-            # violates it
-
             if function.is_public():
                 # All invariants have to hold after all public functions
-                posts = ctx.ghost_general_invariants + ctx.ghost_invariants + ctx.invariants
+                invariants = [inv(ctx) for inv in ctx.invariants]
+                posts = ctx.ghost_general_invariants + ctx.ghost_invariants + invariants
                 # General invariants have to hold before every public function except __init__
                 pres = ctx.ghost_general_invariants if function.name == INIT else posts.copy()
             else:

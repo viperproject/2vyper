@@ -41,7 +41,9 @@ ERRORS = {
     'assert.failed':
         lambda i: 'Assert might fail.',
     'postcondition.violated':
-        lambda i: (f"Postcondition of {i.function} might not hold."),
+        lambda i: f"Postcondition of {i.function} might not hold.",
+    'invariant.violated':
+        lambda i: f"Invariant not preserved by {i.function}.",
     'fold.failed':
         lambda i: 'Fold might fail.',
     'unfold.failed':

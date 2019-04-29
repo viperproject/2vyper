@@ -86,7 +86,8 @@ class ProgramTranslator(NodeTranslator):
         fields_list = builtin_fields + list(ctx.fields.values())
 
         # Add the actual invariants
-        ctx.invariants = [self.specification_translator.translate_spec(iv, ctx) for iv in vyper_program.invariants]
+        # Note: The default value of the lambda is used to caputure the iv object
+        ctx.invariants = [lambda c, iv=iv : self.specification_translator.translate_spec(iv, c) for iv in vyper_program.invariants]
         functions = vyper_program.functions.values()
         methods += [self.function_translator.translate(function, ctx) for function in functions]
         viper_program = self.viper_ast.Program([], fields_list, viper_functions, [], methods, pos, info)
