@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from nagini_translation.utils import seq_to_list
+
 from nagini_translation.parsing.ast import VyperProgram, VyperFunction, VyperVar
 from nagini_translation.lib.typedefs import Program
 from nagini_translation.lib.viper_ast import ViperAST
@@ -55,25 +57,11 @@ class ProgramTranslator(NodeTranslator):
         info = self.no_info()
 
         # Add built-in fields (for maps, etc.)
-        builtin_fields = {}
-        it = self.builtins.fields().iterator()
-        while it.hasNext():
-            field = it.next()
-            builtin_fields[field.name()] = field
-
+        builtin_fields = seq_to_list(self.builtins.fields())
         # Add built-in methods
-        methods = []
-        it = self.builtins.methods().iterator()
-        while it.hasNext():
-            method = it.next()
-            methods.append(method)
-
+        methods = seq_to_list(self.builtins.methods())
         # Add built-in functions
-        viper_functions = []
-        it = self.builtins.functions().iterator()
-        while it.hasNext():
-            func = it.next()
-            viper_functions.append(func)
+        viper_functions = seq_to_list(self.builtins.functions())
 
         ctx = Context(file)
         ctx.program = vyper_program
@@ -95,7 +83,7 @@ class ProgramTranslator(NodeTranslator):
             acc = self._create_field_access_predicate(ctx.self_var.localVar(), field, ctx)
             ctx.ghost_general_invariants.append(acc)
 
-        fields_list = list(builtin_fields.values()) + list(ctx.fields.values())
+        fields_list = builtin_fields + list(ctx.fields.values())
 
         # Add the actual invariants
         ctx.invariants = [self.specification_translator.translate_spec(iv, ctx) for iv in vyper_program.invariants]

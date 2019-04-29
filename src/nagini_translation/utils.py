@@ -8,3 +8,11 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 def flatten(lists):
     return [item for sublist in lists for item in sublist]
+
+
+def seq_to_list(scala_iterable):
+    lst = []
+    it = scala_iterable.iterator()
+    while it.hasNext():
+        lst.append(it.next())
+    return lst
