@@ -25,6 +25,7 @@ def _builtin_constants():
     node = ast.Num(value)
     return {name: value}, {name: node}
 
+
 def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
     env, constants = _builtin_constants()
     interpreter = ConstantInterpreter(env)
@@ -38,6 +39,9 @@ def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
 
 
 class ConstantInterpreter(ast.NodeVisitor):
+    """
+    Determines the value of all constants in the AST.
+    """
 
     def __init__(self, constants: Dict[str, Any]):
         self.constants = constants
@@ -60,7 +64,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         elif isinstance(op, ast.Mult):
             return lhs * rhs
         elif isinstance(op, ast.Div):
-            # Note that contrary to Python Vyper does a floor div
+            # Note that contrary to Python Vyper does a floor division
             return lhs // rhs
         elif isinstance(op, ast.Mod):
             return lhs % rhs
@@ -144,6 +148,9 @@ class ConstantCollector(ast.NodeTransformer):
 
 
 class ConstantTransformer(ast.NodeTransformer):
+    """
+    Replaces all constants in the AST by their value.
+    """
     
     def __init__(self, constants: Dict[str, ast.AST]):
         self.constants = constants
