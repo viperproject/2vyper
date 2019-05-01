@@ -33,7 +33,7 @@ class SpecialTranslator(NodeTranslator):
     def translate_range(self, node: ast.Call, ctx: Context) -> Tuple[List[Stmt], Expr, int]:
         if len(node.args) == 1:
             # A range expression of the form 'range(n)' where 'n' is a constant
-            pos = self.to_position(node)
+            pos = self.to_position(node, ctx)
             info = self.no_info()
 
             start = self.viper_ast.IntLit(0, pos, info)
