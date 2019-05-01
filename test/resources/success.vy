@@ -1,4 +1,5 @@
 
+#:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: result() == 5
 @public
 def can_fail(amount: int128) -> int128:

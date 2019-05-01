@@ -1,5 +1,5 @@
 @private
-def claim_reward(amount: wei_value) -> None:
+def claim_reward(amount: wei_value):
 	pass
 
 @private

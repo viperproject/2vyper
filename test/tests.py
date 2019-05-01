@@ -42,6 +42,10 @@ import tokenize
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+
 from nagini_translation.lib import config, jvmaccess
 from nagini_translation.lib.errors import error_manager
 from nagini_translation.lib.typeinfo import TypeException
@@ -500,7 +504,9 @@ class AnnotationManager:
                     break
             else:
                 unexpected_errors.append(error)
-        assert not unexpected_errors
+
+        umsg = "\n".join([f"{error}" for error in unexpected_errors])
+        assert not unexpected_errors, f"Unexpected errors found:\n{umsg}"
         assert not annotations
 
     def has_unexpected_missing(self) -> bool:
@@ -598,7 +604,7 @@ class VerificationTest(AnnotatedTest):
 _VERIFICATION_TESTER = VerificationTest()
 
 
-def test_verification(path, verifier, sif, reload_resources, arp):
+def _test_verification(path, verifier, sif, reload_resources, arp):
     """Execute provided verification test."""
     _VERIFICATION_TESTER.test_file(path, _JVM, verifier, sif, reload_resources, arp)
 
@@ -630,6 +636,11 @@ class TranslationTest(AnnotatedTest):
 _TRANSLATION_TESTER = TranslationTest()
 
 
-def test_translation(path, sif, reload_resources, arp):
+def _test_translation(path, sif, reload_resources, arp):
     """Execute provided translation test."""
     _TRANSLATION_TESTER.test_file(path, _JVM, sif, reload_resources, arp)
+
+
+def _test(path):
+    """Execute provided verification test."""
+    _VERIFICATION_TESTER.test_file(path, _JVM, ViperVerifier.silicon, False, False, False)

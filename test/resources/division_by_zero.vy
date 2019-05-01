@@ -4,7 +4,8 @@
 def div(a: int128, b: int128) -> int128:
     return a / b
 
-# This should fail because the specification is not well formed
+
+#:: ExpectedOutput(not.wellformed:division.by.zero)
 #@ ensures: result() == 5 / n
 @public
 def div_in_spec(n: int128) -> int128:

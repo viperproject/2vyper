@@ -6,6 +6,12 @@ f2: int128
 #@ invariant: self.f1 > self.f2
 
 
+@public
+def __init__():
+    self.f1 = 12
+    self.f2 = 11
+
+
 #@ ensures: result() == 5
 @public
 def assert_true() -> int128:

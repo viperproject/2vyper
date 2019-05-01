@@ -6,6 +6,6 @@ u: uint256
 #@ invariant: not self.b
 #@ invariant: self.i == 0
 
-# Will fail:
+#:: ExpectedOutput(invariant.violated:assertion.false)
 #@ invariant: self.u == 1
 

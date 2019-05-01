@@ -2,7 +2,7 @@
 
 did_pay: bool
 reward: wei_value
-bla: int256
+bla: uint256
 
 def some(arg0: bool, arg1: wei_value) -> bool:
 	what: wei_value = arg1

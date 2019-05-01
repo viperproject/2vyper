@@ -1,3 +1,4 @@
+#:: IgnoreFile(0)
 # Reward Payment
 
 did_pay: bool
