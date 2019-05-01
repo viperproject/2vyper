@@ -15,7 +15,10 @@ from nagini_translation.parsing.ast import VyperFunction
 INIT = '__init__'
 SELF = 'self'
 
-MAP_ACC = '$map'
+MAP_DOMAIN = '$Map'
+MAP_KEY_VAR = '$K'
+MAP_VALUE_VAR = '$V'
+
 MAP_INIT = '$map_init'
 MAP_GET = '$map_get'
 MAP_SET = '$map_set'
@@ -29,16 +32,26 @@ def self_var(viper_ast: ViperAST, pos, info):
     return viper_ast.LocalVarDecl(SELF, viper_ast.Ref, pos, info)
 
 
-def map_acc_field(viper_ast: ViperAST, pos, info):
-    return viper_ast.Field(MAP_ACC, viper_ast.Int, pos, info)
+def _map_type_var_map(viper_ast: ViperAST, key_type, value_type):
+    key = viper_ast.TypeVar(MAP_KEY_VAR)
+    value = viper_ast.TypeVar(MAP_VALUE_VAR)
+    return {key: key_type, value: value_type}
 
-def map_acc(viper_ast: ViperAST, ref, pos, info):
-    fa = viper_ast.FieldAccess(ref, map_acc_field(viper_ast, pos, info), pos, info)
-    return viper_ast.FieldAccessPredicate(fa, viper_ast.FullPerm(pos, info), pos, info)
+def map_type(viper_ast: ViperAST, key_type, value_type):
+    type_vars = _map_type_var_map(viper_ast, key_type, value_type)
+    return viper_ast.DomainType(MAP_DOMAIN, type_vars, list(type_vars.keys()))
 
-def map_get(viper_ast: ViperAST, ref, idx, pos, info):
-    return viper_ast.FuncApp(MAP_GET, [ref, idx], pos, info, viper_ast.Int)
+def map_init(viper_ast: ViperAST, arg, key_type, value_type, pos, info):
+    mp_type = map_type(viper_ast, key_type, value_type)
+    type_vars = _map_type_var_map(viper_ast, key_type, value_type)
+    return viper_ast.DomainFuncApp(MAP_INIT, [arg], mp_type, pos, info, MAP_DOMAIN, type_vars)
 
-def map_set(viper_ast: ViperAST, ref, idx, value, pos, info):
-    return viper_ast.MethodCall(MAP_SET, [ref, idx, value], [], pos, info)
+def map_get(viper_ast: ViperAST, ref, idx, key_type, value_type, pos, info):
+    type_vars = _map_type_var_map(viper_ast, key_type, value_type)
+    return viper_ast.DomainFuncApp(MAP_GET, [ref, idx], value_type, pos, info, MAP_DOMAIN, type_vars)
+
+def map_set(viper_ast: ViperAST, ref, idx, value, key_type, value_type, pos, info):
+    type_vars = _map_type_var_map(viper_ast, key_type, value_type)
+    type = map_type(viper_ast, key_type, value_type)
+    return viper_ast.DomainFuncApp(MAP_SET, [ref, idx, value], type, pos, info, MAP_DOMAIN, type_vars)
  

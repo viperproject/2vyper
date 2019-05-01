@@ -61,7 +61,7 @@ class ProgramTranslator(NodeTranslator):
         # Add built-in methods
         methods = seq_to_list(self.builtins.methods())
         # Add built-in functions
-        viper_functions = seq_to_list(self.builtins.functions())
+        domains = seq_to_list(self.builtins.domains())
 
         ctx = Context(file)
         ctx.program = vyper_program
@@ -90,5 +90,5 @@ class ProgramTranslator(NodeTranslator):
         ctx.invariants = [lambda c, iv=iv : self.specification_translator.translate_spec(iv, c) for iv in vyper_program.invariants]
         functions = vyper_program.functions.values()
         methods += [self.function_translator.translate(function, ctx) for function in functions]
-        viper_program = self.viper_ast.Program([], fields_list, viper_functions, [], methods, pos, info)
+        viper_program = self.viper_ast.Program(domains, fields_list, [], [], methods, pos, info)
         return viper_program

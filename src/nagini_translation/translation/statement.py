@@ -27,7 +27,8 @@ class StatementTranslator(NodeTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
-        self.expression_translator = ExpressionTranslator(self.viper_ast)
+        self.expression_translator = ExpressionTranslator(viper_ast)
+        self.assignment_translator = _AssignmentTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
         self.special_translator = SpecialTranslator(viper_ast)
 
@@ -56,28 +57,8 @@ class StatementTranslator(NodeTranslator):
 
         # We only support single assignments for now
         left = node.targets[0]
-
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
-
-        if isinstance(left, ast.Name):
-            # If we assign to a name or attribute, just translate normally
-            lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
-            stmt = self.viper_ast.LocalVarAssign(lhs, rhs, pos, info)
-        elif isinstance(left, ast.Attribute):
-            lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
-            stmt = self.viper_ast.FieldAssign(lhs, rhs, pos, info)
-        elif isinstance(left, ast.Subscript):
-            # If we assign to a map, use the built-in $map_set method
-            mp_stmts, mp = self.expression_translator.translate(left.value, ctx)
-            index_stmts, index = self.expression_translator.translate(left.slice.value, ctx)
-
-            lhs_stmts = mp_stmts + index_stmts
-            stmt = map_set(self.viper_ast, mp, index, rhs, pos, info)
-        else:
-            # TODO: allow assignments to other things
-            assert False
-
-        return lhs_stmts + rhs_stmts + [stmt]
+        return self.assignment_translator.assign_to(left, rhs, ctx) + rhs_stmts
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
         # TODO: combine with normal assign?
@@ -86,28 +67,13 @@ class StatementTranslator(NodeTranslator):
 
         left = node.target
 
+        lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
         op = self.expression_translator.translate_operator(node.op)
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 
-        if isinstance(left, ast.Name):
-            lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
-            stmt = self.viper_ast.LocalVarAssign(lhs, op(lhs, rhs, pos, info), pos, info)
-        elif isinstance(left, ast.Attribute):
-            lhs_stmts, lhs = self.expression_translator.translate(left, ctx)
-            stmt = self.viper_ast.FieldAssign(lhs, op(lhs, rhs, pos, info), pos, info)
-        elif isinstance(left, ast.Subscript):
-            # If we assign to a map, use the built-in $map_set method
-            mp_stmts, mp = self.expression_translator.translate(left.value, ctx)
-            index_stmts, index = self.expression_translator.translate(left.slice.value, ctx)
-
-            lhs_stmts = mp_stmts + index_stmts
-            mp_get = map_get(self.viper_ast, mp, index, pos, info)
-            stmt = map_set(self.viper_ast, mp, index, op(mp_get, rhs, pos, info), pos, info)
-        else:
-            # TODO: allow assignments to other things
-            assert False
-
-        return lhs_stmts + rhs_stmts + [stmt]
+        stmts = lhs_stmts + rhs_stmts
+        value = op(lhs, rhs, pos, info)
+        return stmts + self.assignment_translator.assign_to(node.target, value, ctx)
 
     def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
@@ -188,3 +154,49 @@ class StatementTranslator(NodeTranslator):
 
     def translate_Pass(self, node: ast.Pass, ctx: Context) -> List[Stmt]:
         return []
+
+
+class _AssignmentTranslator(NodeTranslator):
+
+    def __init__(self, viper_ast: ViperAST):
+        super().__init__(viper_ast)
+        self.expression_translator = ExpressionTranslator(viper_ast)
+        self.type_translator = TypeTranslator(viper_ast)
+
+    def assign_to(self, node, value, ctx):
+        """Translate a node."""
+        method = 'assign_to_' + node.__class__.__name__
+        visitor = getattr(self, method, self.generic_assign_to)
+        return visitor(node, value, ctx)
+
+    def generic_assign_to(self, node, value, ctx):
+        raise AssertionError(f"Node of type {type(node)} not supported.")
+
+    def assign_to_Name(self, node: ast.Name, value, ctx: Context) -> List[Stmt]:
+        pos = self.to_position(node, ctx)
+        info = self.no_info()
+        lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
+        assign = self.viper_ast.LocalVarAssign(lhs, value, pos, info)
+        return lhs_stmts + [assign]
+
+    def assign_to_Attribute(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
+        pos = self.to_position(node, ctx)
+        info = self.no_info()
+        lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
+        assign = self.viper_ast.FieldAssign(lhs, value, pos, info)
+        return lhs_stmts + [assign]
+
+    def assign_to_Subscript(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
+        # TODO: decide how to handle statements created in this process
+        pos = self.to_position(node, ctx)
+        info = self.no_info()
+
+        type = self.type_translator.type_of(node.value, ctx)
+        key_type = self.type_translator.translate(type.key_type, ctx)
+        value_type = self.type_translator.translate(type.value_type, ctx)
+
+        receiver_stmts, receiver = self.expression_translator.translate(node.value, ctx)
+        index_stmts, index = self.expression_translator.translate(node.slice.value, ctx)
+        new_value = map_set(self.viper_ast, receiver, index, value, key_type, value_type, pos, info)
+
+        return self.assign_to(node.value, new_value, ctx)

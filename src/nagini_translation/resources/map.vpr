@@ -1,15 +1,25 @@
-field $map : Int
+/*
+  Copyright (c) 2019 ETH Zurich
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
 
-method $map_init() returns (res: Ref)
-    ensures acc(res.$map)
-    ensures forall k: Int :: {$map_get(res, k)} $map_get(res, k) == 0
+domain $Map[$K, $V] {
 
-function $map_get(self: Ref, key: Int) : Int
-    requires acc(self.$map, 1/2)
+    function $map_init(v: $V): $Map[$K, $V]
 
-method $map_set(self: Ref, key: Int, item: Int) returns ()
-    requires acc(self.$map)
-    ensures acc(self.$map)
-    ensures $map_get(self, key) == item
-    ensures forall k : Int :: {$map_get(self, k)} 
-        (k != key) ==> ($map_get(self, k) == old($map_get(self, k)))
+    function $map_get(m: $Map[$K, $V], $k: $K): $V
+
+    function $map_set(m: $Map[$K, $V], $k: $K, v: $V): $Map[$K, $V]
+
+    axiom $map_init_ax {
+        forall v: $V, $k: $K :: { $map_get($map_init(v), $k) } $map_get($map_init(v), $k) == v
+    }
+
+    axiom $map_set_ax {
+        forall m: $Map[$K, $V], $k: $K, v: $V , $kk: $K:: { $map_get($map_set(m, $k, v), $kk) }
+            $map_get($map_set(m, $k, v), $kk) == ($k == $kk ? v : $map_get(m, $kk)) 
+    }
+
+}

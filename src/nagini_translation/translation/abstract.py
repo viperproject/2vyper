@@ -16,18 +16,6 @@ from nagini_translation.lib.errors.wrappers import ErrorInfo
 from nagini_translation.translation.context import Context
 
 
-def _iter_fields(node):
-    """
-    Yield a tuple of ``(fieldname, value)`` for each field in ``node._fields``
-    that is present on *node*.
-    """
-    for field in node._fields:
-        try:
-            yield field, getattr(node, field)
-        except AttributeError:
-            pass
-
-
 class NodeTranslator:
 
     def __init__(self, viper_ast: ViperAST):

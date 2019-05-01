@@ -10,6 +10,7 @@ import ast
 from nagini_translation.lib.typedefs import StmtsAndExpr
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.lib.viper_ast import ViperAST
+from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
 from nagini_translation.translation.builtins import map_get
 
@@ -18,6 +19,7 @@ class ExpressionTranslator(NodeTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
+        self.type_translator = TypeTranslator(viper_ast)
 
         self._operations = {
             ast.USub: self.viper_ast.Minus,
@@ -144,7 +146,11 @@ class ExpressionTranslator(NodeTranslator):
         value_stmts, value = self.translate(node.value, ctx)
         index_stmts, index = self.translate(node.slice.value, ctx)
 
-        call = map_get(self.viper_ast, value, index, pos, info)
+        type = self.type_translator.type_of(node.value, ctx)
+        key_type = self.type_translator.translate(type.key_type, ctx)
+        value_type = self.type_translator.translate(type.value_type, ctx)
+
+        call = map_get(self.viper_ast, value, index, key_type, value_type, pos, info)
         return value_stmts + index_stmts, call
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
