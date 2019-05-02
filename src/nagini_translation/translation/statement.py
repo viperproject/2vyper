@@ -12,7 +12,6 @@ from typing import List
 from nagini_translation.utils import flatten
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Stmt
-from nagini_translation.parsing.types import VYPER_INT128
 
 from nagini_translation.translation.context import Context, break_scope, continue_scope
 from nagini_translation.translation.abstract import NodeTranslator

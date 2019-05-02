@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from typing import Dict, List, Optional
-from nagini_translation.parsing.types import VyperType
+from nagini_translation.ast.types import VyperType
 
 
 class VyperVar:

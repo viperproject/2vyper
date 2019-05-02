@@ -11,9 +11,10 @@ from typing import List
 
 from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
-from nagini_translation.parsing.types import VyperType, MapType
-from nagini_translation.parsing.types import TYPES, VYPER_INT128
-from nagini_translation.parsing.ast import VyperProgram, VyperFunction, VyperVar
+
+from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperVar
+from nagini_translation.ast.types import VyperType, MapType
+from nagini_translation.ast.types import TYPES, VYPER_INT128
 
 from nagini_translation.errors.translation_exceptions import UnsupportedException, InvalidProgramException
 

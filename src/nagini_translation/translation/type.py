@@ -11,7 +11,8 @@ import nagini_translation.translation.builtins as builtins
 
 from typing import Optional
 
-from nagini_translation.parsing.types import *
+from nagini_translation.ast import types
+from nagini_translation.ast.types import VyperType, PrimitiveType, MapType
 
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Type, Expr, Stmt, StmtsAndExpr
@@ -26,11 +27,11 @@ class TypeTranslator(NodeTranslator):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
         self.type_dict = {
-            VYPER_BOOL: viper_ast.Bool, 
-            VYPER_INT128: viper_ast.Int,
-            VYPER_UINT256: viper_ast.Int, 
-            VYPER_WEI_VALUE: viper_ast.Int,
-            VYPER_ADDRESS: viper_ast.Int
+            types.VYPER_BOOL: viper_ast.Bool, 
+            types.VYPER_INT128: viper_ast.Int,
+            types.VYPER_UINT256: viper_ast.Int, 
+            types.VYPER_WEI_VALUE: viper_ast.Int,
+            types.VYPER_ADDRESS: viper_ast.Int
         }
 
     def translate(self, type: VyperType, ctx: Context) -> VyperType:
@@ -59,7 +60,7 @@ class TypeTranslator(NodeTranslator):
         pos = self.no_position()
         info = self.no_info()
 
-        if type is VYPER_BOOL:
+        if type is types.VYPER_BOOL:
             return [], self.viper_ast.FalseLit(pos, info)
         elif isinstance(type, PrimitiveType):
             return [], self.viper_ast.IntLit(0, pos, info)

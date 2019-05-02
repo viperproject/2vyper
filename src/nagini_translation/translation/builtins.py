@@ -9,7 +9,7 @@ import ast
 
 from nagini_translation.lib.viper_ast import ViperAST
 
-from nagini_translation.parsing.ast import VyperFunction
+from nagini_translation.ast.nodes import VyperFunction
 
 
 INIT = '__init__'

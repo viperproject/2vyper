@@ -9,7 +9,7 @@ import ast
 
 from typing import Dict
 
-from nagini_translation.parsing.ast import VyperFunction, VyperVar
+from nagini_translation.ast.nodes import VyperFunction, VyperVar
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Method, Stmt
 

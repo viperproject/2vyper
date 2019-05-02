@@ -9,13 +9,13 @@ import ast
 
 from nagini_translation.utils import seq_to_list
 
-from nagini_translation.parsing.ast import VyperProgram, VyperVar
+from nagini_translation.ast.nodes import VyperProgram, VyperVar
 from nagini_translation.lib.typedefs import Program
 from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.function import FunctionTranslator
-from nagini_translation.translation.type import TypeTranslator, VYPER_ADDRESS
+from nagini_translation.translation.type import TypeTranslator
 
 from nagini_translation.translation.context import Context
 from nagini_translation.translation.builtins import INIT, MSG_SENDER

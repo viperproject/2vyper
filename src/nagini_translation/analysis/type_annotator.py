@@ -7,9 +7,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from nagini_translation.parsing.ast import VyperProgram
-from nagini_translation.parsing import types
-from nagini_translation.parsing.types import VyperType
+from nagini_translation.ast import types
+from nagini_translation.ast.types import VyperType
+from nagini_translation.ast.nodes import VyperProgram
 
 
 class TypeAnnotator:
