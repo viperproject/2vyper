@@ -44,7 +44,7 @@ class StatementTranslator(NodeTranslator):
         lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
 
         if node.value is None:
-            type = ctx.function.local_vars[node.target.id].type
+            type = node.target.type
             rhs_stmts, rhs = self.type_translator.translate_default_value(type, ctx)
         else:
             rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
@@ -191,9 +191,9 @@ class _AssignmentTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
         info = self.no_info()
 
-        type = self.type_translator.type_of(node.value, ctx)
-        key_type = self.type_translator.translate(type.key_type, ctx)
-        value_type = self.type_translator.translate(type.value_type, ctx)
+        map_type = node.value.type
+        key_type = self.type_translator.translate(map_type.key_type, ctx)
+        value_type = self.type_translator.translate(map_type.value_type, ctx)
 
         receiver_stmts, receiver = self.expression_translator.translate(node.value, ctx)
         index_stmts, index = self.expression_translator.translate(node.slice.value, ctx)

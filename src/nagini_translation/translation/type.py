@@ -32,7 +32,6 @@ class TypeTranslator(NodeTranslator):
             VYPER_WEI_VALUE: viper_ast.Int,
             VYPER_ADDRESS: viper_ast.Int
         }
-        self._type_visitor = _TypeVisitor(viper_ast)
 
     def translate(self, type: VyperType, ctx: Context) -> VyperType:
         if isinstance(type, PrimitiveType):
@@ -43,9 +42,6 @@ class TypeTranslator(NodeTranslator):
             return map_type(self.viper_ast, key_type, value_type)
         else:
             return self.viper_ast.Ref
-
-    def type_of(self, node: ast.AST, ctx: Context) -> VyperType:
-        return self._type_visitor.type_of(node, ctx)
 
     def revert(self, type: VyperType, field, ctx: Context) -> [Stmt]:
         nopos = self.no_position()
@@ -77,59 +73,3 @@ class TypeTranslator(NodeTranslator):
         else:
             # TODO:
             assert False
-
-
-class _TypeVisitor(NodeTranslator):
-
-    def type_of(self, ast: ast.AST, ctx: Context) -> VyperType:
-        return self.visit(ast, ctx)
-
-    def visit(self, node, ctx):
-        """Translate a node."""
-        method = 'visit_' + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_visit)
-        return visitor(node, ctx)
-
-    def generic_visit(self, node, ctx):
-        raise AssertionError(f"Node of type {type(node)} not supported.")
-
-    def visit_BoolOp(self, node: ast.BoolOp, ctx: Context) -> VyperType:
-        return VYPER_BOOL
-
-    def visit_BinOp(self, node: ast.BinOp, ctx: Context) -> VyperType:
-        return self.visit(node.left, ctx)
-
-    def visit_UnaryOp(self, node: ast.UnaryOp, ctx: Context) -> VyperType:
-        return self.visit(node.operand, ctx)
-
-    def visit_Compare(self, node: ast.Compare, ctx: Context) -> VyperType:
-        return VYPER_BOOL
-
-    def visit_Call(self, node: ast.Call, ctx: Context) -> VyperType:
-        if isinstance(node.func, ast.Name):
-            if node.func.id == 'min' or node.func.id == 'max':
-                return self.visit(node.args[0], ctx)
-            else:
-                raise AssertionError("Not supported.")
-        else:
-            return ctx.program.functions[node.func.value.id].ret
-
-    def visit_Num(self, node: ast.Num, ctx: Context) -> VyperType:
-        # TODO: handle type inference
-        return VYPER_INT128
-
-    def visit_NameConstant(self, node: ast.NameConstant, ctx: Context) -> VyperType:
-        # TODO: handle None
-        return VYPER_BOOL
-
-    def visit_Attribute(self, node: ast.Attribute, ctx: Context) -> VyperType:
-        # TODO: handle immutable fields
-        return ctx.program.state[node.attr].type
-
-    def visit_Subscript(self, node: ast.Subscript, ctx: Context) -> VyperType:
-        return self.visit(node.value, ctx).value_type
-    
-    def visit_Name(self, node: ast.Name, ctx: Context) -> VyperType:
-        arg = ctx.program.args.get(node.id)
-        local = ctx.program.local_vars.get(node.id)
-        return (arg or local).type

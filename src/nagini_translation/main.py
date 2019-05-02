@@ -48,6 +48,7 @@ from typing import Set
 
 
 from nagini_translation.parsing import parser
+from nagini_translation.analysis import analyzer
 from nagini_translation.translation.translator import ProgramTranslator
 
 from nagini_translation.errors.translation_exceptions import *
@@ -114,6 +115,7 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
 
     with open(path) as file:
         vyper_program = parser.parse(file.read(), path)
+        analyzer.analyze(vyper_program)
 
     builtins = load_sil_files(jvm)
     translator = ProgramTranslator(viper_ast, builtins)

@@ -49,7 +49,7 @@ class ExpressionTranslator(NodeTranslator):
         elif isinstance(node.n, float):
             raise UnsupportedException(node, "Float not yet supported")
         else:
-            raise UnsupportedException(node, 'Unsupported number literal')
+            raise UnsupportedException(node, "Unsupported number literal")
 
     def translate_NameConstant(self, node: ast.NameConstant, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
@@ -147,9 +147,9 @@ class ExpressionTranslator(NodeTranslator):
         value_stmts, value = self.translate(node.value, ctx)
         index_stmts, index = self.translate(node.slice.value, ctx)
 
-        type = self.type_translator.type_of(node.value, ctx)
-        key_type = self.type_translator.translate(type.key_type, ctx)
-        value_type = self.type_translator.translate(type.value_type, ctx)
+        map_type = node.value.type
+        key_type = self.type_translator.translate(map_type.key_type, ctx)
+        value_type = self.type_translator.translate(map_type.value_type, ctx)
 
         call = map_get(self.viper_ast, value, index, key_type, value_type, pos, info)
         return value_stmts + index_stmts, call
