@@ -109,7 +109,9 @@ class FunctionTranslator(NodeTranslator):
             body += post_assertions
             # If the function is public we also assert the invariants
             if function.is_public():
-                invariants, invariant_assertions = self.specification_translator.translate_invariants(ctx.program.invariants, ctx)
+                translator = self.specification_translator
+                ignore_old = function.name == INIT
+                invariants, invariant_assertions = translator.translate_invariants(ctx.program.invariants, ctx, ignore_old)
                 body += invariant_assertions
             else:
                 invariants = []
@@ -117,8 +119,9 @@ class FunctionTranslator(NodeTranslator):
             all_posts = ctx.permissions + posts + invariants
 
             # Add preconditions; invariants do not have to hold before __init__
+            inv_pres = self.specification_translator.translate_preconditions(ctx.program.invariants, ctx)
             pres = self.specification_translator.translate_preconditions(function.preconditions, ctx)
-            all_pres = ctx.permissions + pres + ([] if function.name == INIT else invariants)
+            all_pres = ctx.permissions + pres + ([] if function.name == INIT else inv_pres)
 
             # Since we check the postconditions and invariants in the body we can just assume
             # false, so the actual posconditions always succeed

@@ -9,6 +9,8 @@ import ast
 
 from typing import List
 
+from nagini_translation.ast import names
+
 from nagini_translation.lib.errors import rules
 from nagini_translation.lib.typedefs import Expr, StmtsAndExpr
 from nagini_translation.lib.viper_ast import ViperAST
@@ -23,18 +25,25 @@ class SpecificationTranslator(ExpressionTranslator):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
         self._invariant_mode = None
+        # We require history invariants to be reflexive, therefore we can simply
+        # replace ignore expressions by their expression in preconditions and in the
+        # postcondition of __init__
+        self._ignore_old = None
 
     def translate_preconditions(self, pres: List[ast.AST], ctx: Context):
         self._invariant_mode = False
+        self._ignore_old = True
         return self._translate_specification(pres, None, ctx)[0]
 
     def translate_postconditions(self, posts: List[ast.AST], ctx: Context):
         self._invariant_mode = False
+        self._ignore_old = False
         rule = rules.POSTCONDITION_FAIL
         return self._translate_specification(posts, rule, ctx)
 
-    def translate_invariants(self, invs: List[ast.AST], ctx: Context):
+    def translate_invariants(self, invs: List[ast.AST], ctx: Context, ignore_old = False):
         self._invariant_mode = True
+        self._ignore_old = ignore_old
         rule = rules.INVARIANT_FAIL
         return self._translate_specification(invs, rule, ctx)
 
@@ -62,7 +71,7 @@ class SpecificationTranslator(ExpressionTranslator):
         info = self.no_info()
 
         name = node.func.id
-        if name == 'implies':
+        if name == names.IMPLIES:
             if len(node.args) != 2:
                 raise InvalidProgramException(node, "Implication requires 2 arguments.")
             
@@ -71,21 +80,24 @@ class SpecificationTranslator(ExpressionTranslator):
 
             implies = self.viper_ast.Or(self.viper_ast.Not(lhs, pos, info), rhs, pos, info)
             return [], implies
-        elif name == 'result' or name == 'success':
+        elif name == names.RESULT or name == names.SUCCESS:
             cap = name.capitalize()
             if self._invariant_mode:
                 raise InvalidProgramException(node, f"{cap} not allowed in invariant.")
             if node.args:
                 raise InvalidProgramException(node, f"{cap} must not have arguments.")
 
-            var = ctx.result_var if name == 'result' else ctx.success_var
+            var = ctx.result_var if name == names.RESULT else ctx.success_var
             return [], var.localVar()
-        elif name == 'old':
+        elif name == names.OLD:
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Old expression require a single argument.")
             
             expr = self._translate_spec(node.args[0], ctx)
-            return [], self.viper_ast.Old(expr, pos, info)
+            if self._ignore_old:
+                return [], expr
+            else:
+                return [], self.viper_ast.Old(expr, pos, info)
         else:
             raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
 
