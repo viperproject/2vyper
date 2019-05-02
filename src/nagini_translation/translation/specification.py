@@ -28,7 +28,7 @@ class SpecificationTranslator(ExpressionTranslator):
         super().__init__(viper_ast)
         self._invariant_mode = None
         # We require history invariants to be reflexive, therefore we can simply
-        # replace ignore expressions by their expression in preconditions and in the
+        # replace old expressions by their expression in preconditions and in the
         # postcondition of __init__
         self._ignore_old = None
 
