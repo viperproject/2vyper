@@ -5,6 +5,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from nagini_translation.errors.translation_exceptions import InvalidProgramException
+
 
 def preprocess(program: str) -> str:
     # Make preconditions valid python statements. We use assignments instead of variable
@@ -13,4 +15,8 @@ def preprocess(program: str) -> str:
     program = program.replace('#@ requires:', 'requires   =')
     program = program.replace('#@ ensures:', 'ensures   =')
     program = program.replace('#@ invariant:', 'invariant   =')
+    
+    if '#@' in program:
+        raise InvalidProgramException(None, "Invalid specification: #@ not allowed here.")
+
     return program
