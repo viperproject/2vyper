@@ -17,6 +17,8 @@ from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context
 
+from nagini_translation.translation.builtins import map_sum
+
 from nagini_translation.errors.translation_exceptions import InvalidProgramException
 
 
@@ -91,13 +93,20 @@ class SpecificationTranslator(ExpressionTranslator):
             return [], var.localVar()
         elif name == names.OLD:
             if len(node.args) != 1:
-                raise InvalidProgramException(node, "Old expression require a single argument.")
+                raise InvalidProgramException(node, "Old expression requires a single argument.")
             
             expr = self._translate_spec(node.args[0], ctx)
             if self._ignore_old:
                 return [], expr
             else:
                 return [], self.viper_ast.Old(expr, pos, info)
+        elif name == names.SUM:
+            if len(node.args) != 1:
+                raise InvalidProgramException(node, "Sum expression requires a single argument.")
+            
+            expr = self._translate_spec(node.args[0], ctx)
+            key_type = self.type_translator.translate(node.args[0].type.key_type, ctx)
+            return [], map_sum(self.viper_ast, expr, key_type, pos, info)
         else:
             raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
 

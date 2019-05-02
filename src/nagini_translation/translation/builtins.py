@@ -20,12 +20,14 @@ MSG_SENDER = 'sender'
 
 
 MAP_DOMAIN = '$Map'
+MAP_SUM_DOMAIN = '$MapSum'
 MAP_KEY_VAR = '$K'
 MAP_VALUE_VAR = '$V'
 
 MAP_INIT = '$map_init'
 MAP_GET = '$map_get'
 MAP_SET = '$map_set'
+MAP_SUM = '$map_sum'
 
 
 def init_function() -> ast.FunctionDef:
@@ -65,3 +67,7 @@ def map_set(viper_ast: ViperAST, ref, idx, value, key_type, value_type, pos, inf
     type = map_type(viper_ast, key_type, value_type)
     return viper_ast.DomainFuncApp(MAP_SET, [ref, idx, value], type, pos, info, MAP_DOMAIN, type_vars)
  
+def map_sum(viper_ast: ViperAST, ref, key_type, pos, info):
+     type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
+     type = viper_ast.Int
+     return viper_ast.DomainFuncApp(MAP_SUM, [ref], type, pos, info, MAP_SUM_DOMAIN, type_vars)

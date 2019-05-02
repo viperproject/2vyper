@@ -7,19 +7,34 @@
 
 domain $Map[$K, $V] {
 
-    function $map_init(v: $V): $Map[$K, $V]
+    function $map_init($v: $V): $Map[$K, $V]
 
-    function $map_get(m: $Map[$K, $V], $k: $K): $V
+    function $map_get($m: $Map[$K, $V], $k: $K): $V
 
-    function $map_set(m: $Map[$K, $V], $k: $K, v: $V): $Map[$K, $V]
+    function $map_set($m: $Map[$K, $V], $k: $K, $v: $V): $Map[$K, $V]
 
     axiom $map_init_ax {
-        forall v: $V, $k: $K :: { $map_get($map_init(v), $k) } $map_get($map_init(v), $k) == v
+        forall $v: $V, $k: $K :: { $map_get($map_init($v), $k) } $map_get($map_init($v), $k) == $v
     }
 
     axiom $map_set_ax {
-        forall m: $Map[$K, $V], $k: $K, v: $V , $kk: $K:: { $map_get($map_set(m, $k, v), $kk) }
-            $map_get($map_set(m, $k, v), $kk) == ($k == $kk ? v : $map_get(m, $kk)) 
+        forall $m: $Map[$K, $V], $k: $K, $v: $V , $kk: $K:: { $map_get($map_set($m, $k, $v), $kk) }
+            $map_get($map_set($m, $k, $v), $kk) == ($k == $kk ? $v : $map_get($m, $kk)) 
+    }
+
+}
+
+domain $MapSum[$K] {
+
+    function $map_sum($m: $Map[$K, Int]): Int
+
+    axiom $map_sum_init_ax {
+        $map_sum($map_init(0)) == 0
+    }
+
+    axiom $map_sum_set_ax {
+        forall $m: $Map[$K, Int], $k: $K, $v: Int :: { $map_sum($map_set($m, $k, $v)) }
+            $map_sum($map_set($m, $k, $v)) == $map_sum($m) - $map_get($m, $k) + $v
     }
 
 }

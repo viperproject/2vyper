@@ -125,6 +125,8 @@ class TypeAnnotator:
                 node.type = types.VYPER_BOOL
             elif name == names.RESULT:
                 node.type = self.current_func.ret
+            elif name == names.SUM:
+                node.type = node.args[0].type.value_type
             else:
                 assert False, f"encountered function {node.func.id}"
         else:
