@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from nagini_translation.ast import names
 from nagini_translation.ast import types
 from nagini_translation.ast.types import VyperType
 from nagini_translation.ast.nodes import VyperProgram
@@ -116,13 +117,13 @@ class TypeAnnotator:
         
         if isinstance(node.func, ast.Name):
             name = node.func.id
-            if name == 'min' or name == 'max' or name == 'old' or name == 'implies':
+            if name == names.MIN or name == names.MAX or name == names.OLD or name == names.IMPLIES:
                 node.type = node.args[0].type
-            elif name == 'range':
+            elif name == names.RANGE:
                 node.type = types.VYPER_INT128
-            elif name == 'success':
+            elif name == names.SUCCESS:
                 node.type = types.VYPER_BOOL
-            elif name == 'result':
+            elif name == names.RESULT:
                 node.type = self.current_func.ret
             else:
                 assert False, f"encountered function {node.func.id}"
@@ -151,7 +152,7 @@ class TypeAnnotator:
         node.type = node.value.type.value_type
 
     def annotate_Name(self, node: ast.Name, expected: VyperType):
-        if node.id == 'self' or node.id == 'msg':
+        if node.id == names.SELF or node.id == names.MSG:
             node.type = None
         else:
             local = self.current_func.local_vars.get(node.id)

@@ -12,6 +12,7 @@ from typing import List
 from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
 
+from nagini_translation.ast import names
 from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperVar
 from nagini_translation.ast.types import VyperType, MapType
 from nagini_translation.ast.types import TYPES, VYPER_INT128
@@ -84,14 +85,14 @@ class ProgramBuilder(ast.NodeVisitor):
             raise AssertionError("The target of a contract should be a name.")
         
         name = node.targets[0].id
-        if name == 'invariant':
+        if name == names.INVARIANT:
             # No preconditions and posconditions allowed before invariants
             self._check_no_prepostconditions()
 
             self.invariants.append(node.value)
-        elif name == 'requires':
+        elif name == names.PRECONDITION:
             self.preconditions.append(node.value)
-        elif name == 'ensures':
+        elif name == names.POSTCONDITION:
             self.postconditions.append(node.value)
         else:
             raise AssertionError("Top-level assigns that are not specifications should never happen.")
@@ -167,10 +168,10 @@ class TypeBuilder(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> TypeContext:
         # We allow public and map, constant should already be replaced
-        if node.func.id == 'public':
+        if node.func.id == names.PUBLIC:
             ctx = self.visit(node.args[0])
             ctx.is_public = True
-        elif node.func.id == 'map':
+        elif node.func.id == names.MAP:
             key_type_ctx = self.visit(node.args[0])
             value_type_ctx = self.visit(node.args[1])
             type = MapType(key_type_ctx.type, value_type_ctx.type)

@@ -8,6 +8,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from typing import List, Dict, Any
+
+from nagini_translation.ast import names
 from nagini_translation.errors.translation_exceptions import InvalidProgramException
 
 
@@ -104,9 +106,9 @@ class ConstantInterpreter(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call):
         args = [self.visit(arg) for arg in node.args]
         if isinstance(node.func, ast.Name):
-            if node.func.id == 'min':
+            if node.func.id == names.MIN:
                 return min(args)
-            elif node.func.id == 'max':
+            elif node.func.id == names.MAX:
                 return max(args)
 
         raise InvalidProgramException(node)
