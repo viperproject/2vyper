@@ -9,6 +9,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # Decorators
 PUBLIC = 'public'
 PRIVATE = 'private'
+PAYABLE = 'payable'
 
 # Types
 MAP = 'map'

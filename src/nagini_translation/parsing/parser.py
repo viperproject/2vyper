@@ -98,12 +98,7 @@ class ProgramBuilder(ast.NodeVisitor):
             raise AssertionError("Top-level assigns that are not specifications should never happen.")
 
     def _decorators(self, node: ast.FunctionDef) -> List[str]:
-        decorators = []
-        for decorator in node.decorator_list:
-            if isinstance(decorator, ast.Name):
-                decorators.append(decorator.id)
-        
-        return decorators
+        return [dec.id for dec in node.decorator_list if isinstance(dec, ast.Name)]
 
     def visit_FunctionDef(self, node):
         local = LocalProgramBuilder()
