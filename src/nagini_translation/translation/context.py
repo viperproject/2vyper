@@ -13,12 +13,15 @@ class Context:
     def __init__(self, file: str):
         self.file = file
         self.program = None
-        # All Vyper fields not including ghost fields
+        # All Vyper self-fields not including ghost fields
         self.fields = {}
+        # Non-self fields like msg.sender which are immutable
+        self.immutable_fields = {}
         # Permissions that have to be passed around
         # Note: already translated, as they should never fail
         self.permissions = []
         self.self_var = None
+        self.msg_var = None
 
         self.function = None
         

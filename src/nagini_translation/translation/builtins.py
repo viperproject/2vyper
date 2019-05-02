@@ -15,6 +15,10 @@ from nagini_translation.parsing.ast import VyperFunction
 INIT = '__init__'
 SELF = 'self'
 
+MSG = 'msg'
+MSG_SENDER = 'sender'
+
+
 MAP_DOMAIN = '$Map'
 MAP_KEY_VAR = '$K'
 MAP_VALUE_VAR = '$V'
@@ -30,6 +34,12 @@ def init_function() -> ast.FunctionDef:
 
 def self_var(viper_ast: ViperAST, pos, info):
     return viper_ast.LocalVarDecl(SELF, viper_ast.Ref, pos, info)
+
+def msg_var(viper_ast: ViperAST, pos, info):
+    return viper_ast.LocalVarDecl(MSG, viper_ast.Ref, pos, info)
+
+def msg_sender_field(viper_ast: ViperAST, pos, info):
+    return viper_ast.Field(MSG_SENDER, viper_ast.Int, pos, info)
 
 
 def _map_type_var_map(viper_ast: ViperAST, key_type, value_type):

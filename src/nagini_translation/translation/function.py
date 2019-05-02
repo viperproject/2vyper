@@ -20,7 +20,7 @@ from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context, function_scope
 
-from nagini_translation.translation.builtins import INIT, SELF
+from nagini_translation.translation.builtins import INIT, SELF, MSG
 
 
 class FunctionTranslator(NodeTranslator):
@@ -42,6 +42,7 @@ class FunctionTranslator(NodeTranslator):
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
             args[SELF] = ctx.self_var
+            args[MSG] = ctx.msg_var
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
             ctx.args = args
             ctx.locals = locals

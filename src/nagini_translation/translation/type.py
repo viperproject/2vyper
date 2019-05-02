@@ -123,6 +123,7 @@ class _TypeVisitor(NodeTranslator):
         return VYPER_BOOL
 
     def visit_Attribute(self, node: ast.Attribute, ctx: Context) -> VyperType:
+        # TODO: handle immutable fields
         return ctx.program.state[node.attr].type
 
     def visit_Subscript(self, node: ast.Subscript, ctx: Context) -> VyperType:

@@ -137,7 +137,8 @@ class ExpressionTranslator(NodeTranslator):
         info = self.no_info()
 
         stmts, expr = self.translate(node.value, ctx)
-        return stmts, self.viper_ast.FieldAccess(expr, ctx.fields[node.attr], pos, info)
+        field = ctx.fields.get(node.attr, ctx.immutable_fields.get(node.attr))
+        return stmts, self.viper_ast.FieldAccess(expr, field, pos, info)
 
     def translate_Subscript(self, node: ast.Subscript, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
