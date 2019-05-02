@@ -24,6 +24,7 @@ class Context:
         self.msg_var = None
 
         self.function = None
+        self.vias = []
         
         self.all_vars = {}
         self.args = {}
@@ -121,6 +122,22 @@ def function_scope(ctx: Context):
 
     ctx._local_var_counter = local_var_counter
     ctx.new_local_vars = new_local_vars
+
+
+@contextmanager
+def via_scope(ctx: Context):
+    """
+    Should be used in a ``with`` statement.
+    Saves the current ``vias``, creates a new empty one for the body
+    of the ``with`` statement, and restores the previous one in the end.
+    """
+
+    vias = ctx.vias
+    ctx.vias = []
+
+    yield
+
+    ctx.vias = vias
 
 
 @contextmanager

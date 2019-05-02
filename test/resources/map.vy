@@ -3,7 +3,7 @@ mp: map(int128, int128)
 i: int128
 
 #@ invariant: self.i == 0
-#:: ExpectedOutput(invariant.violated:assertion.false)
+#:: ExpectedOutput(invariant.violated:assertion.false, WW)
 #@ invariant: self.mp[self.i] == 0
 
 @public
@@ -25,6 +25,7 @@ def write_mult():
 
 
 # Should fail
+#:: Label(WW)
 @public
 def write_wrong():
     self.mp[self.i] = 42

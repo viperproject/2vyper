@@ -30,9 +30,9 @@ class NodeTranslator:
     def generic_translate(self, node, ctx):
         raise AssertionError(f"Node of type {type(node)} not supported.")
 
-    def _register_potential_error(self, node, ctx: Context, rules: Rules = None, error_string: str = None) -> str:
+    def _register_potential_error(self, node, ctx: Context, rules: Rules = None, vias = [], error_string: str = None) -> str:
         name = None if not ctx.function else ctx.function.name
-        error_info = ErrorInfo(name, node, [], error_string)
+        error_info = ErrorInfo(name, node, vias, error_string)
         id = error_manager.add_error_information(error_info, rules)
         return id
 
@@ -41,7 +41,8 @@ class NodeTranslator:
         Extracts the position from a node, assigns an ID to the node and stores
         the node and the position in the context for it.
         """
-        id = self._register_potential_error(node, ctx, rules, error_string)
+        vias = ctx.vias
+        id = self._register_potential_error(node, ctx, rules, vias, error_string)
         return self.viper_ast.to_position(node, id, ctx.file)
 
     def no_position(self, error_string: str = None) -> 'silver.ast.Position':

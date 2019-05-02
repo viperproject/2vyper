@@ -18,7 +18,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context, function_scope
+from nagini_translation.translation.context import Context, function_scope, via_scope
 
 from nagini_translation.translation.builtins import INIT, SELF, MSG
 
@@ -110,8 +110,11 @@ class FunctionTranslator(NodeTranslator):
             # If the function is public we also assert the invariants
             if function.is_public():
                 translator = self.specification_translator
-                ignore_old = function.name == INIT
-                invariants, invariant_assertions = translator.translate_invariants(ctx.program.invariants, ctx, ignore_old)
+                is_init = function.name == INIT
+                with via_scope(ctx):
+                    if not is_init:
+                        ctx.vias = [('invariant', pos)]
+                    invariants, invariant_assertions = translator.translate_invariants(ctx.program.invariants, ctx, is_init)
                 body += invariant_assertions
             else:
                 invariants = []
