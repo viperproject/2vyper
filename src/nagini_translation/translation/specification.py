@@ -62,7 +62,16 @@ class SpecificationTranslator(ExpressionTranslator):
         info = self.no_info()
 
         name = node.func.id
-        if name == 'result' or name == 'success':
+        if name == 'implies':
+            if len(node.args) != 2:
+                raise InvalidProgramException(node, "Implication requires 2 arguments.")
+            
+            lhs = self._translate_spec(node.args[0], ctx)
+            rhs = self._translate_spec(node.args[1], ctx)
+
+            implies = self.viper_ast.Or(self.viper_ast.Not(lhs, pos, info), rhs, pos, info)
+            return [], implies
+        elif name == 'result' or name == 'success':
             cap = name.capitalize()
             if self._invariant_mode:
                 raise InvalidProgramException(node, f"{cap} not allowed in invariant.")
@@ -75,7 +84,7 @@ class SpecificationTranslator(ExpressionTranslator):
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Old expression require a single argument.")
             
-            _, expr = self.translate(node.args[0], ctx)
+            expr = self._translate_spec(node.args[0], ctx)
             return [], self.viper_ast.Old(expr, pos, info)
         else:
             raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
