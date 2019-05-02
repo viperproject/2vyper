@@ -16,8 +16,13 @@ class Rules(Dict[Tuple[str, str], Tuple[str, str]]):
 
 
 INVARIANT_FAIL = {
-    ('postcondition.violated', 'assertion.false'):
+    ('assert.failed', 'assertion.false'):
         ('invariant.violated', 'assertion.false')
+}
+
+POSTCONDITION_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('postcondition.violated', 'assertion.false')
 }
 
 

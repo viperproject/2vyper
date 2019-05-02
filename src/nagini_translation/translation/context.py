@@ -15,17 +15,9 @@ class Context:
         self.program = None
         # All Vyper fields not including ghost fields
         self.fields = {}
-        # Ghost invariants that even have to hold before __init__
+        # Permissions that have to be passed around
         # Note: already translated, as they should never fail
-        self.ghost_general_invariants = []
-        # Normal ghost invariants that do not have to hold before __init__
-        # Note: already translated, as they should never fail
-        self.ghost_invariants = []
-        # Normal invariants that do not have to hold before __init__
-        # Note: not yet translated, as we need error information provided by
-        # the function they are checked with if they fail, therefore contains 
-        # callables that create an invariant given a context
-        self.invariants = []
+        self.permissions = []
         self.self_var = None
 
         self.function = None

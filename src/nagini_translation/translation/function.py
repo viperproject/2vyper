@@ -29,7 +29,7 @@ class FunctionTranslator(NodeTranslator):
         self.viper_ast = viper_ast
         self.expression_translator = ExpressionTranslator(viper_ast)
         self.statement_translator = StatementTranslator(viper_ast)
-        self.specification_translator = SpecificationTranslator(viper_ast, False)
+        self.specification_translator = SpecificationTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
@@ -95,26 +95,41 @@ class FunctionTranslator(NodeTranslator):
             # The end of a program, label where return statements jump to
             body.append(end_label)
 
+            # Postconditions hold for single transactions, invariants across transactions.
+            # Therefore, after the function execution the following steps happen:
+            #   - Assert the specified postconditions of the function
+            #   - Havoc variables like block.timestamp or msg.sender
+            #   - Assert invariants
+            # This is necessary to not be able to prove the invariant 
+            # old(block.timestamp) == block.timestamp
+
+            # First the postconditions are asserted
+            posts, post_assertions = self.specification_translator.translate_postconditions(function.postconditions, ctx)
+            body += post_assertions
+            # If the function is public we also assert the invariants
+            if function.is_public():
+                invariants, invariant_assertions = self.specification_translator.translate_invariants(ctx.program.invariants, ctx)
+                body += invariant_assertions
+            else:
+                invariants = []
+
+            all_posts = ctx.permissions + posts + invariants
+
+            # Add preconditions; invariants do not have to hold before __init__
+            pres = self.specification_translator.translate_preconditions(function.preconditions, ctx)
+            all_pres = ctx.permissions + pres + ([] if function.name == INIT else invariants)
+
+            # Since we check the postconditions and invariants in the body we can just assume
+            # false, so the actual posconditions always succeed
+            assume_false = self.viper_ast.Inhale(self.viper_ast.FalseLit(nopos, info), nopos, info)
+            body.append(assume_false)
+
             seqn = self.viper_ast.Seqn(body, pos, info)
             args_list = list(args.values())
             new_locals = ctx.new_local_vars
             locals_list = list(locals.values()) + new_locals
-
-            if function.is_public():
-                # All invariants have to hold after all public functions
-                invariants = [inv(ctx) for inv in ctx.invariants]
-                posts = ctx.ghost_general_invariants + ctx.ghost_invariants + invariants
-                # General invariants have to hold before every public function except __init__
-                pres = ctx.ghost_general_invariants if function.name == INIT else posts.copy()
-            else:
-                # Private functions only use pre and post conditions that are specified
-                pres = []
-                posts = []
-
-            pres += [self.specification_translator.translate_spec(p, ctx) for p in function.preconditions]
-            posts += [self.specification_translator.translate_spec(p, ctx) for p in function.postconditions]
             
-        method = self.viper_ast.Method(function.name, args_list, rets, pres, posts, locals_list, seqn, pos, info)
+        method = self.viper_ast.Method(function.name, args_list, rets, all_pres, all_posts, locals_list, seqn, pos, info)
         return method
         
 

@@ -9,17 +9,16 @@ import ast
 
 from nagini_translation.utils import seq_to_list
 
-from nagini_translation.parsing.ast import VyperProgram, VyperFunction, VyperVar
+from nagini_translation.parsing.ast import VyperProgram, VyperVar
 from nagini_translation.lib.typedefs import Program
 from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.function import FunctionTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.specification import SpecificationTranslator
 
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.builtins import INIT, SELF
+from nagini_translation.translation.builtins import INIT
 from nagini_translation.translation.builtins import init_function, self_var
 
 
@@ -30,7 +29,6 @@ class ProgramTranslator(NodeTranslator):
         self.builtins = builtins
         self.function_translator = FunctionTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
-        self.specification_translator = SpecificationTranslator(viper_ast, True)
 
     def _translate_field(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
@@ -68,26 +66,18 @@ class ProgramTranslator(NodeTranslator):
         ctx.self_var = self_var(self.viper_ast, pos, info)
 
         ctx.fields = {}
-        ctx.ghost_general_invariants = []
-        ctx.ghost_invariants = []
+        ctx.permissions = []
         for var in vyper_program.state.values():
             # Create field
             field = self._translate_field(var, ctx)
             ctx.fields[var.name] = field
 
-            perm = self.type_translator.permissions(var.type, field, ctx)
-            if perm:
-                ctx.ghost_invariants.append(perm)
-
             # Pass around the permissions for all fields
             acc = self._create_field_access_predicate(ctx.self_var.localVar(), field, ctx)
-            ctx.ghost_general_invariants.append(acc)
+            ctx.permissions.append(acc)
 
         fields_list = builtin_fields + list(ctx.fields.values())
 
-        # Add the actual invariants
-        # Note: The default value of the lambda is used to caputure the iv object
-        ctx.invariants = [lambda c, iv=iv : self.specification_translator.translate_spec(iv, c) for iv in vyper_program.invariants]
         functions = vyper_program.functions.values()
         methods += [self.function_translator.translate(function, ctx) for function in functions]
         viper_program = self.viper_ast.Program(domains, fields_list, [], [], methods, pos, info)

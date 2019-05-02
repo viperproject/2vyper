@@ -7,9 +7,10 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-import nagini_translation.lib.errors.rules as conversion_rules
+from typing import List
 
-from nagini_translation.lib.typedefs import StmtsAndExpr
+from nagini_translation.lib.errors import rules
+from nagini_translation.lib.typedefs import Expr, StmtsAndExpr
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context
@@ -18,28 +19,41 @@ from nagini_translation.errors.translation_exceptions import InvalidProgramExcep
 
 
 class SpecificationTranslator(ExpressionTranslator):
-    
-    def __init__(self, viper_ast: ViperAST, invariant_mode: bool):
-        super().__init__(viper_ast)
-        self.invariant_mode = invariant_mode
 
-    def translate_spec(self, node, ctx: Context):
+    def __init__(self, viper_ast: ViperAST):
+        super().__init__(viper_ast)
+        self._invariant_mode = None
+
+    def translate_preconditions(self, pres: List[ast.AST], ctx: Context):
+        self._invariant_mode = False
+        return self._translate_specification(pres, None, ctx)[0]
+
+    def translate_postconditions(self, posts: List[ast.AST], ctx: Context):
+        self._invariant_mode = False
+        rule = rules.POSTCONDITION_FAIL
+        return self._translate_specification(posts, rule, ctx)
+
+    def translate_invariants(self, invs: List[ast.AST], ctx: Context):
+        self._invariant_mode = True
+        rule = rules.INVARIANT_FAIL
+        return self._translate_specification(invs, rule, ctx)
+
+    def _translate_specification(self, exprs: List[ast.AST], rule, ctx: Context):
+        info = self.no_info()
+        specs = []
+        assertions = []
+        for e in exprs:
+            expr = self._translate_spec(e, ctx)
+            apos = self.to_position(e, ctx, rule)
+            assert_stmt = self.viper_ast.Assert(expr, apos, info)
+            specs.append(expr)
+            assertions.append(assert_stmt)
+        
+        return specs, assertions
+
+    def _translate_spec(self, node, ctx: Context):
         _, expr = self.translate(node, ctx)
         return expr
-
-    def to_position(self, node: ast.AST, ctx: Context, rules = None, error_string = None):
-        r = conversion_rules.INVARIANT_FAIL if self.invariant_mode else None
-        return super().to_position(node, ctx, r, error_string)
-
-    def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
-        if self.invariant_mode:
-            if node.id == 'self':
-                return [], ctx.self_var.localVar()
-            else:
-                # TODO: is this always an error?
-                assert False
-        else:
-            return super().translate_Name(node, ctx)
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         assert isinstance(node.func, ast.Name)
@@ -50,7 +64,7 @@ class SpecificationTranslator(ExpressionTranslator):
         name = node.func.id
         if name == 'result' or name == 'success':
             cap = name.capitalize()
-            if self.invariant_mode:
+            if self._invariant_mode:
                 raise InvalidProgramException(node, f"{cap} not allowed in invariant.")
             if node.args:
                 raise InvalidProgramException(node, f"{cap} must not have arguments.")

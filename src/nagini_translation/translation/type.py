@@ -47,22 +47,6 @@ class TypeTranslator(NodeTranslator):
     def type_of(self, node: ast.AST, ctx: Context) -> VyperType:
         return self._type_visitor.type_of(node, ctx)
 
-    # TODO: This method seems very weird, change it once more permissions are needed for other
-    # types, else integrate it into translator
-    def permissions(self, type: VyperType, field, ctx: Context) -> Optional[Expr]:
-        pos = self.no_position()
-        info = self.no_info()
-
-        if isinstance(type, PrimitiveType):
-            return None
-        elif isinstance(type, MapType):
-            return None
-            field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, pos, info)
-            return map_acc(self.viper_ast, field_acc, pos, info)
-        else:
-            # TODO: handle other?
-            assert False
-
     def revert(self, type: VyperType, field, ctx: Context) -> [Stmt]:
         nopos = self.no_position()
         info = self.no_info()
