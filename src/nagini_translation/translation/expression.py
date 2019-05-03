@@ -11,11 +11,12 @@ from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import StmtsAndExpr
 
 from nagini_translation.ast import names
+from nagini_translation.ast import types
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.builtins import map_get
+from nagini_translation.translation.builtins import map_get, map_get_uint
 
 
 class ExpressionTranslator(NodeTranslator):
@@ -84,14 +85,21 @@ class ExpressionTranslator(NodeTranslator):
         
         op = self.translate_operator(node.op)
 
-        # If the divisor is 0 revert the transaction
-        if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
-            cond = self.viper_ast.EqCmp(right, self.viper_ast.IntLit(0, pos, info), pos, info)
+        def fail_if(cond):
             body = [self.viper_ast.Goto(ctx.revert_label, pos, info)]
             block = self.viper_ast.Seqn(body, pos, info)
             empty = self.viper_ast.Seqn([], pos, info)
-            if_stmt = self.viper_ast.If(cond, block, empty, pos, info)
-            stmts.append(if_stmt)
+            return self.viper_ast.If(cond, block, empty, pos, info)
+
+        # If the divisor is 0 revert the transaction
+        if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
+            cond = self.viper_ast.EqCmp(right, self.viper_ast.IntLit(0, pos, info), pos, info)
+            stmts.append(fail_if(cond))
+
+        # If the result of a uint subtraction is negative, revert the transaction
+        if isinstance(node.op, ast.Sub) and node.type == types.VYPER_UINT256:
+            cond = self.viper_ast.GtCmp(right, left, pos, info)
+            stmts.append(fail_if(cond))
 
         return stmts, op(left, right, pos, info)
 
@@ -154,7 +162,11 @@ class ExpressionTranslator(NodeTranslator):
         key_type = self.type_translator.translate(map_type.key_type, ctx)
         value_type = self.type_translator.translate(map_type.value_type, ctx)
 
-        call = map_get(self.viper_ast, value, index, key_type, value_type, pos, info)
+        if map_type.value_type == types.VYPER_UINT256:
+            call = map_get_uint(self.viper_ast, value, index, key_type, pos, info)
+        else:
+            call = map_get(self.viper_ast, value, index, key_type, value_type, pos, info)
+
         return value_stmts + index_stmts, call
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:

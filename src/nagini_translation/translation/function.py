@@ -9,10 +9,12 @@ import ast
 
 from typing import Dict
 
-from nagini_translation.ast import names
-from nagini_translation.ast.nodes import VyperFunction, VyperVar
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Method, Stmt
+
+from nagini_translation.ast import names
+from nagini_translation.ast import types
+from nagini_translation.ast.nodes import VyperFunction, VyperVar
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
@@ -72,6 +74,15 @@ class FunctionTranslator(NodeTranslator):
             # If we do not encounter an exception we will return success
             body = [returnBool(True)]
 
+            # Assume all unchecked invariants
+            for inv in ctx.unchecked_invariants:
+                body.append(self.viper_ast.Inhale(inv, nopos, info))
+            
+            # Assume for all uint256 arguments a that a >= 0
+            for var in function.args.values():
+                if var.type == types.VYPER_UINT256:
+                    body.append(self._assume_non_negative(args[var.name].localVar(), ctx))
+
             # In the initializer initialize all fields to their default values
             if function.name == names.INIT:
                 for name, field in ctx.fields.items():
@@ -120,12 +131,31 @@ class FunctionTranslator(NodeTranslator):
             else:
                 invariants = []
 
-            all_posts = ctx.permissions + posts + invariants
+            # If the return value is of type uint256 add non-negativeness to
+            # poscondition, but don't assert it (as it always holds anyway)
+            ret_post = []
+            if function.ret == types.VYPER_UINT256:
+                ret_post.append(self._non_negative(ret_var.localVar(), ctx))
+
+            # Postconditions are:
+            #   - The permissings that are passed around
+            #   - The unchecked invariants
+            #   - An assumption about non-negativeness for uint256 results
+            #   - The postconditions specified by the user
+            #   - The invariants
+            all_posts = ctx.permissions + ctx.unchecked_invariants + ret_post + posts + invariants
 
             # Add preconditions; invariants do not have to hold before __init__
             inv_pres = self.specification_translator.translate_preconditions(ctx.program.invariants, ctx)
+            inv_pres = [] if function.name == names.INIT else inv_pres
             pres = self.specification_translator.translate_preconditions(function.preconditions, ctx)
-            all_pres = ctx.permissions + pres + ([] if function.name == names.INIT else inv_pres)
+            # Preconditions are: 
+            #   - The permissions that are passed around
+            #   - The preconditions are were specified by the user
+            #   - The invariants
+            # Note: Unchecked invariants are assumed at the beginning so they do not have to
+            # be checked on a method call
+            all_pres = ctx.permissions + pres + inv_pres
 
             # Since we check the postconditions and invariants in the body we can just assume
             # false, so the actual posconditions always succeed
@@ -146,4 +176,15 @@ class FunctionTranslator(NodeTranslator):
         info = self.no_info()
         type = self.type_translator.translate(var.type, ctx)
         return self.viper_ast.LocalVarDecl(var.name, type, pos, info)
-        
+
+    def _non_negative(self, var, ctx: Context) -> Stmt:
+        pos = self.no_position()
+        info = self.no_info()
+        zero = self.viper_ast.IntLit(0, pos, info)
+        return self.viper_ast.GeCmp(var, zero, pos, info)
+
+    def _assume_non_negative(self, var, ctx: Context) -> Stmt:
+        pos = self.no_position()
+        info = self.no_info()
+        gez = self._non_negative(var, ctx)
+        return self.viper_ast.Inhale(gez, pos, info)

@@ -13,6 +13,7 @@ from nagini_translation.lib.typedefs import Program
 from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.ast import names
+from nagini_translation.ast import types
 from nagini_translation.ast.nodes import VyperProgram, VyperVar
 
 from nagini_translation.translation.abstract import NodeTranslator
@@ -72,6 +73,7 @@ class ProgramTranslator(NodeTranslator):
         ctx.fields = {}
         ctx.immutable_fields = {}
         ctx.permissions = []
+        ctx.unchecked_invariants = []
         for var in vyper_program.state.values():
             # Create field
             field = self._translate_field(var, ctx)
@@ -80,6 +82,12 @@ class ProgramTranslator(NodeTranslator):
             # Pass around the permissions for all fields
             acc = self._create_field_access_predicate(ctx.self_var.localVar(), field, 1, ctx)
             ctx.permissions.append(acc)
+
+            if var.type == types.VYPER_UINT256:
+                zero = self.viper_ast.IntLit(0, pos, info)
+                field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, pos, info)
+                non_neg = self.viper_ast.GeCmp(field_acc, zero, pos, info)
+                ctx.unchecked_invariants.append(non_neg)
         
         # Create msg.sender field
         msg_sender = builtins.msg_sender_field(self.viper_ast, pos, info)

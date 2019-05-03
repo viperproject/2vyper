@@ -19,7 +19,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.special import SpecialTranslator
 
-from nagini_translation.translation.builtins import map_get, map_set
+from nagini_translation.translation.builtins import map_set
 
 
 class StatementTranslator(NodeTranslator):
@@ -61,6 +61,7 @@ class StatementTranslator(NodeTranslator):
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
         # TODO: combine with normal assign?
+        # TODO: handle division by 0 and minus etc.
         pos = self.to_position(node, ctx)
         info = self.no_info()
 
