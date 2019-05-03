@@ -90,7 +90,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 raise InvalidProgramException(node, f"{cap} must not have arguments.")
 
             var = ctx.result_var if name == names.RESULT else ctx.success_var
-            return [], var.localVar()
+            local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos, info)
+            return [], local_var
         elif name == names.OLD:
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Old expression requires a single argument.")
