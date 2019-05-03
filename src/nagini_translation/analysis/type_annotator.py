@@ -143,7 +143,7 @@ class TypeAnnotator:
 
     def annotate_Attribute(self, node: ast.Attribute, expected: VyperType):
         self.annotate(node.value, None)
-        if node.attr == 'sender':
+        if node.attr == names.MSG_SENDER:
             node.type = types.VYPER_ADDRESS
         else:
             node.type = self.program.state[node.attr].type

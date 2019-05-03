@@ -7,8 +7,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-import nagini_translation.translation.builtins as builtins
-
 from typing import Optional
 
 from nagini_translation.ast import types
@@ -19,7 +17,7 @@ from nagini_translation.lib.typedefs import Type, Expr, Stmt, StmtsAndExpr
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.builtins import map_type
+from nagini_translation.translation.builtins import map_type, map_init
 
 
 class TypeTranslator(NodeTranslator):
@@ -69,7 +67,7 @@ class TypeTranslator(NodeTranslator):
             value_type = self.translate(type.value_type, ctx)
 
             stmts, value_default = self.translate_default_value(type.value_type, ctx)
-            call = builtins.map_init(self.viper_ast, value_default, key_type, value_type, pos, info)
+            call = map_init(self.viper_ast, value_default, key_type, value_type, pos, info)
             return [], call
         else:
             # TODO:

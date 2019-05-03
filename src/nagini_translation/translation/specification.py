@@ -14,9 +14,9 @@ from nagini_translation.ast import names
 from nagini_translation.lib.errors import rules
 from nagini_translation.lib.typedefs import Expr, StmtsAndExpr
 from nagini_translation.lib.viper_ast import ViperAST
+
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context
-
 from nagini_translation.translation.builtins import map_sum
 
 from nagini_translation.errors.translation_exceptions import InvalidProgramException

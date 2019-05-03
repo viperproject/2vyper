@@ -158,7 +158,7 @@ class ConstantTransformer(ast.NodeTransformer):
         self.constants = constants
 
     def visit_Name(self, node: ast.Name):
-        return self.constants.get(node.id) or node
+        return ast.copy_location(self.constants.get(node.id) or node, node)
 
     
 

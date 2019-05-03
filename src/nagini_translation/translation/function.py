@@ -9,6 +9,7 @@ import ast
 
 from typing import Dict
 
+from nagini_translation.ast import names
 from nagini_translation.ast.nodes import VyperFunction, VyperVar
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Method, Stmt
@@ -20,7 +21,7 @@ from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context, function_scope, via_scope
 
-from nagini_translation.translation.builtins import INIT, SELF, MSG
+from nagini_translation.translation import builtins
 
 
 class FunctionTranslator(NodeTranslator):
@@ -41,27 +42,27 @@ class FunctionTranslator(NodeTranslator):
             ctx.function = function
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
-            args[SELF] = ctx.self_var
-            args[MSG] = ctx.msg_var
+            args[builtins.SELF] = ctx.self_var
+            args[builtins.MSG] = ctx.msg_var
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
             ctx.args = args
             ctx.locals = locals
             ctx.all_vars = {**args, **locals}
 
-            success_var = self.viper_ast.LocalVarDecl('$succ', self.viper_ast.Bool, nopos, info)
+            success_var = builtins.success_var(self.viper_ast, nopos, info)
             ctx.success_var = success_var
-            revert_label = self.viper_ast.Label('revert', nopos, info)
-            ctx.revert_label = 'revert'
+            revert_label = builtins.revert_label(self.viper_ast, nopos, info)
+            ctx.revert_label = builtins.REVERT_LABEL
 
             rets = [success_var]
-            end_label = self.viper_ast.Label('end', pos, info)
-            ctx.end_label = 'end'
+            end_label = builtins.end_label(self.viper_ast, nopos, info)
+            ctx.end_label = builtins.END_LABEL
 
             if function.ret:
-                retType = self.type_translator.translate(function.ret, ctx)
-                retVar = self.viper_ast.LocalVarDecl('$ret', retType, pos, info)
-                rets.append(retVar)
-                ctx.result_var = retVar
+                ret_type = self.type_translator.translate(function.ret, ctx)
+                ret_var = builtins.ret_var(self.viper_ast, ret_type, pos, info)
+                rets.append(ret_var)
+                ctx.result_var = ret_var
 
             def returnBool(value: bool) -> Stmt:
                 local_var = success_var.localVar()
@@ -72,7 +73,7 @@ class FunctionTranslator(NodeTranslator):
             body = [returnBool(True)]
 
             # In the initializer initialize all fields to their default values
-            if function.name == INIT:
+            if function.name == names.INIT:
                 for name, field in ctx.fields.items():
                     field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, nopos, info)
                     type = ctx.program.state[name].type
@@ -110,7 +111,7 @@ class FunctionTranslator(NodeTranslator):
             # If the function is public we also assert the invariants
             if function.is_public():
                 translator = self.specification_translator
-                is_init = function.name == INIT
+                is_init = function.name == names.INIT
                 with via_scope(ctx):
                     if not is_init:
                         ctx.vias = [('invariant', pos)]
@@ -124,7 +125,7 @@ class FunctionTranslator(NodeTranslator):
             # Add preconditions; invariants do not have to hold before __init__
             inv_pres = self.specification_translator.translate_preconditions(ctx.program.invariants, ctx)
             pres = self.specification_translator.translate_preconditions(function.preconditions, ctx)
-            all_pres = ctx.permissions + pres + ([] if function.name == INIT else inv_pres)
+            all_pres = ctx.permissions + pres + ([] if function.name == names.INIT else inv_pres)
 
             # Since we check the postconditions and invariants in the body we can just assume
             # false, so the actual posconditions always succeed

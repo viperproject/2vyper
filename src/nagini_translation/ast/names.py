@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+# Constants for names in the original AST
 
 # Decorators
 PUBLIC = 'public'
@@ -14,9 +15,13 @@ PAYABLE = 'payable'
 # Types
 MAP = 'map'
 
+# Functions
+INIT = '__init__'
+
 # Variables
 SELF = 'self'
 MSG = 'msg'
+MSG_SENDER = 'sender'
 
 # Constants
 ZERO_ADDRESS = 'ZERO_ADDRESS'

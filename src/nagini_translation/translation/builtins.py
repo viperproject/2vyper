@@ -9,15 +9,24 @@ import ast
 
 from nagini_translation.lib.viper_ast import ViperAST
 
+from nagini_translation.ast import names
 from nagini_translation.ast.nodes import VyperFunction
 
 
-INIT = '__init__'
-SELF = 'self'
+# Constants for names in translated AST
 
-MSG = 'msg'
-MSG_SENDER = 'sender'
 
+INIT = names.INIT
+SELF = names.SELF
+
+MSG = names.MSG
+MSG_SENDER = names.MSG_SENDER
+
+RESULT_VAR = '$res'
+SUCCESS_VAR = '$succ'
+
+END_LABEL = 'end'
+REVERT_LABEL = 'revert'
 
 MAP_DOMAIN = '$Map'
 MAP_SUM_DOMAIN = '$MapSum'
@@ -32,7 +41,7 @@ MAP_SUM = '$map_sum'
 
 def init_function() -> ast.FunctionDef:
     node = ast.FunctionDef(INIT, [], [], [], None)
-    return VyperFunction(INIT, {}, {}, None, [], [], ['public'], node)
+    return VyperFunction(INIT, {}, {}, None, [], [], [names.PUBLIC], node)
 
 def self_var(viper_ast: ViperAST, pos, info):
     return viper_ast.LocalVarDecl(SELF, viper_ast.Ref, pos, info)
@@ -43,6 +52,17 @@ def msg_var(viper_ast: ViperAST, pos, info):
 def msg_sender_field(viper_ast: ViperAST, pos, info):
     return viper_ast.Field(MSG_SENDER, viper_ast.Int, pos, info)
 
+def ret_var(viper_ast: ViperAST, ret_type, pos, info):
+     return viper_ast.LocalVarDecl(RESULT_VAR, ret_type, pos, info)
+
+def success_var(viper_ast: ViperAST, pos, info):
+     return viper_ast.LocalVarDecl(SUCCESS_VAR, viper_ast.Bool, pos, info)
+
+def end_label(viper_ast: ViperAST, pos, info):
+     return viper_ast.Label(END_LABEL, pos, info)
+
+def revert_label(viper_ast: ViperAST, pos, info):
+     return viper_ast.Label(REVERT_LABEL, pos, info)
 
 def _map_type_var_map(viper_ast: ViperAST, key_type, value_type):
     key = viper_ast.TypeVar(MAP_KEY_VAR)

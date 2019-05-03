@@ -9,19 +9,18 @@ import ast
 
 from nagini_translation.utils import seq_to_list
 
-from nagini_translation.ast.nodes import VyperProgram, VyperVar
 from nagini_translation.lib.typedefs import Program
 from nagini_translation.lib.viper_ast import ViperAST
+
+from nagini_translation.ast import names
+from nagini_translation.ast.nodes import VyperProgram, VyperVar
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.function import FunctionTranslator
 from nagini_translation.translation.type import TypeTranslator
-
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.builtins import INIT, MSG_SENDER
-from nagini_translation.translation.builtins import (
-    init_function, self_var, msg_var, msg_sender_field
-)
+
+from nagini_translation.translation import builtins
 
 
 class ProgramTranslator(NodeTranslator):
@@ -54,8 +53,8 @@ class ProgramTranslator(NodeTranslator):
         return self.viper_ast.FieldAccessPredicate(field_acc, perm, pos, info)
 
     def translate(self, vyper_program: VyperProgram, file: str) -> Program:
-        if INIT not in vyper_program.functions:
-            vyper_program.functions[INIT] = init_function()
+        if names.INIT not in vyper_program.functions:
+            vyper_program.functions[builtins.INIT] = builtins.init_function()
 
         pos = self.no_position()
         info = self.no_info()
@@ -67,8 +66,8 @@ class ProgramTranslator(NodeTranslator):
 
         ctx = Context(file)
         ctx.program = vyper_program
-        ctx.self_var = self_var(self.viper_ast, pos, info)
-        ctx.msg_var = msg_var(self.viper_ast, pos, info)
+        ctx.self_var = builtins.self_var(self.viper_ast, pos, info)
+        ctx.msg_var = builtins.msg_var(self.viper_ast, pos, info)
 
         ctx.fields = {}
         ctx.immutable_fields = {}
@@ -83,8 +82,8 @@ class ProgramTranslator(NodeTranslator):
             ctx.permissions.append(acc)
         
         # Create msg.sender field
-        msg_sender = msg_sender_field(self.viper_ast, pos, info)
-        ctx.immutable_fields[MSG_SENDER] = msg_sender
+        msg_sender = builtins.msg_sender_field(self.viper_ast, pos, info)
+        ctx.immutable_fields[builtins.MSG_SENDER] = msg_sender
         # Pass around the permissions for msg.sender
         acc = self._create_field_access_predicate(ctx.msg_var.localVar(), msg_sender, 0, ctx)
         ctx.permissions.append(acc)
