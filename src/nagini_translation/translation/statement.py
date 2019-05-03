@@ -187,7 +187,6 @@ class _AssignmentTranslator(NodeTranslator):
         return lhs_stmts + [assign]
 
     def assign_to_Subscript(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
-        # TODO: decide how to handle statements created in this process
         pos = self.to_position(node, ctx)
         info = self.no_info()
 
@@ -199,4 +198,7 @@ class _AssignmentTranslator(NodeTranslator):
         index_stmts, index = self.expression_translator.translate(node.slice.value, ctx)
         new_value = map_set(self.viper_ast, receiver, index, value, key_type, value_type, pos, info)
 
-        return self.assign_to(node.value, new_value, ctx)
+        # We simply evaluate the receiver and index statements here, even though they 
+        # might get evaluated again in the recursive call. This is ok as long as the lhs of the
+        # assignment is pure.
+        return receiver_stmts + index_stmts + self.assign_to(node.value, new_value, ctx)
