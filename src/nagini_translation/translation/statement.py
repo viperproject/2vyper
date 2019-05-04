@@ -13,6 +13,8 @@ from nagini_translation.utils import flatten
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Stmt
 
+from nagini_translation.ast import types
+
 from nagini_translation.translation.context import Context, break_scope, continue_scope
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
@@ -61,7 +63,6 @@ class StatementTranslator(NodeTranslator):
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
         # TODO: combine with normal assign?
-        # TODO: handle division by 0 and minus etc.
         pos = self.to_position(node, ctx)
         info = self.no_info()
 
@@ -72,6 +73,23 @@ class StatementTranslator(NodeTranslator):
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 
         stmts = lhs_stmts + rhs_stmts
+
+        def fail_if(cond):
+            body = [self.viper_ast.Goto(ctx.revert_label, pos, info)]
+            block = self.viper_ast.Seqn(body, pos, info)
+            empty = self.viper_ast.Seqn([], pos, info)
+            return self.viper_ast.If(cond, block, empty, pos, info)
+
+        # If the divisor is 0 revert the transaction
+        if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
+            cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos, info), pos, info)
+            stmts.append(fail_if(cond))
+
+        # If the result of a uint subtraction is negative, revert the transaction
+        if isinstance(node.op, ast.Sub) and left.type == types.VYPER_UINT256:
+            cond = self.viper_ast.GtCmp(rhs, lhs, pos, info)
+            stmts.append(fail_if(cond))
+
         value = op(lhs, rhs, pos, info)
         return stmts + self.assignment_translator.assign_to(node.target, value, ctx)
 
