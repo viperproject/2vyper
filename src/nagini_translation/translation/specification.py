@@ -10,6 +10,7 @@ import ast
 from typing import List
 
 from nagini_translation.ast import names
+from nagini_translation.ast import types
 
 from nagini_translation.lib.errors import rules
 from nagini_translation.lib.typedefs import Expr, StmtsAndExpr
@@ -17,7 +18,7 @@ from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.builtins import map_sum
+from nagini_translation.translation.builtins import map_sum, map_sum_uint
 
 from nagini_translation.errors.translation_exceptions import InvalidProgramException
 
@@ -105,9 +106,15 @@ class SpecificationTranslator(ExpressionTranslator):
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Sum expression requires a single argument.")
             
-            expr = self._translate_spec(node.args[0], ctx)
-            key_type = self.type_translator.translate(node.args[0].type.key_type, ctx)
-            return [], map_sum(self.viper_ast, expr, key_type, pos, info)
+            arg = node.args[0]
+            expr = self._translate_spec(arg, ctx)
+            key_type = self.type_translator.translate(arg.type.key_type, ctx)
+
+            if arg.type.value_type == types.VYPER_UINT256:
+                constructor = map_sum_uint
+            else:
+                constructor = map_sum
+            return [], constructor(self.viper_ast, expr, key_type, pos, info)
         else:
             raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
 

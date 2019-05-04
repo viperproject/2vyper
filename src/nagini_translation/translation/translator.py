@@ -42,16 +42,15 @@ class ProgramTranslator(NodeTranslator):
 
         return field
 
-    def _create_field_access_predicate(self, receiver, field, amount, ctx: Context):
+    def _create_field_access_predicate(self, field_access, amount, ctx: Context):
         pos = self.no_position()
         info = self.no_info()
 
-        field_acc = self.viper_ast.FieldAccess(receiver, field, pos, info)
         if amount == 1:
             perm = self.viper_ast.FullPerm(pos, info)
         else:
             perm = self.viper_ast.WildcardPerm(pos, info)
-        return self.viper_ast.FieldAccessPredicate(field_acc, perm, pos, info)
+        return self.viper_ast.FieldAccessPredicate(field_access, perm, pos, info)
 
     def translate(self, vyper_program: VyperProgram, file: str) -> Program:
         if names.INIT not in vyper_program.functions:
@@ -80,12 +79,12 @@ class ProgramTranslator(NodeTranslator):
             ctx.fields[var.name] = field
 
             # Pass around the permissions for all fields
-            acc = self._create_field_access_predicate(ctx.self_var.localVar(), field, 1, ctx)
+            field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, pos, info)
+            acc = self._create_field_access_predicate(field_acc, 1, ctx)
             ctx.permissions.append(acc)
 
             if var.type == types.VYPER_UINT256:
                 zero = self.viper_ast.IntLit(0, pos, info)
-                field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, pos, info)
                 non_neg = self.viper_ast.GeCmp(field_acc, zero, pos, info)
                 ctx.unchecked_invariants.append(non_neg)
         
@@ -93,8 +92,12 @@ class ProgramTranslator(NodeTranslator):
         msg_sender = builtins.msg_sender_field(self.viper_ast, pos, info)
         ctx.immutable_fields[builtins.MSG_SENDER] = msg_sender
         # Pass around the permissions for msg.sender
-        acc = self._create_field_access_predicate(ctx.msg_var.localVar(), msg_sender, 0, ctx)
+        field_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_sender, pos, info)
+        acc = self._create_field_access_predicate(field_acc, 0, ctx)
         ctx.permissions.append(acc)
+        # Assume msg.sender != 0
+        zero = self.viper_ast.IntLit(0, pos, info)
+        ctx.unchecked_invariants.append(self.viper_ast.NeCmp(field_acc, zero, pos, info))
 
         fields_list = list(ctx.fields.values()) + list(ctx.immutable_fields.values())
 
