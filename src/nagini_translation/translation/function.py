@@ -16,7 +16,7 @@ from nagini_translation.ast import names
 from nagini_translation.ast import types
 from nagini_translation.ast.nodes import VyperFunction, VyperVar
 
-from nagini_translation.translation.abstract import NodeTranslator
+from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
@@ -26,7 +26,7 @@ from nagini_translation.translation.context import Context, function_scope, via_
 from nagini_translation.translation import builtins
 
 
-class FunctionTranslator(NodeTranslator):
+class FunctionTranslator(PositionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast

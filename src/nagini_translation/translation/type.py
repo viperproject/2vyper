@@ -15,12 +15,12 @@ from nagini_translation.ast.types import VyperType, PrimitiveType, MapType
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Type, Expr, Stmt, StmtsAndExpr
 
-from nagini_translation.translation.abstract import NodeTranslator
+from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.context import Context
 from nagini_translation.translation.builtins import map_type, map_init
 
 
-class TypeTranslator(NodeTranslator):
+class TypeTranslator(PositionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)

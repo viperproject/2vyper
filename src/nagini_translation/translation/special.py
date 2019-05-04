@@ -12,13 +12,13 @@ from typing import Tuple, List
 from nagini_translation.lib.typedefs import Expr, Stmt
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.abstract import NodeTranslator
+from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 
 from nagini_translation.errors.translation_exceptions import InvalidProgramException
 
 
-class SpecialTranslator(NodeTranslator):
+class SpecialTranslator(PositionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast

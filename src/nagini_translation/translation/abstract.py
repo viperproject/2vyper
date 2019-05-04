@@ -16,19 +16,10 @@ from nagini_translation.lib.errors.wrappers import ErrorInfo
 from nagini_translation.translation.context import Context
 
 
-class NodeTranslator:
+class PositionTranslator:
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
-
-    def translate(self, node, ctx):
-        """Translate a node."""
-        method = 'translate_' + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_translate)
-        return visitor(node, ctx)
-
-    def generic_translate(self, node, ctx):
-        raise AssertionError(f"Node of type {type(node)} not supported.")
 
     def _register_potential_error(self, node, ctx: Context, rules: Rules = None, vias = [], error_string: str = None) -> str:
         name = None if not ctx.function else ctx.function.name
@@ -60,3 +51,18 @@ class NodeTranslator:
 
     def no_info(self) -> 'silver.ast.Info':
         return self.to_info([])
+
+
+class NodeTranslator(PositionTranslator):
+
+    def __init__(self, viper_ast: ViperAST):
+        super().__init__(viper_ast)
+
+    def translate(self, node, ctx):
+        """Translate a node."""
+        method = 'translate_' + node.__class__.__name__
+        visitor = getattr(self, method, self.generic_translate)
+        return visitor(node, ctx)
+
+    def generic_translate(self, node, ctx):
+        raise AssertionError(f"Node of type {type(node)} not supported.")
