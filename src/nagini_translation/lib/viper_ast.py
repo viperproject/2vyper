@@ -93,10 +93,10 @@ class ViperAST:
             lsttoappend = self.singleton_seq(to_append)
             list.append(lsttoappend)
 
-    def to_seq(self, list):
-        result = self.scala.collection.mutable.ArraySeq(len(list))
-        for index in range(0, len(list)):
-            result.update(index, list[index])
+    def to_seq(self, py_iterable):
+        result = self.scala.collection.mutable.ArraySeq(len(py_iterable))
+        for index, value in enumerate(py_iterable):
+            result.update(index, value)
         return result.toList()
 
     def to_list(self, seq):
@@ -152,7 +152,7 @@ class ViperAST:
                info = None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        
+
         if body is None:
             body_with_locals = self.none
         else:

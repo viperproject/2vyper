@@ -74,7 +74,7 @@ def _map_type_var_map(viper_ast: ViperAST, key_type, value_type):
 
 def map_type(viper_ast: ViperAST, key_type, value_type):
     type_vars = _map_type_var_map(viper_ast, key_type, value_type)
-    return viper_ast.DomainType(MAP_DOMAIN, type_vars, list(type_vars.keys()))
+    return viper_ast.DomainType(MAP_DOMAIN, type_vars, type_vars.keys())
 
 def map_init(viper_ast: ViperAST, arg, key_type, value_type, pos = None, info = None):
     mp_type = map_type(viper_ast, key_type, value_type)
