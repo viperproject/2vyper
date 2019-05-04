@@ -94,7 +94,7 @@ class FunctionTranslator(PositionTranslator):
                 for name, field in ctx.fields.items():
                     field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field)
                     type = ctx.program.state[name].type
-                    stmts, expr = self.type_translator.default_value(type, ctx)
+                    stmts, expr = self.type_translator.default_value(None, type, ctx)
                     assign = self.viper_ast.FieldAssign(field_acc, expr)
                     defaults += stmts + [assign]
                 

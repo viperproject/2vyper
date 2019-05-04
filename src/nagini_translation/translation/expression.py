@@ -61,9 +61,6 @@ class ExpressionTranslator(NodeTranslator):
             return [], self.viper_ast.TrueLit(pos)
         elif node.value is False:
             return [], self.viper_ast.FalseLit(pos)
-        elif node.value is None:
-            # TODO: assign 0 if value
-            return [], self.viper_ast.NullLit(pos)
         else:
             raise UnsupportedException(node)
 

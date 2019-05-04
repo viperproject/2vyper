@@ -80,6 +80,9 @@ class TypeAnnotator:
     def annotate_Assert(self, node: ast.Assert, expected: VyperType):
         self.annotate(node.test, types.VYPER_BOOL)
 
+    def annotate_Expr(self, node: ast.Expr, expected: VyperType):
+        self.annotate(node.value, None)
+
     def annotate_Pass(self, node: ast.Pass, expected: VyperType):
         pass
 
@@ -121,6 +124,8 @@ class TypeAnnotator:
                 node.type = node.args[0].type
             elif name == names.RANGE:
                 node.type = types.VYPER_INT128
+            elif name == names.CLEAR:
+                node.type = None
             elif name == names.SUCCESS:
                 node.type = types.VYPER_BOOL
             elif name == names.RESULT:

@@ -14,6 +14,7 @@ from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Stmt
 
 from nagini_translation.ast import types
+from nagini_translation.ast import names
 
 from nagini_translation.translation.context import Context, break_scope, continue_scope
 from nagini_translation.translation.abstract import NodeTranslator
@@ -45,7 +46,7 @@ class StatementTranslator(NodeTranslator):
 
         if node.value is None:
             type = node.target.type
-            rhs_stmts, rhs = self.type_translator.default_value(type, ctx)
+            rhs_stmts, rhs = self.type_translator.default_value(None, type, ctx)
         else:
             rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 
@@ -90,6 +91,18 @@ class StatementTranslator(NodeTranslator):
         value = op(lhs, rhs, pos)
         return stmts + self.assignment_translator.assign_to(node.target, value, ctx)
 
+    def translate_Expr(self, node: ast.Expr, ctx: Context) -> List[Stmt]:
+        # Check if we are translating a call to clear
+        # We handle clear in the StatementTranslator because it is essentially an assignment
+        is_call = lambda n: isinstance(n, ast.Call)
+        is_clear = lambda n: isinstance(n, ast.Name) and n.id == names.CLEAR
+        if is_call(node.value) and is_clear(node.value.func):
+            arg = node.value.args[0]
+            stmts, value = self.type_translator.default_value(node, arg.type, ctx)
+            return stmts + self.assignment_translator.assign_to(arg, value, ctx)
+        else:
+            assert False # TODO
+
     def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
         info = self.to_info(["Assert"])
@@ -129,6 +142,7 @@ class StatementTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         if not self.special_translator.is_range(node.iter):
+            # TODO:
             raise AssertionError("Not supported yet")
 
         with break_scope(ctx):
@@ -179,6 +193,7 @@ class _AssignmentTranslator(NodeTranslator):
         return visitor(node, value, ctx)
 
     def generic_assign_to(self, node, value, ctx):
+        # TODO:
         raise AssertionError(f"Node of type {type(node)} not supported.")
 
     def assign_to_Name(self, node: ast.Name, value, ctx: Context) -> List[Stmt]:

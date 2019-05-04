@@ -52,17 +52,18 @@ class TypeTranslator(PositionTranslator):
 
         return [old(self_var, field)]
 
-    def default_value(self, type: VyperType, ctx: Context) -> StmtsAndExpr:
+    def default_value(self, node: Optional, type: VyperType, ctx: Context) -> StmtsAndExpr:
+        pos = self.no_position() if node == None else self.to_position(node, ctx)
         if type is types.VYPER_BOOL:
-            return [], self.viper_ast.FalseLit()
+            return [], self.viper_ast.FalseLit(pos)
         elif isinstance(type, PrimitiveType):
-            return [], self.viper_ast.IntLit(0)
+            return [], self.viper_ast.IntLit(0, pos)
         elif isinstance(type, MapType):
             key_type = self.translate(type.key_type, ctx)
             value_type = self.translate(type.value_type, ctx)
 
-            stmts, value_default = self.default_value(type.value_type, ctx)
-            call = map_init(self.viper_ast, value_default, key_type, value_type)
+            stmts, value_default = self.default_value(node, type.value_type, ctx)
+            call = map_init(self.viper_ast, value_default, key_type, value_type, pos)
             return [], call
         else:
             # TODO:

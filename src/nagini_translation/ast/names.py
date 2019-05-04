@@ -34,6 +34,7 @@ CONSTANT_VALUES = {
 RANGE = 'range'
 MIN = 'min'
 MAX = 'max'
+CLEAR = 'clear'
 
 # Verification
 INVARIANT = 'invariant'
