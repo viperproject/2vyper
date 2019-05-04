@@ -613,8 +613,8 @@ class ViperAST:
     def If(self, cond, thn, els, position = None, info = None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        thn_seqn = self.Seqn([thn], position, info)
-        els_seqn = self.Seqn([els], position, info)
+        thn_seqn = self.Seqn([thn], position)
+        els_seqn = self.Seqn([els], position)
         return self.ast.If(cond, thn_seqn, els_seqn, position, info, self.NoTrafos)
 
     def TrueLit(self, position = None, info = None):

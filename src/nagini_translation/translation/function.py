@@ -73,24 +73,36 @@ class FunctionTranslator(PositionTranslator):
             body = [returnBool(True)]
 
             # Assume all unchecked invariants
+            unchecked_invs = []
             for inv in ctx.unchecked_invariants:
-                body.append(self.viper_ast.Inhale(inv))
+                unchecked_invs.append(self.viper_ast.Inhale(inv))
+            
+            body += self._seqn_with_info(unchecked_invs, "Assume all unchecked invariants")
             
             # Assume for all uint256 arguments a that a >= 0
+            non_negs = []
             for var in function.args.values():
                 if var.type == types.VYPER_UINT256:
-                    body.append(self._assume_non_negative(args[var.name].localVar(), ctx))
+                    local_var = args[var.name].localVar()
+                    non_negs.append(self._assume_non_negative(local_var, ctx))
+
+            body += self._seqn_with_info(non_negs, "Assume arg >= 0 for uint256 args")
 
             # In the initializer initialize all fields to their default values
             if function.name == names.INIT:
+                defaults = []
                 for name, field in ctx.fields.items():
                     field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field)
                     type = ctx.program.state[name].type
                     stmts, expr = self.type_translator.default_value(type, ctx)
                     assign = self.viper_ast.FieldAssign(field_acc, expr)
-                    body += stmts + [assign]
+                    defaults += stmts + [assign]
+                
+                body += self._seqn_with_info(defaults, "Assign default values to state vars")       
 
-            body += self.statement_translator.translate_stmts(function.node.body, ctx)
+            body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
+            body += self._seqn_with_info(body_stmts, "Function body")
+
             # If we reach this point do not revert the state
             body.append(self.viper_ast.Goto(ctx.end_label))
             # Revert the state
@@ -116,7 +128,8 @@ class FunctionTranslator(PositionTranslator):
 
             # First the postconditions are asserted
             posts, post_assertions = self.specification_translator.translate_postconditions(function.postconditions, ctx)
-            body += post_assertions
+            body += self._seqn_with_info(post_assertions, "Assert postconditions")
+
             # If the function is public we also assert the invariants
             if function.is_public():
                 translator = self.specification_translator
@@ -125,7 +138,7 @@ class FunctionTranslator(PositionTranslator):
                     if not is_init:
                         ctx.vias = [('invariant', pos)]
                     invariants, invariant_assertions = translator.translate_invariants(ctx.program.invariants, ctx, is_init)
-                body += invariant_assertions
+                body += self._seqn_with_info(invariant_assertions, "Assert invariants")
             else:
                 invariants = []
 
@@ -181,3 +194,9 @@ class FunctionTranslator(PositionTranslator):
     def _assume_non_negative(self, var, ctx: Context) -> Stmt:
         gez = self._non_negative(var, ctx)
         return self.viper_ast.Inhale(gez)
+
+    def _seqn_with_info(self, stmts: [Stmt], comment: str) -> [Stmt]:
+        if not stmts:
+            return stmts
+        info = self.to_info([comment])
+        return [self.viper_ast.Seqn(stmts, info = info)]

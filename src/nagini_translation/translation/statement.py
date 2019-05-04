@@ -92,6 +92,7 @@ class StatementTranslator(NodeTranslator):
 
     def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
+        info = self.to_info(["Assert"])
 
         stmts, expr = self.expression_translator.translate(node.test, ctx)
         
@@ -99,7 +100,7 @@ class StatementTranslator(NodeTranslator):
         body = [self.viper_ast.Goto(ctx.revert_label, pos)]
         block = self.viper_ast.Seqn(body, pos)
         empty = self.viper_ast.Seqn([], pos)
-        if_stmt = self.viper_ast.If(cond, block, empty, pos)
+        if_stmt = self.viper_ast.If(cond, block, empty, pos, info)
         return stmts + [if_stmt]
 
     def translate_Return(self, node: ast.Return, ctx: Context) -> List[Stmt]:
