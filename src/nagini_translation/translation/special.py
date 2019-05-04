@@ -34,9 +34,8 @@ class SpecialTranslator(NodeTranslator):
         if len(node.args) == 1:
             # A range expression of the form 'range(n)' where 'n' is a constant
             pos = self.to_position(node, ctx)
-            info = self.no_info()
 
-            start = self.viper_ast.IntLit(0, pos, info)
+            start = self.viper_ast.IntLit(0, pos)
             times = node.args[0].n
             
             return [], start, times

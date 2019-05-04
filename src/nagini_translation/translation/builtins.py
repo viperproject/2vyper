@@ -46,25 +46,25 @@ def init_function() -> ast.FunctionDef:
     node = ast.FunctionDef(INIT, [], [], [], None)
     return VyperFunction(INIT, {}, {}, None, [], [], [names.PUBLIC], node)
 
-def self_var(viper_ast: ViperAST, pos, info):
+def self_var(viper_ast: ViperAST, pos = None, info = None):
     return viper_ast.LocalVarDecl(SELF, viper_ast.Ref, pos, info)
 
-def msg_var(viper_ast: ViperAST, pos, info):
+def msg_var(viper_ast: ViperAST, pos = None, info = None):
     return viper_ast.LocalVarDecl(MSG, viper_ast.Ref, pos, info)
 
-def msg_sender_field(viper_ast: ViperAST, pos, info):
+def msg_sender_field(viper_ast: ViperAST, pos = None, info = None):
     return viper_ast.Field(MSG_SENDER, viper_ast.Int, pos, info)
 
-def ret_var(viper_ast: ViperAST, ret_type, pos, info):
+def ret_var(viper_ast: ViperAST, ret_type, pos = None, info = None):
      return viper_ast.LocalVarDecl(RESULT_VAR, ret_type, pos, info)
 
-def success_var(viper_ast: ViperAST, pos, info):
+def success_var(viper_ast: ViperAST, pos = None, info = None):
      return viper_ast.LocalVarDecl(SUCCESS_VAR, viper_ast.Bool, pos, info)
 
-def end_label(viper_ast: ViperAST, pos, info):
+def end_label(viper_ast: ViperAST, pos = None, info = None):
      return viper_ast.Label(END_LABEL, pos, info)
 
-def revert_label(viper_ast: ViperAST, pos, info):
+def revert_label(viper_ast: ViperAST, pos = None, info = None):
      return viper_ast.Label(REVERT_LABEL, pos, info)
 
 def _map_type_var_map(viper_ast: ViperAST, key_type, value_type):
@@ -76,31 +76,31 @@ def map_type(viper_ast: ViperAST, key_type, value_type):
     type_vars = _map_type_var_map(viper_ast, key_type, value_type)
     return viper_ast.DomainType(MAP_DOMAIN, type_vars, list(type_vars.keys()))
 
-def map_init(viper_ast: ViperAST, arg, key_type, value_type, pos, info):
+def map_init(viper_ast: ViperAST, arg, key_type, value_type, pos = None, info = None):
     mp_type = map_type(viper_ast, key_type, value_type)
     type_vars = _map_type_var_map(viper_ast, key_type, value_type)
     return viper_ast.DomainFuncApp(MAP_INIT, [arg], mp_type, pos, info, MAP_DOMAIN, type_vars)
 
-def map_get(viper_ast: ViperAST, ref, idx, key_type, value_type, pos, info):
+def map_get(viper_ast: ViperAST, ref, idx, key_type, value_type, pos = None, info = None):
     type_vars = _map_type_var_map(viper_ast, key_type, value_type)
     return viper_ast.DomainFuncApp(MAP_GET, [ref, idx], value_type, pos, info, MAP_DOMAIN, type_vars)
 
-def map_set(viper_ast: ViperAST, ref, idx, value, key_type, value_type, pos, info):
+def map_set(viper_ast: ViperAST, ref, idx, value, key_type, value_type, pos = None, info = None):
     type_vars = _map_type_var_map(viper_ast, key_type, value_type)
     type = map_type(viper_ast, key_type, value_type)
     return viper_ast.DomainFuncApp(MAP_SET, [ref, idx, value], type, pos, info, MAP_DOMAIN, type_vars)
  
-def map_sum(viper_ast: ViperAST, ref, key_type, pos, info):
+def map_sum(viper_ast: ViperAST, ref, key_type, pos = None, info = None):
      type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
      type = viper_ast.Int
      return viper_ast.DomainFuncApp(MAP_SUM, [ref], type, pos, info, MAP_SUM_DOMAIN, type_vars)
 
-def map_get_uint(viper_ast: ViperAST, ref, idx, key_type, pos, info):
+def map_get_uint(viper_ast: ViperAST, ref, idx, key_type, pos = None, info = None):
      type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
      type = viper_ast.Int
      return viper_ast.DomainFuncApp(MAP_GET_UINT, [ref, idx], type, pos, info, MAP_UINT_DOMAIN, type_vars)
 
-def map_sum_uint(viper_ast: ViperAST, ref, key_type, pos, info):
+def map_sum_uint(viper_ast: ViperAST, ref, key_type, pos = None, info = None):
      type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
      type = viper_ast.Int
      return viper_ast.DomainFuncApp(MAP_SUM_UINT, [ref], type, pos, info, MAP_UINT_DOMAIN, type_vars)

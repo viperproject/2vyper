@@ -43,31 +43,26 @@ class TypeTranslator(NodeTranslator):
             return self.viper_ast.Ref
 
     def revert(self, type: VyperType, field, ctx: Context) -> [Stmt]:
-        nopos = self.no_position()
-        info = self.no_info()
+        self_var = ctx.self_var.localVar()
 
         def old(ref, field):
-            field_acc = self.viper_ast.FieldAccess(ref, field, nopos, info)
-            old = self.viper_ast.Old(field_acc, nopos, info)
-            return self.viper_ast.FieldAssign(field_acc, old, nopos, info)
+            field_acc = self.viper_ast.FieldAccess(ref, field)
+            old = self.viper_ast.Old(field_acc)
+            return self.viper_ast.FieldAssign(field_acc, old)
 
-        self_var = ctx.self_var.localVar()
         return [old(self_var, field)]
 
     def translate_default_value(self, type: VyperType, ctx: Context) -> StmtsAndExpr:
-        pos = self.no_position()
-        info = self.no_info()
-
         if type is types.VYPER_BOOL:
-            return [], self.viper_ast.FalseLit(pos, info)
+            return [], self.viper_ast.FalseLit()
         elif isinstance(type, PrimitiveType):
-            return [], self.viper_ast.IntLit(0, pos, info)
+            return [], self.viper_ast.IntLit(0)
         elif isinstance(type, MapType):
             key_type = self.translate(type.key_type, ctx)
             value_type = self.translate(type.value_type, ctx)
 
             stmts, value_default = self.translate_default_value(type.value_type, ctx)
-            call = map_init(self.viper_ast, value_default, key_type, value_type, pos, info)
+            call = map_init(self.viper_ast, value_default, key_type, value_type)
             return [], call
         else:
             # TODO:

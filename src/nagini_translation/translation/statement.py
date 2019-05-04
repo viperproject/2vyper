@@ -38,7 +38,6 @@ class StatementTranslator(NodeTranslator):
 
     def translate_AnnAssign(self, node: ast.AnnAssign, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.no_info()
 
         # An annotated assignment can only have a local variable on the lhs,
         # therefore we can simply use the expression translator
@@ -50,11 +49,10 @@ class StatementTranslator(NodeTranslator):
         else:
             rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 
-        return lhs_stmts + rhs_stmts + [self.viper_ast.LocalVarAssign(lhs, rhs, pos, info)]
+        return lhs_stmts + rhs_stmts + [self.viper_ast.LocalVarAssign(lhs, rhs, pos)]
 
     def translate_Assign(self, node: ast.Assign, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.no_info()
 
         # We only support single assignments for now
         left = node.targets[0]
@@ -64,7 +62,6 @@ class StatementTranslator(NodeTranslator):
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
         # TODO: combine with normal assign?
         pos = self.to_position(node, ctx)
-        info = self.no_info()
 
         left = node.target
 
@@ -75,65 +72,60 @@ class StatementTranslator(NodeTranslator):
         stmts = lhs_stmts + rhs_stmts
 
         def fail_if(cond):
-            body = [self.viper_ast.Goto(ctx.revert_label, pos, info)]
-            block = self.viper_ast.Seqn(body, pos, info)
-            empty = self.viper_ast.Seqn([], pos, info)
-            return self.viper_ast.If(cond, block, empty, pos, info)
+            body = [self.viper_ast.Goto(ctx.revert_label, pos)]
+            block = self.viper_ast.Seqn(body, pos)
+            empty = self.viper_ast.Seqn([], pos)
+            return self.viper_ast.If(cond, block, empty, pos)
 
         # If the divisor is 0 revert the transaction
         if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
-            cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos, info), pos, info)
+            cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos), pos)
             stmts.append(fail_if(cond))
 
         # If the result of a uint subtraction is negative, revert the transaction
         if isinstance(node.op, ast.Sub) and left.type == types.VYPER_UINT256:
-            cond = self.viper_ast.GtCmp(rhs, lhs, pos, info)
+            cond = self.viper_ast.GtCmp(rhs, lhs, pos)
             stmts.append(fail_if(cond))
 
-        value = op(lhs, rhs, pos, info)
+        value = op(lhs, rhs, pos)
         return stmts + self.assignment_translator.assign_to(node.target, value, ctx)
 
     def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        noinfo = self.no_info()
 
         stmts, expr = self.expression_translator.translate(node.test, ctx)
         
-        cond = self.viper_ast.Not(expr, pos, noinfo)
-        body = [self.viper_ast.Goto(ctx.revert_label, pos, noinfo)]
-        block = self.viper_ast.Seqn(body, pos, noinfo)
-        empty = self.viper_ast.Seqn([], pos, noinfo)
-        if_stmt = self.viper_ast.If(cond, block, empty, pos, noinfo)
+        cond = self.viper_ast.Not(expr, pos)
+        body = [self.viper_ast.Goto(ctx.revert_label, pos)]
+        block = self.viper_ast.Seqn(body, pos)
+        empty = self.viper_ast.Seqn([], pos)
+        if_stmt = self.viper_ast.If(cond, block, empty, pos)
         return stmts + [if_stmt]
 
     def translate_Return(self, node: ast.Return, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.no_info()
 
         stmts, expr = self.expression_translator.translate(node.value, ctx)
         result_var = ctx.result_var
-        assign = self.viper_ast.LocalVarAssign(result_var.localVar(), expr, pos, info)
-        jmp_to_end = self.viper_ast.Goto(ctx.end_label, pos, info)
+        assign = self.viper_ast.LocalVarAssign(result_var.localVar(), expr, pos)
+        jmp_to_end = self.viper_ast.Goto(ctx.end_label, pos)
 
         return stmts + [assign, jmp_to_end]
 
     def translate_If(self, node: ast.If, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.no_info()
 
         cond_stmts, cond = self.expression_translator.translate(node.test, ctx)
         then_body = self.translate_stmts(node.body, ctx)
-        then_block = self.viper_ast.Seqn(then_body, pos, info)
+        then_block = self.viper_ast.Seqn(then_body, pos)
 
         else_body = self.translate_stmts(node.orelse, ctx)
-        else_block = self.viper_ast.Seqn(else_body, pos, info)
-        if_stmt = self.viper_ast.If(cond, then_block, else_block, pos, info)
+        else_block = self.viper_ast.Seqn(else_body, pos)
+        if_stmt = self.viper_ast.If(cond, then_block, else_block, pos)
         return cond_stmts + [if_stmt]
 
     def translate_For(self, node: ast.For, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        no_pos = self.no_position()
-        info = self.no_info()
 
         if not self.special_translator.is_range(node.iter):
             raise AssertionError("Not supported yet")
@@ -145,8 +137,8 @@ class StatementTranslator(NodeTranslator):
             init_info = self.to_info(["Loop variable initialization.\n"])
             var_init = self.viper_ast.LocalVarAssign(loop_var, start, lpos, init_info)
             stmts.append(var_init)
-            plus = self.viper_ast.Add(loop_var, self.viper_ast.IntLit(1, no_pos, info), lpos, info)
-            var_inc = self.viper_ast.LocalVarAssign(loop_var, plus, lpos, info)
+            plus = self.viper_ast.Add(loop_var, self.viper_ast.IntLit(1), lpos)
+            var_inc = self.viper_ast.LocalVarAssign(loop_var, plus, lpos)
 
             for i in range(times):
                 with continue_scope(ctx):
@@ -162,13 +154,11 @@ class StatementTranslator(NodeTranslator):
 
     def translate_Break(self, node: ast.Break, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.no_info()
-        return [self.viper_ast.Goto(ctx.break_label, pos, info)]
+        return [self.viper_ast.Goto(ctx.break_label, pos)]
 
     def translate_Continue(self, node: ast.Continue, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.no_info()
-        return [self.viper_ast.Goto(ctx.continue_label, pos, info)]
+        return [self.viper_ast.Goto(ctx.continue_label, pos)]
 
     def translate_Pass(self, node: ast.Pass, ctx: Context) -> List[Stmt]:
         return []
@@ -192,21 +182,18 @@ class _AssignmentTranslator(NodeTranslator):
 
     def assign_to_Name(self, node: ast.Name, value, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.no_info()
         lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
-        assign = self.viper_ast.LocalVarAssign(lhs, value, pos, info)
+        assign = self.viper_ast.LocalVarAssign(lhs, value, pos)
         return lhs_stmts + [assign]
 
     def assign_to_Attribute(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.no_info()
         lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
-        assign = self.viper_ast.FieldAssign(lhs, value, pos, info)
+        assign = self.viper_ast.FieldAssign(lhs, value, pos)
         return lhs_stmts + [assign]
 
     def assign_to_Subscript(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.no_info()
 
         map_type = node.value.type
         key_type = self.type_translator.translate(map_type.key_type, ctx)
@@ -214,7 +201,7 @@ class _AssignmentTranslator(NodeTranslator):
 
         receiver_stmts, receiver = self.expression_translator.translate(node.value, ctx)
         index_stmts, index = self.expression_translator.translate(node.slice.value, ctx)
-        new_value = map_set(self.viper_ast, receiver, index, value, key_type, value_type, pos, info)
+        new_value = map_set(self.viper_ast, receiver, index, value, key_type, value_type, pos)
 
         # We simply evaluate the receiver and index statements here, even though they 
         # might get evaluated again in the recursive call. This is ok as long as the lhs of the

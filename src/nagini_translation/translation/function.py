@@ -38,8 +38,6 @@ class FunctionTranslator(NodeTranslator):
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
         with function_scope(ctx):
             pos = self.to_position(function.node, ctx)
-            nopos = self.no_position()
-            info = self.no_info()
 
             ctx.function = function
 
@@ -51,32 +49,32 @@ class FunctionTranslator(NodeTranslator):
             ctx.locals = locals
             ctx.all_vars = {**args, **locals}
 
-            success_var = builtins.success_var(self.viper_ast, nopos, info)
+            success_var = builtins.success_var(self.viper_ast)
             ctx.success_var = success_var
-            revert_label = builtins.revert_label(self.viper_ast, nopos, info)
+            revert_label = builtins.revert_label(self.viper_ast)
             ctx.revert_label = builtins.REVERT_LABEL
 
             rets = [success_var]
-            end_label = builtins.end_label(self.viper_ast, nopos, info)
+            end_label = builtins.end_label(self.viper_ast)
             ctx.end_label = builtins.END_LABEL
 
             if function.ret:
                 ret_type = self.type_translator.translate(function.ret, ctx)
-                ret_var = builtins.ret_var(self.viper_ast, ret_type, pos, info)
+                ret_var = builtins.ret_var(self.viper_ast, ret_type, pos)
                 rets.append(ret_var)
                 ctx.result_var = ret_var
 
             def returnBool(value: bool) -> Stmt:
                 local_var = success_var.localVar()
                 lit = self.viper_ast.TrueLit if value else self.viper_ast.FalseLit
-                return self.viper_ast.LocalVarAssign(local_var, lit(nopos, info), nopos, info)
+                return self.viper_ast.LocalVarAssign(local_var, lit())
 
             # If we do not encounter an exception we will return success
             body = [returnBool(True)]
 
             # Assume all unchecked invariants
             for inv in ctx.unchecked_invariants:
-                body.append(self.viper_ast.Inhale(inv, nopos, info))
+                body.append(self.viper_ast.Inhale(inv))
             
             # Assume for all uint256 arguments a that a >= 0
             for var in function.args.values():
@@ -86,15 +84,15 @@ class FunctionTranslator(NodeTranslator):
             # In the initializer initialize all fields to their default values
             if function.name == names.INIT:
                 for name, field in ctx.fields.items():
-                    field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field, nopos, info)
+                    field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field)
                     type = ctx.program.state[name].type
                     stmts, expr = self.type_translator.translate_default_value(type, ctx)
-                    assign = self.viper_ast.FieldAssign(field_acc, expr, nopos, info)
+                    assign = self.viper_ast.FieldAssign(field_acc, expr)
                     body += stmts + [assign]
 
             body += self.statement_translator.translate_stmts(function.node.body, ctx)
             # If we reach this point do not revert the state
-            body.append(self.viper_ast.Goto(ctx.end_label, nopos, info))
+            body.append(self.viper_ast.Goto(ctx.end_label))
             # Revert the state
             body.append(revert_label)
             # Return False
@@ -159,32 +157,27 @@ class FunctionTranslator(NodeTranslator):
 
             # Since we check the postconditions and invariants in the body we can just assume
             # false, so the actual posconditions always succeed
-            assume_false = self.viper_ast.Inhale(self.viper_ast.FalseLit(nopos, info), nopos, info)
+            assume_false = self.viper_ast.Inhale(self.viper_ast.FalseLit())
             body.append(assume_false)
 
-            seqn = self.viper_ast.Seqn(body, pos, info)
+            seqn = self.viper_ast.Seqn(body, pos)
             args_list = list(args.values())
             new_locals = ctx.new_local_vars
             locals_list = list(locals.values()) + new_locals
             
-        method = self.viper_ast.Method(function.name, args_list, rets, all_pres, all_posts, locals_list, seqn, pos, info)
+        method = self.viper_ast.Method(function.name, args_list, rets, all_pres, all_posts, locals_list, seqn, pos)
         return method
         
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
-        info = self.no_info()
         type = self.type_translator.translate(var.type, ctx)
-        return self.viper_ast.LocalVarDecl(var.name, type, pos, info)
+        return self.viper_ast.LocalVarDecl(var.name, type, pos)
 
     def _non_negative(self, var, ctx: Context) -> Stmt:
-        pos = self.no_position()
-        info = self.no_info()
-        zero = self.viper_ast.IntLit(0, pos, info)
-        return self.viper_ast.GeCmp(var, zero, pos, info)
+        zero = self.viper_ast.IntLit(0)
+        return self.viper_ast.GeCmp(var, zero)
 
     def _assume_non_negative(self, var, ctx: Context) -> Stmt:
-        pos = self.no_position()
-        info = self.no_info()
         gez = self._non_negative(var, ctx)
-        return self.viper_ast.Inhale(gez, pos, info)
+        return self.viper_ast.Inhale(gez)

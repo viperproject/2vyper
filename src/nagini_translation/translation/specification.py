@@ -51,13 +51,12 @@ class SpecificationTranslator(ExpressionTranslator):
         return self._translate_specification(invs, rule, ctx)
 
     def _translate_specification(self, exprs: List[ast.AST], rule, ctx: Context):
-        info = self.no_info()
         specs = []
         assertions = []
         for e in exprs:
             expr = self._translate_spec(e, ctx)
             apos = self.to_position(e, ctx, rule)
-            assert_stmt = self.viper_ast.Assert(expr, apos, info)
+            assert_stmt = self.viper_ast.Assert(expr, apos)
             specs.append(expr)
             assertions.append(assert_stmt)
         
@@ -68,10 +67,9 @@ class SpecificationTranslator(ExpressionTranslator):
         return expr
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
-        assert isinstance(node.func, ast.Name)
+        assert isinstance(node.func, ast.Name) # TODO: handle
 
         pos = self.to_position(node, ctx)
-        info = self.no_info()
 
         name = node.func.id
         if name == names.IMPLIES:
@@ -81,7 +79,7 @@ class SpecificationTranslator(ExpressionTranslator):
             lhs = self._translate_spec(node.args[0], ctx)
             rhs = self._translate_spec(node.args[1], ctx)
 
-            implies = self.viper_ast.Or(self.viper_ast.Not(lhs, pos, info), rhs, pos, info)
+            implies = self.viper_ast.Or(self.viper_ast.Not(lhs, pos), rhs, pos)
             return [], implies
         elif name == names.RESULT or name == names.SUCCESS:
             cap = name.capitalize()
@@ -91,7 +89,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 raise InvalidProgramException(node, f"{cap} must not have arguments.")
 
             var = ctx.result_var if name == names.RESULT else ctx.success_var
-            local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos, info)
+            local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
             return [], local_var
         elif name == names.OLD:
             if len(node.args) != 1:
@@ -101,7 +99,7 @@ class SpecificationTranslator(ExpressionTranslator):
             if self._ignore_old:
                 return [], expr
             else:
-                return [], self.viper_ast.Old(expr, pos, info)
+                return [], self.viper_ast.Old(expr, pos)
         elif name == names.SUM:
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Sum expression requires a single argument.")
@@ -114,7 +112,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 constructor = map_sum_uint
             else:
                 constructor = map_sum
-            return [], constructor(self.viper_ast, expr, key_type, pos, info)
+            return [], constructor(self.viper_ast, expr, key_type, pos)
         else:
             raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
 
