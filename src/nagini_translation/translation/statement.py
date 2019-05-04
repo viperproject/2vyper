@@ -45,7 +45,7 @@ class StatementTranslator(NodeTranslator):
 
         if node.value is None:
             type = node.target.type
-            rhs_stmts, rhs = self.type_translator.translate_default_value(type, ctx)
+            rhs_stmts, rhs = self.type_translator.default_value(type, ctx)
         else:
             rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 

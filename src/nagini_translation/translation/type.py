@@ -52,7 +52,7 @@ class TypeTranslator(PositionTranslator):
 
         return [old(self_var, field)]
 
-    def translate_default_value(self, type: VyperType, ctx: Context) -> StmtsAndExpr:
+    def default_value(self, type: VyperType, ctx: Context) -> StmtsAndExpr:
         if type is types.VYPER_BOOL:
             return [], self.viper_ast.FalseLit()
         elif isinstance(type, PrimitiveType):
@@ -61,7 +61,7 @@ class TypeTranslator(PositionTranslator):
             key_type = self.translate(type.key_type, ctx)
             value_type = self.translate(type.value_type, ctx)
 
-            stmts, value_default = self.translate_default_value(type.value_type, ctx)
+            stmts, value_default = self.default_value(type.value_type, ctx)
             call = map_init(self.viper_ast, value_default, key_type, value_type)
             return [], call
         else:
