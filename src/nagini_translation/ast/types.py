@@ -42,3 +42,7 @@ TYPES = {
     VYPER_UINT256.name: VYPER_UINT256,
     VYPER_ADDRESS.name: VYPER_ADDRESS
 }
+
+
+def is_unsigned(type: VyperType) -> bool:
+    return type == VYPER_UINT256 or type == VYPER_WEI_VALUE

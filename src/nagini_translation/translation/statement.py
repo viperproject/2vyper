@@ -84,7 +84,7 @@ class StatementTranslator(NodeTranslator):
             stmts.append(fail_if(cond))
 
         # If the result of a uint subtraction is negative, revert the transaction
-        if isinstance(node.op, ast.Sub) and left.type == types.VYPER_UINT256:
+        if isinstance(node.op, ast.Sub) and types.is_unsigned(left.type):
             cond = self.viper_ast.GtCmp(rhs, lhs, pos)
             stmts.append(fail_if(cond))
 

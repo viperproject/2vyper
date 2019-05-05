@@ -82,7 +82,7 @@ class FunctionTranslator(PositionTranslator):
             # Assume for all uint256 arguments a that a >= 0
             non_negs = []
             for var in function.args.values():
-                if var.type == types.VYPER_UINT256:
+                if types.is_unsigned(var.type):
                     local_var = args[var.name].localVar()
                     non_negs.append(self._assume_non_negative(local_var, ctx))
 
@@ -145,7 +145,7 @@ class FunctionTranslator(PositionTranslator):
             # If the return value is of type uint256 add non-negativeness to
             # poscondition, but don't assert it (as it always holds anyway)
             ret_post = []
-            if function.ret == types.VYPER_UINT256:
+            if types.is_unsigned(function.ret):
                 ret_post.append(self._non_negative(ret_var.localVar(), ctx))
 
             # Postconditions are:

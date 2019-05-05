@@ -76,7 +76,7 @@ class ProgramTranslator(PositionTranslator):
             acc = self._create_field_access_predicate(field_acc, 1, ctx)
             ctx.permissions.append(acc)
 
-            if var.type == types.VYPER_UINT256:
+            if types.is_unsigned(var.type):
                 zero = self.viper_ast.IntLit(0)
                 non_neg = self.viper_ast.GeCmp(field_acc, zero)
                 ctx.unchecked_invariants.append(non_neg)

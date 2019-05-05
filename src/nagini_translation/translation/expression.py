@@ -88,7 +88,7 @@ class ExpressionTranslator(NodeTranslator):
             stmts.append(fail_if(cond))
 
         # If the result of a uint subtraction is negative, revert the transaction
-        if isinstance(node.op, ast.Sub) and node.type == types.VYPER_UINT256:
+        if isinstance(node.op, ast.Sub) and types.is_unsigned(node.type):
             cond = self.viper_ast.GtCmp(right, left, pos)
             stmts.append(fail_if(cond))
 
@@ -148,7 +148,7 @@ class ExpressionTranslator(NodeTranslator):
         key_type = self.type_translator.translate(map_type.key_type, ctx)
         value_type = self.type_translator.translate(map_type.value_type, ctx)
 
-        if map_type.value_type == types.VYPER_UINT256:
+        if types.is_unsigned(map_type.value_type):
             call = map_get_uint(self.viper_ast, value, index, key_type, pos)
         else:
             call = map_get(self.viper_ast, value, index, key_type, value_type, pos)

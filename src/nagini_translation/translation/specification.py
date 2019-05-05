@@ -108,7 +108,7 @@ class SpecificationTranslator(ExpressionTranslator):
             expr = self._translate_spec(arg, ctx)
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
-            if arg.type.value_type == types.VYPER_UINT256:
+            if types.is_unsigned(arg.type.value_type):
                 constructor = map_sum_uint
             else:
                 constructor = map_sum
