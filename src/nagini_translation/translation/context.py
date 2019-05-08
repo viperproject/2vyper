@@ -47,9 +47,15 @@ class Context:
         self._local_var_counter = -1
         self.new_local_vars = []
 
+        self._quantified_var_counter = -1
+
     def new_local_var_name(self) -> str:
         self._local_var_counter += 1
         return f'$local_{self._local_var_counter}'
+
+    def new_quantified_var_name(self) -> str:
+        self._quantified_var_counter += 1
+        return f'$q{self._quantified_var_counter}'
 
     def _next_break_label(self) -> str:
         self._break_label_counter += 1
@@ -87,6 +93,8 @@ def function_scope(ctx: Context):
     local_var_counter = ctx._local_var_counter
     new_local_vars = ctx.new_local_vars
 
+    quantified_var_counter = ctx._quantified_var_counter
+
     ctx.function = None
 
     ctx.all_vars = {}
@@ -105,6 +113,8 @@ def function_scope(ctx: Context):
 
     ctx._local_var_counter = -1
     ctx.new_local_vars = []
+
+    ctx._quantified_var_counter = -1
 
     yield
 
@@ -126,6 +136,24 @@ def function_scope(ctx: Context):
 
     ctx._local_var_counter = local_var_counter
     ctx.new_local_vars = new_local_vars
+
+    ctx._quantified_var_counter = quantified_var_counter
+
+
+@contextmanager
+def quantified_var_scope(ctx: Context):
+    """
+    Should be used in a ``with`` statement.
+    Saves the current ``quantified_vars``, creates a new empty one for the body
+    of the ``with`` statement, and restores the previous one in the end.
+    """
+
+    quantified_var_counter = ctx._quantified_var_counter
+    quantified_var_counter = -1
+
+    yield
+
+    ctx._quantified_var_counter = quantified_var_counter
 
 
 @contextmanager

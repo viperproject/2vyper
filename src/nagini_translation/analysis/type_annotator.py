@@ -9,7 +9,7 @@ import ast
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.types import VyperType
+from nagini_translation.ast.types import VyperType, MapType, ArrayType
 from nagini_translation.ast.nodes import VyperProgram
 
 
@@ -155,8 +155,12 @@ class TypeAnnotator:
 
     def annotate_Subscript(self, node: ast.Subscript, expected: VyperType):
         self.annotate(node.value, None)
-        self.annotate(node.slice.value, node.value.type.key_type)
-        node.type = node.value.type.value_type
+        if isinstance(node.value.type, MapType):
+            self.annotate(node.slice.value, node.value.type.key_type)
+            node.type = node.value.type.value_type
+        elif isinstance(node.value.type, ArrayType):
+            self.annotate(node.slice.value, types.VYPER_INT128)
+            node.type = node.value.type.element_type
 
     def annotate_Name(self, node: ast.Name, expected: VyperType):
         if node.id == names.SELF or node.id == names.MSG:

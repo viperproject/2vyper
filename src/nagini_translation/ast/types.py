@@ -13,6 +13,9 @@ class VyperType:
     def __init__(self, name: str):
         self.name = name
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class MapType(VyperType):
 
@@ -20,6 +23,15 @@ class MapType(VyperType):
         self.key_type = key_type
         self.value_type = value_type
         name = f'map({key_type}, {value_type})'
+        super().__init__(name)
+
+
+class ArrayType(VyperType):
+
+    def __init__(self, element_type: VyperType, size: int):
+        self.element_type = element_type
+        self.size = size
+        name = f'{element_type}[{size}]'
         super().__init__(name)
 
 

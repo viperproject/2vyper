@@ -16,6 +16,8 @@ from nagini_translation.lib.typedefs import Stmt
 from nagini_translation.ast import types
 from nagini_translation.ast import names
 
+from nagini_translation.ast.types import MapType, ArrayType
+
 from nagini_translation.translation.context import Context, break_scope, continue_scope
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
@@ -211,13 +213,18 @@ class _AssignmentTranslator(NodeTranslator):
     def assign_to_Subscript(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
 
-        map_type = node.value.type
-        key_type = self.type_translator.translate(map_type.key_type, ctx)
-        value_type = self.type_translator.translate(map_type.value_type, ctx)
-
         receiver_stmts, receiver = self.expression_translator.translate(node.value, ctx)
         index_stmts, index = self.expression_translator.translate(node.slice.value, ctx)
-        new_value = map_set(self.viper_ast, receiver, index, value, key_type, value_type, pos)
+
+        type = node.value.type
+        if isinstance(type, MapType):
+            key_type = self.type_translator.translate(type.key_type, ctx)
+            value_type = self.type_translator.translate(type.value_type, ctx)
+            new_value = map_set(self.viper_ast, receiver, index, value, key_type, value_type, pos)
+        elif isinstance(type, ArrayType):
+            new_value = self.viper_ast.SeqUpdate(receiver, index, value, pos)
+        else:
+            assert False # TODO: handle
 
         # We simply evaluate the receiver and index statements here, even though they 
         # might get evaluated again in the recursive call. This is ok as long as the lhs of the

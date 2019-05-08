@@ -13,6 +13,8 @@ from nagini_translation.lib.typedefs import StmtsAndExpr
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 
+from nagini_translation.ast.types import MapType, ArrayType
+
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
@@ -144,14 +146,20 @@ class ExpressionTranslator(NodeTranslator):
         value_stmts, value = self.translate(node.value, ctx)
         index_stmts, index = self.translate(node.slice.value, ctx)
 
-        map_type = node.value.type
-        key_type = self.type_translator.translate(map_type.key_type, ctx)
-        value_type = self.type_translator.translate(map_type.value_type, ctx)
+        node_type = node.value.type
+        if isinstance(node_type, MapType):
+            key_type = self.type_translator.translate(node_type.key_type, ctx)
+            value_type = self.type_translator.translate(node_type.value_type, ctx)
 
-        if types.is_unsigned(map_type.value_type):
-            call = map_get_uint(self.viper_ast, value, index, key_type, pos)
-        else:
-            call = map_get(self.viper_ast, value, index, key_type, value_type, pos)
+            if types.is_unsigned(node_type.value_type):
+                call = map_get_uint(self.viper_ast, value, index, key_type, pos)
+            else:
+                call = map_get(self.viper_ast, value, index, key_type, value_type, pos)
+       
+        elif isinstance(node_type, ArrayType):
+            # TODO: check for valid array access
+            element_type = self.type_translator.translate(node_type.element_type, ctx)
+            call = self.viper_ast.SeqIndex(value, index, pos)
 
         return value_stmts + index_stmts, call
 

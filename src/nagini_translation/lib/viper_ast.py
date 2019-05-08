@@ -575,6 +575,11 @@ class ViperAST:
         info = info or self.NoInfo
         return self.ast.SeqDrop(s, end, position, info, self.NoTrafos)
 
+    def SeqUpdate(self, s, ind, elem, position = None, info = None):
+        position = position or self.NoPosition
+        info = info or self.NoInfo
+        return self.ast.SeqUpdate(s, ind, elem, position , info, self.NoTrafos)
+
     def Add(self, left, right, position = None, info = None):
         position = position or self.NoPosition
         info = info or self.NoInfo

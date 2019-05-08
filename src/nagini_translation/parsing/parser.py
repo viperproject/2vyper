@@ -13,9 +13,10 @@ from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
 
 from nagini_translation.ast import names
+from nagini_translation.ast import types
+
 from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperVar
-from nagini_translation.ast.types import VyperType, MapType
-from nagini_translation.ast.types import TYPES, VYPER_INT128
+from nagini_translation.ast.types import VyperType, MapType, ArrayType
 
 from nagini_translation.errors.translation_exceptions import UnsupportedException, InvalidProgramException
 
@@ -137,7 +138,7 @@ class LocalProgramBuilder(ast.NodeVisitor):
 
     def visit_For(self, node):
         variable_name = node.target.id
-        variable_type = VYPER_INT128
+        variable_type = types.VYPER_INT128
         var = VyperVar(variable_name, variable_type, node)
         self.local_vars[variable_name] = var
         self.generic_visit(node)
@@ -159,7 +160,7 @@ class TypeBuilder(ast.NodeVisitor):
         raise UnsupportedException(node, "Complex types not supported.")
 
     def visit_Name(self, node: ast.Name) -> TypeContext:
-        return TypeContext(TYPES[node.id], False)
+        return TypeContext(types.TYPES[node.id], False)
 
     def visit_Call(self, node: ast.Call) -> TypeContext:
         # We allow public and map, constant should already be replaced
@@ -176,3 +177,10 @@ class TypeBuilder(ast.NodeVisitor):
 
         return ctx
 
+    def visit_Subscript(self, node: ast.Subscript) -> TypeContext:
+        ctx = self.visit(node.value)
+        # Array size has to be an int or a constant 
+        # (which has already been replaced by an int)
+        size = node.slice.value.n
+        ctx.type = ArrayType(ctx.type, size)
+        return ctx
