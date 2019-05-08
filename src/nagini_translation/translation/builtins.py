@@ -28,6 +28,11 @@ SUCCESS_VAR = '$succ'
 END_LABEL = 'end'
 REVERT_LABEL = 'revert'
 
+ARRAY_DOMAIN = '$Array'
+ARRAY_ELEMENT_VAR = '$E'
+
+ARRAY_INIT = '$array_init'
+
 MAP_DOMAIN = '$Map'
 MAP_INT_DOMAIN = '$MapInt'
 MAP_UINT_DOMAIN = '$MapUInt'
@@ -66,6 +71,24 @@ def end_label(viper_ast: ViperAST, pos = None, info = None):
 
 def revert_label(viper_ast: ViperAST, pos = None, info = None):
      return viper_ast.Label(REVERT_LABEL, pos, info)
+
+def array_type(viper_ast: ViperAST, element_type):
+     return viper_ast.SeqType(element_type)
+
+def array_init(viper_ast: ViperAST, arg, size: int, element_type, pos = None, info = None):
+     arr_type = array_type(viper_ast, element_type)
+     type_vars = {viper_ast.TypeVar(ARRAY_ELEMENT_VAR): element_type}
+     size = viper_ast.IntLit(size, pos, info)
+     return viper_ast.DomainFuncApp(ARRAY_INIT, [arg, size], arr_type, pos, info, ARRAY_DOMAIN, type_vars)
+
+def array_length(viper_ast: ViperAST, ref, pos = None, info = None):
+     return viper_ast.SeqLength(ref, pos, info)
+
+def array_get(viper_ast: ViperAST, ref, idx, element_type, pos = None, info = None):
+     return viper_ast.SeqIndex(ref, idx, pos, info)
+
+def array_set(viper_ast: ViperAST, ref, idx, value, element_type, pos = None, info = None):
+     return viper_ast.SeqUpdate(ref, idx, value, pos, info)
 
 def _map_type_var_map(viper_ast: ViperAST, key_type, value_type):
     key = viper_ast.TypeVar(MAP_KEY_VAR)

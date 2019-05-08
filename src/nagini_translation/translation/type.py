@@ -17,7 +17,7 @@ from nagini_translation.lib.typedefs import Type, Expr, Stmt, StmtsAndExpr
 
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
-from nagini_translation.translation.builtins import map_type, map_init
+from nagini_translation.translation.builtins import array_type, array_init, map_type, map_init
 
 
 class TypeTranslator(PositionTranslator):
@@ -41,7 +41,7 @@ class TypeTranslator(PositionTranslator):
             return map_type(self.viper_ast, key_type, value_type)
         elif isinstance(type, ArrayType):
             element_type = self.translate(type.element_type, ctx)
-            return self.viper_ast.SeqType(element_type)
+            return array_type(self.viper_ast, element_type)
         else:
             assert False # TODO: handle
 
@@ -69,11 +69,10 @@ class TypeTranslator(PositionTranslator):
             call = map_init(self.viper_ast, value_default, key_type, value_type, pos)
             return stmts, call
         elif isinstance(type, ArrayType):
-            seq_type = self.translate(type, ctx)
-
+            element_type = self.translate(type.element_type, ctx)
             stmts, element_default = self.default_value(node, type.element_type, ctx)
-            seq = self.viper_ast.ExplicitSeq([element_default] * type.size, pos)
-            return stmts, seq
+            array = array_init(self.viper_ast, element_default, type.size, element_type, pos)
+            return stmts, array
         else:
             # TODO:
             assert False

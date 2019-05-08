@@ -18,7 +18,7 @@ from nagini_translation.ast.types import MapType, ArrayType
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.builtins import map_get, map_get_uint
+from nagini_translation.translation.builtins import map_get, map_get_uint, array_get
 
 
 class ExpressionTranslator(NodeTranslator):
@@ -159,7 +159,7 @@ class ExpressionTranslator(NodeTranslator):
         elif isinstance(node_type, ArrayType):
             # TODO: check for valid array access
             element_type = self.type_translator.translate(node_type.element_type, ctx)
-            call = self.viper_ast.SeqIndex(value, index, pos)
+            call = array_get(self.viper_ast, value, index, element_type, pos)
 
         return value_stmts + index_stmts, call
 

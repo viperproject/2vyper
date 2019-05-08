@@ -24,7 +24,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.special import SpecialTranslator
 
-from nagini_translation.translation.builtins import map_set
+from nagini_translation.translation.builtins import array_set, map_set
 
 
 class StatementTranslator(NodeTranslator):
@@ -222,7 +222,7 @@ class _AssignmentTranslator(NodeTranslator):
             value_type = self.type_translator.translate(type.value_type, ctx)
             new_value = map_set(self.viper_ast, receiver, index, value, key_type, value_type, pos)
         elif isinstance(type, ArrayType):
-            new_value = self.viper_ast.SeqUpdate(receiver, index, value, pos)
+            new_value = array_set(self.viper_ast, receiver, index, value, type.element_type, pos)
         else:
             assert False # TODO: handle
 
