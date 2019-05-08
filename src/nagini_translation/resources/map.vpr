@@ -38,25 +38,3 @@ domain $MapInt[$K] {
     }
 
 }
-
-domain $MapUInt[$K] {
-
-    function $map_get_uint($m: $Map[$K, Int], $k: $K): Int
-
-    function $map_sum_uint($m: $Map[$K, Int]): Int
-
-    axiom $map_get_uint_ax {
-        forall $m: $Map[$K, Int], $k: $K :: { $map_get_uint($m, $k) }
-            $map_get_uint($m, $k) == ($map_get($m, $k) >= 0 ? $map_get($m, $k) : 0)
-    }
-
-    axiom $map_sum_init_uint_ax {
-        $map_sum_uint($map_init(0)) == 0
-    }
-
-    axiom $map_sum_set_uint_ax {
-        forall $m: $Map[$K, Int], $k: $K, $v: Int :: { $map_sum_uint($map_set($m, $k, $v)) }
-            $map_sum_uint($map_set($m, $k, $v)) == $map_sum_uint($m) - $map_get_uint($m, $k) + $v
-    }
-
-}

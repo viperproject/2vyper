@@ -18,7 +18,7 @@ from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.builtins import map_sum, map_sum_uint
+from nagini_translation.translation.builtins import map_sum
 
 from nagini_translation.errors.translation_exceptions import InvalidProgramException
 
@@ -108,11 +108,7 @@ class SpecificationTranslator(ExpressionTranslator):
             expr = self._translate_spec(arg, ctx)
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
-            if types.is_unsigned(arg.type.value_type):
-                constructor = map_sum_uint
-            else:
-                constructor = map_sum
-            return [], constructor(self.viper_ast, expr, key_type, pos)
+            return [], map_sum(self.viper_ast, expr, key_type, pos)
         else:
             raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
 

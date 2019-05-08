@@ -1,6 +1,8 @@
 
 ui: uint256
 mp: map(int128, uint256)
+array: uint256[10]
+mp_arr: map(int128, uint256[2])
 
 #@ ensures: self.ui >= 0
 @public
@@ -32,3 +34,21 @@ def div(a: uint256, b: uint256) -> uint256:
 def fail(a: uint256, b: uint256) -> uint256:
     assert a > b
     self.ui = b - a
+
+#@ ensures: success()
+@public
+def access_arr_map():
+    assert self.ui >= 0
+    assert self.mp[2] >= 0
+    assert self.array[2] >= 0
+    assert self.mp_arr[2][1] >= 0
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: success()
+@public
+def access_arr_map():
+    assert self.ui >= 0
+    assert self.mp[2] >= 0
+    assert self.array[2] >= 0
+    assert self.mp_arr[2][1] >= 0
+    assert self.mp_arr[2][1] >= 1

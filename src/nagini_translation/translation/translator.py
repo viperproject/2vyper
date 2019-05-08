@@ -76,10 +76,8 @@ class ProgramTranslator(PositionTranslator):
             acc = self._create_field_access_predicate(field_acc, 1, ctx)
             ctx.permissions.append(acc)
 
-            if types.is_unsigned(var.type):
-                zero = self.viper_ast.IntLit(0)
-                non_neg = self.viper_ast.GeCmp(field_acc, zero)
-                ctx.unchecked_invariants.append(non_neg)
+            non_negs = self.type_translator.non_negative(field_acc, var.type, ctx)
+            ctx.unchecked_invariants.extend(non_negs)
             
             array_lens = self.type_translator.array_length(field_acc, var.type, ctx)
             ctx.unchecked_invariants.extend(array_lens)

@@ -80,20 +80,43 @@ class TypeTranslator(PositionTranslator):
             # TODO:
             assert False
 
+    def non_negative(self, node, type: VyperType, ctx: Context) -> List[Expr]:
+        """
+        Computes the non-negativeness assumptions for a node `node` of type `type`.
+        Node has to be a translated viper node.
+        """
+
+        return self._construct_quantifiers(node, type, ctx, 0)
+
     def array_length(self, node, type: VyperType, ctx: Context) -> List[Expr]:
         """
         Computes the array-length assumptions for a node `node` of type `type`.
         Node has to be a translated viper node.
         """
 
+        return self._construct_quantifiers(node, type, ctx, 1)
+
+    def _construct_quantifiers(self, node, type: VyperType, ctx: Context, mode: int) -> List[Expr]:
+        """
+        Computes the assumptions for either array length or non-negativeness of nested
+        structures.
+
+        If mode == 0: constructs array lengths
+        If mode == 1: constructs non-negativeness
+        """
+
         def construct(type, node):
-            lens = []
+            ret = []
 
             # If we encounter a map, we add the following assumption:
             #   forall k: Key :: construct(map_get(k))
-            # where constuct constructs the size assumption for the array contained
+            # where constuct constructs the assumption for the values contained
             # in the map (may be empty)
-            if isinstance(type, MapType):
+            if mode == 0 and types.is_unsigned(type):
+                zero = self.viper_ast.IntLit(0)
+                non_neg = self.viper_ast.GeCmp(node, zero)
+                ret.append(non_neg)
+            elif isinstance(type, MapType):
                 key_type = self.translate(type.key_type, ctx)
                 value_type = self.translate(type.value_type, ctx)
                 quant_var_name = ctx.new_quantified_var_name()
@@ -101,42 +124,46 @@ class TypeTranslator(PositionTranslator):
                 quant = quant_decl.localVar()
                 new_node = map_get(self.viper_ast, node, quant, key_type, value_type)
                 trigger = self.viper_ast.Trigger([new_node])
-                sub_lens = construct(type.value_type, new_node)
-                for l in sub_lens:
-                    quantifier = self.viper_ast.Forall([quant_decl], [trigger], l)
-                    lens.append(quantifier)
+                sub_ret = construct(type.value_type, new_node)
+                for r in sub_ret:
+                    quantifier = self.viper_ast.Forall([quant_decl], [trigger], r)
+                    ret.append(quantifier)
 
             # If we encounter an array, we add the follwing assumptions:
+            # If mode == 0:
+            #   forall i: Int :: 0 <= i && i < |array| ==> construct(array[i]) >= 0
+            # If mode == 1:
             #   forall i: Int :: 0 <= i && i < |array| ==> |array| == array_size
             #   forall i: Int :: 0 <= i && i < |array| ==> construct(array[i])
             # where construct recursively constructs the assumptions for nested arrays and maps
             elif isinstance(type, ArrayType):
-                array_len = self.viper_ast.SeqLength(node)
-                size = self.viper_ast.IntLit(type.size)
-                eq = self.viper_ast.EqCmp(array_len, size)
-                lens.append(eq)
+                if mode == 1:
+                    array_len = self.viper_ast.SeqLength(node)
+                    size = self.viper_ast.IntLit(type.size)
+                    eq = self.viper_ast.EqCmp(array_len, size)
+                    ret.append(eq)
 
                 quant_var_name = ctx.new_quantified_var_name()
                 quant_decl = self.viper_ast.LocalVarDecl(quant_var_name, self.viper_ast.Int)
                 quant = quant_decl.localVar()
-                new_node = array_get(self.viper_ast, node, quant)
+                new_node = array_get(self.viper_ast, node, quant, type.element_type)
                 trigger = self.viper_ast.Trigger([new_node])
 
                 leq = self.viper_ast.LeCmp(self.viper_ast.IntLit(0), quant)
                 le = self.viper_ast.LtCmp(quant, self.viper_ast.SeqLength(node))
                 bounds = self.viper_ast.And(leq, le)
 
-                sub_lens = construct(type.element_type, new_node)
-                for l in sub_lens:
-                    implies = self.viper_ast.Implies(bounds, l)
+                sub_ret = construct(type.element_type, new_node)
+                for r in sub_ret:
+                    implies = self.viper_ast.Implies(bounds, r)
                     quantifier = self.viper_ast.Forall([quant_decl], [trigger], implies)
-                    lens.append(quantifier)
+                    ret.append(quantifier)
 
-            return lens
+            return ret
 
         with quantified_var_scope(ctx):
-            lens = construct(type, node)
-        return lens
+            ret = construct(type, node)
+        return ret
 
     def _fail_if(self, cond, ctx: Context):
         body = [self.viper_ast.Goto(ctx.revert_label)]

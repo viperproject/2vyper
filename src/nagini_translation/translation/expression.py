@@ -18,7 +18,7 @@ from nagini_translation.ast.types import MapType, ArrayType
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.builtins import map_get, map_get_uint
+from nagini_translation.translation.builtins import map_get
 from nagini_translation.translation.builtins import array_get, array_contains, array_not_contains
 
 
@@ -154,12 +154,7 @@ class ExpressionTranslator(NodeTranslator):
         if isinstance(node_type, MapType):
             key_type = self.type_translator.translate(node_type.key_type, ctx)
             value_type = self.type_translator.translate(node_type.value_type, ctx)
-
-            if types.is_unsigned(node_type.value_type):
-                call = map_get_uint(self.viper_ast, value, index, key_type, pos)
-            else:
-                call = map_get(self.viper_ast, value, index, key_type, value_type, pos)
-       
+            call = map_get(self.viper_ast, value, index, key_type, value_type, pos)
         elif isinstance(node_type, ArrayType):
             stmts.append(self.type_translator.array_bounds_check(value, index, ctx))
             element_type = self.type_translator.translate(node_type.element_type, ctx)

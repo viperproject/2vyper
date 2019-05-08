@@ -123,13 +123,3 @@ def map_sum(viper_ast: ViperAST, ref, key_type, pos = None, info = None):
      type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
      type = viper_ast.Int
      return viper_ast.DomainFuncApp(MAP_SUM, [ref], type, pos, info, MAP_INT_DOMAIN, type_vars)
-
-def map_get_uint(viper_ast: ViperAST, ref, idx, key_type, pos = None, info = None):
-     type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
-     type = viper_ast.Int
-     return viper_ast.DomainFuncApp(MAP_GET_UINT, [ref, idx], type, pos, info, MAP_UINT_DOMAIN, type_vars)
-
-def map_sum_uint(viper_ast: ViperAST, ref, key_type, pos = None, info = None):
-     type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
-     type = viper_ast.Int
-     return viper_ast.DomainFuncApp(MAP_SUM_UINT, [ref], type, pos, info, MAP_UINT_DOMAIN, type_vars)
