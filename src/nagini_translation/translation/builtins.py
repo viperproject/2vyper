@@ -35,7 +35,6 @@ ARRAY_INIT = '$array_init'
 
 MAP_DOMAIN = '$Map'
 MAP_INT_DOMAIN = '$MapInt'
-MAP_UINT_DOMAIN = '$MapUInt'
 MAP_KEY_VAR = '$K'
 MAP_VALUE_VAR = '$V'
 
@@ -43,8 +42,6 @@ MAP_INIT = '$map_init'
 MAP_GET = '$map_get'
 MAP_SET = '$map_set'
 MAP_SUM = '$map_sum'
-MAP_GET_UINT = '$map_get_uint'
-MAP_SUM_UINT = '$map_sum_uint'
 
 
 def init_function() -> ast.FunctionDef:

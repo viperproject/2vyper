@@ -124,7 +124,6 @@ class ExpressionTranslator(NodeTranslator):
         return stmts, op(expr, pos)
 
     def translate_Compare(self, node: ast.Compare, ctx: Context) -> StmtsAndExpr:
-        # TODO: treat in and not in differently
         pos = self.to_position(node, ctx)
 
         lhs_stmts, lhs = self.translate(node.left, ctx)
