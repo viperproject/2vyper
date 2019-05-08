@@ -24,7 +24,7 @@ domain $Map[$K, $V] {
 
 }
 
-domain $MapSum[$K] {
+domain $MapInt[$K] {
 
     function $map_sum($m: $Map[$K, Int]): Int
 

@@ -29,7 +29,7 @@ END_LABEL = 'end'
 REVERT_LABEL = 'revert'
 
 MAP_DOMAIN = '$Map'
-MAP_SUM_DOMAIN = '$MapSum'
+MAP_INT_DOMAIN = '$MapInt'
 MAP_UINT_DOMAIN = '$MapUInt'
 MAP_KEY_VAR = '$K'
 MAP_VALUE_VAR = '$V'
@@ -93,7 +93,7 @@ def map_set(viper_ast: ViperAST, ref, idx, value, key_type, value_type, pos = No
 def map_sum(viper_ast: ViperAST, ref, key_type, pos = None, info = None):
      type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
      type = viper_ast.Int
-     return viper_ast.DomainFuncApp(MAP_SUM, [ref], type, pos, info, MAP_SUM_DOMAIN, type_vars)
+     return viper_ast.DomainFuncApp(MAP_SUM, [ref], type, pos, info, MAP_INT_DOMAIN, type_vars)
 
 def map_get_uint(viper_ast: ViperAST, ref, idx, key_type, pos = None, info = None):
      type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
