@@ -90,6 +90,12 @@ def array_get(viper_ast: ViperAST, ref, idx, element_type, pos = None, info = No
 def array_set(viper_ast: ViperAST, ref, idx, value, element_type, pos = None, info = None):
      return viper_ast.SeqUpdate(ref, idx, value, pos, info)
 
+def array_contains(viper_ast: ViperAST, value, ref, pos = None, info = None):
+     return viper_ast.SeqContains(value, ref, pos, info)
+
+def array_not_contains(viper_ast: ViperAST, value, ref, pos = None, info = None):
+     return viper_ast.Not(array_contains(viper_ast, value, ref, pos, info), pos, info)
+
 def _map_type_var_map(viper_ast: ViperAST, key_type, value_type):
     key = viper_ast.TypeVar(MAP_KEY_VAR)
     value = viper_ast.TypeVar(MAP_VALUE_VAR)

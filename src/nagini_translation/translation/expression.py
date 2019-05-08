@@ -18,7 +18,8 @@ from nagini_translation.ast.types import MapType, ArrayType
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.builtins import map_get, map_get_uint, array_get
+from nagini_translation.translation.builtins import map_get, map_get_uint
+from nagini_translation.translation.builtins import array_get, array_contains, array_not_contains
 
 
 class ExpressionTranslator(NodeTranslator):
@@ -40,6 +41,8 @@ class ExpressionTranslator(NodeTranslator):
             ast.LtE: self.viper_ast.LeCmp,
             ast.Gt: self.viper_ast.GtCmp,
             ast.GtE: self.viper_ast.GeCmp,
+            ast.In: lambda l, r, pos: array_contains(viper_ast, l, r, pos),
+            ast.NotIn: lambda l, r, pos: array_not_contains(viper_ast, l, r, pos),
             ast.And: self.viper_ast.And,
             ast.Or: self.viper_ast.Or,
             ast.Not: self.viper_ast.Not
