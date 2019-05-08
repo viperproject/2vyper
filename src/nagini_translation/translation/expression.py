@@ -145,6 +145,7 @@ class ExpressionTranslator(NodeTranslator):
 
         value_stmts, value = self.translate(node.value, ctx)
         index_stmts, index = self.translate(node.slice.value, ctx)
+        stmts = []
 
         node_type = node.value.type
         if isinstance(node_type, MapType):
@@ -157,11 +158,11 @@ class ExpressionTranslator(NodeTranslator):
                 call = map_get(self.viper_ast, value, index, key_type, value_type, pos)
        
         elif isinstance(node_type, ArrayType):
-            # TODO: check for valid array access
+            stmts.append(self.type_translator.array_bounds_check(value, index, ctx))
             element_type = self.type_translator.translate(node_type.element_type, ctx)
             call = array_get(self.viper_ast, value, index, element_type, pos)
 
-        return value_stmts + index_stmts, call
+        return value_stmts + index_stmts + stmts, call
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)

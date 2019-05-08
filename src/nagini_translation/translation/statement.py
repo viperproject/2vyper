@@ -215,6 +215,7 @@ class _AssignmentTranslator(NodeTranslator):
 
         receiver_stmts, receiver = self.expression_translator.translate(node.value, ctx)
         index_stmts, index = self.expression_translator.translate(node.slice.value, ctx)
+        stmts = []
 
         type = node.value.type
         if isinstance(type, MapType):
@@ -222,6 +223,7 @@ class _AssignmentTranslator(NodeTranslator):
             value_type = self.type_translator.translate(type.value_type, ctx)
             new_value = map_set(self.viper_ast, receiver, index, value, key_type, value_type, pos)
         elif isinstance(type, ArrayType):
+            stmts.append(self.type_translator.array_bounds_check(receiver, index, ctx))
             new_value = array_set(self.viper_ast, receiver, index, value, type.element_type, pos)
         else:
             assert False # TODO: handle
@@ -229,4 +231,4 @@ class _AssignmentTranslator(NodeTranslator):
         # We simply evaluate the receiver and index statements here, even though they 
         # might get evaluated again in the recursive call. This is ok as long as the lhs of the
         # assignment is pure.
-        return receiver_stmts + index_stmts + self.assign_to(node.value, new_value, ctx)
+        return receiver_stmts + index_stmts + stmts + self.assign_to(node.value, new_value, ctx)

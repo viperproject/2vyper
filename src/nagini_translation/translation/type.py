@@ -107,3 +107,15 @@ class TypeTranslator(PositionTranslator):
         with quantified_var_scope(ctx):
             lens = construct(type, array)
         return lens
+
+    def _fail_if(self, cond, ctx: Context):
+        body = [self.viper_ast.Goto(ctx.revert_label)]
+        block = self.viper_ast.Seqn(body)
+        empty = self.viper_ast.Seqn([])
+        return self.viper_ast.If(cond, block, empty)
+
+    def array_bounds_check(self, array, index, ctx: Context) -> Stmt:
+        leq = self.viper_ast.LeCmp(self.viper_ast.IntLit(0), index)
+        le = self.viper_ast.LtCmp(index, self.viper_ast.SeqLength(array))
+        cond = self.viper_ast.Not(self.viper_ast.And(leq, le))
+        return self._fail_if(cond, ctx)

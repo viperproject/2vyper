@@ -3,6 +3,11 @@ array: int128[12]
 matrix: int128[12][12]
 tensor: int128[2][2][2]
 
+zeros: int128[1000]
+
+#:: ExpectedOutput(invariant.violated:assertion.false, SZ)
+#@ invariant: self.zeros == old(self.zeros)
+
 
 @public
 def array_read() -> int128:
@@ -38,3 +43,35 @@ def matrix_write_fail() -> int128:
     self.matrix[1][2] = i
     self.matrix[1][2] = 100
     return self.matrix[1][2]
+
+
+#@ ensures: not success()
+@public
+def out_of_bounds_read():
+    a: int128 = self.array[42]
+
+
+#@ ensures: not success()
+@public
+def out_of_bounds_write():
+    self.array[42] = 12
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: result() == 0
+@public
+def get_zeros_fail() -> int128:
+    return self.zeros[1000]
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: result() == 0
+@public
+def get_zeros_at_fail(i: int128) -> int128:
+    return self.zeros[i]
+
+
+#:: Label(SZ)
+@public
+def set_zeros_fail():
+    self.zeros[12] = 100
