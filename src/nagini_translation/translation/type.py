@@ -17,7 +17,10 @@ from nagini_translation.lib.typedefs import Type, Expr, Stmt, StmtsAndExpr
 
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
-from nagini_translation.translation.builtins import array_type, array_init, map_type, map_init
+
+from nagini_translation.translation.builtins import (
+    array_type, array_init, array_get, map_type, map_init, map_get
+)
 
 
 class TypeTranslator(PositionTranslator):
@@ -77,26 +80,53 @@ class TypeTranslator(PositionTranslator):
             # TODO:
             assert False
 
-    def array_length(self, array, type: ArrayType, ctx: Context) -> List[Expr]:
+    def array_length(self, node, type: VyperType, ctx: Context) -> List[Expr]:
+        """
+        Computes the array-length assumptions for a node `node` of type `type`.
+        Node has to be a translated viper node.
+        """
 
-        def construct(type, array):
-            array_len = self.viper_ast.SeqLength(array)
-            size = self.viper_ast.IntLit(type.size)
-            eq = self.viper_ast.EqCmp(array_len, size)
-            lens = [eq]
+        def construct(type, node):
+            lens = []
 
-            if isinstance(type.element_type, ArrayType):
+            # If we encounter a map, we add the following assumption:
+            #   forall k: Key :: construct(map_get(k))
+            # where constuct constructs the size assumption for the array contained
+            # in the map (may be empty)
+            if isinstance(type, MapType):
+                key_type = self.translate(type.key_type, ctx)
+                value_type = self.translate(type.value_type, ctx)
+                quant_var_name = ctx.new_quantified_var_name()
+                quant_decl = self.viper_ast.LocalVarDecl(quant_var_name, key_type)
+                quant = quant_decl.localVar()
+                new_node = map_get(self.viper_ast, node, quant, key_type, value_type)
+                trigger = self.viper_ast.Trigger([new_node])
+                sub_lens = construct(type.value_type, new_node)
+                for l in sub_lens:
+                    quantifier = self.viper_ast.Forall([quant_decl], [trigger], l)
+                    lens.append(quantifier)
+
+            # If we encounter an array, we add the follwing assumptions:
+            #   forall i: Int :: 0 <= i && i < |array| ==> |array| == array_size
+            #   forall i: Int :: 0 <= i && i < |array| ==> construct(array[i])
+            # where construct recursively constructs the assumptions for nested arrays and maps
+            elif isinstance(type, ArrayType):
+                array_len = self.viper_ast.SeqLength(node)
+                size = self.viper_ast.IntLit(type.size)
+                eq = self.viper_ast.EqCmp(array_len, size)
+                lens.append(eq)
+
                 quant_var_name = ctx.new_quantified_var_name()
                 quant_decl = self.viper_ast.LocalVarDecl(quant_var_name, self.viper_ast.Int)
                 quant = quant_decl.localVar()
-                new_array = self.viper_ast.SeqIndex(array, quant)
-                trigger = self.viper_ast.Trigger([new_array])
+                new_node = array_get(self.viper_ast, node, quant)
+                trigger = self.viper_ast.Trigger([new_node])
 
                 leq = self.viper_ast.LeCmp(self.viper_ast.IntLit(0), quant)
-                le = self.viper_ast.LtCmp(quant, self.viper_ast.SeqLength(array))
+                le = self.viper_ast.LtCmp(quant, self.viper_ast.SeqLength(node))
                 bounds = self.viper_ast.And(leq, le)
 
-                sub_lens = construct(type.element_type, new_array)
+                sub_lens = construct(type.element_type, new_node)
                 for l in sub_lens:
                     implies = self.viper_ast.Implies(bounds, l)
                     quantifier = self.viper_ast.Forall([quant_decl], [trigger], implies)
@@ -105,7 +135,7 @@ class TypeTranslator(PositionTranslator):
             return lens
 
         with quantified_var_scope(ctx):
-            lens = construct(type, array)
+            lens = construct(type, node)
         return lens
 
     def _fail_if(self, cond, ctx: Context):

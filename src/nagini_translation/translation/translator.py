@@ -80,9 +80,9 @@ class ProgramTranslator(PositionTranslator):
                 zero = self.viper_ast.IntLit(0)
                 non_neg = self.viper_ast.GeCmp(field_acc, zero)
                 ctx.unchecked_invariants.append(non_neg)
-            elif isinstance(var.type, types.ArrayType):
-                array_lens = self.type_translator.array_length(field_acc, var.type, ctx)
-                ctx.unchecked_invariants.extend(array_lens)
+            
+            array_lens = self.type_translator.array_length(field_acc, var.type, ctx)
+            ctx.unchecked_invariants.extend(array_lens)
         
         # Create msg.sender field
         msg_sender = builtins.msg_sender_field(self.viper_ast)
