@@ -163,6 +163,18 @@ class ExpressionTranslator(NodeTranslator):
 
         return value_stmts + index_stmts + stmts, call
 
+    def translate_List(self, node: ast.List, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
+        
+        stmts = []
+        elems = []
+        for e in node.elts:
+            e_stmts, elem = self.translate(e, ctx)
+            stmts.extend(e_stmts)
+            elems.append(elem)
+
+        return stmts, self.viper_ast.ExplicitSeq(elems, pos)
+
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 

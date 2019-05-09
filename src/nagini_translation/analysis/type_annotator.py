@@ -170,3 +170,13 @@ class TypeAnnotator:
             arg = self.current_func.args.get(node.id)
             node.type = (arg or local or expected).type
 
+    def annotate_List(self, node: ast.List, expected: VyperType):
+        size = len(node.elts)
+        element_types = [self.annotate(e, None) for e in node.elts]
+        for element_type in element_types:
+            if element_type != types.VYPER_INT128:
+                node.type = types.ArrayType(element_type, size)
+                break
+        else:
+            node.type = types.ArrayType(types.VYPER_INT128, size)
+
