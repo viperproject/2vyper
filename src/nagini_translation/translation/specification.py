@@ -17,7 +17,7 @@ from nagini_translation.lib.typedefs import Expr, StmtsAndExpr
 from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.translation.expression import ExpressionTranslator
-from nagini_translation.translation.context import Context
+from nagini_translation.translation.context import Context, quantified_var_scope
 from nagini_translation.translation.builtins import map_sum
 
 from nagini_translation.errors.translation_exceptions import InvalidProgramException
@@ -81,6 +81,30 @@ class SpecificationTranslator(ExpressionTranslator):
 
             implies = self.viper_ast.Or(self.viper_ast.Not(lhs, pos), rhs, pos)
             return [], implies
+        elif name == names.FORALL:
+            with quantified_var_scope(ctx):
+                num_args = len(node.args)
+                # The first argument to forall is the variable declaration dict
+                for name in node.args[0].keys:
+                    name_pos = self.to_position(name, ctx)
+                    type = self.type_translator.translate(name.type, ctx)
+                    var_decl = self.viper_ast.LocalVarDecl(name.id, type, name_pos)
+                    ctx.quantified_vars[name.id] = var_decl
+                    ctx.all_vars[name.id] = var_decl
+
+                # The last argument to forall is the quantified expression
+                expr = self._translate_spec(node.args[num_args - 1], ctx)
+
+                # The arguments in the middle are the triggers
+                triggers = []
+                for arg in node.args[1 : num_args - 2]:
+                    trigger_pos = self.to_position(arg, ctx)
+                    trigger_exprs = [self._translate_spec(t, ctx) for t in arg.elts]
+                    trigger = self.viper_ast.Trigger(trigger_exprs, trigger_pos)
+                    triggers.append(trigger)
+
+                quants = ctx.quantified_vars.values()
+                return [], self.viper_ast.Forall(quants, triggers, expr, pos)
         elif name == names.RESULT or name == names.SUCCESS:
             cap = name.capitalize()
             if self._invariant_mode:

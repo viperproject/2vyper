@@ -13,6 +13,11 @@ PRIVATE = 'private'
 PAYABLE = 'payable'
 
 # Types
+BOOL = 'bool'
+WEI_VALUE = 'wei_value'
+INT128 = 'int128'
+UINT256 = 'uint256'
+ADDRESS = 'address'
 MAP = 'map'
 
 # Functions
@@ -38,6 +43,7 @@ CLEAR = 'clear'
 
 # Verification
 INVARIANT = 'invariant'
+FORALL = 'forall'
 PRECONDITION = 'requires'
 POSTCONDITION = 'ensures'
 

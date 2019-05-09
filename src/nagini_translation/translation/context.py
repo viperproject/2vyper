@@ -33,6 +33,7 @@ class Context:
         self.all_vars = {}
         self.args = {}
         self.locals = {}
+        self.quantified_vars = {}
 
         self._break_label_counter = -1
         self._continue_label_counter = -1
@@ -79,6 +80,7 @@ def function_scope(ctx: Context):
     all_vars = ctx.all_vars
     args = ctx.args
     locals = ctx.locals
+    quantified_vars = ctx.quantified_vars
 
     _break_label_counter = ctx._break_label_counter
     _continue_label_counter = ctx._continue_label_counter
@@ -100,6 +102,7 @@ def function_scope(ctx: Context):
     ctx.all_vars = {}
     ctx.args = {}
     ctx.locals = {}
+    ctx.quantified_vars = {}
 
     ctx._break_label_counter = -1
     ctx._continue_label_counter = -1
@@ -123,6 +126,7 @@ def function_scope(ctx: Context):
     ctx.all_vars = all_vars
     ctx.args = args
     ctx.locals = locals
+    ctx.quantified_vars = quantified_vars
 
     ctx._break_label_counter = _break_label_counter
     ctx._continue_label_counter = _continue_label_counter
@@ -148,11 +152,15 @@ def quantified_var_scope(ctx: Context):
     of the ``with`` statement, and restores the previous one in the end.
     """
 
+    all_vars = ctx.all_vars.copy()
+    quantified_vars = ctx.quantified_vars.copy()
     quantified_var_counter = ctx._quantified_var_counter
-    quantified_var_counter = -1
+    ctx.quantified_var_counter = -1
 
     yield
 
+    ctx.all_vars = all_vars
+    ctx.quantified_vars = quantified_vars
     ctx._quantified_var_counter = quantified_var_counter
 
 

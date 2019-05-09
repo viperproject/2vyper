@@ -11,6 +11,7 @@ from typing import List
 
 from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
+from nagini_translation.ast.types import TypeBuilder, TypeContext
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
@@ -142,45 +143,3 @@ class LocalProgramBuilder(ast.NodeVisitor):
         var = VyperVar(variable_name, variable_type, node)
         self.local_vars[variable_name] = var
         self.generic_visit(node)
-
-
-class TypeContext:
-
-    def __init__(self, type: VyperType, is_public: bool):
-        self.type = type
-        self.is_public = is_public
-
-
-class TypeBuilder(ast.NodeVisitor):
-
-    def build(self, node) -> TypeContext:
-        return self.visit(node)
-
-    def generic_visit(self, node):
-        raise UnsupportedException(node, "Complex types not supported.")
-
-    def visit_Name(self, node: ast.Name) -> TypeContext:
-        return TypeContext(types.TYPES[node.id], False)
-
-    def visit_Call(self, node: ast.Call) -> TypeContext:
-        # We allow public and map, constant should already be replaced
-        if node.func.id == names.PUBLIC:
-            ctx = self.visit(node.args[0])
-            ctx.is_public = True
-        elif node.func.id == names.MAP:
-            key_type_ctx = self.visit(node.args[0])
-            value_type_ctx = self.visit(node.args[1])
-            type = MapType(key_type_ctx.type, value_type_ctx.type)
-            ctx = TypeContext(type, False)
-        else:
-            raise UnsupportedException(node, "Unsupported type.")
-
-        return ctx
-
-    def visit_Subscript(self, node: ast.Subscript) -> TypeContext:
-        ctx = self.visit(node.value)
-        # Array size has to be an int or a constant 
-        # (which has already been replaced by an int)
-        size = node.slice.value.n
-        ctx.type = ArrayType(ctx.type, size)
-        return ctx
