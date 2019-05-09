@@ -32,6 +32,7 @@ def allowance(_owner : address, _spender : address) -> uint256:
 
 
 #@ ensures: self.total_supply == old(self.total_supply)
+#@ ensures: forall({a: address}, {self.balanceOf[a]}, implies(a != msg.sender and a != _to, old(self.balanceOf[a]) == self.balanceOf[a]))
 #:: Label(TT)
 @public
 def transfer(_to : address, _value : uint256) -> bool:
@@ -43,6 +44,8 @@ def transfer(_to : address, _value : uint256) -> bool:
 #@ ensures: implies(old(self.balanceOf[_from]) < _value, not success())
 #@ ensures: implies(old(self.allowances[_from][msg.sender]) < _value, not success())
 #@ ensures: self.total_supply == old(self.total_supply)
+#@ ensures: forall({a: address}, {self.balanceOf[a]}, implies(a != _from and a != _to, old(self.balanceOf[a]) == self.balanceOf[a]))
+#@ ensures: implies(success(), sum(self.allowances[_from]) + _value == old(sum(self.allowances[_from])))
 #:: Label(TF)
 @public
 def transferFrom(_from : address, _to : address, _value : uint256) -> bool:
@@ -60,6 +63,7 @@ def approve(_spender : address, _value : uint256) -> bool:
 
 
 #@ ensures: implies(success(), self.total_supply == old(self.total_supply) + _value)
+#@ ensures: forall({a: address}, {self.balanceOf[a]}, implies(a != _to, old(self.balanceOf[a]) == self.balanceOf[a]))
 @public
 def mint(_to: address, _value: uint256):
     assert msg.sender == self.minter
@@ -69,6 +73,7 @@ def mint(_to: address, _value: uint256):
 
 
 #@ ensures: implies(success(), self.total_supply == old(self.total_supply) - _value)
+#@ ensures: forall({a: address}, {self.balanceOf[a]}, implies(a != msg.sender, old(self.balanceOf[a]) == self.balanceOf[a]))
 @public
 def burn(_value: uint256):
     _to: address = msg.sender
@@ -78,6 +83,8 @@ def burn(_value: uint256):
 
 
 #@ ensures: implies(success(), self.total_supply == old(self.total_supply) - _value)
+#@ ensures: forall({a: address}, {self.balanceOf[a]}, implies(a != _to, old(self.balanceOf[a]) == self.balanceOf[a]))
+#@ ensures: implies(_value > old(self.allowances[_to][msg.sender]), not success())
 @public
 def burnFrom(_to: address, _value: uint256):
     self.allowances[_to][msg.sender] -= _value
