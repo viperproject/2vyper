@@ -24,6 +24,7 @@ MSG_SENDER = names.MSG_SENDER
 
 RESULT_VAR = '$res'
 SUCCESS_VAR = '$succ'
+BALANCE_HAVOC_VAR = '$havoc_balance'
 
 END_LABEL = 'end'
 REVERT_LABEL = 'revert'

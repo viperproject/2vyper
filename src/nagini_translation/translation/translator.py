@@ -52,6 +52,10 @@ class ProgramTranslator(PositionTranslator):
         if names.INIT not in vyper_program.functions:
             vyper_program.functions[builtins.INIT] = builtins.init_function()
 
+        # Add self.balance field
+        balance_var = VyperVar(names.SELF_BALANCE, types.VYPER_WEI_VALUE, None)
+        vyper_program.state[balance_var.name] = balance_var
+
         # Add built-in methods
         methods = seq_to_list(self.builtins.methods())
         # Add built-in functions
@@ -82,6 +86,8 @@ class ProgramTranslator(PositionTranslator):
             array_lens = self.type_translator.array_length(field_acc, var.type, ctx)
             ctx.unchecked_invariants.extend(array_lens)
         
+        ctx.balance_field = ctx.fields[names.SELF_BALANCE]
+
         # Create msg.sender field
         msg_sender = builtins.msg_sender_field(self.viper_ast)
         ctx.immutable_fields[builtins.MSG_SENDER] = msg_sender

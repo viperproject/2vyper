@@ -25,6 +25,7 @@ INIT = '__init__'
 
 # Variables
 SELF = 'self'
+SELF_BALANCE = 'balance'
 MSG = 'msg'
 MSG_SENDER = 'sender'
 

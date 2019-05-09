@@ -77,16 +77,17 @@ class FunctionTranslator(PositionTranslator):
             for inv in ctx.unchecked_invariants:
                 unchecked_invs.append(self.viper_ast.Inhale(inv))
             
-            body += self._seqn_with_info(unchecked_invs, "Assume all unchecked invariants")
+            body.extend(self._seqn_with_info(unchecked_invs, "Assume all unchecked invariants"))
             
             # Assume for all uint256 arguments a that a >= 0
             non_negs = []
             for var in function.args.values():
+                # TODO: unsigned arrays
                 if types.is_unsigned(var.type):
                     local_var = args[var.name].localVar()
                     non_negs.append(self._assume_non_negative(local_var, ctx))
 
-            body += self._seqn_with_info(non_negs, "Assume arg >= 0 for uint256 args")
+            body.extend(self._seqn_with_info(non_negs, "Assume arg >= 0 for uint256 args"))
 
             # In the initializer initialize all fields to their default values
             if function.name == names.INIT:
@@ -98,10 +99,10 @@ class FunctionTranslator(PositionTranslator):
                     assign = self.viper_ast.FieldAssign(field_acc, expr)
                     defaults += stmts + [assign]
                 
-                body += self._seqn_with_info(defaults, "Assign default values to state vars")       
+                body.extend(self._seqn_with_info(defaults, "Assign default values to state vars"))
 
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
-            body += self._seqn_with_info(body_stmts, "Function body")
+            body.extend(self._seqn_with_info(body_stmts, "Function body"))
 
             # If we reach this point do not revert the state
             body.append(self.viper_ast.Goto(ctx.end_label))
@@ -121,24 +122,37 @@ class FunctionTranslator(PositionTranslator):
             # Postconditions hold for single transactions, invariants across transactions.
             # Therefore, after the function execution the following steps happen:
             #   - Assert the specified postconditions of the function
-            #   - Havoc variables like block.timestamp or msg.sender
+            #   - Havoc variables like block.timestamp or self.balance
             #   - Assert invariants
             # This is necessary to not be able to prove the invariant 
             # old(block.timestamp) == block.timestamp
 
             # First the postconditions are asserted
             posts, post_assertions = self.specification_translator.translate_postconditions(function.postconditions, ctx)
-            body += self._seqn_with_info(post_assertions, "Assert postconditions")
+            body.extend(self._seqn_with_info(post_assertions, "Assert postconditions"))
+
+            # Havoc self.balance
+            balance_havoc = self.viper_ast.LocalVarDecl(builtins.BALANCE_HAVOC_VAR, self.viper_ast.Int)
+            locals[builtins.BALANCE_HAVOC_VAR] = balance_havoc
+            assume_pos = self._assume_non_negative(balance_havoc.localVar(), ctx)
+            balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
+            inc_balance = self.viper_ast.Add(balance_acc, balance_havoc.localVar())
+            assign = self.viper_ast.FieldAssign(balance_acc, inc_balance)
+            body.append(assume_pos)
+            body.append(assign)
 
             # If the function is public we also assert the invariants
             if function.is_public():
                 translator = self.specification_translator
                 is_init = function.name == names.INIT
                 with via_scope(ctx):
-                    if not is_init:
+                    # __init__ may be created without being in the file, therefore we
+                    # might get noposition here
+                    # TODO: fix this?
+                    if pos != self.no_position():
                         ctx.vias = [('invariant', pos)]
                     invariants, invariant_assertions = translator.translate_invariants(ctx.program.invariants, ctx, is_init)
-                body += self._seqn_with_info(invariant_assertions, "Assert invariants")
+                body.extend(self._seqn_with_info(invariant_assertions, "Assert invariants"))
             else:
                 invariants = []
 

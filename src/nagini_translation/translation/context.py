@@ -25,6 +25,7 @@ class Context:
         # Note: already translated, as they are never checked and therfore cannot fail
         self.unchecked_invariants = []
         self.self_var = None
+        self.balance_field = None
         self.msg_var = None
 
         self.function = None
