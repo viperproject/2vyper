@@ -70,7 +70,9 @@ class ExpressionTranslator(NodeTranslator):
             raise UnsupportedException(node)
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
-        return [], ctx.all_vars[node.id].localVar()
+        pos = self.to_position(node, ctx)
+        var_decl = ctx.all_vars[node.id]
+        return [], self.viper_ast.LocalVar(var_decl.name(), var_decl.typ(), pos)
 
     def translate_BinOp(self, node: ast.BinOp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)

@@ -63,7 +63,6 @@ class StatementTranslator(NodeTranslator):
         return self.assignment_translator.assign_to(left, rhs, ctx) + rhs_stmts
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
-        # TODO: combine with normal assign?
         pos = self.to_position(node, ctx)
 
         left = node.target
