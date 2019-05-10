@@ -15,7 +15,7 @@ from nagini_translation.ast.types import VyperType, PrimitiveType, MapType, Arra
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Type, Expr, Stmt, StmtsAndExpr
 
-from nagini_translation.translation.abstract import PositionTranslator
+from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
 
 from nagini_translation.translation.builtins import (
@@ -23,7 +23,7 @@ from nagini_translation.translation.builtins import (
 )
 
 
-class TypeTranslator(PositionTranslator):
+class TypeTranslator(PositionTranslator, CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
@@ -165,14 +165,8 @@ class TypeTranslator(PositionTranslator):
             ret = construct(type, node)
         return ret
 
-    def _fail_if(self, cond, ctx: Context):
-        body = [self.viper_ast.Goto(ctx.revert_label)]
-        block = self.viper_ast.Seqn(body)
-        empty = self.viper_ast.Seqn([])
-        return self.viper_ast.If(cond, block, empty)
-
     def array_bounds_check(self, array, index, ctx: Context) -> Stmt:
         leq = self.viper_ast.LeCmp(self.viper_ast.IntLit(0), index)
         le = self.viper_ast.LtCmp(index, self.viper_ast.SeqLength(array))
         cond = self.viper_ast.Not(self.viper_ast.And(leq, le))
-        return self._fail_if(cond, ctx)
+        return self.fail_if(cond, ctx)

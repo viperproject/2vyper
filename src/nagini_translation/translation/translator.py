@@ -92,12 +92,23 @@ class ProgramTranslator(PositionTranslator):
         msg_sender = builtins.msg_sender_field(self.viper_ast)
         ctx.immutable_fields[builtins.MSG_SENDER] = msg_sender
         # Pass around the permissions for msg.sender
-        field_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_sender)
-        acc = self._create_field_access_predicate(field_acc, 0, ctx)
+        sender_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_sender)
+        acc = self._create_field_access_predicate(sender_acc, 0, ctx)
         ctx.permissions.append(acc)
         # Assume msg.sender != 0
         zero = self.viper_ast.IntLit(0)
-        ctx.unchecked_invariants.append(self.viper_ast.NeCmp(field_acc, zero))
+        ctx.unchecked_invariants.append(self.viper_ast.NeCmp(sender_acc, zero))
+
+        # Create msg.value field
+        msg_value = builtins.msg_value_field(self.viper_ast)
+        ctx.immutable_fields[builtins.MSG_VALUE] = msg_value
+        # Pass around the permissions for msg.value
+        value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
+        acc = self._create_field_access_predicate(value_acc, 0, ctx)
+        ctx.permissions.append(acc)
+        # Assume msg.value >= 0
+        zero = self.viper_ast.IntLit(0)
+        ctx.unchecked_invariants.append(self.viper_ast.GeCmp(value_acc, zero))
 
         fields_list = list(ctx.fields.values()) + list(ctx.immutable_fields.values())
 

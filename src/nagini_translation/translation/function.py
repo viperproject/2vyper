@@ -16,7 +16,7 @@ from nagini_translation.ast import names
 from nagini_translation.ast import types
 from nagini_translation.ast.nodes import VyperFunction, VyperVar
 
-from nagini_translation.translation.abstract import PositionTranslator
+from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
@@ -26,7 +26,7 @@ from nagini_translation.translation.context import Context, function_scope, via_
 from nagini_translation.translation import builtins
 
 
-class FunctionTranslator(PositionTranslator):
+class FunctionTranslator(PositionTranslator, CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
@@ -88,6 +88,25 @@ class FunctionTranslator(PositionTranslator):
                     non_negs.append(self._assume_non_negative(local_var, ctx))
 
             body.extend(self._seqn_with_info(non_negs, "Assume arg >= 0 for uint256 args"))
+
+            msg_value = builtins.msg_value_field(self.viper_ast)
+            value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
+            # If a function is not payable and money is sent, revert
+            if not function.is_payable():
+                zero = self.viper_ast.IntLit(0)
+                # TODO: how to handle this case?
+                # is_not_zero = self.viper_ast.NeCmp(value_acc, zero)
+                # body.append(self.fail_if(is_not_zero, ctx))
+                is_zero = self.viper_ast.EqCmp(value_acc, zero)
+                payable_info = self.to_info(["Function is not payable"])
+                assume = self.viper_ast.Inhale(is_zero, info = payable_info)
+                body.append(assume)
+            else:
+                balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
+                inc_sum = self.viper_ast.Add(balance_acc, value_acc)
+                payable_info = self.to_info(["Fuction is payable"])
+                inc = self.viper_ast.FieldAssign(balance_acc, inc_sum, info = payable_info)
+                body.append(inc)
 
             # In the initializer initialize all fields to their default values
             if function.name == names.INIT:

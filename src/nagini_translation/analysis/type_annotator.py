@@ -177,7 +177,7 @@ class TypeAnnotator:
         self.annotate(node.value)
         if node.attr == names.MSG_SENDER:
             node.type = types.VYPER_ADDRESS
-        elif node.attr == names.SELF_BALANCE:
+        elif node.attr == names.MSG_VALUE or node.attr == names.SELF_BALANCE:
             node.type = types.VYPER_WEI_VALUE
         else:
             node.type = self.program.state[node.attr].type

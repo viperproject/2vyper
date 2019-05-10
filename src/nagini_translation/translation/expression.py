@@ -83,21 +83,15 @@ class ExpressionTranslator(NodeTranslator):
         
         op = self.translate_operator(node.op)
 
-        def fail_if(cond):
-            body = [self.viper_ast.Goto(ctx.revert_label, pos)]
-            block = self.viper_ast.Seqn(body, pos)
-            empty = self.viper_ast.Seqn([], pos)
-            return self.viper_ast.If(cond, block, empty, pos)
-
         # If the divisor is 0 revert the transaction
         if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
             cond = self.viper_ast.EqCmp(right, self.viper_ast.IntLit(0, pos), pos)
-            stmts.append(fail_if(cond))
+            stmts.append(self.fail_if(cond, ctx, pos))
 
         # If the result of a uint subtraction is negative, revert the transaction
         if isinstance(node.op, ast.Sub) and types.is_unsigned(node.type):
             cond = self.viper_ast.GtCmp(right, left, pos)
-            stmts.append(fail_if(cond))
+            stmts.append(self.fail_if(cond, ctx, pos))
 
         return stmts, op(left, right, pos)
 

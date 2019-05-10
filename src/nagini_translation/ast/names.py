@@ -28,6 +28,7 @@ SELF = 'self'
 SELF_BALANCE = 'balance'
 MSG = 'msg'
 MSG_SENDER = 'sender'
+MSG_VALUE = 'value'
 
 # Constants
 ZERO_ADDRESS = 'ZERO_ADDRESS'

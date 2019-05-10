@@ -52,8 +52,17 @@ class PositionTranslator:
     def no_info(self) -> 'silver.ast.Info':
         return self.to_info([])
 
+    
+class CommonTranslator:
 
-class NodeTranslator(PositionTranslator):
+    def fail_if(self, cond, ctx: Context, pos = None):
+        body = [self.viper_ast.Goto(ctx.revert_label, pos)]
+        block = self.viper_ast.Seqn(body, pos)
+        empty = self.viper_ast.Seqn([], pos)
+        return self.viper_ast.If(cond, block, empty, pos)
+
+
+class NodeTranslator(PositionTranslator, CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)

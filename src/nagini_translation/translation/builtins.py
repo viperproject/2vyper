@@ -21,6 +21,7 @@ SELF = names.SELF
 
 MSG = names.MSG
 MSG_SENDER = names.MSG_SENDER
+MSG_VALUE = names.MSG_VALUE
 
 RESULT_VAR = '$res'
 SUCCESS_VAR = '$succ'
@@ -57,6 +58,9 @@ def msg_var(viper_ast: ViperAST, pos = None, info = None):
 
 def msg_sender_field(viper_ast: ViperAST, pos = None, info = None):
     return viper_ast.Field(MSG_SENDER, viper_ast.Int, pos, info)
+
+def msg_value_field(viper_ast: ViperAST, pos = None, info = None):
+    return viper_ast.Field(MSG_VALUE, viper_ast.Int, pos, info)
 
 def ret_var(viper_ast: ViperAST, ret_type, pos = None, info = None):
      return viper_ast.LocalVarDecl(RESULT_VAR, ret_type, pos, info)

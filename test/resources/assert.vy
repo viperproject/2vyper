@@ -20,6 +20,6 @@ def assert_true() -> int128:
 
 
 @public
-def set(value: int128):
-    assert value > self.f2
-    self.f1 = value
+def set(val: int128):
+    assert val > self.f2
+    self.f1 = val
