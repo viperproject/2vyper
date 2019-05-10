@@ -15,11 +15,14 @@ class Context:
         self.program = None
         # All Vyper self-fields not including ghost fields
         self.fields = {}
-        # Non-self fields like msg.sender which are immutable
-        self.immutable_fields = {}
-        # Permissions that have to be passed around
+        # Permissions of fields that have to be passed around
         # Note: already translated, as they should never fail
         self.permissions = []
+        # Non-self fields like msg.sender which are immutable
+        self.immutable_fields = {}
+        # Permissions of immutable that have to be passed around
+        # Note: already translated, as they should never fail
+        self.immutable_permissions = []
         # Invariants that are not checked at the end of each function but just assumed, namely 
         # conditions like non-negativeness for uint256
         # Note: already translated, as they are never checked and therfore cannot fail

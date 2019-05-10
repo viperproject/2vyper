@@ -186,13 +186,14 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 ret_posts.extend(arr_lens)
 
             # Postconditions are:
-            #   - The permissings that are passed around
+            #   - The permissions that are passed around
             #   - The unchecked invariants
             #   - The assumptions about non-negativeness and size of arguments (needed for well-definedness) TODO: reevaluate once function calling is supported
             #   - An assumption about non-negativeness for uint256 results and size for array results
             #   - The postconditions specified by the user
             #   - The invariants
-            all_posts = ctx.permissions + ctx.unchecked_invariants + argument_conds + ret_posts + posts + invariants
+            perms = ctx.permissions + ctx.immutable_permissions
+            all_posts = perms + ctx.unchecked_invariants + argument_conds + ret_posts + posts + invariants
 
             # Add preconditions; invariants do not have to hold before __init__
             inv_pres = self.specification_translator.translate_preconditions(ctx.program.invariants, ctx)
@@ -204,7 +205,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             #   - The invariants
             # Note: Unchecked invariants are assumed at the beginning so they do not have to
             # be checked on a method call
-            all_pres = ctx.permissions + pres + inv_pres
+            all_pres = ctx.permissions + ctx.immutable_permissions + pres + inv_pres
 
             # Since we check the postconditions and invariants in the body we can just assume
             # false, so the actual posconditions always succeed
