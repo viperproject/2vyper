@@ -10,6 +10,7 @@ import ast
 from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.ast import names
+from nagini_translation.ast.types import FunctionType
 from nagini_translation.ast.nodes import VyperFunction
 
 
@@ -48,7 +49,8 @@ MAP_SUM = '$map_sum'
 
 def init_function() -> ast.FunctionDef:
     node = ast.FunctionDef(INIT, [], [], [], None)
-    return VyperFunction(INIT, {}, {}, None, [], [], [names.PUBLIC], node)
+    type = FunctionType([], None)
+    return VyperFunction(INIT, {}, {}, type, [], [], [names.PUBLIC], node)
 
 def self_var(viper_ast: ViperAST, pos = None, info = None):
     return viper_ast.LocalVarDecl(SELF, viper_ast.Ref, pos, info)

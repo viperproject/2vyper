@@ -17,7 +17,7 @@ from nagini_translation.ast import names
 from nagini_translation.ast import types
 
 from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperVar
-from nagini_translation.ast.types import VyperType, MapType, ArrayType
+from nagini_translation.ast.types import VyperType, FunctionType, MapType, ArrayType
 
 from nagini_translation.errors.translation_exceptions import UnsupportedException, InvalidProgramException
 
@@ -105,9 +105,11 @@ class ProgramBuilder(ast.NodeVisitor):
     def visit_FunctionDef(self, node):
         local = LocalProgramBuilder()
         args, local_vars = local.build(node)
+        arg_types = [arg.type for arg in args.values()]
         return_type = None if node.returns is None else self.type_builder.build(node.returns).type
+        type = FunctionType(arg_types, return_type)
         decs = self._decorators(node)
-        function = VyperFunction(node.name, args, local_vars, return_type, self.preconditions, self.postconditions, decs, node)
+        function = VyperFunction(node.name, args, local_vars, type, self.preconditions, self.postconditions, decs, node)
         self.functions[node.name] = function
         self.preconditions = []
         self.postconditions = []

@@ -58,8 +58,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             end_label = builtins.end_label(self.viper_ast)
             ctx.end_label = builtins.END_LABEL
 
-            if function.ret:
-                ret_type = self.type_translator.translate(function.ret, ctx)
+            if function.type.return_type:
+                ret_type = self.type_translator.translate(function.type.return_type, ctx)
                 ret_var = builtins.ret_var(self.viper_ast, ret_type, pos)
                 rets.append(ret_var)
                 ctx.result_var = ret_var
@@ -178,10 +178,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # poscondition, but don't assert it (as it always holds anyway)
             # If the return value is an array, add size to postconditions
             ret_posts = []
-            if function.ret:
+            if function.type.return_type:
                 ret_var_local = ret_var.localVar()
-                non_negs = self.type_translator.non_negative(ret_var_local, function.ret, ctx)
-                arr_lens = self.type_translator.array_length(ret_var_local, function.ret, ctx)
+                non_negs = self.type_translator.non_negative(ret_var_local, function.type.return_type, ctx)
+                arr_lens = self.type_translator.array_length(ret_var_local, function.type.return_type, ctx)
                 ret_posts.extend(non_negs)
                 ret_posts.extend(arr_lens)
 
