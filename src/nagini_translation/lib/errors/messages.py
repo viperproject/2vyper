@@ -85,6 +85,8 @@ REASONS = {
         lambda i: 'Receiver of {} might be null.'.format(pprint(i.node)),
     'division.by.zero':
         lambda i: 'Divisor {} might be zero.'.format(pprint(i.node)),
+    'seq.index.length':
+        lambda i: f"Index {pprint(i.node)} might exceed sequence length.",
     'negative.permission':
         lambda i: 'Fraction {} might be negative.'.format(pprint(i.node)),
     'insufficient.permission':
