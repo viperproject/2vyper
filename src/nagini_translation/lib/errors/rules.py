@@ -25,6 +25,11 @@ POSTCONDITION_FAIL = {
         ('postcondition.violated', 'assertion.false')
 }
 
+CALL_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('call.failed', 'assertion.false')
+}
+
 
 
 

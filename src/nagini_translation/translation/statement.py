@@ -102,7 +102,9 @@ class StatementTranslator(NodeTranslator):
             stmts, value = self.type_translator.default_value(node, arg.type, ctx)
             return stmts + self.assignment_translator.assign_to(arg, value, ctx)
         else:
-            assert False # TODO
+            # Ignore the expression, return the stmts 
+            stmts, _ = self.expression_translator.translate(node.value, ctx)
+            return stmts
 
     def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)

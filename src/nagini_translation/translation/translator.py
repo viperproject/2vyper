@@ -19,6 +19,7 @@ from nagini_translation.ast.nodes import VyperProgram, VyperVar
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.function import FunctionTranslator
 from nagini_translation.translation.type import TypeTranslator
+from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.context import Context
 
 from nagini_translation.translation import builtins
@@ -31,6 +32,7 @@ class ProgramTranslator(PositionTranslator):
         self.builtins = builtins
         self.function_translator = FunctionTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
+        self.specification_translator = SpecificationTranslator(viper_ast)
 
     def _translate_field(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
@@ -65,6 +67,12 @@ class ProgramTranslator(PositionTranslator):
         ctx.program = vyper_program
         ctx.self_var = builtins.self_var(self.viper_ast)
         ctx.msg_var = builtins.msg_var(self.viper_ast)
+
+        def translate_invs(ctx: Context):
+            translate_spec = self.specification_translator.translate_specification
+            return translate_spec(vyper_program.invariants, ctx)
+            
+        ctx.invariants = translate_invs
 
         ctx.fields = {}
         ctx.immutable_fields = {}

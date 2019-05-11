@@ -17,7 +17,7 @@ from nagini_translation.ast.types import MapType, ArrayType
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context
+from nagini_translation.translation.context import Context, via_scope
 from nagini_translation.translation.builtins import map_get
 from nagini_translation.translation.builtins import array_get, array_contains, array_not_contains
 
@@ -173,8 +173,9 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         if isinstance(node.func, ast.Name):
-            is_min = node.func.id == names.MIN
-            is_max = node.func.id == names.MAX
+            name = node.func.id
+            is_min = (name == names.MIN)
+            is_max = (name == names.MAX)
             if is_min or is_max:
                 lhs_stmts, lhs = self.translate(node.args[0], ctx)
                 rhs_stmts, rhs = self.translate(node.args[1], ctx)
@@ -182,6 +183,38 @@ class ExpressionTranslator(NodeTranslator):
                 comp = op(lhs, rhs, pos) 
                 stmts = lhs_stmts + rhs_stmts
                 return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
+            elif name == names.SEND:
+                # Sends are translated as follows:
+                #    - Evaluate arguments to and amount
+                #    - Check that balance is sufficient (self.balance >= amount) else revert
+                #    - Subtract amount from self.balance (self.balance -= amount)
+                #    - Check invariants
+                #    - Exhale field permissions (forget all values)
+                #    - Inhale field permissions
+                #    - Assume invariants
+                #    - Assume unchecked invariants
+
+                to_stmts, to = self.translate(node.args[0], ctx)
+                amount_stmts, amount = self.translate(node.args[1], ctx)
+
+                self_balance = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
+                lt = self.viper_ast.LtCmp(self_balance, amount)
+                check = self.fail_if(lt, ctx)
+
+                sub = self.viper_ast.Sub(self_balance, amount)
+                sub_stmt = self.viper_ast.FieldAssign(self_balance, sub)
+
+                # TODO: rules
+                with via_scope(ctx):
+                    ctx.vias = [('call invariant', pos)]
+                    invs = [self.viper_ast.Assert(inv, pos) for inv in ctx.invariants(ctx)]
+                ex_fields = [self.viper_ast.Exhale(perm) for perm in ctx.permissions]
+                in_fields = [self.viper_ast.Inhale(perm) for perm in ctx.permissions]
+
+                assume_invs = [self.viper_ast.Inhale(inv) for inv in ctx.invariants(ctx)]
+                assume_unchecked = [self.viper_ast.Inhale(inv) for inv in ctx.unchecked_invariants]
+
+                return to_stmts + amount_stmts + [check, sub_stmt] + invs + ex_fields + in_fields + assume_invs + assume_unchecked, None
         
         # TODO: error handling
         raise AssertionError("Not yet supported")

@@ -42,6 +42,7 @@ RANGE = 'range'
 MIN = 'min'
 MAX = 'max'
 CLEAR = 'clear'
+SEND = 'send'
 
 # Verification
 INVARIANT = 'invariant'

@@ -20,10 +20,14 @@ class Context:
         # Permissions that have to be passed around
         # Note: already translated, as they should never fail
         self.permissions = []
+        # Invariants specified by the user
+        # Since we need the current self-variables etc. this is a function TODO: change
+        self.invariants = None
         # Invariants that are not checked at the end of each function but just assumed, namely 
         # conditions like non-negativeness for uint256
         # Note: already translated, as they are never checked and therfore cannot fail
         self.unchecked_invariants = []
+        
         self.self_var = None
         self.balance_field = None
         self.msg_var = None

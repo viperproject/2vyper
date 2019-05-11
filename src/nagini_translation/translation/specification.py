@@ -62,6 +62,9 @@ class SpecificationTranslator(ExpressionTranslator):
         
         return specs, assertions
 
+    def translate_specification(self, exprs: List[ast.AST], ctx: Context) -> List[Expr]:
+        return [self._translate_spec(node, ctx) for node in exprs]
+
     def _translate_spec(self, node, ctx: Context):
         _, expr = self.translate(node, ctx)
         return expr

@@ -133,7 +133,7 @@ class TypeAnnotator:
                 node.type = node.args[0].type
             elif name == names.RANGE:
                 node.type = types.VYPER_INT128
-            elif name == names.CLEAR:
+            elif name == names.CLEAR or name == names.SEND:
                 node.type = None
             elif name == names.IMPLIES or name == names.SUCCESS:
                 node.type = types.VYPER_BOOL
