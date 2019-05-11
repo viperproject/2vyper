@@ -6,6 +6,7 @@ money: wei_value
 #@ invariant: self.money <= self.balance
 
 
+#@ ensures: implies(not success(), self.balance == old(self.balance))
 @public
 def send_balance(to: address):
     self.money = 0

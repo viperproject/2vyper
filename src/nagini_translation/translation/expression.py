@@ -205,7 +205,8 @@ class ExpressionTranslator(NodeTranslator):
                 sub = self.viper_ast.Sub(self_balance, amount)
                 sub_stmt = self.viper_ast.FieldAssign(self_balance, sub)
 
-                # TODO: rules
+                stmts = to_stmts + amount_stmts + [check, sub_stmt]
+
                 invs = ctx.invariants(ctx)
                 inv_assertions = []
                 for inv in invs:
@@ -215,11 +216,19 @@ class ExpressionTranslator(NodeTranslator):
                         inv_assertions.append(self.viper_ast.Assert(inv, call_pos))
                 ex_fields = [self.viper_ast.Exhale(perm) for perm in ctx.permissions]
                 in_fields = [self.viper_ast.Inhale(perm) for perm in ctx.permissions]
+                inh_exh = ex_fields + in_fields
 
-                assume_invs = [self.viper_ast.Inhale(inv) for inv in ctx.invariants(ctx)]
-                assume_unchecked = [self.viper_ast.Inhale(inv) for inv in ctx.unchecked_invariants]
+                uinvs = ctx.unchecked_invariants
+                assume_invs = [self.viper_ast.Inhale(inv) for inv in invs]
+                assume_unchecked = [self.viper_ast.Inhale(inv) for inv in uinvs]
+                assumes = assume_invs + assume_unchecked
 
-                return to_stmts + amount_stmts + [check, sub_stmt] + inv_assertions + ex_fields + in_fields + assume_invs + assume_unchecked, None
+                send_fail_name = ctx.new_local_var_name('send_fail')
+                send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
+                ctx.new_local_vars.append(send_fail)
+                fail = self.fail_if(send_fail.localVar(), ctx)
+
+                return stmts + inv_assertions + inh_exh + assumes + [fail], None
         
         # TODO: error handling
         raise AssertionError("Not yet supported")

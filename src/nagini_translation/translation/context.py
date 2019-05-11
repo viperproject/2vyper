@@ -59,9 +59,9 @@ class Context:
 
         self._quantified_var_counter = -1
 
-    def new_local_var_name(self) -> str:
+    def new_local_var_name(self, name = 'local') -> str:
         self._local_var_counter += 1
-        return f'$local_{self._local_var_counter}'
+        return f'${name}_{self._local_var_counter}'
 
     def new_quantified_var_name(self) -> str:
         self._quantified_var_counter += 1
