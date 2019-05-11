@@ -22,10 +22,10 @@ ERRORS = {
         lambda i: 'Method call might fail.',
     'not.wellformed':
         lambda i: 'Contract might not be well-formed.',
+    'call.invariant':
+        lambda i: f"An invariant might not hold before the call {pprint(i.node)}.",
     'call.precondition':
-        lambda i: (f"The precondition of function {i.function} might not hold."
-                   if isinstance(i.node, (ast.Call, ast.FunctionDef)) else
-                   'The precondition of {} might not hold.'.format(pprint(i.node))),
+        lambda i: f"The precondition of function {pprint(i.node)} might not hold.",
     'application.precondition':
         lambda i: (f"The precondition of function {i.function} might not hold."
                    if isinstance(i.node, (ast.Call, ast.FunctionDef)) else

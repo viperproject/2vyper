@@ -9,6 +9,7 @@ import ast
 
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import StmtsAndExpr
+from nagini_translation.lib.errors import rules
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
@@ -205,16 +206,20 @@ class ExpressionTranslator(NodeTranslator):
                 sub_stmt = self.viper_ast.FieldAssign(self_balance, sub)
 
                 # TODO: rules
-                with via_scope(ctx):
-                    ctx.vias = [('call invariant', pos)]
-                    invs = [self.viper_ast.Assert(inv, pos) for inv in ctx.invariants(ctx)]
+                invs = ctx.invariants(ctx)
+                inv_assertions = []
+                for inv in invs:
+                    with via_scope(ctx):
+                        ctx.vias = [('invariant', inv.pos())]
+                        call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL)
+                        inv_assertions.append(self.viper_ast.Assert(inv, call_pos))
                 ex_fields = [self.viper_ast.Exhale(perm) for perm in ctx.permissions]
                 in_fields = [self.viper_ast.Inhale(perm) for perm in ctx.permissions]
 
                 assume_invs = [self.viper_ast.Inhale(inv) for inv in ctx.invariants(ctx)]
                 assume_unchecked = [self.viper_ast.Inhale(inv) for inv in ctx.unchecked_invariants]
 
-                return to_stmts + amount_stmts + [check, sub_stmt] + invs + ex_fields + in_fields + assume_invs + assume_unchecked, None
+                return to_stmts + amount_stmts + [check, sub_stmt] + inv_assertions + ex_fields + in_fields + assume_invs + assume_unchecked, None
         
         # TODO: error handling
         raise AssertionError("Not yet supported")

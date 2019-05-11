@@ -1,8 +1,7 @@
 
 mp: map(int128, int128)
 
-
-#:: ExpectedOutput(invariant.violated:assertion.false, CH)
+#:: Label(QT)
 #@ invariant: forall({i: int128}, {self.mp[i]}, self.mp[i] == 0)
 
 
@@ -17,7 +16,7 @@ def no_change2():
     self.mp[4] = 0
 
 
-#:: Label(CH)
+#:: ExpectedOutput(invariant.violated:assertion.false, QT)
 @public
 def change():
     self.mp[0] = 42

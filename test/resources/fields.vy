@@ -4,7 +4,7 @@ f2: int128
 f3: bool
 f4: uint256
 
-#:: ExpectedOutput(invariant.violated:assertion.false, BB)
+#:: Label(F1_F2)
 #@ invariant: self.f1 == self.f2
 #@ invariant: self.f3
 
@@ -19,7 +19,7 @@ def __init__():
 def foo():
     l1: int128 = self.f1
 
-#:: Label(BB)
+#:: ExpectedOutput(invariant.violated:assertion.false, F1_F2)
 @public
 def bar():
     self.f1 = 5

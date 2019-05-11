@@ -7,7 +7,7 @@ minter: address
 
 #@ invariant: implies(msg.sender != self.minter, old(self.total_supply) >= self.total_supply)
 #@ invariant: sum(self.balanceOf) == self.total_supply
-#:: ExpectedOutput(invariant.violated:assertion.false, TT) | ExpectedOutput(invariant.violated:assertion.false, TF)
+#:: Label(ZERO)
 #@ invariant: self.balanceOf[ZERO_ADDRESS] == 0
 
 
@@ -33,7 +33,7 @@ def allowance(_owner : address, _spender : address) -> uint256:
 
 #@ ensures: self.total_supply == old(self.total_supply)
 #@ ensures: forall({a: address}, {self.balanceOf[a]}, implies(a != msg.sender and a != _to, old(self.balanceOf[a]) == self.balanceOf[a]))
-#:: Label(TT)
+#:: ExpectedOutput(invariant.violated:assertion.false, ZERO)
 @public
 def transfer(_to : address, _value : uint256) -> bool:
     self.balanceOf[msg.sender] -= _value
@@ -46,7 +46,7 @@ def transfer(_to : address, _value : uint256) -> bool:
 #@ ensures: self.total_supply == old(self.total_supply)
 #@ ensures: forall({a: address}, {self.balanceOf[a]}, implies(a != _from and a != _to, old(self.balanceOf[a]) == self.balanceOf[a]))
 #@ ensures: implies(success(), sum(self.allowances[_from]) + _value == old(sum(self.allowances[_from])))
-#:: Label(TF)
+#:: ExpectedOutput(invariant.violated:assertion.false, ZERO)
 @public
 def transferFrom(_from : address, _to : address, _value : uint256) -> bool:
     self.balanceOf[_from] -= _value

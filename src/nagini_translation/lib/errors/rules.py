@@ -25,9 +25,9 @@ POSTCONDITION_FAIL = {
         ('postcondition.violated', 'assertion.false')
 }
 
-CALL_FAIL = {
+CALL_INVARIANT_FAIL = {
     ('assert.failed', 'assertion.false'):
-        ('call.failed', 'assertion.false')
+        ('call.invariant', 'assertion.false')
 }
 
 

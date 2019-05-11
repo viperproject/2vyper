@@ -1,14 +1,14 @@
 
 counter: int128
 
-#:: ExpectedOutput(invariant.violated:assertion.false, DEC)
+#:: Label(INC)
 #@ invariant: old(self.counter) <= self.counter
 
 @public
 def increment():
     self.counter += 1
 
-#:: Label(DEC)
+#:: ExpectedOutput(invariant.violated:assertion.false, INC)
 @public
 def decrease():
     self.counter -= 1

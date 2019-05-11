@@ -12,7 +12,6 @@ from typing import List
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 
-from nagini_translation.lib.errors import rules
 from nagini_translation.lib.typedefs import Expr, StmtsAndExpr
 from nagini_translation.lib.viper_ast import ViperAST
 
@@ -33,37 +32,20 @@ class SpecificationTranslator(ExpressionTranslator):
         # postcondition of __init__
         self._ignore_old = None
 
-    def translate_preconditions(self, pres: List[ast.AST], ctx: Context):
+    def translate_precondition(self, pre: ast.AST, ctx: Context):
         self._invariant_mode = False
         self._ignore_old = True
-        return self._translate_specification(pres, None, ctx)[0]
+        return self._translate_spec(pre, ctx)
 
-    def translate_postconditions(self, posts: List[ast.AST], ctx: Context):
+    def translate_postcondition(self, post: ast.AST, ctx: Context):
         self._invariant_mode = False
         self._ignore_old = False
-        rule = rules.POSTCONDITION_FAIL
-        return self._translate_specification(posts, rule, ctx)
+        return self._translate_spec(post, ctx)
 
-    def translate_invariants(self, invs: List[ast.AST], ctx: Context, ignore_old = False):
+    def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_old = False):
         self._invariant_mode = True
         self._ignore_old = ignore_old
-        rule = rules.INVARIANT_FAIL
-        return self._translate_specification(invs, rule, ctx)
-
-    def _translate_specification(self, exprs: List[ast.AST], rule, ctx: Context):
-        specs = []
-        assertions = []
-        for e in exprs:
-            expr = self._translate_spec(e, ctx)
-            apos = self.to_position(e, ctx, rule)
-            assert_stmt = self.viper_ast.Assert(expr, apos)
-            specs.append(expr)
-            assertions.append(assert_stmt)
-        
-        return specs, assertions
-
-    def translate_specification(self, exprs: List[ast.AST], ctx: Context) -> List[Expr]:
-        return [self._translate_spec(node, ctx) for node in exprs]
+        return self._translate_spec(inv, ctx)
 
     def _translate_spec(self, node, ctx: Context):
         _, expr = self.translate(node, ctx)

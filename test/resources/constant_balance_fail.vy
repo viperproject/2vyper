@@ -1,8 +1,8 @@
 
-#:: ExpectedOutput(invariant.violated:assertion.false, FF)
+#:: Label(CONST_BALANCE)
 #@ invariant: old(self.balance) == self.balance
 
-#:: Label(FF)
+#:: ExpectedOutput(invariant.violated:assertion.false, CONST_BALANCE)
 @public
 def foo():
     pass

@@ -11,6 +11,7 @@ from typing import Dict
 
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Method, Stmt
+from nagini_translation.lib.errors import rules
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
@@ -146,7 +147,14 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # old(block.timestamp) == block.timestamp
 
             # First the postconditions are asserted
-            posts, post_assertions = self.specification_translator.translate_postconditions(function.postconditions, ctx)
+            post_assertions = []
+            posts = []
+            for post in function.postconditions:
+                cond = self.specification_translator.translate_postcondition(post, ctx)
+                posts.append(cond)
+                post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
+                post_assertions.append(self.viper_ast.Assert(cond, post_pos))
+
             body.extend(self._seqn_with_info(post_assertions, "Assert postconditions"))
 
             # Havoc self.balance
@@ -160,19 +168,32 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.append(assign)
 
             # If the function is public we also assert the invariants
+            invariants = []
             if function.is_public():
+                translate_inv = self.specification_translator.translate_invariant
                 translator = self.specification_translator
-                is_init = function.name == names.INIT
+                is_init = (function.name == names.INIT)
                 with via_scope(ctx):
-                    # __init__ may be created without being in the file, therefore we
-                    # might get noposition here
-                    # TODO: fix this?
-                    if pos != self.no_position():
-                        ctx.vias = [('invariant', pos)]
-                    invariants, invariant_assertions = translator.translate_invariants(ctx.program.invariants, ctx, is_init)
+                    invariant_assertions = []
+                    for inv in ctx.program.invariants:
+                        inv_pos = self.to_position(inv, ctx)
+                        expr = translate_inv(inv, ctx, is_init)
+                        invariants.append(expr)    
+
+                        with via_scope(ctx):
+                            # If we have a synthesized __init__ we only create an
+                            # error message on the invariant
+                            if is_init:
+                                inv_pos_r = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
+                                assertion = self.viper_ast.Assert(expr, inv_pos_r)
+                            else:
+                                ctx.vias = [('invariant', inv_pos)]
+                                func_pos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL)
+                                assertion = self.viper_ast.Assert(expr, func_pos)
+
+                        invariant_assertions.append(assertion)
+
                 body.extend(self._seqn_with_info(invariant_assertions, "Assert invariants"))
-            else:
-                invariants = []
 
             # If the return value is of type uint256 add non-negativeness to
             # poscondition, but don't assert it (as it always holds anyway)
@@ -196,9 +217,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             all_posts = perms + ctx.unchecked_invariants + argument_conds + ret_posts + posts + invariants
 
             # Add preconditions; invariants do not have to hold before __init__
-            inv_pres = self.specification_translator.translate_preconditions(ctx.program.invariants, ctx)
+            inv_pres = ctx.invariants(ctx, True)
             inv_pres = [] if function.name == names.INIT else inv_pres
-            pres = self.specification_translator.translate_preconditions(function.preconditions, ctx)
+            translate_pre = self.specification_translator.translate_precondition
+            pres = [translate_pre(pre, ctx) for pre in function.preconditions]
             # Preconditions are: 
             #   - The permissions that are passed around
             #   - The preconditions are were specified by the user

@@ -68,10 +68,10 @@ class ProgramTranslator(PositionTranslator):
         ctx.self_var = builtins.self_var(self.viper_ast)
         ctx.msg_var = builtins.msg_var(self.viper_ast)
 
-        def translate_invs(ctx: Context):
-            translate_spec = self.specification_translator.translate_specification
-            return translate_spec(vyper_program.invariants, ctx)
-            
+        def translate_invs(ctx: Context, ignore_old = False):
+            translate_spec = self.specification_translator.translate_invariant
+            return [translate_spec(inv, ctx, ignore_old) for inv in vyper_program.invariants]
+
         ctx.invariants = translate_invs
 
         ctx.fields = {}
@@ -96,6 +96,7 @@ class ProgramTranslator(PositionTranslator):
         ctx.balance_field = ctx.fields[names.SELF_BALANCE]
 
         ctx.immutable_fields = {}
+        ctx.immutable_permissions = []
         # Create msg.sender field
         msg_sender = builtins.msg_sender_field(self.viper_ast)
         ctx.immutable_fields[builtins.MSG_SENDER] = msg_sender

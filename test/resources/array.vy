@@ -7,7 +7,7 @@ zeros: int128[1000]
 
 mp: map(int128, int128[10])
 
-#:: ExpectedOutput(invariant.violated:assertion.false, SZ)
+#:: Label(CONST_ZEROS)
 #@ invariant: self.zeros == old(self.zeros)
 
 
@@ -73,7 +73,7 @@ def get_zeros_at_fail(i: int128) -> int128:
     return self.zeros[i]
 
 
-#:: Label(SZ)
+#:: ExpectedOutput(invariant.violated:assertion.false, CONST_ZEROS)
 @public
 def set_zeros_fail():
     self.zeros[12] = 100
