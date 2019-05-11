@@ -49,7 +49,7 @@ class TypeAnnotator:
         assert False
 
     def annotate_FunctionDef(self, node: ast.FunctionDef):
-        ret_type = self.program.functions[node.name].ret
+        ret_type = self.program.functions[node.name].type.return_type
 
         for stmt in node.body:
             self.annotate(stmt)
@@ -138,7 +138,7 @@ class TypeAnnotator:
             elif name == names.IMPLIES or name == names.SUCCESS:
                 node.type = types.VYPER_BOOL
             elif name == names.RESULT:
-                node.type = self.current_func.ret
+                node.type = self.current_func.type.return_type
             elif name == names.SUM:
                 node.type = node.args[0].type.value_type
             else:

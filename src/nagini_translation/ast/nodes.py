@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from typing import Dict, List, Optional
-from nagini_translation.ast.types import VyperType
+from nagini_translation.ast.types import VyperType, FunctionType
 
 
 class VyperVar:
@@ -24,7 +24,7 @@ class VyperFunction:
     def __init__(self, name: str, 
                        args: Dict[str, VyperVar], 
                        local_vars: Dict[str, VyperVar], 
-                       ret: Optional[VyperType],
+                       type: FunctionType,
                        preconditions: List[ast.Expr],
                        postconditions: List[ast.Expr],
                        decorators: List[str],
@@ -32,7 +32,7 @@ class VyperFunction:
         self.name = name
         self.args = args
         self.local_vars = local_vars
-        self.ret = ret
+        self.type = type
         self.preconditions = preconditions
         self.postconditions = postconditions
         self.decorators = decorators

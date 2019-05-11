@@ -15,11 +15,15 @@ class Context:
         self.program = None
         # All Vyper self-fields not including ghost fields
         self.fields = {}
-        # Non-self fields like msg.sender which are immutable
-        self.immutable_fields = {}
-        # Permissions that have to be passed around
+        # Permissions of fields that have to be passed around
         # Note: already translated, as they should never fail
         self.permissions = []
+        # Non-self fields like msg.sender which are immutable
+        self.immutable_fields = {}
+        # Permissions of immutable that have to be passed around
+        # Note: already translated, as they should never fail
+        self.permissions = []
+        self.immutable_permissions = []
         # Invariants specified by the user
         # Since we need the current self-variables etc. this is a function TODO: change
         self.invariants = None

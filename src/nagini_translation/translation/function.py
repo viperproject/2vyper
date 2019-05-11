@@ -58,8 +58,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             end_label = builtins.end_label(self.viper_ast)
             ctx.end_label = builtins.END_LABEL
 
-            if function.ret:
-                ret_type = self.type_translator.translate(function.ret, ctx)
+            if function.type.return_type:
+                ret_type = self.type_translator.translate(function.type.return_type, ctx)
                 ret_var = builtins.ret_var(self.viper_ast, ret_type, pos)
                 rets.append(ret_var)
                 ctx.result_var = ret_var
@@ -73,21 +73,20 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body = [returnBool(True)]
 
             # Assume all unchecked invariants
-            unchecked_invs = []
-            for inv in ctx.unchecked_invariants:
-                unchecked_invs.append(self.viper_ast.Inhale(inv))
-            
+            unchecked_invs = [self.viper_ast.Inhale(inv) for inv in ctx.unchecked_invariants]
             body.extend(self._seqn_with_info(unchecked_invs, "Assume all unchecked invariants"))
             
-            # Assume for all uint256 arguments a that a >= 0
-            non_negs = []
+            argument_conds = []
             for var in function.args.values():
-                # TODO: unsigned arrays
-                if types.is_unsigned(var.type):
-                    local_var = args[var.name].localVar()
-                    non_negs.append(self._assume_non_negative(local_var, ctx))
+                local_var = args[var.name].localVar()
+                non_negs = self.type_translator.non_negative(local_var, var.type, ctx)
+                arr_lens = self.type_translator.array_length(local_var, var.type, ctx)
+                argument_conds.extend(non_negs)
+                argument_conds.extend(arr_lens)
 
-            body.extend(self._seqn_with_info(non_negs, "Assume arg >= 0 for uint256 args"))
+            argument_cond_assumes = [self.viper_ast.Inhale(c) for c in argument_conds]
+            info_msg = "Assume non-negativeness of uint256 and sizes of array args"
+            body.extend(self._seqn_with_info(argument_cond_assumes, info_msg))
 
             msg_value = builtins.msg_value_field(self.viper_ast)
             value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
@@ -177,17 +176,24 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             # If the return value is of type uint256 add non-negativeness to
             # poscondition, but don't assert it (as it always holds anyway)
-            ret_post = []
-            if types.is_unsigned(function.ret):
-                ret_post.append(self._non_negative(ret_var.localVar(), ctx))
+            # If the return value is an array, add size to postconditions
+            ret_posts = []
+            if function.type.return_type:
+                ret_var_local = ret_var.localVar()
+                non_negs = self.type_translator.non_negative(ret_var_local, function.type.return_type, ctx)
+                arr_lens = self.type_translator.array_length(ret_var_local, function.type.return_type, ctx)
+                ret_posts.extend(non_negs)
+                ret_posts.extend(arr_lens)
 
             # Postconditions are:
-            #   - The permissings that are passed around
+            #   - The permissions that are passed around
             #   - The unchecked invariants
-            #   - An assumption about non-negativeness for uint256 results
+            #   - The assumptions about non-negativeness and size of arguments (needed for well-definedness) TODO: reevaluate once function calling is supported
+            #   - An assumption about non-negativeness for uint256 results and size for array results
             #   - The postconditions specified by the user
             #   - The invariants
-            all_posts = ctx.permissions + ctx.unchecked_invariants + ret_post + posts + invariants
+            perms = ctx.permissions + ctx.immutable_permissions
+            all_posts = perms + ctx.unchecked_invariants + argument_conds + ret_posts + posts + invariants
 
             # Add preconditions; invariants do not have to hold before __init__
             inv_pres = self.specification_translator.translate_preconditions(ctx.program.invariants, ctx)
@@ -199,7 +205,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             #   - The invariants
             # Note: Unchecked invariants are assumed at the beginning so they do not have to
             # be checked on a method call
-            all_pres = ctx.permissions + pres + inv_pres
+            all_pres = ctx.permissions + ctx.immutable_permissions + pres + inv_pres
 
             # Since we check the postconditions and invariants in the body we can just assume
             # false, so the actual posconditions always succeed

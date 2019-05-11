@@ -52,3 +52,13 @@ def access_arr_map():
     assert self.array[2] >= 0
     assert self.mp_arr[2][1] >= 0
     assert self.mp_arr[2][1] >= 1
+
+
+#@ ensures: result() >= 0
+#@ ensures: result() == a[2]
+@public
+def pass_array(a: uint256[5]) -> uint256:
+    assert a[0] >= 0
+    assert a[1] >= 0
+    assert a[4] >= 0
+    return a[2]

@@ -75,7 +75,6 @@ class ProgramTranslator(PositionTranslator):
         ctx.invariants = translate_invs
 
         ctx.fields = {}
-        ctx.immutable_fields = {}
         ctx.permissions = []
         ctx.unchecked_invariants = []
         for var in vyper_program.state.values():
@@ -96,13 +95,14 @@ class ProgramTranslator(PositionTranslator):
         
         ctx.balance_field = ctx.fields[names.SELF_BALANCE]
 
+        ctx.immutable_fields = {}
         # Create msg.sender field
         msg_sender = builtins.msg_sender_field(self.viper_ast)
         ctx.immutable_fields[builtins.MSG_SENDER] = msg_sender
         # Pass around the permissions for msg.sender
         sender_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_sender)
         acc = self._create_field_access_predicate(sender_acc, 0, ctx)
-        ctx.permissions.append(acc)
+        ctx.immutable_permissions.append(acc)
         # Assume msg.sender != 0
         zero = self.viper_ast.IntLit(0)
         ctx.unchecked_invariants.append(self.viper_ast.NeCmp(sender_acc, zero))
@@ -113,7 +113,7 @@ class ProgramTranslator(PositionTranslator):
         # Pass around the permissions for msg.value
         value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
         acc = self._create_field_access_predicate(value_acc, 0, ctx)
-        ctx.permissions.append(acc)
+        ctx.immutable_permissions.append(acc)
         # Assume msg.value >= 0
         zero = self.viper_ast.IntLit(0)
         ctx.unchecked_invariants.append(self.viper_ast.GeCmp(value_acc, zero))
