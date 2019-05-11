@@ -37,12 +37,30 @@ CONSTANT_VALUES = {
     ZERO_ADDRESS: 0
 }
 
+# Ether units
+ETHER_UNITS = {
+    'wei': 1,
+    'kwei': 1_000,
+    'babbage': 1_000,
+    'mwei': 1_000_000,
+    'lovelace': 1_000_000,
+    'gwei': 1_000_000_000,
+    'shannon': 1_000_000_000,
+    'microether': 1_000_000_000_000,
+    'szabo': 1_000_000_000_000,
+    'milliether': 1_000_000_000_000_000,
+    'finney': 1_000_000_000_000_000,
+    'ether': 1_000_000_000_000_000_000
+}
+
 # Built-in functions
 RANGE = 'range'
 MIN = 'min'
 MAX = 'max'
 CLEAR = 'clear'
 SEND = 'send'
+AS_WEI_VALUE = 'as_wei_value'
+AS_UNITLESS_NUMBER = 'as_unitless_number'
 
 # Verification
 INVARIANT = 'invariant'

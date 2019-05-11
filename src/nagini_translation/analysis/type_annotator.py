@@ -135,6 +135,11 @@ class TypeAnnotator:
                 node.type = types.VYPER_INT128
             elif name == names.CLEAR or name == names.SEND:
                 node.type = None
+            elif name == names.AS_WEI_VALUE:
+                node.type = types.VYPER_WEI_VALUE
+            elif name == names.AS_UNITLESS_NUMBER:
+                # For now the only unit supported is wei_value which is an uint256
+                node.type = types.VYPER_WEI_VALUE
             elif name == names.IMPLIES or name == names.SUCCESS:
                 node.type = types.VYPER_BOOL
             elif name == names.RESULT:
@@ -145,6 +150,10 @@ class TypeAnnotator:
                 assert False, f"encountered function {node.func.id}"
         else:
             assert False
+
+    def annotate_Str(self, node: ast.Str):
+        # Is only supported as an argument to as_wei_value
+        pass
 
     def _annotate_forall(self, node: ast.Call):
         old_quants = self.quantified_vars.copy()

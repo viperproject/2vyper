@@ -184,6 +184,14 @@ class ExpressionTranslator(NodeTranslator):
                 comp = op(lhs, rhs, pos) 
                 stmts = lhs_stmts + rhs_stmts
                 return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
+            elif name == names.AS_WEI_VALUE:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                unit = node.args[1].s
+                unit_pos = self.to_position(node.args[1], ctx)
+                multiplier = self.viper_ast.IntLit(names.ETHER_UNITS[unit], unit_pos)
+                return arg_stmts, self.viper_ast.Mul(arg, multiplier, pos)
+            elif name == names.AS_UNITLESS_NUMBER:
+                return self.translate(node.args[0], ctx)
             elif name == names.SEND:
                 # Sends are translated as follows:
                 #    - Evaluate arguments to and amount
