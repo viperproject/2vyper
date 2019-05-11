@@ -11,7 +11,7 @@ from typing import List
 
 from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
-from nagini_translation.ast.types import TypeBuilder, TypeContext
+from nagini_translation.ast.types import TypeBuilder
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
@@ -71,9 +71,8 @@ class ProgramBuilder(ast.NodeVisitor):
         # No preconditions and postconditions are allowed before contract state variables
         self._check_no_prepostconditions()
 
-        ctx = self.type_builder.build(node.annotation)
         variable_name = node.target.id
-        variable_type = ctx.type
+        variable_type = self.type_builder.build(node.annotation)
         var = VyperVar(variable_name, variable_type, node)
         self.state[variable_name] = var
 
@@ -106,7 +105,7 @@ class ProgramBuilder(ast.NodeVisitor):
         local = LocalProgramBuilder()
         args, local_vars = local.build(node)
         arg_types = [arg.type for arg in args.values()]
-        return_type = None if node.returns is None else self.type_builder.build(node.returns).type
+        return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
         decs = self._decorators(node)
         function = VyperFunction(node.name, args, local_vars, type, self.preconditions, self.postconditions, decs, node)
@@ -129,13 +128,13 @@ class LocalProgramBuilder(ast.NodeVisitor):
 
     def visit_arg(self, node):
         arg_name = node.arg
-        arg_type = self.type_builder.build(node.annotation).type
+        arg_type = self.type_builder.build(node.annotation)
         var = VyperVar(arg_name, arg_type, node)
         self.args[arg_name] = var
 
     def visit_AnnAssign(self, node):
         variable_name = node.target.id
-        variable_type = self.type_builder.build(node.annotation).type
+        variable_type = self.type_builder.build(node.annotation)
         var = VyperVar(variable_name, variable_type, node)
         self.local_vars[variable_name] = var
 

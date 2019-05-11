@@ -12,7 +12,7 @@ from nagini_translation.ast import types
 from nagini_translation.ast.types import VyperType, MapType, ArrayType
 from nagini_translation.ast.nodes import VyperProgram
 
-from nagini_translation.ast.types import TypeBuilder, TypeContext
+from nagini_translation.ast.types import TypeBuilder
 
 
 class TypeAnnotator:
@@ -151,7 +151,7 @@ class TypeAnnotator:
         var_decls = node.args[0] # This is a dictionary of variable declarations
         vars_types = zip(var_decls.keys, var_decls.values)
         for name, type_ann in vars_types:
-            type = self.type_builder.build(type_ann).type
+            type = self.type_builder.build(type_ann)
             self.quantified_vars[name.id] = type
             name.type = type
 
@@ -190,6 +190,8 @@ class TypeAnnotator:
         elif isinstance(node.value.type, ArrayType):
             self.annotate(node.slice.value)
             node.type = node.value.type.element_type
+        else:
+            assert False # TODO: handle
 
     def annotate_Name(self, node: ast.Name):
         if node.id == names.SELF or node.id == names.MSG:

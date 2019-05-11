@@ -73,43 +73,31 @@ def is_unsigned(type: VyperType) -> bool:
     return type == VYPER_UINT256 or type == VYPER_WEI_VALUE
 
 
-class TypeContext:
-
-    def __init__(self, type: VyperType, is_public: bool):
-        self.type = type
-        self.is_public = is_public
-
-
 class TypeBuilder(ast.NodeVisitor):
 
-    def build(self, node) -> TypeContext:
+    def build(self, node) -> VyperType:
         return self.visit(node)
 
     def generic_visit(self, node):
         assert False # TODO: handle
 
-    def visit_Name(self, node: ast.Name) -> TypeContext:
-        return TypeContext(TYPES[node.id], False)
+    def visit_Name(self, node: ast.Name) -> VyperType:
+        return TYPES[node.id]
 
-    def visit_Call(self, node: ast.Call) -> TypeContext:
+    def visit_Call(self, node: ast.Call) -> VyperType:
         # We allow public and map, constant should already be replaced
         if node.func.id == names.PUBLIC:
-            ctx = self.visit(node.args[0])
-            ctx.is_public = True
+            return self.visit(node.args[0])
         elif node.func.id == names.MAP:
-            key_type_ctx = self.visit(node.args[0])
-            value_type_ctx = self.visit(node.args[1])
-            type = MapType(key_type_ctx.type, value_type_ctx.type)
-            ctx = TypeContext(type, False)
+            key_type = self.visit(node.args[0])
+            value_type = self.visit(node.args[1])
+            return MapType(key_type, value_type)
         else:
             assert False # TODO handle
 
-        return ctx
-
-    def visit_Subscript(self, node: ast.Subscript) -> TypeContext:
-        ctx = self.visit(node.value)
+    def visit_Subscript(self, node: ast.Subscript) -> VyperType:
+        element_type = self.visit(node.value)
         # Array size has to be an int or a constant 
         # (which has already been replaced by an int)
         size = node.slice.value.n
-        ctx.type = ArrayType(ctx.type, size)
-        return ctx
+        return ArrayType(element_type, size)
