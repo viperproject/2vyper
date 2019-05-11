@@ -15,6 +15,8 @@ PAYABLE = 'payable'
 # Types
 BOOL = 'bool'
 WEI_VALUE = 'wei_value'
+TIMESTAMP = 'timestamp'
+TIMEDELTA = 'timedelta'
 INT128 = 'int128'
 UINT256 = 'uint256'
 ADDRESS = 'address'
@@ -29,6 +31,8 @@ SELF_BALANCE = 'balance'
 MSG = 'msg'
 MSG_SENDER = 'sender'
 MSG_VALUE = 'value'
+BLOCK = 'block'
+BLOCK_TIMESTAMP = 'timestamp'
 
 # Constants
 ZERO_ADDRESS = 'ZERO_ADDRESS'

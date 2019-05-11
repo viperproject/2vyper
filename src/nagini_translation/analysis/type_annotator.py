@@ -188,6 +188,8 @@ class TypeAnnotator:
             node.type = types.VYPER_ADDRESS
         elif node.attr == names.MSG_VALUE or node.attr == names.SELF_BALANCE:
             node.type = types.VYPER_WEI_VALUE
+        elif node.attr == names.BLOCK_TIMESTAMP:
+            node.type = types.VYPER_TIME
         else:
             node.type = self.program.state[node.attr].type
 
@@ -203,7 +205,7 @@ class TypeAnnotator:
             assert False # TODO: handle
 
     def annotate_Name(self, node: ast.Name):
-        if node.id == names.SELF or node.id == names.MSG:
+        if node.id == names.SELF or node.id == names.MSG or node.id == names.BLOCK:
             node.type = None
         else:
             quant = self.quantified_vars.get(node.id)

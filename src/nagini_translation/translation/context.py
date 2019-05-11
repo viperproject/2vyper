@@ -35,6 +35,7 @@ class Context:
         self.self_var = None
         self.balance_field = None
         self.msg_var = None
+        self.block_var = None
 
         self.function = None
         self.vias = []

@@ -56,6 +56,7 @@ class PrimitiveType(VyperType):
 
 VYPER_BOOL = PrimitiveType(names.BOOL)
 VYPER_WEI_VALUE = PrimitiveType(names.WEI_VALUE)
+VYPER_TIME = PrimitiveType(names.TIMESTAMP)
 VYPER_INT128 = PrimitiveType(names.INT128)
 VYPER_UINT256 = PrimitiveType(names.UINT256)
 VYPER_ADDRESS = PrimitiveType(names.ADDRESS)
@@ -65,12 +66,14 @@ TYPES = {
     VYPER_WEI_VALUE.name: VYPER_WEI_VALUE,
     VYPER_INT128.name: VYPER_INT128,
     VYPER_UINT256.name: VYPER_UINT256,
-    VYPER_ADDRESS.name: VYPER_ADDRESS
+    VYPER_ADDRESS.name: VYPER_ADDRESS,
+    names.TIMESTAMP: VYPER_TIME,
+    names.TIMEDELTA: VYPER_TIME
 }
 
 
 def is_unsigned(type: VyperType) -> bool:
-    return type == VYPER_UINT256 or type == VYPER_WEI_VALUE
+    return type == VYPER_UINT256 or type == VYPER_WEI_VALUE or type == VYPER_TIME
 
 
 class TypeBuilder(ast.NodeVisitor):

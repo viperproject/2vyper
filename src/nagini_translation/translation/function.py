@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import Dict
+from typing import Dict, List
 
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Method, Stmt
@@ -45,6 +45,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
             args[builtins.SELF] = ctx.self_var
             args[builtins.MSG] = ctx.msg_var
+            args[builtins.BLOCK] = ctx.block_var
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
             ctx.args = args
             ctx.locals = locals
@@ -159,15 +160,14 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             body.extend(self._seqn_with_info(post_assertions, "Assert postconditions"))
 
+
+            # Havoc block.timestamp
+            block_timestamp = builtins.block_timestamp_field(self.viper_ast)
+            time_acc = self.viper_ast.FieldAccess(ctx.block_var.localVar(), block_timestamp)
+            body.extend(self._havoc_uint(time_acc, ctx))
             # Havoc self.balance
-            balance_havoc = self.viper_ast.LocalVarDecl(builtins.BALANCE_HAVOC_VAR, self.viper_ast.Int)
-            locals[builtins.BALANCE_HAVOC_VAR] = balance_havoc
-            assume_pos = self._assume_non_negative(balance_havoc.localVar(), ctx)
             balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
-            inc_balance = self.viper_ast.Add(balance_acc, balance_havoc.localVar())
-            assign = self.viper_ast.FieldAssign(balance_acc, inc_balance)
-            body.append(assume_pos)
-            body.append(assign)
+            body.extend(self._havoc_uint(balance_acc, ctx))
 
             # If the function is public we also assert the invariants
             invariants = []
@@ -263,3 +263,12 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             return stmts
         info = self.to_info([comment])
         return [self.viper_ast.Seqn(stmts, info = info)]
+
+    def _havoc_uint(self, field_acc, ctx: Context) -> List[Stmt]:
+        havoc_name = ctx.new_local_var_name('havoc')
+        havoc = self.viper_ast.LocalVarDecl(havoc_name, self.viper_ast.Int)
+        ctx.new_local_vars.append(havoc)
+        assume_pos = self._assume_non_negative(havoc.localVar(), ctx)
+        inc = self.viper_ast.Add(field_acc, havoc.localVar())
+        assign = self.viper_ast.FieldAssign(field_acc, inc)
+        return [assume_pos, assign]

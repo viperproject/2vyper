@@ -24,9 +24,11 @@ MSG = names.MSG
 MSG_SENDER = names.MSG_SENDER
 MSG_VALUE = names.MSG_VALUE
 
+BLOCK = names.BLOCK
+BLOCK_TIMESTAMP = names.BLOCK_TIMESTAMP
+
 RESULT_VAR = '$res'
 SUCCESS_VAR = '$succ'
-BALANCE_HAVOC_VAR = '$havoc_balance'
 
 END_LABEL = 'end'
 REVERT_LABEL = 'revert'
@@ -63,6 +65,12 @@ def msg_sender_field(viper_ast: ViperAST, pos = None, info = None):
 
 def msg_value_field(viper_ast: ViperAST, pos = None, info = None):
     return viper_ast.Field(MSG_VALUE, viper_ast.Int, pos, info)
+
+def block_var(viper_ast: ViperAST, pos = None, info = None):
+     return viper_ast.LocalVarDecl(BLOCK, viper_ast.Ref, pos, info)
+
+def block_timestamp_field(viper_ast: ViperAST, pos = None, info = None):
+     return viper_ast.Field(BLOCK_TIMESTAMP, viper_ast.Int, pos, info)
 
 def ret_var(viper_ast: ViperAST, ret_type, pos = None, info = None):
      return viper_ast.LocalVarDecl(RESULT_VAR, ret_type, pos, info)

@@ -32,6 +32,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             types.VYPER_INT128: viper_ast.Int,
             types.VYPER_UINT256: viper_ast.Int, 
             types.VYPER_WEI_VALUE: viper_ast.Int,
+            types.VYPER_TIME: viper_ast.Int,
             types.VYPER_ADDRESS: viper_ast.Int
         }
 
