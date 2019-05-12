@@ -32,7 +32,7 @@ class UnsupportedException(TranslationException):
         self.node = node
         if not message:
             message = astunparse.unparse(node)
-        super().__init__(f"Not supported: {message}")
+        super().__init__(node, f"Not supported: {message}")
 
 
 class InvalidProgramException(TranslationException):
@@ -44,7 +44,7 @@ class InvalidProgramException(TranslationException):
         self.node = node
         if not message:
             message = astunparse.unparse(node)
-        super().__init__(f"Invalid program: Node {message} not allowed here.")
+        super().__init__(node, f"Invalid program: Node {message} not allowed here.")
 
 
 class ConsistencyException(Exception):
