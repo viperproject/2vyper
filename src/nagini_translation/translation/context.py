@@ -45,6 +45,9 @@ class Context:
         self.locals = {}
         self.quantified_vars = {}
 
+        self._old_label_counter = -1
+        self.old_label = None
+
         self._break_label_counter = -1
         self._continue_label_counter = -1
         self.break_label = None
@@ -60,7 +63,7 @@ class Context:
 
         self._quantified_var_counter = -1
 
-    def new_local_var_name(self, name = 'local') -> str:
+    def new_local_var_name(self, name: str = 'local') -> str:
         self._local_var_counter += 1
         return f'${name}_{self._local_var_counter}'
 
@@ -75,6 +78,10 @@ class Context:
     def _next_continue_label(self) -> str:
         self._continue_label_counter += 1
         return f'continue_{self._continue_label_counter}'
+
+    def new_old_label_name(self, name = 'prev') -> str:
+        self._old_label_counter += 1
+        return f'{name}_{self._old_label_counter}'
 
 
 @contextmanager
@@ -91,6 +98,9 @@ def function_scope(ctx: Context):
     args = ctx.args
     locals = ctx.locals
     quantified_vars = ctx.quantified_vars
+
+    old_label_counter = ctx._old_label_counter
+    old_label = ctx.old_label
 
     _break_label_counter = ctx._break_label_counter
     _continue_label_counter = ctx._continue_label_counter
@@ -113,6 +123,9 @@ def function_scope(ctx: Context):
     ctx.args = {}
     ctx.locals = {}
     ctx.quantified_vars = {}
+
+    ctx._old_label_counter = -1
+    ctx.old_label = None
 
     ctx._break_label_counter = -1
     ctx._continue_label_counter = -1
@@ -137,6 +150,9 @@ def function_scope(ctx: Context):
     ctx.args = args
     ctx.locals = locals
     ctx.quantified_vars = quantified_vars
+
+    ctx._old_label_counter = old_label_counter
+    ctx.old_label = old_label
 
     ctx._break_label_counter = _break_label_counter
     ctx._continue_label_counter = _continue_label_counter
@@ -189,6 +205,21 @@ def via_scope(ctx: Context):
 
     ctx.vias = vias
 
+
+@contextmanager
+def old_label_scope(ctx: Context):
+    """
+    Should be used in a ``with`` statement.
+    Saves the current ``old_label``, creates a new empty one for the body
+    of the ``with`` statement, and restores the previous one in the end.
+    """
+
+    old_label = ctx.old_label
+    ctx.old_label = None
+
+    yield
+
+    ctx.old_label = old_label
 
 @contextmanager
 def break_scope(ctx: Context):

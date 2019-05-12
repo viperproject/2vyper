@@ -195,10 +195,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                             # error message on the invariant
                             # Additionally, invariants only have to hold on success
                             if is_init:
-                                succ = success_var.localVar()
+                                succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), inv_pos)
                                 succ_inv = self.viper_ast.Implies(succ, expr, inv_pos)
                                 invariants.append(succ_inv)
-                                inv_pos_r = self.to_position(succ_inv, ctx, rules.INVARIANT_FAIL)
+                                inv_pos_r = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
                                 assertion = self.viper_ast.Assert(succ_inv, inv_pos_r)
                             else:
                                 invariants.append(expr)    

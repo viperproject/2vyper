@@ -146,6 +146,11 @@ class TypeAnnotator:
                 node.type = self.current_func.type.return_type
             elif name == names.SUM:
                 node.type = node.args[0].type.value_type
+            elif name == names.SENT:
+                if not node.args:
+                    node.type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+                else:
+                    node.type = types.VYPER_WEI_VALUE
             else:
                 assert False, f"encountered function {node.func.id}"
         else:

@@ -57,6 +57,10 @@ class ProgramTranslator(PositionTranslator):
         # Add self.balance field
         balance_var = VyperVar(names.SELF_BALANCE, types.VYPER_WEI_VALUE, None)
         vyper_program.state[balance_var.name] = balance_var
+        # Add self.$sent field
+        sent_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+        sent_var = VyperVar(builtins.SENT_FIELD, sent_type, None)
+        vyper_program.state[sent_var.name] = sent_var
 
         # Add built-in methods
         methods = seq_to_list(self.builtins.methods())

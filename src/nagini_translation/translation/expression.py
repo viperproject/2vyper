@@ -18,10 +18,11 @@ from nagini_translation.ast.types import MapType, ArrayType
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context, via_scope
+from nagini_translation.translation.context import Context, via_scope, old_label_scope
 from nagini_translation.translation.builtins import map_get
 from nagini_translation.translation.builtins import array_get, array_contains, array_not_contains
 
+from nagini_translation.translation import builtins
 
 class ExpressionTranslator(NodeTranslator):
 
@@ -200,11 +201,13 @@ class ExpressionTranslator(NodeTranslator):
                 #    - Check invariants
                 #    - Exhale field permissions (forget all values)
                 #    - Inhale field permissions
-                #    - Assume invariants
+                #    - Assume invariants (where old refers to the state before send)
                 #    - Assume unchecked invariants
 
                 to_stmts, to = self.translate(node.args[0], ctx)
                 amount_stmts, amount = self.translate(node.args[1], ctx)
+
+                old_label = self.viper_ast.Label(ctx.new_old_label_name('pre_send'))
 
                 self_balance = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
                 lt = self.viper_ast.LtCmp(self_balance, amount)
@@ -213,7 +216,13 @@ class ExpressionTranslator(NodeTranslator):
                 sub = self.viper_ast.Sub(self_balance, amount)
                 sub_stmt = self.viper_ast.FieldAssign(self_balance, sub)
 
-                stmts = to_stmts + amount_stmts + [check, sub_stmt]
+                sent_get = builtins.self_sent_map_get(self.viper_ast, to, pos)
+                sent_add = self.viper_ast.Add(sent_get, amount, pos)
+                sent_acc = builtins.self_sent_field_acc(self.viper_ast, pos)
+                sent_set = builtins.self_sent_map_set(self.viper_ast, to, sent_add, pos)
+                sent_assign = self.viper_ast.FieldAssign(sent_acc, sent_set, pos)
+
+                stmts = to_stmts + amount_stmts + [old_label, check, sub_stmt]
 
                 invs = ctx.invariants(ctx)
                 inv_assertions = []
@@ -227,7 +236,9 @@ class ExpressionTranslator(NodeTranslator):
                 inh_exh = ex_fields + in_fields
 
                 uinvs = ctx.unchecked_invariants
-                assume_invs = [self.viper_ast.Inhale(inv) for inv in invs]
+                with old_label_scope(ctx):
+                    ctx.old_label = old_label
+                    assume_invs = [self.viper_ast.Inhale(inv) for inv in ctx.invariants(ctx)]
                 assume_unchecked = [self.viper_ast.Inhale(inv) for inv in uinvs]
                 assumes = assume_invs + assume_unchecked
 
@@ -236,7 +247,7 @@ class ExpressionTranslator(NodeTranslator):
                 ctx.new_local_vars.append(send_fail)
                 fail = self.fail_if(send_fail.localVar(), ctx)
 
-                return stmts + inv_assertions + inh_exh + assumes + [fail], None
+                return stmts + inv_assertions + inh_exh + assumes + [fail, sent_assign], None
         
         # TODO: error handling
         raise AssertionError("Not yet supported")
