@@ -189,15 +189,19 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     for inv in ctx.program.invariants:
                         inv_pos = self.to_position(inv, ctx)
                         expr = translate_inv(inv, ctx, is_init, False)
-                        invariants.append(expr)    
 
                         with via_scope(ctx):
                             # If we have a synthesized __init__ we only create an
                             # error message on the invariant
+                            # Additionally, invariants only have to hold on success
                             if is_init:
-                                inv_pos_r = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
-                                assertion = self.viper_ast.Assert(expr, inv_pos_r)
+                                succ = success_var.localVar()
+                                succ_inv = self.viper_ast.Implies(succ, expr, inv_pos)
+                                invariants.append(succ_inv)
+                                inv_pos_r = self.to_position(succ_inv, ctx, rules.INVARIANT_FAIL)
+                                assertion = self.viper_ast.Assert(succ_inv, inv_pos_r)
                             else:
+                                invariants.append(expr)    
                                 ctx.vias = [('invariant', inv_pos)]
                                 func_pos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL)
                                 assertion = self.viper_ast.Assert(expr, func_pos)
