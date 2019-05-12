@@ -160,7 +160,16 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             body.extend(self._seqn_with_info(post_assertions, "Assert postconditions"))
 
-
+            # Havoc msg.sender and msg.value
+            perm = builtins.read_perm(self.viper_ast)
+            sender_acc = builtins.msg_sender_field_acc(self.viper_ast)
+            sender_perm = self.viper_ast.FieldAccessPredicate(sender_acc, perm)
+            value_acc = builtins.msg_value_field_acc(self.viper_ast)
+            value_perm = self.viper_ast.FieldAccessPredicate(value_acc, perm)
+            exhales = [self.viper_ast.Exhale(sender_perm), self.viper_ast.Exhale(value_perm)]
+            inhales = [self.viper_ast.Inhale(sender_perm), self.viper_ast.Inhale(value_perm)]
+            body.extend(exhales)
+            body.extend(inhales)
             # Havoc block.timestamp
             block_timestamp = builtins.block_timestamp_field(self.viper_ast)
             time_acc = self.viper_ast.FieldAccess(ctx.block_var.localVar(), block_timestamp)
@@ -179,7 +188,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     invariant_assertions = []
                     for inv in ctx.program.invariants:
                         inv_pos = self.to_position(inv, ctx)
-                        expr = translate_inv(inv, ctx, is_init)
+                        expr = translate_inv(inv, ctx, is_init, False)
                         invariants.append(expr)    
 
                         with via_scope(ctx):
@@ -219,7 +228,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             all_posts = perms + ctx.unchecked_invariants + argument_conds + ret_posts + posts + invariants
 
             # Add preconditions; invariants do not have to hold before __init__
-            inv_pres = ctx.invariants(ctx, True)
+            inv_pres = ctx.invariants(ctx, True, True)
             inv_pres = [] if function.name == names.INIT else inv_pres
             translate_pre = self.specification_translator.translate_precondition
             pres = [translate_pre(pre, ctx) for pre in function.preconditions]

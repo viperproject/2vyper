@@ -49,6 +49,11 @@ MAP_SET = '$map_set'
 MAP_SUM = '$map_sum'
 
 
+def read_perm(viper_ast: ViperAST, pos = None, info = None):
+     one = viper_ast.FullPerm(pos, info)
+     two = viper_ast.IntLit(2, pos, info)
+     return viper_ast.PermDiv(one, two, pos, info)
+
 def init_function() -> ast.FunctionDef:
     node = ast.FunctionDef(INIT, [], [], [], None)
     type = FunctionType([], None)
@@ -58,13 +63,23 @@ def self_var(viper_ast: ViperAST, pos = None, info = None):
     return viper_ast.LocalVarDecl(SELF, viper_ast.Ref, pos, info)
 
 def msg_var(viper_ast: ViperAST, pos = None, info = None):
-    return viper_ast.LocalVarDecl(MSG, viper_ast.Ref, pos, info)
+     return viper_ast.LocalVarDecl(MSG, viper_ast.Ref, pos, info)
 
 def msg_sender_field(viper_ast: ViperAST, pos = None, info = None):
-    return viper_ast.Field(MSG_SENDER, viper_ast.Int, pos, info)
+     return viper_ast.Field(MSG_SENDER, viper_ast.Int, pos, info)
+
+def msg_sender_field_acc(viper_ast: ViperAST, pos = None, info = None):
+     msg = msg_var(viper_ast, pos, info).localVar()
+     field = msg_sender_field(viper_ast, pos, info)
+     return viper_ast.FieldAccess(msg, field, pos, info)
 
 def msg_value_field(viper_ast: ViperAST, pos = None, info = None):
-    return viper_ast.Field(MSG_VALUE, viper_ast.Int, pos, info)
+     return viper_ast.Field(MSG_VALUE, viper_ast.Int, pos, info)
+
+def msg_value_field_acc(viper_ast: ViperAST, pos = None, info = None):
+     msg = msg_var(viper_ast, pos, info).localVar()
+     field = msg_value_field(viper_ast, pos, info)
+     return viper_ast.FieldAccess(msg, field, pos, info)
 
 def block_var(viper_ast: ViperAST, pos = None, info = None):
      return viper_ast.LocalVarDecl(BLOCK, viper_ast.Ref, pos, info)

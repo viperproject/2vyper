@@ -47,7 +47,7 @@ class ProgramTranslator(PositionTranslator):
         if amount == 1:
             perm = self.viper_ast.FullPerm()
         else:
-            perm = self.viper_ast.WildcardPerm()
+            perm = builtins.read_perm(self.viper_ast)
         return self.viper_ast.FieldAccessPredicate(field_access, perm)
 
     def translate(self, vyper_program: VyperProgram, file: str) -> Program:
@@ -69,9 +69,9 @@ class ProgramTranslator(PositionTranslator):
         ctx.msg_var = builtins.msg_var(self.viper_ast)
         ctx.block_var = builtins.block_var(self.viper_ast)
 
-        def translate_invs(ctx: Context, ignore_old = False):
+        def translate_invs(ctx: Context, ignore_old = False, ignore_msg = False):
             translate_spec = self.specification_translator.translate_invariant
-            return [translate_spec(inv, ctx, ignore_old) for inv in vyper_program.invariants]
+            return [translate_spec(inv, ctx, ignore_old, ignore_msg) for inv in vyper_program.invariants]
 
         ctx.invariants = translate_invs
 

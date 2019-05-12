@@ -31,20 +31,24 @@ class SpecificationTranslator(ExpressionTranslator):
         # replace old expressions by their expression in preconditions and in the
         # postcondition of __init__
         self._ignore_old = None
+        self._ignore_msg = None
 
     def translate_precondition(self, pre: ast.AST, ctx: Context):
         self._invariant_mode = False
         self._ignore_old = True
+        self._ignore_msg = False
         return self._translate_spec(pre, ctx)
 
     def translate_postcondition(self, post: ast.AST, ctx: Context):
         self._invariant_mode = False
         self._ignore_old = False
+        self._ignore_msg = False
         return self._translate_spec(post, ctx)
 
-    def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_old = False):
+    def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_old = False, ignore_msg = False):
         self._invariant_mode = True
         self._ignore_old = ignore_old
+        self._ignore_msg = ignore_msg
         return self._translate_spec(inv, ctx)
 
     def _translate_spec(self, node, ctx: Context):
@@ -104,8 +108,12 @@ class SpecificationTranslator(ExpressionTranslator):
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Old expression requires a single argument.")
             
-            expr = self._translate_spec(node.args[0], ctx)
-            if self._ignore_old:
+            arg = node.args[0]
+            expr = self._translate_spec(arg, ctx)
+            is_attr = lambda n: isinstance(n, ast.Attribute)
+            is_msg = lambda n: isinstance(n.value, ast.Name) and n.value.id == names.MSG
+            ignore = self._ignore_msg if is_attr(arg) and is_msg(arg) else self._ignore_old
+            if ignore:
                 return [], expr
             else:
                 return [], self.viper_ast.Old(expr, pos)

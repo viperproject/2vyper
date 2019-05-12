@@ -11,13 +11,15 @@ ended: public(bool)
 pendingReturns: public(map(address, wei_value))
 
 
+#@ invariant: implies(self.highestBidder == ZERO_ADDRESS, self.highestBid == 0)
+
 #@ invariant: implies(block.timestamp < self.auctionEnd, not self.ended)
 #@ invariant: implies(not self.ended, sum(self.pendingReturns) + self.highestBid <= self.balance)
 #@ invariant: implies(self.ended, sum(self.pendingReturns) <= self.balance)
 
 #@ invariant: self.highestBid >= old(self.highestBid)
 #@ invariant: implies(self.ended, self.highestBid == old(self.highestBid) and self.highestBidder == old(self.highestBidder))
-#@ invariant: implies(old(msg.value) > old(self.highestBid), old(msg.sender) == self.highestBidder)
+#@ invariant: implies(old(msg.value) > old(self.highestBid) and self.highestBidder != ZERO_ADDRESS, old(msg.sender) == self.highestBidder)
 
 #@ invariant: not (not self.ended and old(self.ended))
 #@ invariant: implies(not self.ended and self.balance < old(self.balance), old(self.balance) - self.balance <= old(self.pendingReturns[msg.sender]))
