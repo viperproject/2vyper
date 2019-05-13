@@ -222,7 +222,7 @@ class ExpressionTranslator(NodeTranslator):
                 sent_set = builtins.self_sent_map_set(self.viper_ast, to, sent_add, pos)
                 sent_assign = self.viper_ast.FieldAssign(sent_acc, sent_set, pos)
 
-                stmts = to_stmts + amount_stmts + [old_label, check, sub_stmt]
+                stmts = to_stmts + amount_stmts + [old_label, check, sub_stmt, sent_assign]
 
                 invs = ctx.invariants(ctx)
                 inv_assertions = []
@@ -247,7 +247,7 @@ class ExpressionTranslator(NodeTranslator):
                 ctx.new_local_vars.append(send_fail)
                 fail = self.fail_if(send_fail.localVar(), ctx)
 
-                return stmts + inv_assertions + inh_exh + assumes + [fail, sent_assign], None
+                return stmts + inv_assertions + inh_exh + assumes + [fail], None
         
         # TODO: error handling
         raise AssertionError("Not yet supported")
