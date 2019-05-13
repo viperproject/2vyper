@@ -12,6 +12,7 @@ pendingReturns: public(map(address, wei_value))
 
 
 #@ invariant: implies(self.highestBidder == ZERO_ADDRESS, self.highestBid == 0)
+#@ invariant: self.beneficiary == old(self.beneficiary)
 
 #@ invariant: implies(block.timestamp < self.auctionEnd, not self.ended)
 #@ invariant: implies(not self.ended, sum(self.pendingReturns) + self.highestBid <= self.balance)
@@ -21,8 +22,12 @@ pendingReturns: public(map(address, wei_value))
 #@ invariant: implies(self.ended, self.highestBid == old(self.highestBid) and self.highestBidder == old(self.highestBidder))
 #@ invariant: implies(old(msg.value) > old(self.highestBid) and self.highestBidder != ZERO_ADDRESS, old(msg.sender) == self.highestBidder)
 
-#@ invariant: not (not self.ended and old(self.ended))
+#@ invariant: implies(old(self.ended), self.ended)
 #@ invariant: implies(not self.ended and self.balance < old(self.balance), old(self.balance) - self.balance <= old(self.pendingReturns[msg.sender]))
+
+#@ invariant: self.pendingReturns[self.beneficiary] == 0
+#@ invariant: implies(not self.ended, sent(self.beneficiary) == 0)
+#@ invariant: implies(self.ended, sent(self.beneficiary) == self.highestBid)
 
 
 @public
@@ -38,12 +43,14 @@ def __init__(_beneficiary: address, _bidding_time: timedelta):
 def bid():
     assert block.timestamp < self.auctionEnd
     assert msg.value > self.highestBid
+    assert msg.sender != self.beneficiary
+
     self.pendingReturns[self.highestBidder] += self.highestBid
     self.highestBidder = msg.sender
     self.highestBid = msg.value
 
 
-#@ ensures: implies(self.balance <= old(self.balance), self.balance - old(self.balance) <= old(self.pendingReturns[msg.sender]))
+#@ ensures: implies(self.balance <= old(self.balance), self.balance - old(self.balance) <= old(self.pendingReturns[old(msg.sender)]))
 @public
 def withdraw():
     pending_amount: wei_value = self.pendingReturns[msg.sender]
@@ -51,6 +58,7 @@ def withdraw():
     send(msg.sender, pending_amount)
 
 
+#@ ensures: implies(not self.ended, sum(sent()) == old(sum(sent())))
 @public
 def endAuction():
     assert block.timestamp >= self.auctionEnd
