@@ -112,9 +112,9 @@ class SpecificationTranslator(ExpressionTranslator):
             
             arg = node.args[0]
             expr = self._translate_spec(arg, ctx)
-            is_attr = lambda n: isinstance(n, ast.Attribute)
-            is_msg = lambda n: isinstance(n.value, ast.Name) and n.value.id == names.MSG
-            ignore = self._ignore_msg if is_attr(arg) and is_msg(arg) else self._ignore_old
+            is_attr = lambda n: isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
+            is_msg_block = lambda n: n.value.id == names.MSG or n.value.id == names.BLOCK
+            ignore = self._ignore_msg if is_attr(arg) and is_msg_block(arg) else self._ignore_old
             if ignore:
                 return [], expr
             else:
