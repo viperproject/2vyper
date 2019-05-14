@@ -160,8 +160,8 @@ class TypeAnnotator:
         node.type = types.ArrayType(types.VYPER_BYTE, len(node.s), False)
 
     def annotate_Str(self, node: ast.Str):
-        # Is only supported as an argument to as_wei_value
-        pass
+        string_bytes = bytes(node.s, 'utf-8')
+        node.type = types.StringType(len(string_bytes))
 
     def _annotate_forall(self, node: ast.Call):
         old_quants = self.quantified_vars.copy()

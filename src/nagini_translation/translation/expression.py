@@ -171,6 +171,11 @@ class ExpressionTranslator(NodeTranslator):
 
         return stmts, self.viper_ast.ExplicitSeq(elems, pos)
 
+    def translate_Str(self, node: ast.Str, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
+        elems = [self.viper_ast.IntLit(e, pos) for e in bytes(node.s, 'utf-8')]
+        return [], self.viper_ast.ExplicitSeq(elems, pos)
+
     def translate_Bytes(self, node: ast.Bytes, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
         elems = [self.viper_ast.IntLit(e, pos) for e in node.s]

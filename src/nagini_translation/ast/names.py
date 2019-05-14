@@ -22,6 +22,7 @@ UINT256 = 'uint256'
 ADDRESS = 'address'
 MAP = 'map'
 BYTE = 'bytes'
+STRING = 'string'
 
 # Functions
 INIT = '__init__'

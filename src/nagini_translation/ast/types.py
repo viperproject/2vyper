@@ -49,6 +49,13 @@ class ArrayType(VyperType):
         super().__init__(name)
 
 
+class StringType(ArrayType):
+
+    def __init__(self, size: int):
+        super().__init__(VYPER_BYTE, size, False)
+        self.name = f'{names.STRING}[{size}]'
+
+
 class PrimitiveType(VyperType):
 
     def __init__(self, name: str):
@@ -70,6 +77,7 @@ TYPES = {
     VYPER_UINT256.name: VYPER_UINT256,
     VYPER_ADDRESS.name: VYPER_ADDRESS,
     VYPER_BYTE.name: VYPER_BYTE,
+    names.STRING: VYPER_BYTE,
     names.TIMESTAMP: VYPER_TIME,
     names.TIMEDELTA: VYPER_TIME
 }
