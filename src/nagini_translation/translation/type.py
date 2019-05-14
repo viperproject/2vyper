@@ -33,7 +33,8 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             types.VYPER_UINT256: viper_ast.Int, 
             types.VYPER_WEI_VALUE: viper_ast.Int,
             types.VYPER_TIME: viper_ast.Int,
-            types.VYPER_ADDRESS: viper_ast.Int
+            types.VYPER_ADDRESS: viper_ast.Int,
+            types.VYPER_BYTE: viper_ast.Int
         }
 
     def translate(self, type: VyperType, ctx: Context) -> VyperType:
@@ -141,8 +142,11 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                 if mode == 1:
                     array_len = self.viper_ast.SeqLength(node)
                     size = self.viper_ast.IntLit(type.size)
-                    eq = self.viper_ast.EqCmp(array_len, size)
-                    ret.append(eq)
+                    if type.is_strict:
+                        comp = self.viper_ast.EqCmp(array_len, size)
+                    else:
+                        comp = self.viper_ast.LeCmp(array_len, size)
+                    ret.append(comp)
 
                 quant_var_name = ctx.new_quantified_var_name()
                 quant_decl = self.viper_ast.LocalVarDecl(quant_var_name, self.viper_ast.Int)

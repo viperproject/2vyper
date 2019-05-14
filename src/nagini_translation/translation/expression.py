@@ -171,6 +171,11 @@ class ExpressionTranslator(NodeTranslator):
 
         return stmts, self.viper_ast.ExplicitSeq(elems, pos)
 
+    def translate_Bytes(self, node: ast.Bytes, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
+        elems = [self.viper_ast.IntLit(e, pos) for e in node.s]
+        return [], self.viper_ast.ExplicitSeq(elems, pos)
+
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
@@ -193,6 +198,9 @@ class ExpressionTranslator(NodeTranslator):
                 return arg_stmts, self.viper_ast.Mul(arg, multiplier, pos)
             elif name == names.AS_UNITLESS_NUMBER:
                 return self.translate(node.args[0], ctx)
+            elif name == names.LEN:
+                arr_stmts, arr = self.translate(node.args[0], ctx)
+                return arr_stmts, self.viper_ast.SeqLength(arr, pos)
             elif name == names.SEND:
                 # Sends are translated as follows:
                 #    - Evaluate arguments to and amount

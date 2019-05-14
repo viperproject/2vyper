@@ -138,6 +138,9 @@ class SpecificationTranslator(ExpressionTranslator):
             else:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, builtins.self_sent_map_get(self.viper_ast, arg, pos)
+        # TODO: extract into own function in names or similar
+        elif name == names.LEN:
+            return super().translate_Call(node, ctx)
         else:
             raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
 
