@@ -22,6 +22,7 @@ UINT256 = 'uint256'
 ADDRESS = 'address'
 MAP = 'map'
 BYTE = 'bytes'
+BYTES32 = 'bytes32'
 STRING = 'string'
 
 # Functions
@@ -59,7 +60,7 @@ ETHER_UNITS = {
     'ether': 1_000_000_000_000_000_000
 }
 
-# Built-in functions
+# Built-in functions
 RANGE = 'range'
 MIN = 'min'
 MAX = 'max'
@@ -69,7 +70,7 @@ AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 LEN = 'len'
 
-# Verification
+# Verification
 INVARIANT = 'invariant'
 GENERAL_POSTCONDITION = 'always_ensures'
 PRECONDITION = 'requires'

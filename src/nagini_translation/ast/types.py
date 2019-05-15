@@ -69,6 +69,7 @@ VYPER_INT128 = PrimitiveType(names.INT128)
 VYPER_UINT256 = PrimitiveType(names.UINT256)
 VYPER_ADDRESS = PrimitiveType(names.ADDRESS)
 VYPER_BYTE = PrimitiveType(names.BYTE)
+VYPER_BYTES32 = ArrayType(VYPER_BYTE, 32, True)
 
 TYPES = {
     VYPER_BOOL.name: VYPER_BOOL,
@@ -77,6 +78,7 @@ TYPES = {
     VYPER_UINT256.name: VYPER_UINT256,
     VYPER_ADDRESS.name: VYPER_ADDRESS,
     VYPER_BYTE.name: VYPER_BYTE,
+    names.BYTES32: VYPER_BYTES32,
     names.STRING: VYPER_BYTE,
     names.TIMESTAMP: VYPER_TIME,
     names.TIMEDELTA: VYPER_TIME
