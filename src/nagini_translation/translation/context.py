@@ -9,11 +9,11 @@ from contextlib import contextmanager
 
 
 class Context:
-    
+
     def __init__(self, file: str):
         self.file = file
         self.program = None
-        # All Vyper self-fields not including ghost fields
+        # All Vyper self-fields not including ghost fields
         self.fields = {}
         # Permissions of fields that have to be passed around
         # Note: already translated, as they should never fail
@@ -27,19 +27,18 @@ class Context:
         # Invariants specified by the user
         # Since we need the current self-variables etc. this is a function TODO: change
         self.invariants = None
-        # Invariants that are not checked at the end of each function but just assumed, namely 
+        # Invariants that are not checked at the end of each function but just assumed, namely
         # conditions like non-negativeness for uint256
         # Note: already translated, as they are never checked and therfore cannot fail
         self.unchecked_invariants = []
-        
+
         self.self_var = None
         self.balance_field = None
         self.msg_var = None
         self.block_var = None
 
         self.function = None
-        self.vias = []
-        
+
         self.all_vars = {}
         self.args = {}
         self.locals = {}
@@ -79,7 +78,7 @@ class Context:
         self._continue_label_counter += 1
         return f'continue_{self._continue_label_counter}'
 
-    def new_old_label_name(self, name = 'prev') -> str:
+    def new_old_label_name(self, name: str = 'prev') -> str:
         self._old_label_counter += 1
         return f'{name}_{self._old_label_counter}'
 
@@ -191,22 +190,6 @@ def quantified_var_scope(ctx: Context):
 
 
 @contextmanager
-def via_scope(ctx: Context):
-    """
-    Should be used in a ``with`` statement.
-    Saves the current ``vias``, creates a new empty one for the body
-    of the ``with`` statement, and restores the previous one in the end.
-    """
-
-    vias = ctx.vias
-    ctx.vias = []
-
-    yield
-
-    ctx.vias = vias
-
-
-@contextmanager
 def old_label_scope(ctx: Context):
     """
     Should be used in a ``with`` statement.
@@ -220,6 +203,7 @@ def old_label_scope(ctx: Context):
     yield
 
     ctx.old_label = old_label
+
 
 @contextmanager
 def break_scope(ctx: Context):
@@ -251,4 +235,3 @@ def continue_scope(ctx: Context):
     yield
 
     ctx.continue_label = continue_label
-    

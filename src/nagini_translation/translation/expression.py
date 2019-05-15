@@ -11,6 +11,8 @@ from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import StmtsAndExpr
 from nagini_translation.lib.errors import rules
 
+from nagini_translation.errors.translation_exceptions import UnsupportedException
+
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 
@@ -18,11 +20,12 @@ from nagini_translation.ast.types import MapType, ArrayType
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context, via_scope, old_label_scope
+from nagini_translation.translation.context import Context, old_label_scope
 from nagini_translation.translation.builtins import map_get
 from nagini_translation.translation.builtins import array_get, array_contains, array_not_contains
 
 from nagini_translation.translation import builtins
+
 
 class ExpressionTranslator(NodeTranslator):
 
@@ -82,15 +85,15 @@ class ExpressionTranslator(NodeTranslator):
         left_stmts, left = self.translate(node.left, ctx)
         right_stmts, right = self.translate(node.right, ctx)
         stmts = left_stmts + right_stmts
-        
+
         op = self.translate_operator(node.op)
 
-        # If the divisor is 0 revert the transaction
+        # If the divisor is 0 revert the transaction
         if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
             cond = self.viper_ast.EqCmp(right, self.viper_ast.IntLit(0, pos), pos)
             stmts.append(self.fail_if(cond, ctx, pos))
 
-        # If the result of a uint subtraction is negative, revert the transaction
+        # If the result of a uint subtraction is negative, revert the transaction
         if isinstance(node.op, ast.Sub) and types.is_unsigned(node.type):
             cond = self.viper_ast.GtCmp(right, left, pos)
             stmts.append(self.fail_if(cond, ctx, pos))
@@ -110,7 +113,7 @@ class ExpressionTranslator(NodeTranslator):
             else:
                 more, rhs = build(tail)
                 return stmts + more, op(lhs, rhs, pos)
-            
+
         return build(node.values)
 
     def translate_UnaryOp(self, node: ast.UnaryOp, ctx: Context) -> StmtsAndExpr:
@@ -161,7 +164,7 @@ class ExpressionTranslator(NodeTranslator):
 
     def translate_List(self, node: ast.List, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
-        
+
         stmts = []
         elems = []
         for e in node.elts:
@@ -192,7 +195,7 @@ class ExpressionTranslator(NodeTranslator):
                 lhs_stmts, lhs = self.translate(node.args[0], ctx)
                 rhs_stmts, rhs = self.translate(node.args[1], ctx)
                 op = self.viper_ast.GtCmp if is_max else self.viper_ast.LtCmp
-                comp = op(lhs, rhs, pos) 
+                comp = op(lhs, rhs, pos)
                 stmts = lhs_stmts + rhs_stmts
                 return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
             elif name == names.AS_WEI_VALUE:
@@ -240,10 +243,9 @@ class ExpressionTranslator(NodeTranslator):
                 invs = ctx.invariants(ctx)
                 inv_assertions = []
                 for inv in invs:
-                    with via_scope(ctx):
-                        ctx.vias = [('invariant', inv.pos())]
-                        call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL)
-                        inv_assertions.append(self.viper_ast.Assert(inv, call_pos))
+                    via = [('invariant', inv.pos())]
+                    call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
+                    inv_assertions.append(self.viper_ast.Assert(inv, call_pos))
                 ex_fields = [self.viper_ast.Exhale(perm) for perm in ctx.permissions]
                 in_fields = [self.viper_ast.Inhale(perm) for perm in ctx.permissions]
                 inh_exh = ex_fields + in_fields
@@ -261,8 +263,6 @@ class ExpressionTranslator(NodeTranslator):
                 fail = self.fail_if(send_fail.localVar(), ctx)
 
                 return stmts + inv_assertions + inh_exh + assumes + [fail], None
-        
+
         # TODO: error handling
         raise AssertionError("Not yet supported")
-                
-

@@ -5,8 +5,6 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from nagini_translation.utils import seq_to_list
 
 from nagini_translation.lib.typedefs import Program
@@ -73,7 +71,7 @@ class ProgramTranslator(PositionTranslator):
         ctx.msg_var = builtins.msg_var(self.viper_ast)
         ctx.block_var = builtins.block_var(self.viper_ast)
 
-        def translate_invs(ctx: Context, ignore_old = False, ignore_msg = False):
+        def translate_invs(ctx: Context, ignore_old=False, ignore_msg=False):
             translate_spec = self.specification_translator.translate_invariant
             return [translate_spec(inv, ctx, ignore_old, ignore_msg) for inv in vyper_program.invariants]
 
@@ -94,10 +92,10 @@ class ProgramTranslator(PositionTranslator):
 
             non_negs = self.type_translator.non_negative(field_acc, var.type, ctx)
             ctx.unchecked_invariants.extend(non_negs)
-            
+
             array_lens = self.type_translator.array_length(field_acc, var.type, ctx)
             ctx.unchecked_invariants.extend(array_lens)
-        
+
         ctx.balance_field = ctx.fields[names.SELF_BALANCE]
 
         ctx.immutable_fields = {}

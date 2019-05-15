@@ -27,12 +27,16 @@ class PositionTranslator:
         id = error_manager.add_error_information(error_info, rules)
         return id
 
-    def to_position(self, node: ast.AST, ctx: Context, rules: Rules = None, error_string: str = None) -> 'silver.ast.Position':
+    def to_position(self,
+                    node: ast.AST,
+                    ctx: Context,
+                    rules: Rules = None,
+                    vias = [],
+                    error_string: str = None) -> 'silver.ast.Position':
         """
         Extracts the position from a node, assigns an ID to the node and stores
         the node and the position in the context for it.
         """
-        vias = ctx.vias
         id = self._register_potential_error(node, ctx, rules, vias, error_string)
         return self.viper_ast.to_position(node, id, ctx.file)
 
@@ -52,7 +56,7 @@ class PositionTranslator:
     def no_info(self) -> 'silver.ast.Info':
         return self.to_info([])
 
-    
+
 class CommonTranslator:
 
     def fail_if(self, cond, ctx: Context, pos = None):

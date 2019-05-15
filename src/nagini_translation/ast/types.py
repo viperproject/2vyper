@@ -20,7 +20,7 @@ class VyperType:
     def __str__(self) -> str:
         return self.name
 
-    
+
 class FunctionType(VyperType):
 
     def __init__(self, arg_types: List[VyperType], return_type: Optional[VyperType]):
@@ -97,7 +97,7 @@ class TypeBuilder(ast.NodeVisitor):
         return self.visit(node)
 
     def generic_visit(self, node):
-        assert False # TODO: handle
+        assert False  # TODO: handle
 
     def visit_Name(self, node: ast.Name) -> VyperType:
         return TYPES[node.id]
@@ -111,11 +111,11 @@ class TypeBuilder(ast.NodeVisitor):
             value_type = self.visit(node.args[1])
             return MapType(key_type, value_type)
         else:
-            assert False # TODO handle
+            assert False  # TODO handle
 
     def visit_Subscript(self, node: ast.Subscript) -> VyperType:
         element_type = self.visit(node.value)
-        # Array size has to be an int or a constant 
+        # Array size has to be an int or a constant
         # (which has already been replaced by an int)
         size = node.slice.value.n
         return ArrayType(element_type, size, has_strict_array_size(element_type))

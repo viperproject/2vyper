@@ -5,15 +5,13 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import Optional, List
 
 from nagini_translation.ast import types
 from nagini_translation.ast.types import VyperType, PrimitiveType, MapType, ArrayType
 
 from nagini_translation.lib.viper_ast import ViperAST
-from nagini_translation.lib.typedefs import Type, Expr, Stmt, StmtsAndExpr
+from nagini_translation.lib.typedefs import Expr, Stmt, StmtsAndExpr
 
 from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
@@ -28,9 +26,9 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
         self.type_dict = {
-            types.VYPER_BOOL: viper_ast.Bool, 
+            types.VYPER_BOOL: viper_ast.Bool,
             types.VYPER_INT128: viper_ast.Int,
-            types.VYPER_UINT256: viper_ast.Int, 
+            types.VYPER_UINT256: viper_ast.Int,
             types.VYPER_WEI_VALUE: viper_ast.Int,
             types.VYPER_TIME: viper_ast.Int,
             types.VYPER_ADDRESS: viper_ast.Int,
@@ -48,7 +46,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             element_type = self.translate(type.element_type, ctx)
             return array_type(self.viper_ast, element_type)
         else:
-            assert False # TODO: handle
+            assert False  # TODO: handle
 
     def revert(self, type: VyperType, field, ctx: Context) -> [Stmt]:
         self_var = ctx.self_var.localVar()
@@ -61,7 +59,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         return [old(self_var, field)]
 
     def default_value(self, node: Optional, type: VyperType, ctx: Context) -> StmtsAndExpr:
-        pos = self.no_position() if node == None else self.to_position(node, ctx)
+        pos = self.no_position() if node is None else self.to_position(node, ctx)
         if type is types.VYPER_BOOL:
             return [], self.viper_ast.FalseLit(pos)
         elif isinstance(type, PrimitiveType):

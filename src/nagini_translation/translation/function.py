@@ -5,16 +5,13 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
-from typing import Dict, List
+from typing import List
 
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import Method, Stmt
 from nagini_translation.lib.errors import rules
 
 from nagini_translation.ast import names
-from nagini_translation.ast import types
 from nagini_translation.ast.nodes import VyperFunction, VyperVar
 
 from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
@@ -22,7 +19,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context, function_scope, via_scope
+from nagini_translation.translation.context import Context, function_scope
 
 from nagini_translation.translation import builtins
 
@@ -77,7 +74,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # Assume all unchecked invariants
             unchecked_invs = [self.viper_ast.Inhale(inv) for inv in ctx.unchecked_invariants]
             body.extend(self._seqn_with_info(unchecked_invs, "Assume all unchecked invariants"))
-            
+
             argument_conds = []
             for var in function.args.values():
                 local_var = args[var.name].localVar()
@@ -100,13 +97,13 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 # body.append(self.fail_if(is_not_zero, ctx))
                 is_zero = self.viper_ast.EqCmp(value_acc, zero)
                 payable_info = self.to_info(["Function is not payable"])
-                assume = self.viper_ast.Inhale(is_zero, info = payable_info)
+                assume = self.viper_ast.Inhale(is_zero, info=payable_info)
                 body.append(assume)
             else:
                 balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
                 inc_sum = self.viper_ast.Add(balance_acc, value_acc)
                 payable_info = self.to_info(["Fuction is payable"])
-                inc = self.viper_ast.FieldAssign(balance_acc, inc_sum, info = payable_info)
+                inc = self.viper_ast.FieldAssign(balance_acc, inc_sum, info=payable_info)
                 body.append(inc)
 
             # In the initializer initialize all fields to their default values
@@ -120,7 +117,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     stmts, expr = self.type_translator.default_value(None, type, ctx)
                     assign = self.viper_ast.FieldAssign(field_acc, expr)
                     defaults += stmts + [assign]
-                
+
                 body.extend(self._seqn_with_info(defaults, "Assign default values to state vars"))
 
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
@@ -138,7 +135,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 type = ctx.program.state[name].type
                 body += self.type_translator.revert(type, field, ctx)
 
-            # The end of a program, label where return statements jump to
+            # The end of a program, label where return statements jump to
             body.append(end_label)
 
             # Postconditions hold for single transactions, invariants across transactions.
@@ -146,7 +143,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             #   - Assert the specified postconditions of the function
             #   - Havoc variables like block.timestamp or self.balance
             #   - Assert invariants
-            # This is necessary to not be able to prove the invariant 
+            # This is necessary to not be able to prove the invariant
             # old(block.timestamp) == block.timestamp
 
             # First the postconditions are asserted
@@ -170,23 +167,12 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     assertion = self.viper_ast.Assert(succ_post, post_pos_r)
                 else:
                     posts.append(cond)
-                    with via_scope(ctx):
-                        ctx.vias = [('general postcondition', post_pos)]
-                        func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL)
-                        post_assertions.append(self.viper_ast.Assert(cond, func_pos))
+                    via = [('general postcondition', post_pos)]
+                    func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via)
+                    post_assertions.append(self.viper_ast.Assert(cond, func_pos))
 
             body.extend(self._seqn_with_info(post_assertions, "Assert postconditions"))
 
-            # Havoc msg.sender and msg.value
-            perm = builtins.read_perm(self.viper_ast)
-            sender_acc = builtins.msg_sender_field_acc(self.viper_ast)
-            sender_perm = self.viper_ast.FieldAccessPredicate(sender_acc, perm)
-            value_acc = builtins.msg_value_field_acc(self.viper_ast)
-            value_perm = self.viper_ast.FieldAccessPredicate(value_acc, perm)
-            exhales = [self.viper_ast.Exhale(sender_perm), self.viper_ast.Exhale(value_perm)]
-            inhales = [self.viper_ast.Inhale(sender_perm), self.viper_ast.Inhale(value_perm)]
-            body.extend(exhales)
-            body.extend(inhales)
             # Havoc block.timestamp
             block_timestamp = builtins.block_timestamp_field(self.viper_ast)
             time_acc = self.viper_ast.FieldAccess(ctx.block_var.localVar(), block_timestamp)
@@ -195,35 +181,32 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
             body.extend(self._havoc_uint(balance_acc, ctx))
 
-            # If the function is public we also assert the invariants
+            # If the function is public we also assert the invariants
             invariants = []
             if function.is_public():
                 translate_inv = self.specification_translator.translate_invariant
-                translator = self.specification_translator
                 is_init = (function.name == names.INIT)
-                with via_scope(ctx):
-                    invariant_assertions = []
-                    for inv in ctx.program.invariants:
-                        inv_pos = self.to_position(inv, ctx)
-                        expr = translate_inv(inv, ctx, is_init, False)
+                invariant_assertions = []
+                for inv in ctx.program.invariants:
+                    inv_pos = self.to_position(inv, ctx)
+                    expr = translate_inv(inv, ctx, is_init, False)
 
-                        with via_scope(ctx):
-                            # If we have a synthesized __init__ we only create an
-                            # error message on the invariant
-                            # Additionally, invariants only have to hold on success
-                            if is_init:
-                                succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), inv_pos)
-                                succ_inv = self.viper_ast.Implies(succ, expr, inv_pos)
-                                invariants.append(succ_inv)
-                                inv_pos_r = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
-                                assertion = self.viper_ast.Assert(succ_inv, inv_pos_r)
-                            else:
-                                invariants.append(expr)    
-                                ctx.vias = [('invariant', inv_pos)]
-                                func_pos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL)
-                                assertion = self.viper_ast.Assert(expr, func_pos)
+                    # If we have a synthesized __init__ we only create an
+                    # error message on the invariant
+                    # Additionally, invariants only have to hold on success
+                    if is_init:
+                        succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), inv_pos)
+                        succ_inv = self.viper_ast.Implies(succ, expr, inv_pos)
+                        invariants.append(succ_inv)
+                        inv_pos_r = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
+                        assertion = self.viper_ast.Assert(succ_inv, inv_pos_r)
+                    else:
+                        invariants.append(expr)
+                        via = [('invariant', inv_pos)]
+                        func_pos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
+                        assertion = self.viper_ast.Assert(expr, func_pos)
 
-                        invariant_assertions.append(assertion)
+                    invariant_assertions.append(assertion)
 
                 body.extend(self._seqn_with_info(invariant_assertions, "Assert invariants"))
 
@@ -241,27 +224,27 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # Postconditions are:
             #   - The permissions that are passed around
             #   - The unchecked invariants
-            #   - The assumptions about non-negativeness and size of arguments (needed for well-definedness) TODO: reevaluate once function calling is supported
+            #   - The assumptions about non-negativeness and size of arguments (needed for well-definedness) TODO: reevaluate once function calling is supported
             #   - An assumption about non-negativeness for uint256 results and size for array results
             #   - The postconditions specified by the user
             #   - The invariants
             perms = ctx.permissions + ctx.immutable_permissions
             all_posts = perms + ctx.unchecked_invariants + argument_conds + ret_posts + posts + invariants
 
-            # Add preconditions; invariants do not have to hold before __init__
+            # Add preconditions; invariants do not have to hold before __init__
             inv_pres = ctx.invariants(ctx, True, True)
             inv_pres = [] if function.name == names.INIT else inv_pres
             translate_pre = self.specification_translator.translate_precondition
             pres = [translate_pre(pre, ctx) for pre in function.preconditions]
-            # Preconditions are: 
+            # Preconditions are:
             #   - The permissions that are passed around
-            #   - The preconditions are were specified by the user
+            #   - The preconditions are were specified by the user
             #   - The invariants
             # Note: Unchecked invariants are assumed at the beginning so they do not have to
             # be checked on a method call
             all_pres = ctx.permissions + ctx.immutable_permissions + pres + inv_pres
 
-            # Since we check the postconditions and invariants in the body we can just assume
+            # Since we check the postconditions and invariants in the body we can just assume
             # false, so the actual posconditions always succeed
             assume_false = self.viper_ast.Inhale(self.viper_ast.FalseLit())
             body.append(assume_false)
@@ -270,10 +253,9 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             args_list = list(args.values())
             new_locals = ctx.new_local_vars
             locals_list = list(locals.values()) + new_locals
-            
+
         method = self.viper_ast.Method(function.name, args_list, rets, all_pres, all_posts, locals_list, seqn, pos)
         return method
-        
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
@@ -292,7 +274,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         if not stmts:
             return stmts
         info = self.to_info([comment])
-        return [self.viper_ast.Seqn(stmts, info = info)]
+        return [self.viper_ast.Seqn(stmts, info=info)]
 
     def _havoc_uint(self, field_acc, ctx: Context) -> List[Stmt]:
         havoc_name = ctx.new_local_var_name('havoc')
