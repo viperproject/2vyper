@@ -32,3 +32,8 @@ def div(a: wei_value, b: wei_value) -> wei_value:
 def fail(a: wei_value, b: wei_value) -> wei_value:
     assert a > b
     self.ui = b - a
+
+#@ ensures: result() == as_wei_value(i, "lovelace")
+@public
+def transform(i: int128) -> wei_value:
+    return as_wei_value(i, "lovelace")

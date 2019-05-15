@@ -131,7 +131,7 @@ class TypeAnnotator:
             name = node.func.id
             if name == names.MIN or name == names.MAX or name == names.OLD:
                 node.type = node.args[0].type
-            elif name == names.RANGE:
+            elif name == names.RANGE or name == names.LEN:
                 node.type = types.VYPER_INT128
             elif name == names.CLEAR or name == names.SEND:
                 node.type = None
@@ -156,9 +156,12 @@ class TypeAnnotator:
         else:
             assert False
 
+    def annotate_Bytes(self, node: ast.Bytes):
+        node.type = types.ArrayType(types.VYPER_BYTE, len(node.s), False)
+
     def annotate_Str(self, node: ast.Str):
-        # Is only supported as an argument to as_wei_value
-        pass
+        string_bytes = bytes(node.s, 'utf-8')
+        node.type = types.StringType(len(string_bytes))
 
     def _annotate_forall(self, node: ast.Call):
         old_quants = self.quantified_vars.copy()

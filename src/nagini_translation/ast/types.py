@@ -41,11 +41,19 @@ class MapType(VyperType):
 
 class ArrayType(VyperType):
 
-    def __init__(self, element_type: VyperType, size: int):
+    def __init__(self, element_type: VyperType, size: int, is_strict: bool = True):
         self.element_type = element_type
         self.size = size
+        self.is_strict = is_strict
         name = f'{element_type}[{size}]'
         super().__init__(name)
+
+
+class StringType(ArrayType):
+
+    def __init__(self, size: int):
+        super().__init__(VYPER_BYTE, size, False)
+        self.name = f'{names.STRING}[{size}]'
 
 
 class PrimitiveType(VyperType):
@@ -60,6 +68,7 @@ VYPER_TIME = PrimitiveType(names.TIMESTAMP)
 VYPER_INT128 = PrimitiveType(names.INT128)
 VYPER_UINT256 = PrimitiveType(names.UINT256)
 VYPER_ADDRESS = PrimitiveType(names.ADDRESS)
+VYPER_BYTE = PrimitiveType(names.BYTE)
 
 TYPES = {
     VYPER_BOOL.name: VYPER_BOOL,
@@ -67,6 +76,8 @@ TYPES = {
     VYPER_INT128.name: VYPER_INT128,
     VYPER_UINT256.name: VYPER_UINT256,
     VYPER_ADDRESS.name: VYPER_ADDRESS,
+    VYPER_BYTE.name: VYPER_BYTE,
+    names.STRING: VYPER_BYTE,
     names.TIMESTAMP: VYPER_TIME,
     names.TIMEDELTA: VYPER_TIME
 }
@@ -74,6 +85,10 @@ TYPES = {
 
 def is_unsigned(type: VyperType) -> bool:
     return type == VYPER_UINT256 or type == VYPER_WEI_VALUE or type == VYPER_TIME
+
+
+def has_strict_array_size(element_type: VyperType) -> bool:
+    return element_type != VYPER_BYTE
 
 
 class TypeBuilder(ast.NodeVisitor):
@@ -103,4 +118,4 @@ class TypeBuilder(ast.NodeVisitor):
         # Array size has to be an int or a constant 
         # (which has already been replaced by an int)
         size = node.slice.value.n
-        return ArrayType(element_type, size)
+        return ArrayType(element_type, size, has_strict_array_size(element_type))
