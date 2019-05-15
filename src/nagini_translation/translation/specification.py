@@ -57,6 +57,12 @@ class SpecificationTranslator(ExpressionTranslator):
         _, expr = self.translate(node, ctx)
         return expr
 
+    def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
+        if self._invariant_mode and node.id == names.MSG:
+            assert False # TODO: handle
+        else:
+            return super().translate_Name(node, ctx)
+
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         assert isinstance(node.func, ast.Name) # TODO: handle
 

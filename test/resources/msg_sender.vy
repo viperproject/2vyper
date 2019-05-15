@@ -4,7 +4,7 @@ b: bool
 
 
 #@ invariant: self.owner == old(self.owner)
-#@ invariant: implies(old(msg.sender) != self.owner, self.b == old(self.b))
+#@ always ensures: implies(msg.sender != self.owner, self.b == old(self.b))
 
 
 @public

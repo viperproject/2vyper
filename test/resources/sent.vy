@@ -5,10 +5,11 @@ should_pay: bool
 owner: address
 
 
+#@ always ensures: implies(msg.sender != self.owner, self.should_pay == old(self.should_pay))
+
 #@ invariant: self.owner == old(self.owner)
 #@ invariant: self.balance >= self.reward
 #@ invariant: implies(old(self.should_pay), self.should_pay)
-#@ invariant: implies(old(msg.sender) != self.owner, self.should_pay == old(self.should_pay))
 #@ invariant: sent(self.owner) == 0
 #:: Label(SU)
 #@ invariant: implies(not self.should_pay, sum(sent()) == 0)
@@ -28,12 +29,12 @@ def approve_payment():
     self.should_pay = True
 
 
-#:: ExpectedOutput(invariant.violated:assertion.false, SU)
 @public
 def send_fail():
     assert msg.sender != self.owner
     to_send: wei_value = self.reward
     self.reward = 0
+    #:: ExpectedOutput(call.invariant:assertion.false, SU)
     send(msg.sender, to_send)
 
 

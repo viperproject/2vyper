@@ -20,11 +20,12 @@ pendingReturns: public(map(address, wei_value))
 
 #@ invariant: self.highestBid >= old(self.highestBid)
 #@ invariant: implies(self.ended, self.highestBid == old(self.highestBid) and self.highestBidder == old(self.highestBidder))
-#@ invariant: implies(old(msg.value) > old(self.highestBid) and self.highestBidder != ZERO_ADDRESS, old(msg.sender) == self.highestBidder)
+#@ always ensures: implies(success() and msg.value > old(self.highestBid) and self.highestBidder != ZERO_ADDRESS, msg.sender == self.highestBidder)
 
 #@ invariant: implies(old(self.ended), self.ended)
-#@ invariant: implies(not self.ended and self.balance < old(self.balance), old(self.balance) - self.balance <= old(self.pendingReturns[msg.sender]))
 
+#@ invariant: self.beneficiary != ZERO_ADDRESS
+#@ invariant: self.highestBidder != self.beneficiary
 #@ invariant: self.pendingReturns[self.beneficiary] == 0
 #@ invariant: implies(not self.ended, sent(self.beneficiary) == 0)
 #@ invariant: implies(self.ended, sent(self.beneficiary) == self.highestBid)
@@ -32,6 +33,8 @@ pendingReturns: public(map(address, wei_value))
 
 @public
 def __init__(_beneficiary: address, _bidding_time: timedelta):
+    assert _beneficiary != ZERO_ADDRESS
+    
     self.beneficiary = _beneficiary
     self.auctionStart = block.timestamp
     self.auctionEnd = self.auctionStart + _bidding_time

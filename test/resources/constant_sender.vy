@@ -1,10 +1,11 @@
 
 current_sender: address
 
-#:: Label(OO)|ExpectedOutput(invariant.violated:assertion.false)
-#@ invariant: msg.sender == old(msg.sender)
-#@ invariant: self.current_sender == msg.sender
-#@ invariant: self.current_sender == old(self.current_sender)
+
+#@ always ensures: msg.sender == old(msg.sender)
+#@ always ensures: self.current_sender == msg.sender
+#:: Label(OO)
+#@ always ensures: self.current_sender == old(self.current_sender)
 
 
 #@ ensures: msg.sender == old(msg.sender)
@@ -13,7 +14,7 @@ def __init__():
     self.current_sender = msg.sender
 
 
-#:: ExpectedOutput(invariant.violated:assertion.false, OO)
+#:: ExpectedOutput(postcondition.violated:assertion.false, OO)
 @public
 def set_sender():
     self.current_sender = msg.sender

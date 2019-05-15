@@ -2,7 +2,9 @@
 f: int128
 owner: address
 
-#@ invariant: implies(old(msg.sender) == self.owner, self.f == 0)
+
+#:: Label(FF)
+#@ always ensures: implies(msg.sender == self.owner, self.f == 0)
 
 
 @public
@@ -16,6 +18,8 @@ def owner_change():
     self.f = 0
 
 
+# This fails if self.owner calls it and self.f is already 1
+#:: ExpectedOutput(postcondition.violated:assertion.false, FF)
 @public
 def non_owner_change():
     assert msg.sender != self.owner

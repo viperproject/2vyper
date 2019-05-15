@@ -6,7 +6,7 @@ minter: address
 
 
 #@ invariant: self.minter == old(self.minter)
-#@ invariant: implies(old(msg.sender) != self.minter, old(self.total_supply) >= self.total_supply)
+#@ always ensures: implies(msg.sender != self.minter, old(self.total_supply) >= self.total_supply)
 #@ invariant: sum(self.balanceOf) == self.total_supply
 #:: Label(ZERO)
 #@ invariant: self.balanceOf[ZERO_ADDRESS] == 0
