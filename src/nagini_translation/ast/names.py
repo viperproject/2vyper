@@ -68,11 +68,12 @@ AS_UNITLESS_NUMBER = 'as_unitless_number'
 
 # Verification
 INVARIANT = 'invariant'
-FORALL = 'forall'
+GENERAL_POSTCONDITION = 'always_ensures'
 PRECONDITION = 'requires'
 POSTCONDITION = 'ensures'
 
 IMPLIES = 'implies'
+FORALL = 'forall'
 SUCCESS = 'success'
 RESULT = 'result'
 OLD = 'old'

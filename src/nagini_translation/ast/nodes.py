@@ -49,7 +49,9 @@ class VyperProgram:
 
     def __init__(self, state: Dict[str, VyperVar], 
                        functions: Dict[str, VyperFunction], 
-                       invariants: List[ast.Expr]):
+                       invariants: List[ast.Expr],
+                       general_postconditions: List[ast.Expr]):
         self.state = state
         self.functions = functions
         self.invariants = invariants
+        self.general_postconditions = general_postconditions

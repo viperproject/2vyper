@@ -44,6 +44,7 @@ class ProgramBuilder(ast.NodeVisitor):
         self.state = {}
         self.functions = {}
         self.invariants = []
+        self.general_postconditions = []
 
         self.preconditions = []
         self.postconditions = []
@@ -54,7 +55,7 @@ class ProgramBuilder(ast.NodeVisitor):
         self.visit(node)
         # No trailing pre and postconditions allowed
         self._check_no_prepostconditions()
-        return VyperProgram(self.state, self.functions, self.invariants)
+        return VyperProgram(self.state, self.functions, self.invariants, self.general_postconditions)
     
     def _check_no_prepostconditions(self):
         if self.preconditions:
@@ -80,6 +81,7 @@ class ProgramBuilder(ast.NodeVisitor):
         # This is for invariants and pre/postconditions which get translated to
         # assignments during preprocessing.
 
+        # TODO: handle
         if not len(node.targets) == 1:
             raise AssertionError("Contracts should only have a single target.")
         if not isinstance(node.targets[0], ast.Name):
@@ -91,11 +93,17 @@ class ProgramBuilder(ast.NodeVisitor):
             self._check_no_prepostconditions()
 
             self.invariants.append(node.value)
+        elif name == names.GENERAL_POSTCONDITION:
+            # No preconditions and posconditions allowed before general postconditions
+            self._check_no_prepostconditions()
+            
+            self.general_postconditions.append(node.value)
         elif name == names.PRECONDITION:
             self.preconditions.append(node.value)
         elif name == names.POSTCONDITION:
             self.postconditions.append(node.value)
         else:
+            # TODO: handle
             raise AssertionError("Top-level assigns that are not specifications should never happen.")
 
     def _decorators(self, node: ast.FunctionDef) -> List[str]:

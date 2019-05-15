@@ -158,6 +158,23 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
                 post_assertions.append(self.viper_ast.Assert(cond, post_pos))
 
+            for post in ctx.program.general_postconditions:
+                is_init = (function.name == names.INIT)
+                cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
+                post_pos = self.to_position(post, ctx)
+                if is_init:
+                    succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), post_pos)
+                    succ_post = self.viper_ast.Implies(succ, cond, post_pos)
+                    posts.append(succ_post)
+                    post_pos_r = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
+                    assertion = self.viper_ast.Assert(succ_post, post_pos_r)
+                else:
+                    posts.append(cond)
+                    with via_scope(ctx):
+                        ctx.vias = [('general postcondition', post_pos)]
+                        func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL)
+                        post_assertions.append(self.viper_ast.Assert(cond, func_pos))
+
             body.extend(self._seqn_with_info(post_assertions, "Assert postconditions"))
 
             # Havoc msg.sender and msg.value

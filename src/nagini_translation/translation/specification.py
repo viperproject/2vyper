@@ -41,9 +41,9 @@ class SpecificationTranslator(ExpressionTranslator):
         self._ignore_msg = False
         return self._translate_spec(pre, ctx)
 
-    def translate_postcondition(self, post: ast.AST, ctx: Context):
+    def translate_postcondition(self, post: ast.AST, ctx: Context, ignore_old = False):
         self._invariant_mode = False
-        self._ignore_old = False
+        self._ignore_old = ignore_old
         self._ignore_msg = False
         return self._translate_spec(post, ctx)
 
