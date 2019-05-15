@@ -2,9 +2,11 @@
 counter: int128
 
 
+#:: Label(CC)
 #@ invariant: self.counter <= old(self.counter)
 
 
+#:: ExpectedOutput(invariant.violated:assertion.false, CC)
 @public
 def dec():
     old_counter: int128 = self.counter
