@@ -6,6 +6,10 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 
+def first_index(statisfying, l):
+    return next(i for i, v in enumerate(l) if statisfying(v))
+
+
 def flatten(lists):
     return [item for sublist in lists for item in sublist]
 

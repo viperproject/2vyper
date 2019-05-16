@@ -27,3 +27,18 @@ def claim_reward_fail():
 		#:: ExpectedOutput(call.invariant:assertion.false, INV)
 		send(msg.sender, self.reward)
 		self.did_pay = True
+
+@public
+def claim_reward_raw():
+	if (not self.did_pay):
+		# send reward to the caller
+		self.did_pay = True
+		raw_call(msg.sender, b"", outsize=0, value=self.reward, gas=msg.gas)
+
+@public
+def claim_reward__raw_fail():
+	if (not self.did_pay):
+		# send reward to the caller
+		#:: ExpectedOutput(call.invariant:assertion.false, INV)
+		raw_call(msg.sender, b"", outsize=0, value=self.reward, gas=msg.gas)
+		self.did_pay = True

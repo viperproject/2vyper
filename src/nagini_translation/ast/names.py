@@ -34,6 +34,7 @@ SELF_BALANCE = 'balance'
 MSG = 'msg'
 MSG_SENDER = 'sender'
 MSG_VALUE = 'value'
+MSG_GAS = 'gas'
 BLOCK = 'block'
 BLOCK_TIMESTAMP = 'timestamp'
 
@@ -69,6 +70,11 @@ SEND = 'send'
 AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 LEN = 'len'
+
+RAW_CALL = 'raw_call'
+RAW_CALL_OUTSIZE = 'outsize'
+RAW_CALL_VALUE = 'value'
+RAW_CALL_GAS = 'gas'
 
 # Verification
 INVARIANT = 'invariant'

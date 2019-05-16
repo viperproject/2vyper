@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from nagini_translation.utils import first_index
+
 from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import StmtsAndExpr
 from nagini_translation.lib.errors import rules
@@ -209,7 +211,7 @@ class ExpressionTranslator(NodeTranslator):
             elif name == names.LEN:
                 arr_stmts, arr = self.translate(node.args[0], ctx)
                 return arr_stmts, self.viper_ast.SeqLength(arr, pos)
-            elif name == names.SEND:
+            elif name == names.SEND or name == names.RAW_CALL:
                 # Sends are translated as follows:
                 #    - Evaluate arguments to and amount
                 #    - Check that balance is sufficient (self.balance >= amount) else revert
@@ -221,7 +223,16 @@ class ExpressionTranslator(NodeTranslator):
                 #    - Assume unchecked invariants
 
                 to_stmts, to = self.translate(node.args[0], ctx)
-                amount_stmts, amount = self.translate(node.args[1], ctx)
+
+                if name == names.SEND:
+                    amount_stmts, amount = self.translate(node.args[1], ctx)
+                else:
+                    # Translate the function expression (bytes)
+                    function_stmts, _ = self.translate(node.args[1], ctx)
+                    to_stmts.extend(function_stmts)
+                    # Get the index of the value expression
+                    val_idx = first_index(lambda n: n.arg == names.RAW_CALL_VALUE, node.keywords)
+                    amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
 
                 old_label = self.viper_ast.Label(ctx.new_old_label_name('pre_send'))
 
@@ -262,7 +273,16 @@ class ExpressionTranslator(NodeTranslator):
                 ctx.new_local_vars.append(send_fail)
                 fail = self.fail_if(send_fail.localVar(), ctx)
 
-                return stmts + inv_assertions + inh_exh + assumes + [fail], None
+                if name == names.RAW_CALL:
+                    ret_name = ctx.new_local_var_name('raw_ret')
+                    ret_type = self.type_translator.translate(node.type, ctx)
+                    ret_var = self.viper_ast.LocalVarDecl(ret_name, ret_type, pos)
+                    ctx.new_local_vars.append(ret_var)
+                    return_value = ret_var.localVar()
+                else:
+                    return_value = None
+
+                return stmts + inv_assertions + inh_exh + assumes + [fail], return_value
 
         # TODO: error handling
         raise AssertionError("Not yet supported")

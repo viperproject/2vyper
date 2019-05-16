@@ -7,9 +7,11 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from nagini_translation.utils import first_index
+
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.types import VyperType, MapType, ArrayType
+from nagini_translation.ast.types import MapType, ArrayType
 from nagini_translation.ast.nodes import VyperProgram
 
 from nagini_translation.ast.types import TypeBuilder
@@ -38,7 +40,7 @@ class TypeAnnotator:
 
         for inv in self.program.invariants:
             self.annotate(inv)
-        
+
         for post in self.program.general_postconditions:
             self.annotate(post)
 
@@ -52,8 +54,6 @@ class TypeAnnotator:
         assert False
 
     def annotate_FunctionDef(self, node: ast.FunctionDef):
-        ret_type = self.program.functions[node.name].type.return_type
-
         for stmt in node.body:
             self.annotate(stmt)
 
@@ -73,7 +73,7 @@ class TypeAnnotator:
         self.annotate(node.target)
         if node.value:
             self.annotate(node.value)
-    
+
     def annotate_For(self, node: ast.For):
         self.annotate(node.iter)
         self.annotate(node.target)
@@ -99,7 +99,7 @@ class TypeAnnotator:
 
     def annotate_Break(self, node: ast.Break):
         pass
-    
+
     def annotate_BoolOp(self, node: ast.BoolOp):
         node.type = types.VYPER_BOOL
         for value in node.values:
@@ -129,7 +129,10 @@ class TypeAnnotator:
 
         for arg in node.args:
             self.annotate(arg)
-        
+
+        for key in node.keywords:
+            self.annotate(key.value)
+
         if isinstance(node.func, ast.Name):
             name = node.func.id
             if name == names.MIN or name == names.MAX or name == names.OLD:
@@ -138,6 +141,10 @@ class TypeAnnotator:
                 node.type = types.VYPER_INT128
             elif name == names.CLEAR or name == names.SEND:
                 node.type = None
+            elif name == names.RAW_CALL:
+                idx = first_index(lambda n: n.arg == names.RAW_CALL_OUTSIZE, node.keywords)
+                size = node.keywords[idx].value.n
+                node.type = ArrayType(types.VYPER_BYTE, size, False)
             elif name == names.AS_WEI_VALUE:
                 node.type = types.VYPER_WEI_VALUE
             elif name == names.AS_UNITLESS_NUMBER:
@@ -168,7 +175,7 @@ class TypeAnnotator:
 
     def _annotate_forall(self, node: ast.Call):
         old_quants = self.quantified_vars.copy()
-        var_decls = node.args[0] # This is a dictionary of variable declarations
+        var_decls = node.args[0]  # This is a dictionary of variable declarations
         vars_types = zip(var_decls.keys, var_decls.values)
         for name, type_ann in vars_types:
             type = self.type_builder.build(type_ann)
@@ -179,7 +186,7 @@ class TypeAnnotator:
             self.annotate(arg)
 
         self.quantified_vars = old_quants
- 
+
     def annotate_Set(self, node: ast.Set):
         for elem in node.elts:
             self.annotate(elem)
@@ -188,16 +195,16 @@ class TypeAnnotator:
         node.type = types.VYPER_INT128
 
     def annotate_NameConstant(self, node: ast.NameConstant):
-        if node.value == True or node.value == False:
+        if node.value is not None:
             node.type = types.VYPER_BOOL
         else:
-            assert False, "encountered None"
+            assert False, "encountered None"  # TODO: handle
 
     def annotate_Attribute(self, node: ast.Attribute):
         self.annotate(node.value)
         if node.attr == names.MSG_SENDER:
             node.type = types.VYPER_ADDRESS
-        elif node.attr == names.MSG_VALUE or node.attr == names.SELF_BALANCE:
+        elif node.attr == names.MSG_VALUE or node.attr == names.SELF_BALANCE or node.attr == names.MSG_GAS:
             node.type = types.VYPER_WEI_VALUE
         elif node.attr == names.BLOCK_TIMESTAMP:
             node.type = types.VYPER_TIME
@@ -213,7 +220,7 @@ class TypeAnnotator:
             self.annotate(node.slice.value)
             node.type = node.value.type.element_type
         else:
-            assert False # TODO: handle
+            assert False  # TODO: handle
 
     def annotate_Name(self, node: ast.Name):
         if node.id == names.SELF or node.id == names.MSG or node.id == names.BLOCK:
