@@ -21,7 +21,7 @@ class PositionTranslator:
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
 
-    def _register_potential_error(self, node, ctx: Context, rules: Rules = None, vias = [], error_string: str = None) -> str:
+    def _register_potential_error(self, node, ctx: Context, rules: Rules = None, vias=[], error_string: str = None) -> str:
         name = None if not ctx.function else ctx.function.name
         error_info = ErrorInfo(name, node, vias, error_string)
         id = error_manager.add_error_information(error_info, rules)
@@ -31,8 +31,8 @@ class PositionTranslator:
                     node: ast.AST,
                     ctx: Context,
                     rules: Rules = None,
-                    vias = [],
-                    error_string: str = None) -> 'silver.ast.Position':
+                    vias=[],
+                    error_string: str = None):
         """
         Extracts the position from a node, assigns an ID to the node and stores
         the node and the position in the context for it.
@@ -40,10 +40,10 @@ class PositionTranslator:
         id = self._register_potential_error(node, ctx, rules, vias, error_string)
         return self.viper_ast.to_position(node, id, ctx.file)
 
-    def no_position(self, error_string: str = None) -> 'silver.ast.Position':
+    def no_position(self, error_string: str = None):
         return self.viper_ast.NoPosition
 
-    def to_info(self, comments: List[str]) -> 'silver.ast.Info':
+    def to_info(self, comments: List[str]):
         """
         Wraps the given comments into an Info object.
         If ctx.info is set to override the given info, returns that.
@@ -53,13 +53,13 @@ class PositionTranslator:
         else:
             return self.viper_ast.NoInfo
 
-    def no_info(self) -> 'silver.ast.Info':
+    def no_info(self):
         return self.to_info([])
 
 
 class CommonTranslator:
 
-    def fail_if(self, cond, ctx: Context, pos = None):
+    def fail_if(self, cond, ctx: Context, pos=None):
         body = [self.viper_ast.Goto(ctx.revert_label, pos)]
         block = self.viper_ast.Seqn(body, pos)
         empty = self.viper_ast.Seqn([], pos)
