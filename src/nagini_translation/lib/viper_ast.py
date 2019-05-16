@@ -155,7 +155,7 @@ class ViperAST:
         if body is None:
             body_with_locals = self.none
         else:
-            body_with_locals = self.scala.Some(self.Seqn([body], position, info, locals))
+            body_with_locals = self.scala.Some(self.Seqn(body, position, info, locals))
         method = getobject(self.ast, "MethodWithLabelsInScope")
         return method.apply(name, self.to_seq(args), self.to_seq(returns),
                             self.to_seq(pres), self.to_seq(posts),

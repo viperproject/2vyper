@@ -272,12 +272,11 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             assume_false = self.viper_ast.Inhale(self.viper_ast.FalseLit())
             body.append(assume_false)
 
-            seqn = self.viper_ast.Seqn(body, pos)
             args_list = list(args.values())
             new_locals = ctx.new_local_vars
             locals_list = list(locals.values()) + new_locals
 
-        method = self.viper_ast.Method(function.name, args_list, rets, all_pres, all_posts, locals_list, seqn, pos)
+        method = self.viper_ast.Method(function.name, args_list, rets, all_pres, all_posts, locals_list, body, pos)
         return method
 
     def _translate_var(self, var: VyperVar, ctx: Context):
