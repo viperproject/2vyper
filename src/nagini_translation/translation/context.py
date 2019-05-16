@@ -47,6 +47,7 @@ class Context:
         self.copy_old = []
         self.use_old = True
         self.inside_old = False
+        self.old_label = None
 
         self._break_label_counter = -1
         self._continue_label_counter = -1
@@ -98,6 +99,7 @@ def function_scope(ctx: Context):
     copy_old = ctx.copy_old
     use_old = ctx.use_old
     inside_old = ctx.inside_old
+    old_label = ctx.old_label
 
     _break_label_counter = ctx._break_label_counter
     _continue_label_counter = ctx._continue_label_counter
@@ -124,6 +126,7 @@ def function_scope(ctx: Context):
     ctx.copy_old = []
     ctx.use_old = True
     ctx.inside_old = False
+    ctx.old_label = None
 
     ctx._break_label_counter = -1
     ctx._continue_label_counter = -1
@@ -152,6 +155,7 @@ def function_scope(ctx: Context):
     ctx.copy_old = copy_old
     ctx.use_old = use_old
     ctx.inside_old = inside_old
+    ctx.old_label = old_label
 
     ctx._break_label_counter = _break_label_counter
     ctx._continue_label_counter = _continue_label_counter
@@ -201,6 +205,16 @@ def inside_old_scope(ctx: Context):
     yield
 
     ctx.inside_old = inside_old
+
+
+@contextmanager
+def old_label_scope(label, ctx: Context):
+    old_label = ctx.old_label
+    ctx.old_label = label
+
+    yield
+
+    ctx.old_label = old_label
 
 
 @contextmanager

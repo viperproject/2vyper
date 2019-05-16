@@ -130,7 +130,10 @@ class SpecificationTranslator(ExpressionTranslator):
             if self._ignore_old or not ctx.use_old:
                 return [], expr
             else:
-                return [], self.viper_ast.Old(expr, pos)
+                if ctx.old_label:
+                    return [], self.viper_ast.LabelledOld(expr, ctx.old_label.name(), pos)
+                else:
+                    return [], self.viper_ast.Old(expr, pos)
         elif name == names.SUM:
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Sum expression requires a single argument.")

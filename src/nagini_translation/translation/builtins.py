@@ -51,6 +51,8 @@ MAP_GET = '$map_get'
 MAP_SET = '$map_set'
 MAP_SUM = '$map_sum'
 
+TRANSITIVITY_CHECK = '$transitivity_check'
+
 
 def read_perm(viper_ast: ViperAST, pos=None, info=None):
     one = viper_ast.FullPerm(pos, info)

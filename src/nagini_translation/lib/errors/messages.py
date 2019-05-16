@@ -40,6 +40,8 @@ ERRORS = {
         lambda i: f"Postcondition of {i.function} might not hold.",
     'invariant.violated':
         lambda i: f"Invariant not preserved by {i.function}.",
+    'invariant.not.wellformed':
+        lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
     'fold.failed':
         lambda i: 'Fold might fail.',
     'unfold.failed':
@@ -59,6 +61,8 @@ ERRORS = {
 REASONS = {
     'assertion.false':
         lambda i: 'Assertion {} might not hold.'.format(pprint(i.node)),
+    'transitivity.violated':
+        lambda i: 'Invariant might not be transitive.',
     'receiver.null':
         lambda i: 'Receiver of {} might be null.'.format(pprint(i.node)),
     'division.by.zero':

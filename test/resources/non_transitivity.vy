@@ -1,9 +1,12 @@
 
 counter: int128
+nt_counter: int128
 
 
 #:: Label(CC)
 #@ invariant: self.counter <= old(self.counter)
+#:: ExpectedOutput(invariant.not.wellformed:transitivity.violated)
+#@ invariant: self.nt_counter == old(self.nt_counter) or self.nt_counter == old(self.nt_counter) + 1
 
 
 #:: ExpectedOutput(invariant.violated:assertion.false, CC)
