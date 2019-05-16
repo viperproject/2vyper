@@ -7,17 +7,14 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import List
-
 from nagini_translation.ast import names
-from nagini_translation.ast import types
 
-from nagini_translation.lib.typedefs import Expr, StmtsAndExpr
+from nagini_translation.lib.typedefs import StmtsAndExpr
 from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
-from nagini_translation.translation.builtins import map_sum, map_get
+from nagini_translation.translation.builtins import map_sum
 
 from nagini_translation.translation import builtins
 
@@ -41,13 +38,13 @@ class SpecificationTranslator(ExpressionTranslator):
         self._ignore_msg = False
         return self._translate_spec(pre, ctx)
 
-    def translate_postcondition(self, post: ast.AST, ctx: Context, ignore_old = False):
+    def translate_postcondition(self, post: ast.AST, ctx: Context, ignore_old=False):
         self._invariant_mode = False
         self._ignore_old = ignore_old
         self._ignore_msg = False
         return self._translate_spec(post, ctx)
 
-    def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_old = False, ignore_msg = False):
+    def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_old=False, ignore_msg=False):
         self._invariant_mode = True
         self._ignore_old = ignore_old
         self._ignore_msg = ignore_msg
@@ -59,12 +56,12 @@ class SpecificationTranslator(ExpressionTranslator):
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
         if self._invariant_mode and node.id == names.MSG:
-            assert False # TODO: handle
+            assert False  # TODO: handle
         else:
             return super().translate_Name(node, ctx)
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
-        assert isinstance(node.func, ast.Name) # TODO: handle
+        assert isinstance(node.func, ast.Name)  # TODO: handle
 
         pos = self.to_position(node, ctx)
 
@@ -72,7 +69,7 @@ class SpecificationTranslator(ExpressionTranslator):
         if name == names.IMPLIES:
             if len(node.args) != 2:
                 raise InvalidProgramException(node, "Implication requires 2 arguments.")
-            
+
             lhs = self._translate_spec(node.args[0], ctx)
             rhs = self._translate_spec(node.args[1], ctx)
 
@@ -94,7 +91,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
                 # The arguments in the middle are the triggers
                 triggers = []
-                for arg in node.args[1 : num_args - 2]:
+                for arg in node.args[1: num_args - 2]:
                     trigger_pos = self.to_position(arg, ctx)
                     trigger_exprs = [self._translate_spec(t, ctx) for t in arg.elts]
                     trigger = self.viper_ast.Trigger(trigger_exprs, trigger_pos)
@@ -115,7 +112,7 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.OLD:
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Old expression requires a single argument.")
-            
+
             arg = node.args[0]
             expr = self._translate_spec(arg, ctx)
             is_attr = lambda n: isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
@@ -131,7 +128,7 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.SUM:
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Sum expression requires a single argument.")
-            
+
             arg = node.args[0]
             expr = self._translate_spec(arg, ctx)
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
@@ -148,4 +145,3 @@ class SpecificationTranslator(ExpressionTranslator):
             return super().translate_Call(node, ctx)
         else:
             raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
-
