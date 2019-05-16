@@ -30,25 +30,33 @@ class SpecificationTranslator(ExpressionTranslator):
         # replace old expressions by their expression in preconditions and in the
         # postcondition of __init__
         self._ignore_old = None
-        self._ignore_msg = None
 
     def translate_precondition(self, pre: ast.AST, ctx: Context):
         self._invariant_mode = False
         self._ignore_old = True
-        self._ignore_msg = False
         return self._translate_spec(pre, ctx)
 
-    def translate_postcondition(self, post: ast.AST, ctx: Context, ignore_old=False):
+    def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False):
         self._invariant_mode = False
-        self._ignore_old = ignore_old
-        self._ignore_msg = False
+        self._ignore_old = is_init
         return self._translate_spec(post, ctx)
 
-    def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_old=False, ignore_msg=False):
+    def translate_invariant(self, inv: ast.AST, ctx: Context, is_pre=False, is_init=False):
+        # Invariants do not have to hold before __init__
+        if is_pre and is_init:
+            return None
+
         self._invariant_mode = True
-        self._ignore_old = ignore_old
-        self._ignore_msg = ignore_msg
-        return self._translate_spec(inv, ctx)
+        self._ignore_old = is_pre or is_init
+        expr = self._translate_spec(inv, ctx)
+
+        # Invariants of __init__ only have to hold if it succeeds
+        if not is_pre and is_init:
+            success_var = ctx.success_var
+            succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), expr.pos())
+            return self.viper_ast.Implies(succ, expr, expr.pos())
+        else:
+            return expr
 
     def _translate_spec(self, node, ctx: Context):
         _, expr = self.translate(node, ctx)
@@ -115,10 +123,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
             arg = node.args[0]
             expr = self._translate_spec(arg, ctx)
-            is_attr = lambda n: isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
-            is_msg_block = lambda n: n.value.id == names.MSG or n.value.id == names.BLOCK
-            ignore = self._ignore_msg if is_attr(arg) and is_msg_block(arg) else self._ignore_old
-            if ignore:
+            if self._ignore_old:
                 return [], expr
             else:
                 if ctx.old_label:
