@@ -4,8 +4,11 @@
 did_pay: bool
 reward: wei_value
 
+#@ invariant: forall({a: address}, {sent(a), old(sent(a))}, old(sent(a)) <= sent(a))
 #:: Label(INV)
 #@ invariant: implies(not self.did_pay, self.balance >= self.reward)
+#@ invariant: implies(not self.did_pay, sum(sent()) == 0)
+#@ invariant: implies(self.did_pay, sum(sent()) == self.reward)
 
 @public
 @payable

@@ -2,6 +2,7 @@
 money: wei_value
 
 
+#@ invariant: forall({a: address}, {sent(a), old(sent(a))}, old(sent(a)) <= sent(a))
 #:: Label(MM)
 #@ invariant: self.money <= self.balance
 
