@@ -37,7 +37,7 @@ class SpecialTranslator(PositionTranslator):
 
             start = self.viper_ast.IntLit(0, pos)
             times = node.args[0].n
-            
+
             return [], start, times
         elif len(node.args) == 2:
             # A range expression of the form 'range(x, x + n)' where 'n' is a constant

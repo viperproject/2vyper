@@ -19,7 +19,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context, function_scope, old_label_scope
+from nagini_translation.translation.context import Context, function_scope, use_old_scope
 
 from nagini_translation.translation import builtins
 
@@ -88,6 +88,22 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             info_msg = "Assume non-negativeness of uint256 and sizes of array args"
             body.extend(self._seqn_with_info(argument_cond_assumes, info_msg))
 
+            # Introduce old_self
+            old_self = builtins.old_self_var(self.viper_ast)
+            ctx.new_local_vars.append(old_self)
+            copy_old_stmts = []
+            for field in ctx.fields.values():
+                old_acc = self.viper_ast.FieldAccess(old_self.localVar(), field)
+                perm = self.viper_ast.FieldAccessPredicate(old_acc, self.viper_ast.FullPerm())
+                body.append(self.viper_ast.Inhale(perm))
+                self_var = builtins.self_var(self.viper_ast).localVar()
+                self_acc = self.viper_ast.FieldAccess(self_var, field)
+                copy_old_stmts.append(self.viper_ast.FieldAssign(old_acc, self_acc))
+
+            copy_old = self._seqn_with_info(copy_old_stmts, "New old state")
+            ctx.copy_old = copy_old
+            body.extend(copy_old)
+
             msg_value = builtins.msg_value_field(self.viper_ast)
             value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
             # If a function is not payable and money is sent, revert
@@ -150,27 +166,27 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # First the postconditions are asserted
             post_assertions = []
             posts = []
-            with old_label_scope(ctx):
-                for post in function.postconditions:
-                    cond = self.specification_translator.translate_postcondition(post, ctx)
-                    posts.append(cond)
-                    post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
-                    post_assertions.append(self.viper_ast.Assert(cond, post_pos))
+            # Postconditions are asserted with normal old expressions
+            for post in function.postconditions:
+                cond = self.specification_translator.translate_postcondition(post, ctx)
+                posts.append(cond)
+                post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
+                post_assertions.append(self.viper_ast.Assert(cond, post_pos))
 
-                for post in ctx.program.general_postconditions:
-                    cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
-                    post_pos = self.to_position(post, ctx)
-                    if is_init:
-                        succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), post_pos)
-                        succ_post = self.viper_ast.Implies(succ, cond, post_pos)
-                        posts.append(succ_post)
-                        post_pos_r = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
-                        assertion = self.viper_ast.Assert(succ_post, post_pos_r)
-                    else:
-                        posts.append(cond)
-                        via = [('general postcondition', post_pos)]
-                        func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via)
-                        post_assertions.append(self.viper_ast.Assert(cond, func_pos))
+            for post in ctx.program.general_postconditions:
+                cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
+                post_pos = self.to_position(post, ctx)
+                if is_init:
+                    succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), post_pos)
+                    succ_post = self.viper_ast.Implies(succ, cond, post_pos)
+                    posts.append(succ_post)
+                    post_pos_r = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
+                    post_assertions.append(self.viper_ast.Assert(succ_post, post_pos_r))
+                else:
+                    posts.append(cond)
+                    via = [('general postcondition', post_pos)]
+                    func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via)
+                    post_assertions.append(self.viper_ast.Assert(cond, func_pos))
 
             body.extend(self._seqn_with_info(post_assertions, "Assert postconditions"))
 
@@ -185,16 +201,18 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # If the function is public we also assert the invariants
             invariants = []
             # Invariants if we don't fail: old == last old we encountered
+            # We use the special $old_self variable
             invariant_assertions = []
             # Invariants if we fail: old == beginning of the function
+            # For that we can use the normal old
             invariant_assertions_fail = []
             translate_inv = self.specification_translator.translate_invariant
             if function.is_public():
                 for inv in ctx.program.invariants:
-                    expr = translate_inv(inv, ctx, False, is_init)
-                    with old_label_scope(ctx):
-                        fail = translate_inv(inv, ctx, False, is_init)
-                        invariants.append(fail)
+                    with use_old_scope(False, ctx):
+                        expr = translate_inv(inv, ctx, False, is_init)
+                    fail = translate_inv(inv, ctx, False, is_init)
+                    invariants.append(fail)
 
                     # If we have a synthesized __init__ we only create an
                     # error message on the invariant
@@ -213,11 +231,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 inv_info = self.to_info(["Assert invariants"])
                 assertions = self.viper_ast.Seqn(invariant_assertions)
                 fails = self.viper_ast.Seqn(invariant_assertions_fail)
-                if ctx.old_label:
-                    if_stmt = self.viper_ast.If(success_var.localVar(), assertions, fails)
-                    body.append(self.viper_ast.Seqn([if_stmt], info=inv_info))
-                else:
-                    body.append(self.viper_ast.Seqn([assertions], info=inv_info))
+                if_stmt = self.viper_ast.If(success_var.localVar(), assertions, fails)
+                body.append(self.viper_ast.Seqn([if_stmt], info=inv_info))
 
             # If the return value is of type uint256 add non-negativeness to
             # poscondition, but don't assert it (as it always holds anyway)

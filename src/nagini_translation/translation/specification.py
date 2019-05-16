@@ -13,7 +13,7 @@ from nagini_translation.lib.typedefs import StmtsAndExpr
 from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.translation.expression import ExpressionTranslator
-from nagini_translation.translation.context import Context, quantified_var_scope
+from nagini_translation.translation.context import Context, quantified_var_scope, inside_old_scope
 from nagini_translation.translation.builtins import map_sum
 
 from nagini_translation.translation import builtins
@@ -65,6 +65,9 @@ class SpecificationTranslator(ExpressionTranslator):
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
         if self._invariant_mode and node.id == names.MSG:
             assert False  # TODO: handle
+        elif not self._ignore_old and not ctx.use_old and ctx.inside_old and node.id == names.SELF:
+            pos = self.to_position(node, ctx)
+            return [], builtins.old_self_var(self.viper_ast, pos).localVar()
         else:
             return super().translate_Name(node, ctx)
 
@@ -122,14 +125,12 @@ class SpecificationTranslator(ExpressionTranslator):
                 raise InvalidProgramException(node, "Old expression requires a single argument.")
 
             arg = node.args[0]
-            expr = self._translate_spec(arg, ctx)
-            if self._ignore_old:
+            with inside_old_scope(ctx):
+                expr = self._translate_spec(arg, ctx)
+            if self._ignore_old or not ctx.use_old:
                 return [], expr
             else:
-                if ctx.old_label:
-                    return [], self.viper_ast.LabelledOld(expr, ctx.old_label.name(), pos)
-                else:
-                    return [], self.viper_ast.Old(expr, pos)
+                return [], self.viper_ast.Old(expr, pos)
         elif name == names.SUM:
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Sum expression requires a single argument.")

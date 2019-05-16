@@ -22,7 +22,7 @@ from nagini_translation.ast.types import MapType, ArrayType
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context, old_label_scope
+from nagini_translation.translation.context import Context, use_old_scope
 from nagini_translation.translation.builtins import map_get
 from nagini_translation.translation.builtins import array_get, array_contains, array_not_contains
 
@@ -234,8 +234,6 @@ class ExpressionTranslator(NodeTranslator):
                     val_idx = first_index(lambda n: n.arg == names.RAW_CALL_VALUE, node.keywords)
                     amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
 
-                old_label = self.viper_ast.Label(ctx.new_old_label_name('pre_send'))
-
                 self_balance = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
                 lt = self.viper_ast.LtCmp(self_balance, amount)
                 check = self.fail_if(lt, ctx)
@@ -249,9 +247,10 @@ class ExpressionTranslator(NodeTranslator):
                 sent_set = builtins.self_sent_map_set(self.viper_ast, to, sent_add, pos)
                 sent_assign = self.viper_ast.FieldAssign(sent_acc, sent_set, pos)
 
-                stmts = to_stmts + amount_stmts + [old_label, check, sub_stmt, sent_assign]
+                stmts = to_stmts + amount_stmts + [check] + ctx.copy_old + [sub_stmt, sent_assign]
 
-                invs = ctx.invariants()
+                with use_old_scope(False, ctx):
+                    invs = ctx.invariants()
                 inv_assertions = []
                 for inv in invs:
                     via = [('invariant', inv.pos())]
@@ -262,19 +261,16 @@ class ExpressionTranslator(NodeTranslator):
                 inh_exh = ex_fields + in_fields
 
                 uinvs = ctx.unchecked_invariants
-                with old_label_scope(ctx):
-                    ctx.old_label = old_label
-                    assume_invs = [self.viper_ast.Inhale(inv) for inv in ctx.invariants()]
-                    assume_unchecked = [self.viper_ast.Inhale(inv) for inv in uinvs]
+                assume_invs = [self.viper_ast.Inhale(inv) for inv in invs]
+                assume_unchecked = [self.viper_ast.Inhale(inv) for inv in uinvs]
                 assumes = assume_invs + assume_unchecked
 
                 send_fail_name = ctx.new_local_var_name('send_fail')
                 send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
                 ctx.new_local_vars.append(send_fail)
                 fail = self.fail_if(send_fail.localVar(), ctx)
-                new_old_label = self.viper_ast.Label(ctx.new_old_label_name('post_send'))
-                ctx.old_label = new_old_label
-                afters = [fail, new_old_label]
+
+                afters = [fail] + ctx.copy_old
 
                 if name == names.RAW_CALL:
                     ret_name = ctx.new_local_var_name('raw_ret')

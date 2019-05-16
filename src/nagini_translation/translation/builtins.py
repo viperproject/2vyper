@@ -19,6 +19,7 @@ from nagini_translation.ast.nodes import VyperFunction
 
 INIT = names.INIT
 SELF = names.SELF
+OLD_SELF = f'$old_{names.SELF}'
 
 MSG = names.MSG
 MSG_SENDER = names.MSG_SENDER
@@ -65,6 +66,10 @@ def init_function() -> ast.FunctionDef:
 
 def self_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(SELF, viper_ast.Ref, pos, info)
+
+
+def old_self_var(viper_ast: ViperAST, pos=None, info=None):
+    return viper_ast.LocalVarDecl(OLD_SELF, viper_ast.Ref, pos, info)
 
 
 def msg_var(viper_ast: ViperAST, pos=None, info=None):

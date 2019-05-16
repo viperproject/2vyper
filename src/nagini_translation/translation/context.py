@@ -44,8 +44,9 @@ class Context:
         self.locals = {}
         self.quantified_vars = {}
 
-        self._old_label_counter = -1
-        self.old_label = None
+        self.copy_old = []
+        self.use_old = True
+        self.inside_old = False
 
         self._break_label_counter = -1
         self._continue_label_counter = -1
@@ -78,10 +79,6 @@ class Context:
         self._continue_label_counter += 1
         return f'continue_{self._continue_label_counter}'
 
-    def new_old_label_name(self, name: str = 'prev') -> str:
-        self._old_label_counter += 1
-        return f'{name}_{self._old_label_counter}'
-
 
 @contextmanager
 def function_scope(ctx: Context):
@@ -98,8 +95,9 @@ def function_scope(ctx: Context):
     locals = ctx.locals
     quantified_vars = ctx.quantified_vars
 
-    old_label_counter = ctx._old_label_counter
-    old_label = ctx.old_label
+    copy_old = ctx.copy_old
+    use_old = ctx.use_old
+    inside_old = ctx.inside_old
 
     _break_label_counter = ctx._break_label_counter
     _continue_label_counter = ctx._continue_label_counter
@@ -123,8 +121,9 @@ def function_scope(ctx: Context):
     ctx.locals = {}
     ctx.quantified_vars = {}
 
-    ctx._old_label_counter = -1
-    ctx.old_label = None
+    ctx.copy_old = []
+    ctx.use_old = True
+    ctx.inside_old = False
 
     ctx._break_label_counter = -1
     ctx._continue_label_counter = -1
@@ -150,8 +149,9 @@ def function_scope(ctx: Context):
     ctx.locals = locals
     ctx.quantified_vars = quantified_vars
 
-    ctx._old_label_counter = old_label_counter
-    ctx.old_label = old_label
+    ctx.copy_old = copy_old
+    ctx.use_old = use_old
+    ctx.inside_old = inside_old
 
     ctx._break_label_counter = _break_label_counter
     ctx._continue_label_counter = _continue_label_counter
@@ -171,12 +171,6 @@ def function_scope(ctx: Context):
 
 @contextmanager
 def quantified_var_scope(ctx: Context):
-    """
-    Should be used in a ``with`` statement.
-    Saves the current ``quantified_vars``, creates a new empty one for the body
-    of the ``with`` statement, and restores the previous one in the end.
-    """
-
     all_vars = ctx.all_vars.copy()
     quantified_vars = ctx.quantified_vars.copy()
     quantified_var_counter = ctx._quantified_var_counter
@@ -190,29 +184,27 @@ def quantified_var_scope(ctx: Context):
 
 
 @contextmanager
-def old_label_scope(ctx: Context):
-    """
-    Should be used in a ``with`` statement.
-    Saves the current ``old_label``, creates a new empty one for the body
-    of the ``with`` statement, and restores the previous one in the end.
-    """
-
-    old_label = ctx.old_label
-    ctx.old_label = None
+def use_old_scope(use_old: bool, ctx: Context):
+    old_use_old = ctx.use_old
+    ctx.use_old = use_old
 
     yield
 
-    ctx.old_label = old_label
+    ctx.use_old = old_use_old
+
+
+@contextmanager
+def inside_old_scope(ctx: Context):
+    inside_old = ctx.inside_old
+    ctx.inside_old = True
+
+    yield
+
+    ctx.inside_old = inside_old
 
 
 @contextmanager
 def break_scope(ctx: Context):
-    """
-    Should be used in a ``with`` statement.
-    Saves the current ``break`` target label, creates a new one for the body
-    of the ``with`` statement, and restores the previous one in the end.
-    """
-
     break_label = ctx.break_label
     ctx.break_label = ctx._next_break_label()
 
@@ -223,12 +215,6 @@ def break_scope(ctx: Context):
 
 @contextmanager
 def continue_scope(ctx: Context):
-    """
-    Should be used in a ``with`` statement.
-    Saves the current ``break`` target label, creates a new one for the body
-    of the ``with`` statement, and restores the previous one in the end.
-    """
-
     continue_label = ctx.continue_label
     ctx.continue_label = ctx._next_continue_label()
 
