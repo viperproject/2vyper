@@ -7,9 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import Dict, Tuple
 
+
 """Conversion rules from Silver level errors to Nagini errors."""
-
-
 Rules = Dict[Tuple[str, str], Tuple[str, str]]
 
 

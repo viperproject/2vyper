@@ -229,9 +229,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     invariant_assertions_fail.append(fail_assertion)
 
                 inv_info = self.to_info(["Assert invariants"])
-                assertions = self.viper_ast.Seqn(invariant_assertions)
-                fails = self.viper_ast.Seqn(invariant_assertions_fail)
-                if_stmt = self.viper_ast.If(success_var.localVar(), assertions, fails)
+                if_stmt = self.viper_ast.If(success_var.localVar(), invariant_assertions, invariant_assertions_fail)
                 body.append(self.viper_ast.Seqn([if_stmt], info=inv_info))
 
             # If the return value is of type uint256 add non-negativeness to

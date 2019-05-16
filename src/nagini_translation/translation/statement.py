@@ -42,7 +42,7 @@ class StatementTranslator(NodeTranslator):
     def translate_AnnAssign(self, node: ast.AnnAssign, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
 
-        # An annotated assignment can only have a local variable on the lhs,
+        # An annotated assignment can only have a local variable on the lhs,
         # therefore we can simply use the expression translator
         lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
 
@@ -55,8 +55,6 @@ class StatementTranslator(NodeTranslator):
         return lhs_stmts + rhs_stmts + [self.viper_ast.LocalVarAssign(lhs, rhs, pos)]
 
     def translate_Assign(self, node: ast.Assign, ctx: Context) -> List[Stmt]:
-        pos = self.to_position(node, ctx)
-
         # We only support single assignments for now
         left = node.targets[0]
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
@@ -73,27 +71,21 @@ class StatementTranslator(NodeTranslator):
 
         stmts = lhs_stmts + rhs_stmts
 
-        def fail_if(cond):
-            body = [self.viper_ast.Goto(ctx.revert_label, pos)]
-            block = self.viper_ast.Seqn(body, pos)
-            empty = self.viper_ast.Seqn([], pos)
-            return self.viper_ast.If(cond, block, empty, pos)
-
-        # If the divisor is 0 revert the transaction
+        # If the divisor is 0 revert the transaction
         if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
             cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos), pos)
-            stmts.append(fail_if(cond))
+            stmts.append(self.fail_if(cond, ctx, pos))
 
-        # If the result of a uint subtraction is negative, revert the transaction
+        # If the result of a uint subtraction is negative, revert the transaction
         if isinstance(node.op, ast.Sub) and types.is_unsigned(left.type):
             cond = self.viper_ast.GtCmp(rhs, lhs, pos)
-            stmts.append(fail_if(cond))
+            stmts.append(self.fail_if(cond, ctx, pos))
 
         value = op(lhs, rhs, pos)
         return stmts + self.assignment_translator.assign_to(node.target, value, ctx)
 
     def translate_Expr(self, node: ast.Expr, ctx: Context) -> List[Stmt]:
-        # Check if we are translating a call to clear
+        # Check if we are translating a call to clear
         # We handle clear in the StatementTranslator because it is essentially an assignment
         is_call = lambda n: isinstance(n, ast.Call)
         is_clear = lambda n: isinstance(n, ast.Name) and n.id == names.CLEAR
@@ -102,13 +94,12 @@ class StatementTranslator(NodeTranslator):
             stmts, value = self.type_translator.default_value(node, arg.type, ctx)
             return stmts + self.assignment_translator.assign_to(arg, value, ctx)
         else:
-            # Ignore the expression, return the stmts 
+            # Ignore the expression, return the stmts
             stmts, _ = self.expression_translator.translate(node.value, ctx)
             return stmts
 
     def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        info = self.to_info(["Assert"])
 
         stmts, expr = self.expression_translator.translate(node.test, ctx)
         cond = self.viper_ast.Not(expr, pos)
@@ -129,18 +120,15 @@ class StatementTranslator(NodeTranslator):
 
         cond_stmts, cond = self.expression_translator.translate(node.test, ctx)
         then_body = self.translate_stmts(node.body, ctx)
-        then_block = self.viper_ast.Seqn(then_body, pos)
-
         else_body = self.translate_stmts(node.orelse, ctx)
-        else_block = self.viper_ast.Seqn(else_body, pos)
-        if_stmt = self.viper_ast.If(cond, then_block, else_block, pos)
+        if_stmt = self.viper_ast.If(cond, then_body, else_body, pos)
         return cond_stmts + [if_stmt]
 
     def translate_For(self, node: ast.For, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
 
         if not self.special_translator.is_range(node.iter):
-            # TODO:
+            # TODO:
             raise AssertionError("Not supported yet")
 
         with break_scope(ctx):
@@ -222,9 +210,9 @@ class _AssignmentTranslator(NodeTranslator):
             stmts.append(self.type_translator.array_bounds_check(receiver, index, ctx))
             new_value = array_set(self.viper_ast, receiver, index, value, type.element_type, pos)
         else:
-            assert False # TODO: handle
+            assert False  # TODO: handle
 
-        # We simply evaluate the receiver and index statements here, even though they 
+        # We simply evaluate the receiver and index statements here, even though they
         # might get evaluated again in the recursive call. This is ok as long as the lhs of the
         # assignment is pure.
         return receiver_stmts + index_stmts + stmts + self.assign_to(node.value, new_value, ctx)

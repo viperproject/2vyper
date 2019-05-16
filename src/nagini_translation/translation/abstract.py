@@ -61,9 +61,7 @@ class CommonTranslator:
 
     def fail_if(self, cond, ctx: Context, pos=None):
         body = [self.viper_ast.Goto(ctx.revert_label, pos)]
-        block = self.viper_ast.Seqn(body, pos)
-        empty = self.viper_ast.Seqn([], pos)
-        return self.viper_ast.If(cond, block, empty, pos)
+        return self.viper_ast.If(cond, body, [], pos)
 
 
 class NodeTranslator(PositionTranslator, CommonTranslator):
