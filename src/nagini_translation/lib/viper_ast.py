@@ -8,7 +8,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import types
 
 from nagini_translation.lib.constants import FUNCTION_DOMAIN_NAME
-from nagini_translation.lib.errors import error_manager, Rules
 
 
 def getobject(package, name):
@@ -89,7 +88,7 @@ class ViperAST:
         return result
 
     def append(self, list, to_append):
-        if not to_append is None:
+        if to_append is not None:
             lsttoappend = self.singleton_seq(to_append)
             list.append(lsttoappend)
 
@@ -132,14 +131,14 @@ class ViperAST:
             result_int = result_int.negate()
         return self.scala.math.BigInt(result_int)
 
-    def Program(self, domains, fields, functions, predicates, methods, position = None, info = None):
+    def Program(self, domains, fields, functions, predicates, methods, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Program(self.to_seq(domains), self.to_seq(fields),
                                 self.to_seq(functions), self.to_seq(predicates),
                                 self.to_seq(methods), position, info, self.NoTrafos)
 
-    def Function(self, name, args, type, pres, posts, body, position = None, info = None):
+    def Function(self, name, args, type, pres, posts, body, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         body = self.scala.Some(body) if body is not None else self.none
@@ -148,8 +147,8 @@ class ViperAST:
                                  self.to_seq(posts),
                                  body, position, info, self.NoTrafos)
 
-    def Method(self, name, args, returns, pres, posts, locals, body, position = None,
-               info = None):
+    def Method(self, name, args, returns, pres, posts, locals, body, position=None,
+               info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
 
@@ -163,41 +162,41 @@ class ViperAST:
                             body_with_locals, position, info,
                             self.NoTrafos)
 
-    def Field(self, name, type, position = None, info = None):
+    def Field(self, name, type, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Field(name, type, position, info, self.NoTrafos)
 
-    def Predicate(self, name, args, body, position = None, info = None):
+    def Predicate(self, name, args, body, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         body = self.scala.Some(body) if body is not None else self.none
         return self.ast.Predicate(name, self.to_seq(args),
                                   body, position, info, self.NoTrafos)
 
-    def PredicateAccess(self, args, pred_name, position = None, info = None):
+    def PredicateAccess(self, args, pred_name, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         self.used_names.add(pred_name)
         return self.ast.PredicateAccess(self.to_seq(args), pred_name, position,
                                         info, self.NoTrafos)
 
-    def PredicateAccessPredicate(self, loc, perm, position = None, info = None):
+    def PredicateAccessPredicate(self, loc, perm, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PredicateAccessPredicate(loc, perm, position, info, self.NoTrafos)
 
-    def Fold(self, predicate, position = None, info = None):
+    def Fold(self, predicate, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Fold(predicate, position, info, self.NoTrafos)
 
-    def Unfold(self, predicate, position = None, info = None):
+    def Unfold(self, predicate, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Unfold(predicate, position, info, self.NoTrafos)
 
-    def Unfolding(self, predicate, expr, position = None, info = None):
+    def Unfolding(self, predicate, expr, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Unfolding(predicate, expr, position, info, self.NoTrafos)
@@ -211,7 +210,7 @@ class ViperAST:
     def MultisetType(self, element_type):
         return self.ast.MultisetType(element_type)
 
-    def Domain(self, name, functions, axioms, typevars, position = None, info = None):
+    def Domain(self, name, functions, axioms, typevars, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Domain(name, self.to_seq(functions),
@@ -255,110 +254,110 @@ class ViperAST:
     def TypeVar(self, name):
         return self.ast.TypeVar(name)
 
-    def MethodCall(self, method_name, args, targets, position = None, info = None):
+    def MethodCall(self, method_name, args, targets, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         self.used_names.add(method_name)
         return self.ast.MethodCall(method_name, self.to_seq(args),
                                    self.to_seq(targets), position, info, self.NoTrafos)
 
-    def NewStmt(self, lhs, fields, position = None, info = None):
+    def NewStmt(self, lhs, fields, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.NewStmt(lhs, self.to_seq(fields), position, info, self.NoTrafos)
 
-    def Label(self, name, position = None, info = None):
+    def Label(self, name, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Label(name, self.to_seq([]), position, info, self.NoTrafos)
 
-    def Goto(self, name, position = None, info = None):
+    def Goto(self, name, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Goto(name, position, info, self.NoTrafos)
 
-    def Seqn(self, body, position = None, info = None, locals=[]):
+    def Seqn(self, body, position=None, info=None, locals=[]):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Seqn(self.to_seq(body), self.to_seq(locals), position, info,
                              self.NoTrafos)
 
-    def LocalVarAssign(self, lhs, rhs, position = None, info = None):
+    def LocalVarAssign(self, lhs, rhs, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.LocalVarAssign(lhs, rhs, position, info, self.NoTrafos)
 
-    def FieldAssign(self, lhs, rhs, position = None, info = None):
+    def FieldAssign(self, lhs, rhs, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.FieldAssign(lhs, rhs, position, info, self.NoTrafos)
 
-    def FieldAccess(self, receiver, field, position = None, info = None):
+    def FieldAccess(self, receiver, field, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.FieldAccess(receiver, field, position, info, self.NoTrafos)
 
-    def FieldAccessPredicate(self, fieldacc, perm, position = None, info = None):
+    def FieldAccessPredicate(self, fieldacc, perm, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.FieldAccessPredicate(fieldacc, perm, position, info, self.NoTrafos)
 
-    def Old(self, expr, position = None, info = None):
+    def Old(self, expr, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Old(expr, position, info, self.NoTrafos)
 
-    def LabelledOld(self, expr, label, position = None, info = None):
+    def LabelledOld(self, expr, label, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.LabelledOld(expr, label, position, info, self.NoTrafos)
 
-    def Inhale(self, expr, position = None, info = None):
+    def Inhale(self, expr, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Inhale(expr, position, info, self.NoTrafos)
 
-    def Exhale(self, expr, position = None, info = None):
+    def Exhale(self, expr, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Exhale(expr, position, info, self.NoTrafos)
 
-    def InhaleExhaleExp(self, inhale, exhale, position = None, info = None):
+    def InhaleExhaleExp(self, inhale, exhale, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.InhaleExhaleExp(inhale, exhale, position, info, self.NoTrafos)
 
-    def Assert(self, expr, position = None, info = None):
+    def Assert(self, expr, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Assert(expr, position, info, self.NoTrafos)
 
-    def FullPerm(self, position = None, info = None):
+    def FullPerm(self, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.FullPerm(position, info, self.NoTrafos)
 
-    def NoPerm(self, position = None, info = None):
+    def NoPerm(self, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.NoPerm(position, info, self.NoTrafos)
 
-    def WildcardPerm(self, position = None, info = None):
+    def WildcardPerm(self, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.WildcardPerm(position, info, self.NoTrafos)
 
-    def FractionalPerm(self, left, right, position = None, info = None):
+    def FractionalPerm(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.FractionalPerm(left, right, position, info, self.NoTrafos)
 
-    def CurrentPerm(self, location, position = None, info = None):
+    def CurrentPerm(self, location, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.CurrentPerm(location, position, info, self.NoTrafos)
 
-    def ForPerm(self, variable, access, body, position = None, info = None):
+    def ForPerm(self, variable, access, body, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         if isinstance(access, self.ast.Predicate):
@@ -367,112 +366,112 @@ class ViperAST:
         return self.ast.ForPerm(variables, access, body,
                                 position, info, self.NoTrafos)
 
-    def PermMinus(self, exp, position = None, info = None):
+    def PermMinus(self, exp, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PermMinus(exp, position, info, self.NoTrafos)
 
-    def PermAdd(self, left, right, position = None, info = None):
+    def PermAdd(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PermAdd(left, right, position, info, self.NoTrafos)
 
-    def PermSub(self, left, right, position = None, info = None):
+    def PermSub(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PermSub(left, right, position, info, self.NoTrafos)
 
-    def PermMul(self, left, right, position = None, info = None):
+    def PermMul(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PermMul(left, right, position, info, self.NoTrafos)
 
-    def IntPermMul(self, left, right, position = None, info = None):
+    def IntPermMul(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.IntPermMul(left, right, position, info, self.NoTrafos)
 
-    def PermDiv(self, left, right, position = None, info = None):
+    def PermDiv(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PermDiv(left, right, position, info, self.NoTrafos)
 
-    def PermLtCmp(self, left, right, position = None, info = None):
+    def PermLtCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PermLtCmp(left, right, position, info, self.NoTrafos)
 
-    def PermLeCmp(self, left, right, position = None, info = None):
+    def PermLeCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PermLeCmp(left, right, position, info, self.NoTrafos)
 
-    def PermGtCmp(self, left, right, position = None, info = None):
+    def PermGtCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PermGtCmp(left, right, position, info, self.NoTrafos)
 
-    def PermGeCmp(self, left, right, position = None, info = None):
+    def PermGeCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.PermGeCmp(left, right, position, info, self.NoTrafos)
 
-    def Not(self, expr, position = None, info = None):
+    def Not(self, expr, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Not(expr, position, info, self.NoTrafos)
 
-    def Minus(self, expr, position = None, info = None):
+    def Minus(self, expr, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Minus(expr, position, info, self.NoTrafos)
 
-    def CondExp(self, cond, then, els, position = None, info = None):
+    def CondExp(self, cond, then, els, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.CondExp(cond, then, els, position, info, self.NoTrafos)
 
-    def EqCmp(self, left, right, position = None, info = None):
+    def EqCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.EqCmp(left, right, position, info, self.NoTrafos)
 
-    def NeCmp(self, left, right, position = None, info = None):
+    def NeCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.NeCmp(left, right, position, info, self.NoTrafos)
 
-    def GtCmp(self, left, right, position = None, info = None):
+    def GtCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.GtCmp(left, right, position, info, self.NoTrafos)
 
-    def GeCmp(self, left, right, position = None, info = None):
+    def GeCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.GeCmp(left, right, position, info, self.NoTrafos)
 
-    def LtCmp(self, left, right, position = None, info = None):
+    def LtCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.LtCmp(left, right, position, info, self.NoTrafos)
 
-    def LeCmp(self, left, right, position = None, info = None):
+    def LeCmp(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.LeCmp(left, right, position, info, self.NoTrafos)
 
-    def IntLit(self, num, position = None, info = None):
+    def IntLit(self, num, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.IntLit(self.to_big_int(num), position, info, self.NoTrafos)
 
-    def Implies(self, left, right, position = None, info = None):
+    def Implies(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Implies(left, right, position, info, self.NoTrafos)
 
-    def FuncApp(self, name, args, position = None, info = None, type = None, formalargs=None):
+    def FuncApp(self, name, args, position=None, info=None, type=None, formalargs=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
 
@@ -485,163 +484,162 @@ class ViperAST:
         return self.ast.FuncApp(name, self.to_seq(args), position, info, type,
                                 self.to_seq(formalargs), self.NoTrafos)
 
-    def ExplicitSeq(self, elems, position = None, info = None):
+    def ExplicitSeq(self, elems, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.ExplicitSeq(self.to_seq(elems), position, info, self.NoTrafos)
 
-    def ExplicitSet(self, elems, position = None, info = None):
+    def ExplicitSet(self, elems, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.ExplicitSet(self.to_seq(elems), position, info, self.NoTrafos)
 
-    def ExplicitMultiset(self, elems, position = None, info = None):
+    def ExplicitMultiset(self, elems, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.ExplicitMultiset(self.to_seq(elems), position, info, self.NoTrafos)
 
-    def EmptySeq(self, type, position = None, info = None):
+    def EmptySeq(self, type, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.EmptySeq(type, position, info, self.NoTrafos)
 
-    def EmptySet(self, type, position = None, info = None):
+    def EmptySet(self, type, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.EmptySet(type, position, info, self.NoTrafos)
 
-    def EmptyMultiset(self, type, position = None, info = None):
+    def EmptyMultiset(self, type, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.EmptyMultiset(type, position, info, self.NoTrafos)
 
-    def LocalVarDecl(self, name, type, position = None, info = None):
+    def LocalVarDecl(self, name, type, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.LocalVarDecl(name, type, position, info, self.NoTrafos)
 
-    def LocalVar(self, name, type, position = None, info = None):
+    def LocalVar(self, name, type, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.LocalVar(name, type, position, info, self.NoTrafos)
 
-    def Result(self, type, position = None, info = None):
+    def Result(self, type, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Result(type, position, info, self.NoTrafos)
 
-    def AnySetContains(self, elem, s, position = None, info = None):
+    def AnySetContains(self, elem, s, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.AnySetContains(elem, s, position, info, self.NoTrafos)
 
-    def AnySetUnion(self, left, right, position = None, info = None):
+    def AnySetUnion(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.AnySetUnion(left, right, position, info, self.NoTrafos)
 
-    def AnySetSubset(self, left, right, position = None, info = None):
+    def AnySetSubset(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.AnySetSubset(left, right, position, info, self.NoTrafos)
 
-    def SeqAppend(self, left, right, position = None, info = None):
+    def SeqAppend(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.SeqAppend(left, right, position, info, self.NoTrafos)
 
-    def SeqContains(self, elem, s, position = None, info = None):
+    def SeqContains(self, elem, s, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.SeqContains(elem, s, position, info, self.NoTrafos)
 
-    def SeqLength(self, s, position = None, info = None):
+    def SeqLength(self, s, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.SeqLength(s, position, info, self.NoTrafos)
 
-    def SeqIndex(self, s, ind, position = None, info = None):
+    def SeqIndex(self, s, ind, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.SeqIndex(s, ind, position, info, self.NoTrafos)
 
-    def SeqTake(self, s, end, position = None, info = None):
+    def SeqTake(self, s, end, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.SeqTake(s, end, position, info, self.NoTrafos)
 
-    def SeqDrop(self, s, end, position = None, info = None):
+    def SeqDrop(self, s, end, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.SeqDrop(s, end, position, info, self.NoTrafos)
 
-    def SeqUpdate(self, s, ind, elem, position = None, info = None):
+    def SeqUpdate(self, s, ind, elem, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        return self.ast.SeqUpdate(s, ind, elem, position , info, self.NoTrafos)
+        return self.ast.SeqUpdate(s, ind, elem, position, info, self.NoTrafos)
 
-    def Add(self, left, right, position = None, info = None):
+    def Add(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Add(left, right, position, info, self.NoTrafos)
 
-    def Sub(self, left, right, position = None, info = None):
+    def Sub(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Sub(left, right, position, info, self.NoTrafos)
 
-    def Mul(self, left, right, position = None, info = None):
+    def Mul(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Mul(left, right, position, info, self.NoTrafos)
 
-    def Div(self, left, right, position = None, info = None):
+    def Div(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Div(left, right, position, info, self.NoTrafos)
 
-    def Mod(self, left, right, position = None, info = None):
+    def Mod(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Mod(left, right, position, info, self.NoTrafos)
 
-    def And(self, left, right, position = None, info = None):
+    def And(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.And(left, right, position, info, self.NoTrafos)
 
-    def Or(self, left, right, position = None, info = None):
+    def Or(self, left, right, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Or(left, right, position, info, self.NoTrafos)
 
-    def If(self, cond, thn, els, position = None, info = None):
+    def If(self, cond, thn, els, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         thn_seqn = self.Seqn([thn], position)
         els_seqn = self.Seqn([els], position)
         return self.ast.If(cond, thn_seqn, els_seqn, position, info, self.NoTrafos)
 
-    def TrueLit(self, position = None, info = None):
+    def TrueLit(self, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.TrueLit(position, info, self.NoTrafos)
 
-    def FalseLit(self, position = None, info = None):
+    def FalseLit(self, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.FalseLit(position, info, self.NoTrafos)
 
-    def NullLit(self, position = None, info = None):
+    def NullLit(self, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.NullLit(position, info, self.NoTrafos)
 
-    def Forall(self, variables, triggers, exp, position = None, info = None):
+    def Forall(self, variables, triggers, exp, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        res = self.ast.Forall(self.to_seq(variables), self.to_seq(triggers),
-                               exp, position, info, self.NoTrafos)
+        res = self.ast.Forall(self.to_seq(variables), self.to_seq(triggers), exp, position, info, self.NoTrafos)
         if res.isPure():
             return res
         else:
@@ -651,25 +649,25 @@ class ViperAST:
                 result = self.And(result, qp, position, info)
             return result
 
-    def Exists(self, variables, exp, position = None, info = None):
+    def Exists(self, variables, exp, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         res = self.ast.Exists(self.to_seq(variables), exp, position, info, self.NoTrafos)
         return res
 
-    def Trigger(self, exps, position = None, info = None):
+    def Trigger(self, exps, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Trigger(self.to_seq(exps), position, info, self.NoTrafos)
 
-    def While(self, cond, invariants, locals, body, position = None, info = None):
+    def While(self, cond, invariants, locals, body, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         body_with_locals = self.Seqn([body], position, info, locals)
         return self.ast.While(cond, self.to_seq(invariants),
                               body_with_locals, position, info, self.NoTrafos)
 
-    def Let(self, variable, exp, body, position = None, info = None):
+    def Let(self, variable, exp, body, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast.Let(variable, exp, body, position, info, self.NoTrafos)
@@ -722,4 +720,3 @@ class ViperAST:
             if isinstance(n, self.ast.LocationAccess):
                 return True
         return False
-
