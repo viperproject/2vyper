@@ -10,7 +10,7 @@ run:
 	nagini $(file)
 
 test:
-	env/bin/pytest test/run_tests.py
+	env/bin/pytest tests/run_tests.py
 
 clean:
 	rm -r env
