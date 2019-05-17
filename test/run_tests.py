@@ -18,8 +18,10 @@ def get_tests():
     files = [f for f in glob.glob(test_dir + "/**/*.vy", recursive=True)]
     return files
 
+
 def file_id(file):
     return os.path.basename(file)
+
 
 @pytest.mark.parametrize('file', get_tests(), ids=file_id)
 def test_file(file):

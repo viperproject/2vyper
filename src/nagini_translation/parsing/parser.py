@@ -17,9 +17,9 @@ from nagini_translation.ast import names
 from nagini_translation.ast import types
 
 from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperVar
-from nagini_translation.ast.types import VyperType, FunctionType, MapType, ArrayType
+from nagini_translation.ast.types import FunctionType
 
-from nagini_translation.errors.translation_exceptions import UnsupportedException, InvalidProgramException
+from nagini_translation.errors.translation_exceptions import InvalidProgramException
 
 
 def parse(contract: str, filename: str) -> VyperProgram:
@@ -32,11 +32,11 @@ def parse(contract: str, filename: str) -> VyperProgram:
 
 class ProgramBuilder(ast.NodeVisitor):
     """
-    The program builder creates a Vyper program out of the AST. It collects contract 
+    The program builder creates a Vyper program out of the AST. It collects contract
     state variables and functions. It should only be used by calling the build method once.
     """
 
-    # Pre and postconditions are only allowed before a function. As we walk through all
+    # Pre and postconditions are only allowed before a function. As we walk through all
     # top-level statements we gather pre and postconditions until we reach a function
     # definition.
 
@@ -56,7 +56,7 @@ class ProgramBuilder(ast.NodeVisitor):
         # No trailing pre and postconditions allowed
         self._check_no_prepostconditions()
         return VyperProgram(self.state, self.functions, self.invariants, self.general_postconditions)
-    
+
     def _check_no_prepostconditions(self):
         if self.preconditions:
             cond = "Precondition"
@@ -86,7 +86,7 @@ class ProgramBuilder(ast.NodeVisitor):
             raise AssertionError("Contracts should only have a single target.")
         if not isinstance(node.targets[0], ast.Name):
             raise AssertionError("The target of a contract should be a name.")
-        
+
         name = node.targets[0].id
         if name == names.INVARIANT:
             # No preconditions and posconditions allowed before invariants
@@ -96,7 +96,7 @@ class ProgramBuilder(ast.NodeVisitor):
         elif name == names.GENERAL_POSTCONDITION:
             # No preconditions and posconditions allowed before general postconditions
             self._check_no_prepostconditions()
-            
+
             self.general_postconditions.append(node.value)
         elif name == names.PRECONDITION:
             self.preconditions.append(node.value)
@@ -129,7 +129,7 @@ class LocalProgramBuilder(ast.NodeVisitor):
         self.local_vars = {}
 
         self.type_builder = TypeBuilder()
-    
+
     def build(self, node):
         self.visit(node)
         return self.args, self.local_vars

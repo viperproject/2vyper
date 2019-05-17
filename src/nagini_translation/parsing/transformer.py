@@ -36,7 +36,7 @@ def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
         value = interpreter.visit(node.value)
         env[name] = value
         constants[name] = ast.parse(f'{value}', mode='eval').body
-    
+
     return constants
 
 
@@ -54,7 +54,7 @@ class ConstantInterpreter(ast.NodeVisitor):
             return all(operands)
         elif isinstance(node.op, ast.Or):
             return any(operands)
-        
+
     def visit_BinOp(self, node: ast.BinOp):
         lhs = self.visit(node.left)
         rhs = self.visit(node.right)
@@ -115,7 +115,7 @@ class ConstantInterpreter(ast.NodeVisitor):
 
     def visit_Num(self, node: ast.Num):
         return node.n
-    
+
     def visit_NameConstant(self, node: ast.NameConstant):
         return node.value
 
@@ -153,12 +153,9 @@ class ConstantTransformer(ast.NodeTransformer):
     """
     Replaces all constants in the AST by their value.
     """
-    
+
     def __init__(self, constants: Dict[str, ast.AST]):
         self.constants = constants
 
     def visit_Name(self, node: ast.Name):
         return ast.copy_location(self.constants.get(node.id) or node, node)
-
-    
-
