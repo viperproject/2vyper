@@ -18,7 +18,7 @@ from nagini_translation.translation.builtins import map_sum
 
 from nagini_translation.translation import builtins
 
-from nagini_translation.errors.translation_exceptions import InvalidProgramException
+from nagini_translation.errors.translation import InvalidProgramException
 
 
 class SpecificationTranslator(ExpressionTranslator):

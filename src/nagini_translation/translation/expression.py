@@ -13,7 +13,7 @@ from nagini_translation.lib.viper_ast import ViperAST
 from nagini_translation.lib.typedefs import StmtsAndExpr
 from nagini_translation.lib.errors import rules
 
-from nagini_translation.errors.translation_exceptions import UnsupportedException
+from nagini_translation.errors.translation import UnsupportedException
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types

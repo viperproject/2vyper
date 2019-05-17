@@ -51,7 +51,7 @@ from nagini_translation.parsing import parser
 from nagini_translation.analysis import analyzer
 from nagini_translation.translation.translator import ProgramTranslator
 
-from nagini_translation.errors.translation_exceptions import *
+from nagini_translation.errors.translation import *
 
 
 

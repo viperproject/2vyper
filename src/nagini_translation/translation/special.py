@@ -15,7 +15,7 @@ from nagini_translation.translation.context import Context
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 
-from nagini_translation.errors.translation_exceptions import InvalidProgramException
+from nagini_translation.errors.translation import InvalidProgramException
 
 
 class SpecialTranslator(PositionTranslator):
