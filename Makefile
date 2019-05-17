@@ -4,6 +4,7 @@ env:
 
 init:
 	env/bin/pip install -r requirements.txt
+	env/bin/pip install -e .
 
 run:
 	nagini $(file)
