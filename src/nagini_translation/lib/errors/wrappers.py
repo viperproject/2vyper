@@ -99,11 +99,7 @@ class Error:
         self._error = error
         self.identifier = error_id
         self._error_info = error_item
-        if reason_item:
-            self.reason = Reason(
-                reason_id, viper_reason, reason_item)
-        else:
-            self.reason = Reason(reason_id, viper_reason)
+        self.reason = Reason(reason_id, viper_reason, reason_item)
         self.position = Position(error.pos())
 
     def pos(self) -> 'ast.AbstractSourcePosition':
@@ -119,7 +115,7 @@ class Error:
     @property
     def full_id(self) -> str:
         """Full error identifier."""
-        return '{}:{}'.format(self.identifier, self.reason.identifier)
+        return f"{self.identifier}:{self.reason.identifier}"
 
     @property
     def offending_node(self) -> 'ast.Node':
@@ -135,19 +131,13 @@ class Error:
     def position_string(self) -> str:
         """Full error position as a string."""
         vias = self.reason._reason_info.vias or self._error_info.vias or []
-        vias_string = ''.join(
-            ', via {0} at {1}'.format(reason, pos)
-            for reason, pos in vias)
-        return '{}{}'.format(self.position, vias_string)
+        vias_string = "".join(f", via {reason} at {pos}" for reason, pos in vias)
+        return f"{self.position}{vias_string}"
 
     @property
     def message(self) -> str:
         """Human readable error message."""
-        if self._error_info:
-            return ERRORS[self.identifier](self._error_info)
-        # If we don't have a node, fall back to the original Silver message,
-        # it's better than nothing.
-        return self._error.text()
+        return ERRORS[self.identifier](self._error_info)
 
     def __str__(self) -> str:
         return self.string(False, False)
@@ -165,10 +155,14 @@ class Error:
         explanations if no Python-level explanation is available.
         """
         if ide_mode:
-            return '{0}:{1}:{2}: error: {3} {4}'.format(
-                self.position.file_name,
-                self.position.line, self.position.column, self.message,
-                self.reason)
+            file_name = self.position.file_name
+            line = self.position.line
+            col = self.position.column
+            msg = self.position.message
+            reason = self.reason
+            return f"{file_name}:{line}:{col}: error: {msg} {reason}"
         else:
-            return '{0} {1} ({2})'.format(
-                self.message, self.reason.string(show_viper_errors), self.position_string)
+            msg = self.message
+            reason = self.reason.string(show_viper_errors)
+            pos = self.position_string
+            return f"{msg} {reason} ({pos})"

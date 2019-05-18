@@ -47,11 +47,7 @@ class ErrorManager:
 
         It does that by wrapping in ``Error`` subclasses.
         """
-        new_errors = [
-            self._convert_error(error, jvm)
-            for error in errors
-        ]
-        return new_errors
+        return [self._convert_error(error, jvm) for error in errors]
 
     def get_vias(self, node_id: str) -> List[Any]:
         """Get via information for the given ``node_id``."""
@@ -119,10 +115,7 @@ class ErrorManager:
         if rules is None:
             rules = {}
         error_item = self._get_error_info(position)
-        if error_item:
-            return Error(error, rules, reason_item, error_item)
-        else:
-            return Error(error, rules, reason_item)
+        return Error(error, rules, reason_item, error_item)
 
 
 manager = ErrorManager()
