@@ -5,8 +5,6 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-"""Error handling state is stored in singleton ``manager``."""
-
 import ast
 
 from uuid import uuid1
@@ -17,13 +15,15 @@ from nagini_translation.lib.errors.wrappers import Error, ErrorInfo
 from nagini_translation.lib.errors.rules import Rules
 from nagini_translation.lib.jvmaccess import JVM
 
+"""Error handling state is stored in singleton ``manager``."""
+
 
 class ErrorManager:
     """A singleton object that stores the state needed for error handling."""
 
     def __init__(self) -> None:
-        self._items: Dict[str, ErrorInfo] = {}                
-        self._conversion_rules: Dict[str, Rules] = {}     
+        self._items: Dict[str, ErrorInfo] = {}
+        self._conversion_rules: Dict[str, Rules] = {}
 
     def add_error_information(self, error_info: ErrorInfo, conversion_rules: Rules) -> str:
         """Add error information to state."""
@@ -68,9 +68,9 @@ class ErrorManager:
             self, position: 'ast.AbstractSourcePosition') -> Optional[Rules]:
         if hasattr(position, 'id'):
             node_id = position.id()
-            if node_id in self._conversion_rules:
-                return self._conversion_rules[node_id]
-        return None
+            return self._conversion_rules.get(node_id)
+        else:
+            return None
 
     def _try_get_rules_workaround(
             self, node: 'ast.Node', jvm: Optional[JVM]) -> Optional[Rules]:
@@ -96,7 +96,7 @@ class ErrorManager:
                     self._try_get_rules_workaround(node.right(), jvm))
         return
 
-    def transformError(self, error: 'AbstractVerificationError') -> 'AbstractVerificationError':
+    def transformError(self, error: 'JVM.AbstractVerificationError') -> 'JVM.AbstractVerificationError':
         """ Transform silver error to a fixpoint. """
         old_error = None
         while old_error != error:
@@ -105,7 +105,7 @@ class ErrorManager:
         return error
 
     def _convert_error(
-            self, error: 'AbstractVerificationError',
+            self, error: 'JVM.AbstractVerificationError',
             jvm: Optional[JVM]) -> Error:
         error = self.transformError(error)
         reason_pos = error.reason().offendingNode().pos()
@@ -125,4 +125,4 @@ class ErrorManager:
             return Error(error, rules, reason_item)
 
 
-manager = ErrorManager()     # pylint: disable=invalid-name
+manager = ErrorManager()

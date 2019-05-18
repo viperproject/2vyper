@@ -117,7 +117,7 @@ class ProgramTranslator(PositionTranslator):
         # Assume block.timestamp >= 0
         ctx.unchecked_invariants.append(self.viper_ast.GeCmp(timestamp_acc, zero))
 
-        fields_list = list(ctx.fields.values()) + list(ctx.immutable_fields.values())
+        fields_list = [*ctx.fields.values(), *ctx.immutable_fields.values()]
 
         functions = vyper_program.functions.values()
         methods.append(self._create_transitivity_check(ctx))

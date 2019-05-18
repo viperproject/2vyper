@@ -271,8 +271,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.append(assume_false)
 
             args_list = list(args.values())
-            new_locals = ctx.new_local_vars
-            locals_list = list(locals.values()) + new_locals
+            locals_list = [*locals.values(), *ctx.new_local_vars]
 
         method = self.viper_ast.Method(function.name, args_list, rets, all_pres, all_posts, locals_list, body, pos)
         return method

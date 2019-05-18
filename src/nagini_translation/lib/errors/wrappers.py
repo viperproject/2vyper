@@ -5,14 +5,12 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-"""Wrappers for Scala error objects."""
-
 import ast
-
-from typing import Any, List
 
 from nagini_translation.lib.errors.messages import ERRORS, REASONS, VAGUE_REASONS
 from nagini_translation.lib.errors.rules import Rules
+
+"""Wrappers for Scala error objects."""
 
 
 class Position:
@@ -50,13 +48,13 @@ class ErrorInfo:
         self.function = function
         self.node = node
         self.vias = vias
-        self.reason_string = reason_string 
+        self.reason_string = reason_string
 
 
 class Reason:
     """Wrapper around ``AbstractErrorReason``."""
 
-    def __init__(self, reason_id: str, reason: 'AbstractErrorReason', reason_info: ErrorInfo):
+    def __init__(self, reason_id: str, reason: 'ast.AbstractErrorReason', reason_info: ErrorInfo):
         self._reason = reason
         self.identifier = reason_id
         self._reason_info = reason_info
@@ -86,7 +84,7 @@ class Reason:
 class Error:
     """Wrapper around ``AbstractVerificationError``."""
 
-    def __init__(self, error: 'AbstractVerificationError', rules: Rules,
+    def __init__(self, error: 'ast.AbstractVerificationError', rules: Rules,
                  reason_item: ErrorInfo, error_item: ErrorInfo) -> None:
 
         # Translate error id.
@@ -111,7 +109,7 @@ class Error:
     def pos(self) -> 'ast.AbstractSourcePosition':
         """Get position.
 
-        .. todo:: Marco
+        .. TODO:: Marco
 
             This method is only for compatibility with current testing
             infrastructure and should be removed.
