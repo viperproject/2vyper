@@ -5,7 +5,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-"""Nagini tests based on pytest framework.
+"""
+Nagini tests based on pytest framework.
 
 Nagini tests are based on ideas taken from ``Silver``. Each test is a
 Python source file with annotations that specify the expected behaviour.
@@ -46,7 +47,8 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from nagini_translation.lib import config, jvmaccess
+from nagini_translation import config
+from nagini_translation.lib import jvmaccess
 from nagini_translation.lib.errors import error_manager
 from nagini_translation.errors.translation import InvalidProgramException
 from nagini_translation.main import translate, verify, TYPE_ERROR_PATTERN
@@ -558,15 +560,15 @@ class VerificationTest(AnnotatedTest):
 
     def test_file(
             self, path: str, jvm: jvmaccess.JVM, verifier: ViperVerifier,
-            sif: bool, reload_resources: bool, arp: bool):
+            sif: bool, reload_resources: bool):
         """Test specific Python file."""
         annotation_manager = self.get_annotation_manager(path, verifier.name)
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         path = os.path.abspath(path)
-        prog = translate(path, jvm, sif=sif, arp=arp, reload_resources=reload_resources)
+        prog = translate(path, jvm, sif=sif, reload_resources=reload_resources)
         assert prog is not None
-        vresult = verify(prog, path, jvm, verifier, arp=arp)
+        vresult = verify(prog, path, jvm, verifier)
         self._evaluate_result(vresult, annotation_manager, jvm, sif)
 
     def _evaluate_result(
@@ -603,23 +605,23 @@ class VerificationTest(AnnotatedTest):
 _VERIFICATION_TESTER = VerificationTest()
 
 
-def _test_verification(path, verifier, sif, reload_resources, arp):
+def _test_verification(path, verifier, sif, reload_resources):
     """Execute provided verification test."""
-    _VERIFICATION_TESTER.test_file(path, _JVM, verifier, sif, reload_resources, arp)
+    _VERIFICATION_TESTER.test_file(path, _JVM, verifier, sif, reload_resources)
 
 
 class TranslationTest(AnnotatedTest):
     """Test for testing translation errors."""
 
     def test_file(self, path: str, jvm: jvmaccess.JVM, sif: bool,
-                  reload_resources: bool, arp: bool):
+                  reload_resources: bool):
         """Test specific Python file."""
         annotation_manager = self.get_annotation_manager(path, _BACKEND_ANY)
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         path = os.path.abspath(path)
         try:
-            translate(path, jvm, sif=sif, arp=arp, reload_resources=reload_resources)
+            translate(path, jvm, sif=sif, reload_resources=reload_resources)
             actual_errors = []
         except InvalidProgramException as exp1:
             actual_errors = [InvalidProgramError(exp1)]
@@ -631,11 +633,11 @@ class TranslationTest(AnnotatedTest):
 _TRANSLATION_TESTER = TranslationTest()
 
 
-def _test_translation(path, sif, reload_resources, arp):
+def _test_translation(path, sif, reload_resources):
     """Execute provided translation test."""
-    _TRANSLATION_TESTER.test_file(path, _JVM, sif, reload_resources, arp)
+    _TRANSLATION_TESTER.test_file(path, _JVM, sif, reload_resources)
 
 
 def _test(path):
     """Execute provided verification test."""
-    _VERIFICATION_TESTER.test_file(path, _JVM, ViperVerifier.silicon, False, False, False)
+    _VERIFICATION_TESTER.test_file(path, _JVM, ViperVerifier.silicon, False, False)

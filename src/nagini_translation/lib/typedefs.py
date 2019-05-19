@@ -44,5 +44,6 @@ AbstractSourcePosition = 'silver.ast.AbstractSourcePosition'
 Position = 'silver.ast.Position'
 Info = 'silver.ast.Info'
 
+# Verification
 AbstractVerificationError = 'silver.verifier.AbstractVerificationError'
 AbstractErrorReason = 'silver.verifier.AbstractErrorReason'

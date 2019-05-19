@@ -17,7 +17,7 @@ import traceback
 
 
 from jpype import JavaException
-from nagini_translation.lib import config
+from nagini_translation import config
 from nagini_translation.lib.constants import DEFAULT_SERVER_SOCKET
 from nagini_translation.lib.errors import error_manager
 from nagini_translation.lib.jvmaccess import JVM
@@ -26,7 +26,6 @@ from nagini_translation.lib.viper_ast import ViperAST
 
 from nagini_translation.verifier import (
     Carbon,
-    get_arp_plugin,
     Silicon,
     VerificationResult,
     ViperVerifier
@@ -80,7 +79,7 @@ def load_sil_files(jvm: JVM, sif: bool = False):
 
 
 def translate(path: str, jvm: JVM, selected: Set[str] = set(),
-              sif: bool = False, arp: bool = False, ignore_global: bool = False,
+              sif: bool = False, ignore_global: bool = False,
               reload_resources: bool = False, verbose: bool = False) -> Program:
     """
     Translates the Python module at the given path to a Viper program
@@ -172,7 +171,7 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     """
 
 def verify(prog: 'viper.silver.ast.Program', path: str,
-           jvm: JVM, backend=ViperVerifier.silicon, arp=False) -> VerificationResult:
+           jvm: JVM, backend=ViperVerifier.silicon) -> VerificationResult:
     """
     Verifies the given Viper program
     """
@@ -181,7 +180,7 @@ def verify(prog: 'viper.silver.ast.Program', path: str,
             verifier = Silicon(jvm, path)
         elif backend == ViperVerifier.carbon:
             verifier = Carbon(jvm, path)
-        vresult = verifier.verify(prog, arp=arp)
+        vresult = verifier.verify(prog)
         return vresult
     except JavaException as je:
         print(je.stacktrace())
@@ -248,10 +247,6 @@ def main() -> None:
         action='store_true',
         help='show Viper-level error messages if no Python errors are available')
     parser.add_argument(
-        '--arp',
-        action='store_true',
-        help='Use Abstract Read Permissions')
-    parser.add_argument(
         '--log',
         type=_parse_log_level,
         help='log level',
@@ -313,18 +308,18 @@ def main() -> None:
             def add_response(part):
                 response[0] = response[0] + '\n' + part
 
-            translate_and_verify(file, jvm, args, add_response, arp=args.arp)
+            translate_and_verify(file, jvm, args, add_response)
             socket.send_string(response[0])
     else:
-        translate_and_verify(args.vyper_file, jvm, args, arp=args.arp)
+        translate_and_verify(args.vyper_file, jvm, args)
 
 
-def translate_and_verify(vyper_file, jvm, args, print=print, arp=False):
+def translate_and_verify(vyper_file, jvm, args, print=print):
     try:
         start = time.time()
         selected = set(args.select.split(',')) if args.select else set()
         prog = translate(vyper_file, jvm, selected, args.sif,
-                         ignore_global=args.ignore_global, arp=arp, verbose=args.verbose)
+                         ignore_global=args.ignore_global, verbose=args.verbose)
         if args.print_silver:
             if args.verbose:
                 print('Result:')
@@ -342,13 +337,13 @@ def translate_and_verify(vyper_file, jvm, args, print=print, arp=False):
             print("Run, Total, Start, End, Time".format())
             for i in range(args.benchmark):
                 start = time.time()
-                prog = translate(vyper_file, jvm, selected, args.sif, arp=arp)
-                vresult = verify(prog, vyper_file, jvm, backend=backend, arp=arp)
+                prog = translate(vyper_file, jvm, selected, args.sif)
+                vresult = verify(prog, vyper_file, jvm, backend=backend)
                 end = time.time()
                 print("{}, {}, {}, {}, {}".format(
                     i, args.benchmark, start, end, end - start))
         else:
-            vresult = verify(prog, vyper_file, jvm, backend=backend, arp=arp)
+            vresult = verify(prog, vyper_file, jvm, backend=backend)
         if args.verbose:
             print("Verification completed.")
         print(vresult.to_string(args.ide_mode, args.show_viper_errors))
