@@ -30,19 +30,19 @@ class ViperAST:
     to Scala BigInts, and wrap Scala Option types where necessary.
     """
 
-    def __init__(self, jvm, java, scala, viper, sourcefile):
-        ast = viper.silver.ast
-        self.ast = ast
-        self.java = java
-        self.scala = scala
+    def __init__(self, jvm, sourcefile):
+        self.ast = jvm.viper.silver.ast
+        self.java = jvm.java
+        self.scala = jvm.scala
         self.jvm = jvm
         self.nodes = {}
         self.used_names = set()
         self.used_names_sets = {}
 
         def getconst(name):
-            return getobject(ast, name)
-        self.QPs = getobject(ast.utility, 'QuantifiedPermissions')
+            return getobject(self.ast, name)
+
+        self.QPs = getobject(self.ast.utility, 'QuantifiedPermissions')
         self.AddOp = getconst('AddOp')
         self.AndOp = getconst('AndOp')
         self.DivOp = getconst('DivOp')
@@ -69,7 +69,7 @@ class ViperAST:
         self.Ref = getconst('Ref')
         self.Perm = getconst('Perm')
         self.sourcefile = sourcefile
-        self.none = getobject(scala, 'None')
+        self.none = getobject(self.scala, 'None')
 
     def is_available(self) -> bool:
         """
