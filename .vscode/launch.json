@@ -5,123 +5,34 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run Python",
+            "name": "Debug 2vyper verifying Vyper",
             "type": "python",
             "request": "launch",
             "stopOnEntry": false,
-            "pythonPath": "${config:python.pythonPath}",
-            "program": "${file}",
-            "cwd": "${workspaceRoot}",
-            "env": {},
-            "envFile": "${workspaceRoot}/.env",
-            "debugOptions": [
-                "WaitOnAbnormalExit",
-                "WaitOnNormalExit",
-                "RedirectOutput"
-            ]
-        },
-        {
-            "name": "Run Python with contracts",
-            "type": "python",
-            "request": "launch",
-            "stopOnEntry": false,
-            "pythonPath": "${workspaceRoot}/nagini/env/bin/python3",
-            "program": "${file}",
-            "cwd": "${workspaceRoot}",
-            "env": {
-                "PYTHONPATH": "${workspaceRoot}/nagini/src"
-            },
-            "envFile": "${workspaceRoot}/.env",
-            "console": "integratedTerminal",
-            "debugOptions": [
-                "WaitOnAbnormalExit",
-                "WaitOnNormalExit",
-                "RedirectOutput"
-            ]
-        },
-        {
-            "name": "Verify Python with Nagini",
-            "type": "python",
-            "request": "launch",
-            "stopOnEntry": false,
-            "pythonPath": "${workspaceRoot}/nagini/env/bin/python3",
-            "program": "${workspaceRoot}/nagini/env/bin/nagini",
+            "pythonPath": "${workspaceFolder}/env/bin/python3",
+            "program": "${workspaceFolder}/env/bin/2vyper",
             "args": [
+                "--viper-jar-path", "${workspaceFolder}/viper/silicon.jar", "${file}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Translate Vyper to Viper",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "pythonPath": "${workspaceFolder}/env/bin/python3",
+            "program": "${workspaceFolder}/env/bin/2vyper",
+            "args": [
+                "--viper-jar-path", "${workspaceFolder}/viper/silicon.jar",
+                "--write-silver-to-file", "${fileDirname}/${fileBasenameNoExtension}.vpr",
                 "${file}"
             ],
-            "cwd": "${workspaceRoot}",
+            "cwd": "${workspaceFolder}",
             "env": {},
-            "envFile": "${workspaceRoot}/.env",
-            "console": "integratedTerminal",
-            "debugOptions": [
-                "WaitOnAbnormalExit",
-                "WaitOnNormalExit",
-                "RedirectOutput"
-            ]
-        },
-        {
-            "name": "Debug Nagini verifying Python",
-            "type": "python",
-            "request": "launch",
-            "stopOnEntry": false,
-            "pythonPath": "${workspaceRoot}/nagini/env/bin/python3",
-            "program": "${workspaceRoot}/nagini/env/bin/nagini",
-            "args": [
-                "${file}"
-            ],
-            "cwd": "${workspaceRoot}",
-            "env": {},
-            "envFile": "${workspaceRoot}/.env",
-            "console": "integratedTerminal",
-            "debugOptions": [
-                "WaitOnAbnormalExit",
-                "WaitOnNormalExit",
-                "RedirectOutput"
-            ]
-        },
-        {
-            "name": "Translate Python to Viper",
-            "type": "python",
-            "request": "launch",
-            "stopOnEntry": false,
-            "pythonPath": "${workspaceRoot}/nagini/env/bin/python3",
-            "program": "${workspaceRoot}/nagini/env/bin/nagini",
-            "args": [
-                "--write-silver-to-file",
-                "${fileDirname}/${fileBasenameNoExtension}.vpr",
-                "${file}"
-            ],
-            "cwd": "${workspaceRoot}",
-            "env": {},
-            "envFile": "${workspaceRoot}/.env",
-            "console": "integratedTerminal",
-            "debugOptions": [
-                "WaitOnAbnormalExit",
-                "WaitOnNormalExit",
-                "RedirectOutput"
-            ]
-        },
-        {
-            "name": "Verify Viper with Silicon",
-            "type": "python",
-            "request": "launch",
-            "stopOnEntry": false,
-            "pythonPath": "${workspaceRoot}/nagini/env/bin/python3",
-            "program": "${workspaceRoot}/nagini/env/bin/nagini",
-            "args": [
-                "--write-silver-to-file",
-                "${fileDirname}/${fileBasenameNoExtension}.vpr",
-                "${file}"
-            ],
-            "cwd": "${workspaceRoot}",
-            "env": {},
-            "envFile": "${workspaceRoot}/.env",
-            "console": "integratedTerminal",
-            "debugOptions": [
-                "WaitOnAbnormalExit",
-                "WaitOnNormalExit",
-                "RedirectOutput"
-            ]
+            "console": "integratedTerminal"
         }
     ]
 }
