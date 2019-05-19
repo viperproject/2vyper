@@ -48,7 +48,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../s
 
 from nagini_translation.lib import config, jvmaccess
 from nagini_translation.lib.errors import error_manager
-from nagini_translation.lib.typeinfo import TypeException
 from nagini_translation.lib.util import InvalidProgramException
 from nagini_translation.main import translate, verify, TYPE_ERROR_PATTERN
 from nagini_translation.verifier import VerificationResult, ViperVerifier
@@ -624,10 +623,6 @@ class TranslationTest(AnnotatedTest):
             actual_errors = []
         except InvalidProgramException as exp1:
             actual_errors = [InvalidProgramError(exp1)]
-        except TypeException as exp2:
-            actual_errors = [
-                TypeCheckError(msg) for msg in exp2.messages
-                if _MYPY_ERROR_MATCHER.match(msg)]
         annotation_manager.check_errors(actual_errors)
         if annotation_manager.has_unexpected_missing():
             pytest.skip('Unexpected or missing output')

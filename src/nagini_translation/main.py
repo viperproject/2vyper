@@ -15,28 +15,15 @@ import re
 import time
 import traceback
 
-# These imports monkey-patch mypy and should happen as early as possible.
-import nagini_translation.mypy_patches.column_info_patch
-#import nagini_translation.mypy_patches.optional_patch
-
 
 from jpype import JavaException
-from nagini_translation.analyzer import Analyzer
-from nagini_translation.sif_translator import SIFTranslator
 from nagini_translation.lib import config
 from nagini_translation.lib.constants import DEFAULT_SERVER_SOCKET
 from nagini_translation.lib.errors import error_manager
 from nagini_translation.lib.jvmaccess import JVM
 from nagini_translation.lib.typedefs import Program
-from nagini_translation.lib.typeinfo import TypeException, TypeInfo
 from nagini_translation.lib.viper_ast import ViperAST
-from nagini_translation.sif.lib.util import (
-    configure_mpp_transformation,
-    set_all_low_methods,
-    set_preserves_low_methods
-)
-from nagini_translation.sif.lib.viper_ast_extended import ViperASTExtended
-from nagini_translation.translator import Translator
+
 from nagini_translation.verifier import (
     Carbon,
     get_arp_plugin,
@@ -104,14 +91,14 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     resources_path = os.path.join(current_path, 'resources')
 
     if sif:
-        viper_ast = ViperASTExtended(jvm, jvm.java, jvm.scala, jvm.viper, path)
+        # viper_ast = ViperASTExtended(jvm, jvm.java, jvm.scala, jvm.viper, path)
+        pass
     else:
         viper_ast = ViperAST(jvm, jvm.java, jvm.scala, jvm.viper, path)
     if not viper_ast.is_available():
         raise Exception('Viper not found on classpath.')
     if sif and not viper_ast.is_extension_available():
         raise Exception('Viper AST SIF extension not found on classpath.')
-    types = TypeInfo()
 
     with open(path) as file:
         vyper_program = parser.parse(file.read(), path)
@@ -183,22 +170,6 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
         raise ConsistencyException('consistency.error')
     return prog
     """
-
-
-def collect_modules(analyzer: Analyzer, path: str) -> None:
-    """
-    Starting from the main module, finds all imports and sets up all modules
-    for them.
-    """
-    analyzer.module_index = 0
-    analyzer.collect_imports(path)
-
-    analyzer.analyze()
-
-    # Carry out all tasks that were deferred to the end of the analysis.
-    for task in analyzer.deferred_tasks:
-        task()
-
 
 def verify(prog: 'viper.silver.ast.Program', path: str,
            jvm: JVM, backend=ViperVerifier.silicon, arp=False) -> VerificationResult:
