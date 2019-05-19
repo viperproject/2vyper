@@ -9,9 +9,6 @@ import ast
 
 from nagini_translation.ast import names
 
-from nagini_translation.lib.typedefs import StmtsAndExpr
-from nagini_translation.lib.viper_ast import ViperAST
-
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope, inside_old_scope
 from nagini_translation.translation.builtins import map_sum
@@ -19,6 +16,9 @@ from nagini_translation.translation.builtins import map_sum
 from nagini_translation.translation import builtins
 
 from nagini_translation.errors.translation import InvalidProgramException
+
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import StmtsAndExpr
 
 
 class SpecificationTranslator(ExpressionTranslator):

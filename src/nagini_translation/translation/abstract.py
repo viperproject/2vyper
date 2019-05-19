@@ -9,11 +9,13 @@ import ast
 
 from typing import List
 
-from nagini_translation.lib.viper_ast import ViperAST
-from nagini_translation.lib.typedefs import Stmt
-from nagini_translation.lib.typedefs import Position, Info
-from nagini_translation.lib.errors import error_manager, Rules
-from nagini_translation.lib.errors.wrappers import ErrorInfo
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import Stmt
+from nagini_translation.viper.typedefs import Position, Info
+
+from nagini_translation.verification import error_manager
+from nagini_translation.verification.rules import Rules
+from nagini_translation.verification.wrappers import ErrorInfo
 
 from nagini_translation.translation.context import Context
 

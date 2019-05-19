@@ -10,8 +10,6 @@ import ast
 from typing import List
 
 from nagini_translation.utils import flatten
-from nagini_translation.lib.viper_ast import ViperAST
-from nagini_translation.lib.typedefs import Stmt
 
 from nagini_translation.ast import types
 from nagini_translation.ast import names
@@ -25,6 +23,9 @@ from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.special import SpecialTranslator
 
 from nagini_translation.translation.builtins import array_set, map_set
+
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import Stmt
 
 
 class StatementTranslator(NodeTranslator):

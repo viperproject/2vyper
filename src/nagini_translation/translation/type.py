@@ -10,15 +10,15 @@ from typing import Optional, List
 from nagini_translation.ast import types
 from nagini_translation.ast.types import VyperType, PrimitiveType, MapType, ArrayType
 
-from nagini_translation.lib.viper_ast import ViperAST
-from nagini_translation.lib.typedefs import Expr, Stmt, StmtsAndExpr
-
 from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
 
 from nagini_translation.translation.builtins import (
     array_type, array_init, array_get, map_type, map_init, map_get
 )
+
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import Expr, Stmt, StmtsAndExpr
 
 
 class TypeTranslator(PositionTranslator, CommonTranslator):

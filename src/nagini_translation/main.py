@@ -18,12 +18,13 @@ import traceback
 
 from jpype import JavaException
 from nagini_translation import config
-from nagini_translation.lib.errors import error_manager
-from nagini_translation.lib.jvmaccess import JVM
-from nagini_translation.lib.typedefs import Program
-from nagini_translation.lib.viper_ast import ViperAST
+from nagini_translation.viper.jvmaccess import JVM
+from nagini_translation.viper.typedefs import Program
+from nagini_translation.viper.ast import ViperAST
 
-from nagini_translation.verifier import (
+from nagini_translation.verification import error_manager
+
+from nagini_translation.verification.verifier import (
     Carbon,
     Silicon,
     VerificationResult,

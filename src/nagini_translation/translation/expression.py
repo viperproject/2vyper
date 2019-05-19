@@ -9,12 +9,6 @@ import ast
 
 from nagini_translation.utils import first_index
 
-from nagini_translation.lib.viper_ast import ViperAST
-from nagini_translation.lib.typedefs import StmtsAndExpr
-from nagini_translation.lib.errors import rules
-
-from nagini_translation.errors.translation import UnsupportedException
-
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 
@@ -29,6 +23,12 @@ from nagini_translation.translation.builtins import (
 )
 
 from nagini_translation.translation import builtins
+
+from nagini_translation.errors.translation import UnsupportedException
+
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import StmtsAndExpr
+from nagini_translation.verification import rules
 
 
 class ExpressionTranslator(NodeTranslator):

@@ -11,9 +11,9 @@ from abc import ABCMeta
 from enum import Enum
 
 from nagini_translation import config
-from nagini_translation.lib.typedefs import Program, AbstractVerificationError
-from nagini_translation.lib.errors import error_manager
-from nagini_translation.lib.jvmaccess import JVM
+from nagini_translation.viper.typedefs import Program, AbstractVerificationError
+from nagini_translation.verification import error_manager
+from nagini_translation.viper.jvmaccess import JVM
 
 
 class ViperVerifier(Enum):

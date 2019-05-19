@@ -7,10 +7,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import List
 
-from nagini_translation.lib.viper_ast import ViperAST
-from nagini_translation.lib.typedefs import Method, Stmt
-from nagini_translation.lib.errors import rules
-
 from nagini_translation.ast import names
 from nagini_translation.ast.nodes import VyperFunction, VyperVar
 
@@ -22,6 +18,11 @@ from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context, function_scope, use_old_scope
 
 from nagini_translation.translation import builtins
+
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import Method, Stmt
+
+from nagini_translation.verification import rules
 
 
 class FunctionTranslator(PositionTranslator, CommonTranslator):

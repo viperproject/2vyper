@@ -48,11 +48,11 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
 from nagini_translation import config
-from nagini_translation.lib import jvmaccess
-from nagini_translation.lib.errors import error_manager
+from nagini_translation.viper import jvmaccess
+from nagini_translation.verification import error_manager
 from nagini_translation.errors.translation import InvalidProgramException
 from nagini_translation.main import translate, verify, TYPE_ERROR_PATTERN
-from nagini_translation.verifier import VerificationResult, ViperVerifier
+from nagini_translation.verification.verifier import VerificationResult, ViperVerifier
 
 
 _JVM = jvmaccess.JVM(config.classpath)

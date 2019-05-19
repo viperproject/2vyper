@@ -7,11 +7,11 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from nagini_translation.lib.viper_ast import ViperAST
-
 from nagini_translation.ast import names
 from nagini_translation.ast.types import FunctionType
 from nagini_translation.ast.nodes import VyperFunction
+
+from nagini_translation.viper.ast import ViperAST
 
 
 # Constants for names in translated AST
