@@ -19,15 +19,11 @@ setup(
             'distribute',
             ],
         install_requires=[
-            'mypy==0.670',
-            'toposort==1.5',
             'jpype1==0.6.2',
             'astunparse==1.6.2',
-            'typed-ast==1.3.1',
-            'pytest==3.3.0',
             'z3-solver'
             ],
-        entry_points = {
+        entry_points={
              'console_scripts': [
                  'nagini = nagini_translation.main:main',
                  ]

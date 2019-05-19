@@ -18,7 +18,7 @@ clean:
 	find ./src -type d -name __pycache__ -exec rm -r {} \+
 	find ./src/ -type d -name *.egg-info -exec rm -r {} \+
 
-clean-env:
+clean-env: clean
 	rm -r env
 
-.PHONY: env init run test clean
+.PHONY: env init run test clean clean-env
