@@ -8,10 +8,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import argparse
 import astunparse
 import inspect
-import json
 import logging
 import os
-import re
 import time
 import traceback
 
@@ -37,12 +35,9 @@ from nagini_translation.parsing import parser
 from nagini_translation.analysis import analyzer
 from nagini_translation.translation.translator import ProgramTranslator
 
-from nagini_translation.errors.translation import *
-
-
-
-TYPE_ERROR_PATTERN = r"^(?P<file>.*):(?P<line>\d+): error: (?P<msg>.*)$"
-TYPE_ERROR_MATCHER = re.compile(TYPE_ERROR_PATTERN)
+from nagini_translation.errors.translation import (
+    UnsupportedException, InvalidProgramException, ConsistencyException
+)
 
 
 def parse_sil_file(sil_path: str, jvm):
@@ -86,8 +81,8 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     """
     path = os.path.abspath(path)
     error_manager.clear()
-    current_path = os.path.dirname(inspect.stack()[0][1])
-    resources_path = os.path.join(current_path, 'resources')
+    # current_path = os.path.dirname(inspect.stack()[0][1])
+    # resources_path = os.path.join(current_path, 'resources')
 
     if sif:
         # viper_ast = ViperASTExtended(jvm, jvm.java, jvm.scala, jvm.viper, path)
@@ -118,59 +113,57 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
 
     return viper_program
 
-    raise AssertionError()
-"""
-    type_correct = types.check(path)
-    if not type_correct:
-        return None
+    # type_correct = types.check(path)
+    # if not type_correct:
+    #     return None
 
-    analyzer = Analyzer(types, path, selected)
-    main_module = analyzer.module
-    with open(os.path.join(resources_path, 'preamble.index'), 'r') as file:
-        analyzer.add_native_silver_builtins(json.loads(file.read()))
+    # analyzer = Analyzer(types, path, selected)
+    # main_module = analyzer.module
+    # with open(os.path.join(resources_path, 'preamble.index'), 'r') as file:
+    #     analyzer.add_native_silver_builtins(json.loads(file.read()))
 
-    main_module.add_builtin_vars()
-    collect_modules(analyzer, path)
-    if sif:
-        translator = SIFTranslator(jvm, path, types, viper_ast)
-    else:
-        translator = Translator(jvm, path, types, viper_ast)
-    analyzer.process(translator)
-    if 'sil_programs' not in globals() or reload_resources:
-        global sil_programs
-        sil_programs = load_sil_files(jvm, sif)
-    modules = [main_module.global_module] + list(analyzer.modules.values())
-    prog = translator.translate_program(modules, sil_programs, selected,
-                                        arp=arp, ignore_global=ignore_global)
-    if sif:
-        set_all_low_methods(jvm, viper_ast.all_low_methods)
-        set_preserves_low_methods(jvm, viper_ast.preserves_low_methods)
-    if verbose:
-        print('Translation successful.')
-    if sif:
-        configure_mpp_transformation(jvm,
-                                     ctrl_opt=True,
-                                     seq_opt=True,
-                                     act_opt=True,
-                                     func_opt=True)
-        prog = jvm.viper.silver.sif.SIFExtendedTransformer.transform(prog, False)
-        if verbose:
-            print('Transformation to MPP successful.')
-    if arp:
-        prog = get_arp_plugin(jvm).before_verify(prog)
-        if verbose:
-            print('ARP transformation successful.')
-    # Run consistency check in translated AST
-    consistency_errors = viper_ast.to_list(prog.checkTransitively())
-    for error in consistency_errors:
-        print(error.toString())
-    if consistency_errors:
-        print(prog)
-        raise ConsistencyException('consistency.error')
-    return prog
-    """
+    # main_module.add_builtin_vars()
+    # collect_modules(analyzer, path)
+    # if sif:
+    #     translator = SIFTranslator(jvm, path, types, viper_ast)
+    # else:
+    #     translator = Translator(jvm, path, types, viper_ast)
+    # analyzer.process(translator)
+    # if 'sil_programs' not in globals() or reload_resources:
+    #     global sil_programs
+    #     sil_programs = load_sil_files(jvm, sif)
+    # modules = [main_module.global_module] + list(analyzer.modules.values())
+    # prog = translator.translate_program(modules, sil_programs, selected,
+    #                                     arp=arp, ignore_global=ignore_global)
+    # if sif:
+    #     set_all_low_methods(jvm, viper_ast.all_low_methods)
+    #     set_preserves_low_methods(jvm, viper_ast.preserves_low_methods)
+    # if verbose:
+    #     print('Translation successful.')
+    # if sif:
+    #     configure_mpp_transformation(jvm,
+    #                                  ctrl_opt=True,
+    #                                  seq_opt=True,
+    #                                  act_opt=True,
+    #                                  func_opt=True)
+    #     prog = jvm.viper.silver.sif.SIFExtendedTransformer.transform(prog, False)
+    #     if verbose:
+    #         print('Transformation to MPP successful.')
+    # if arp:
+    #     prog = get_arp_plugin(jvm).before_verify(prog)
+    #     if verbose:
+    #         print('ARP transformation successful.')
+    # # Run consistency check in translated AST
+    # consistency_errors = viper_ast.to_list(prog.checkTransitively())
+    # for error in consistency_errors:
+    #     print(error.toString())
+    # if consistency_errors:
+    #     print(prog)
+    #     raise ConsistencyException('consistency.error')
+    # return prog
 
-def verify(prog: 'viper.silver.ast.Program', path: str,
+
+def verify(prog: Program, path: str,
            jvm: JVM, backend=ViperVerifier.silicon) -> VerificationResult:
     """
     Verifies the given Viper program

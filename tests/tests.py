@@ -51,15 +51,13 @@ from nagini_translation import config
 from nagini_translation.viper import jvmaccess
 from nagini_translation.verification import error_manager
 from nagini_translation.errors.translation import InvalidProgramException
-from nagini_translation.main import translate, verify, TYPE_ERROR_PATTERN
+from nagini_translation.main import translate, verify
 from nagini_translation.verification.verifier import ViperVerifier
 from nagini_translation.verification.result import VerificationResult
 
 
 _JVM = jvmaccess.JVM(config.classpath)
 
-
-_MYPY_ERROR_MATCHER = re.compile(TYPE_ERROR_PATTERN)
 
 _BACKEND_SILICON = 'silicon'
 _BACKEND_CARBON = 'carbon'
@@ -172,7 +170,7 @@ class TypeCheckError(Error):
 
     def __init__(self, msg: str) -> None:
         self._msg = msg
-        match = _MYPY_ERROR_MATCHER.match(msg)
+        match = False  # TODO: handle
         self._groups = match.groupdict()
 
     def __repr__(self) -> str:
