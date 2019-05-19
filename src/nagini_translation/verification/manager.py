@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from nagini_translation.viper.jvmaccess import JVM
 from nagini_translation.viper.typedefs import Node, AbstractSourcePosition
 from nagini_translation.viper.typedefs import AbstractVerificationError
-from nagini_translation.verification.wrappers import Error, ErrorInfo
+from nagini_translation.verification.error import Error, ErrorInfo
 from nagini_translation.verification.rules import Rules
 
 """Error handling state is stored in singleton ``manager``."""

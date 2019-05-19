@@ -9,6 +9,7 @@ import ast
 
 from nagini_translation.utils import pprint
 
+
 """Conversion of errors to human readable messages."""
 
 ERRORS = {

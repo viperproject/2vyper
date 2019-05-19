@@ -14,8 +14,8 @@ from nagini_translation.viper.typedefs import Stmt
 from nagini_translation.viper.typedefs import Position, Info
 
 from nagini_translation.verification import error_manager
+from nagini_translation.verification.error import ErrorInfo
 from nagini_translation.verification.rules import Rules
-from nagini_translation.verification.wrappers import ErrorInfo
 
 from nagini_translation.translation.context import Context
 

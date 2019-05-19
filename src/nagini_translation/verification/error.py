@@ -9,8 +9,10 @@ import ast
 
 from nagini_translation.viper.typedefs import Node, AbstractSourcePosition
 from nagini_translation.viper.typedefs import AbstractVerificationError, AbstractErrorReason
+
 from nagini_translation.verification.messages import ERRORS, REASONS, VAGUE_REASONS
 from nagini_translation.verification.rules import Rules
+
 
 """Wrappers for Scala error objects."""
 

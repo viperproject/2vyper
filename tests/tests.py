@@ -52,7 +52,8 @@ from nagini_translation.viper import jvmaccess
 from nagini_translation.verification import error_manager
 from nagini_translation.errors.translation import InvalidProgramException
 from nagini_translation.main import translate, verify, TYPE_ERROR_PATTERN
-from nagini_translation.verification.verifier import VerificationResult, ViperVerifier
+from nagini_translation.verification.verifier import ViperVerifier
+from nagini_translation.verification.result import VerificationResult
 
 
 _JVM = jvmaccess.JVM(config.classpath)
