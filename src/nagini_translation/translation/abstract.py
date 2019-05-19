@@ -10,6 +10,8 @@ import ast
 from typing import List
 
 from nagini_translation.lib.viper_ast import ViperAST
+from nagini_translation.lib.typedefs import Stmt
+from nagini_translation.lib.typedefs import Position, Info
 from nagini_translation.lib.errors import error_manager, Rules
 from nagini_translation.lib.errors.wrappers import ErrorInfo
 
@@ -32,7 +34,7 @@ class PositionTranslator:
                     ctx: Context,
                     rules: Rules = None,
                     vias=[],
-                    error_string: str = None):
+                    error_string: str = None) -> Position:
         """
         Extracts the position from a node, assigns an ID to the node and stores
         the node and the position in the context for it.
@@ -40,10 +42,10 @@ class PositionTranslator:
         id = self._register_potential_error(node, ctx, rules, vias, error_string)
         return self.viper_ast.to_position(node, id, ctx.file)
 
-    def no_position(self, error_string: str = None):
+    def no_position(self, error_string: str = None) -> Position:
         return self.viper_ast.NoPosition
 
-    def to_info(self, comments: List[str]):
+    def to_info(self, comments: List[str]) -> Info:
         """
         Wraps the given comments into an Info object.
         If ctx.info is set to override the given info, returns that.
@@ -53,13 +55,13 @@ class PositionTranslator:
         else:
             return self.viper_ast.NoInfo
 
-    def no_info(self):
+    def no_info(self) -> Info:
         return self.to_info([])
 
 
 class CommonTranslator:
 
-    def fail_if(self, cond, ctx: Context, pos=None):
+    def fail_if(self, cond, ctx: Context, pos=None) -> Stmt:
         body = [self.viper_ast.Goto(ctx.revert_label, pos)]
         return self.viper_ast.If(cond, body, [], pos)
 

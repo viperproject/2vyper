@@ -8,48 +8,41 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from typing import List, Tuple
 
 
-Expr = 'silver.ast.Exp'
-
+# AST abstract
+Node = 'silver.ast.Node'
 Stmt = 'silver.ast.Stmt'
-
+Expr = 'silver.ast.Exp'
 StmtsAndExpr = Tuple[List[Stmt], Expr]
 
-Var = 'silver.ast.LocalVar'
-
-VarDecl = 'silver.ast.LocalVarDecl'
-
-VarAssign = 'silver.ast.LocalVarAssign'
+# AST
+Program = 'silver.ast.Program'
+Field = 'silver.ast.Field'
+Method = 'silver.ast.Method'
 
 Domain = 'silver.ast.Domain'
-
 DomainAxiom = 'silver.ast.DomainAxiom'
-
 DomainFunc = 'silver.ast.DomainFunc'
-
 DomainFuncApp = 'silver.ast.DomainFuncApp'
-
 DomainType = 'silver.ast.DomainType'
 
 Predicate = 'silver.ast.Predicate'
 
-Program = 'silver.ast.Program'
-
-Field = 'silver.ast.Field'
-
 Function = 'silver.ast.Function'
-
-Method = 'silver.ast.Method'
-
 FuncApp = 'silver.ast.FuncApp'
 
 TypeVar = 'silver.ast.TypeVar'
-
 Type = 'silver.ast.Type'
 
-Position = 'silver.ast.Position'
+Seqn = 'silver.ast.Seqn'
 
+Var = 'silver.ast.LocalVar'
+VarDecl = 'silver.ast.LocalVarDecl'
+VarAssign = 'silver.ast.LocalVarAssign'
+
+# Error handling
+AbstractSourcePosition = 'silver.ast.AbstractSourcePosition'
+Position = 'silver.ast.Position'
 Info = 'silver.ast.Info'
 
-Node = 'silver.ast.Node'
-
-Seqn = 'silver.ast.Seqn'
+AbstractVerificationError = 'silver.verifier.AbstractVerificationError'
+AbstractErrorReason = 'silver.verifier.AbstractErrorReason'

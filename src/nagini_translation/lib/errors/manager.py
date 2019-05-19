@@ -5,12 +5,12 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from uuid import uuid1
 
 from typing import Any, Dict, List, Optional
 
+from nagini_translation.lib.typedefs import Node, AbstractSourcePosition
+from nagini_translation.lib.typedefs import AbstractVerificationError
 from nagini_translation.lib.errors.wrappers import Error, ErrorInfo
 from nagini_translation.lib.errors.rules import Rules
 from nagini_translation.lib.jvmaccess import JVM
@@ -41,7 +41,7 @@ class ErrorManager:
 
     def convert(
             self,
-            errors: List['AbstractVerificationError'],
+            errors: List[AbstractVerificationError],
             jvm: Optional[JVM]) -> List[Error]:
         """Convert Viper errors into Nagini errors.
 
@@ -54,14 +54,14 @@ class ErrorManager:
         item = self._items[node_id]
         return item.vias
 
-    def _get_error_info(self, pos: 'ast.AbstractSourcePosition') -> Optional[ErrorInfo]:
+    def _get_error_info(self, pos: AbstractSourcePosition) -> Optional[ErrorInfo]:
         if hasattr(pos, 'id'):
             node_id = pos.id()
             return self._items[node_id]
         return None
 
     def _get_conversion_rules(
-            self, position: 'ast.AbstractSourcePosition') -> Optional[Rules]:
+            self, position: AbstractSourcePosition) -> Optional[Rules]:
         if hasattr(position, 'id'):
             node_id = position.id()
             return self._conversion_rules.get(node_id)
@@ -69,7 +69,7 @@ class ErrorManager:
             return None
 
     def _try_get_rules_workaround(
-            self, node: 'ast.Node', jvm: Optional[JVM]) -> Optional[Rules]:
+            self, node: Node, jvm: Optional[JVM]) -> Optional[Rules]:
         """Try to extract rules out of ``node``.
 
         Due to optimizations, Silicon sometimes returns not the correct
@@ -92,7 +92,7 @@ class ErrorManager:
                     self._try_get_rules_workaround(node.right(), jvm))
         return
 
-    def transformError(self, error: 'JVM.AbstractVerificationError') -> 'JVM.AbstractVerificationError':
+    def transformError(self, error: AbstractVerificationError) -> AbstractVerificationError:
         """ Transform silver error to a fixpoint. """
         old_error = None
         while old_error != error:
@@ -101,7 +101,7 @@ class ErrorManager:
         return error
 
     def _convert_error(
-            self, error: 'JVM.AbstractVerificationError',
+            self, error: AbstractVerificationError,
             jvm: Optional[JVM]) -> Error:
         error = self.transformError(error)
         reason_pos = error.reason().offendingNode().pos()

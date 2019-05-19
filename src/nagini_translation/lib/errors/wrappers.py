@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from nagini_translation.lib.typedefs import Node, AbstractSourcePosition
+from nagini_translation.lib.typedefs import AbstractVerificationError, AbstractErrorReason
 from nagini_translation.lib.errors.messages import ERRORS, REASONS, VAGUE_REASONS
 from nagini_translation.lib.errors.rules import Rules
 
@@ -16,7 +18,7 @@ from nagini_translation.lib.errors.rules import Rules
 class Position:
     """Wrapper around ``AbstractSourcePosition``."""
 
-    def __init__(self, position: 'ast.AbstractSourcePosition') -> None:
+    def __init__(self, position: AbstractSourcePosition):
         self._position = position
         if hasattr(position, 'id'):
             self.node_id = position.id()
@@ -54,7 +56,7 @@ class ErrorInfo:
 class Reason:
     """Wrapper around ``AbstractErrorReason``."""
 
-    def __init__(self, reason_id: str, reason: 'ast.AbstractErrorReason', reason_info: ErrorInfo):
+    def __init__(self, reason_id: str, reason: AbstractErrorReason, reason_info: ErrorInfo):
         self._reason = reason
         self.identifier = reason_id
         self._reason_info = reason_info
@@ -84,7 +86,7 @@ class Reason:
 class Error:
     """Wrapper around ``AbstractVerificationError``."""
 
-    def __init__(self, error: 'ast.AbstractVerificationError', rules: Rules,
+    def __init__(self, error: AbstractVerificationError, rules: Rules,
                  reason_item: ErrorInfo, error_item: ErrorInfo) -> None:
 
         # Translate error id.
@@ -102,7 +104,7 @@ class Error:
         self.reason = Reason(reason_id, viper_reason, reason_item)
         self.position = Position(error.pos())
 
-    def pos(self) -> 'ast.AbstractSourcePosition':
+    def pos(self) -> AbstractSourcePosition:
         """Get position.
 
         .. TODO:: Marco
@@ -118,7 +120,7 @@ class Error:
         return f"{self.identifier}:{self.reason.identifier}"
 
     @property
-    def offending_node(self) -> 'ast.Node':
+    def offending_node(self) -> Node:
         """AST node where the error occurred."""
         return self._error.offendingNode()
 
