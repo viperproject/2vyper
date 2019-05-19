@@ -9,7 +9,7 @@ init:
 	env/bin/pip install -e .
 
 run:
-	nagini $(file)
+	2vyper $(file)
 
 test:
 	env/bin/pytest tests/run_tests.py

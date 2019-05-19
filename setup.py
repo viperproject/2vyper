@@ -4,8 +4,8 @@ from setuptools import setup, find_packages
 
 
 setup(
-        name='nagini',
-        version='0.8.2',
+        name='2vyper',
+        version='0.0.1',
         author='Viper Team',
         author_email='viper@inf.ethz.ch',
         license='MPL-2.0',
@@ -25,11 +25,11 @@ setup(
             ],
         entry_points={
              'console_scripts': [
-                 'nagini = nagini_translation.main:main',
+                 '2vyper = nagini_translation.main:main',
                  ]
              },
         url='http://www.pm.inf.ethz.ch/research/nagini.html',
-        description='Static verifier for Python 3, based on Viper.',
+        description='Static verifier for Vyper, based on Viper.',
         long_description=(open('README.rst').read()),
         # Full list of classifiers could be found at:
         # http://pypi.python.org/pypi?%3Aaction=list_classifiers
