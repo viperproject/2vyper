@@ -1,4 +1,6 @@
 
+.DEFAULT_GOAL := test
+
 env:
 	virtualenv --always-copy env
 
