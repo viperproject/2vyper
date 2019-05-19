@@ -48,7 +48,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../s
 
 from nagini_translation.lib import config, jvmaccess
 from nagini_translation.lib.errors import error_manager
-from nagini_translation.lib.util import InvalidProgramException
+from nagini_translation.errors.translation import InvalidProgramException
 from nagini_translation.main import translate, verify, TYPE_ERROR_PATTERN
 from nagini_translation.verifier import VerificationResult, ViperVerifier
 

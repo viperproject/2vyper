@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from nagini_translation.lib.util import pprint
+from nagini_translation.utils import pprint
 
 """Conversion of errors to human readable messages."""
 
