@@ -7,7 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import types
 
-from nagini_translation.lib.constants import FUNCTION_DOMAIN_NAME
+
+FUNCTION_DOMAIN_NAME = 'Function'
 
 
 def getobject(package, name):

@@ -8,7 +8,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import argparse
 import zmq
 
-from nagini_translation.lib.constants import DEFAULT_CLIENT_SOCKET
+
+DEFAULT_CLIENT_SOCKET = "tcp://localhost:5555"
+DEFAULT_SERVER_SOCKET = "tcp://*:5555"
 
 
 context = zmq.Context()

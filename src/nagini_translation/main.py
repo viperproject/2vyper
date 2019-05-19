@@ -18,7 +18,6 @@ import traceback
 
 from jpype import JavaException
 from nagini_translation import config
-from nagini_translation.lib.constants import DEFAULT_SERVER_SOCKET
 from nagini_translation.lib.errors import error_manager
 from nagini_translation.lib.jvmaccess import JVM
 from nagini_translation.lib.typedefs import Program
@@ -295,6 +294,7 @@ def main() -> None:
     jvm = JVM(config.classpath)
     if args.server:
         import zmq
+        from nagini_translation.lib.constants import DEFAULT_SERVER_SOCKET
         context = zmq.Context()
         socket = context.socket(zmq.REP)
         socket.bind(DEFAULT_SERVER_SOCKET)
