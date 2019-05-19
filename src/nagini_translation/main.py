@@ -350,10 +350,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
         print(vresult.to_string(args.ide_mode, args.show_viper_errors))
         duration = '{:.2f}'.format(time.time() - start)
         print('Verification took ' + duration + ' seconds.')
-    except TranslationException as e:
-        print("Translation failed")
-        print(e.error_string(vyper_file))
-    except (TypeException, InvalidProgramException, UnsupportedException) as e:
+    except (InvalidProgramException, UnsupportedException) as e:
         # TODO: remove this branch
         print("Translation failed")
         # TODO: put this in debug mode
@@ -375,19 +372,6 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
             line = str(e.node.lineno)
             col = str(e.node.col_offset)
             print(issue + ' (' + vyper_file + '@' + line + '.' + col + ')')
-        if isinstance(e, TypeException):
-            for msg in e.messages:
-                parts = TYPE_ERROR_MATCHER.match(msg)
-                if parts:
-                    parts = parts.groupdict()
-                    file = parts['file']
-                    if file == '__main__':
-                        file = vyper_file
-                    msg = parts['msg']
-                    line = parts['line']
-                    print('Type error: ' + msg + ' (' + file + '@' + line + '.0)')
-                else:
-                    print(msg)
     except ConsistencyException as e:
         print(e.message + ': Translated AST contains inconsistencies.')
 
