@@ -8,6 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import types
 
 
+INT_SIZE = 2147483647
 FUNCTION_DOMAIN_NAME = 'Function'
 
 
@@ -18,9 +19,6 @@ def getobject(package, name):
 class Function0:
     def apply(self):
         pass
-
-
-LONG_SIZE = 2147483647
 
 
 class ViperAST:
@@ -118,7 +116,7 @@ class ViperAST:
         negative = num < 0
         if negative:
             num = -num
-        cutoff = LONG_SIZE
+        cutoff = INT_SIZE
         cutoff_int = self.java.math.BigInteger.valueOf(cutoff)
         rest = num
         result_int = self.java.math.BigInteger.valueOf(0)
