@@ -223,10 +223,6 @@ def main() -> None:
         help='path to Z3 executable',
         default=config.z3_path)
     parser.add_argument(
-        '--mypy-path',
-        help='mypy path',
-        default=config.mypy_path)
-    parser.add_argument(
         '--print-silver',
         action='store_true',
         help='print generated Silver program')
@@ -290,7 +286,6 @@ def main() -> None:
     config.classpath = args.viper_jar_path
     config.boogie_path = args.boogie
     config.z3_path = args.z3
-    config.mypy_path = args.mypy_path
     config.set_verifier(args.verifier)
 
     if not config.classpath:
@@ -302,7 +297,6 @@ def main() -> None:
 
     logging.basicConfig(level=args.log)
 
-    os.environ['MYPYPATH'] = config.mypy_path
     jvm = JVM(config.classpath)
     if args.server:
         import zmq

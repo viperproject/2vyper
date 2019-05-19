@@ -230,22 +230,6 @@ def _get_z3_path():
         return path
 
 
-
-def _get_mypy_path():
-    """ Construct MYPYPATH.
-
-    If MYPYPATH environment variable is not defined, then sets it to
-    ``nagini-contracts`` directory.
-    """
-
-    mypy_path = os.environ.get('MYPYPATH')
-    if not mypy_path:
-        import nagini_contracts
-        mypy_path = os.path.dirname(os.path.dirname(
-            nagini_contracts.__file__))
-    return mypy_path
-
-
 def _get_mypy_dir():
     """ Construct MYPYDIR.
 
@@ -289,12 +273,6 @@ Path to Boogie executable. Initialized by calling
 z3_path = _get_z3_path()
 """
 Path to Z3 executable. Initialized by calling :py:func:`_get_z3_path`.
-"""
-
-
-mypy_path = _get_mypy_path()
-"""
-MYPY search path. Initialized by calling :py:func:`_get_mypy_path`.
 """
 
 
