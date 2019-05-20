@@ -33,9 +33,6 @@ class ViperAST:
         self.java = jvm.java
         self.scala = jvm.scala
         self.jvm = jvm
-        self.nodes = {}
-        self.used_names = set()
-        self.used_names_sets = {}
 
         def getconst(name):
             return getobject(self.ast, name)
@@ -176,7 +173,6 @@ class ViperAST:
     def PredicateAccess(self, args, pred_name, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        self.used_names.add(pred_name)
         return self.ast.PredicateAccess(self.to_seq(args), pred_name, position,
                                         info, self.NoTrafos)
 
@@ -256,7 +252,6 @@ class ViperAST:
     def MethodCall(self, method_name, args, targets, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        self.used_names.add(method_name)
         return self.ast.MethodCall(method_name, self.to_seq(args),
                                    self.to_seq(targets), position, info, self.NoTrafos)
 
@@ -359,8 +354,6 @@ class ViperAST:
     def ForPerm(self, variable, access, body, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        if isinstance(access, self.ast.Predicate):
-            self.used_names.add(access.name())
         variables = self.to_seq([variable])
         return self.ast.ForPerm(variables, access, body,
                                 position, info, self.NoTrafos)
@@ -474,7 +467,6 @@ class ViperAST:
         position = position or self.NoPosition
         info = info or self.NoInfo
 
-        self.used_names.add(name)
         if formalargs is None:
             formalargs = []
             for i, a in enumerate(args):

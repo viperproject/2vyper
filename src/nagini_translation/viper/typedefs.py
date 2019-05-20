@@ -25,11 +25,6 @@ DomainFunc = 'silver.ast.DomainFunc'
 DomainFuncApp = 'silver.ast.DomainFuncApp'
 DomainType = 'silver.ast.DomainType'
 
-Predicate = 'silver.ast.Predicate'
-
-Function = 'silver.ast.Function'
-FuncApp = 'silver.ast.FuncApp'
-
 TypeVar = 'silver.ast.TypeVar'
 Type = 'silver.ast.Type'
 
