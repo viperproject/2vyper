@@ -82,21 +82,6 @@ def set_classpath(v: str):
     classpath = _construct_classpath(v)
 
 
-"""
-JAVA class path. Initialized by calling
-:py:func:`_construct_classpath`.
-"""
-classpath = None
-
-
-"""
-Path to Boogie executable. Initialized by calling
-:py:func:`_get_boogie_path`.
-"""
-boogie_path = _get_boogie_path()
-
-
-"""
-Path to Z3 executable. Initialized by calling :py:func:`_get_z3_path`.
-"""
+classpath = _construct_classpath()
 z3_path = _get_z3_path()
+boogie_path = _get_boogie_path()
