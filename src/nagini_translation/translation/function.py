@@ -105,25 +105,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             ctx.copy_old = copy_old
             body.extend(copy_old)
 
-            msg_value = builtins.msg_value_field(self.viper_ast)
-            value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
-            # If a function is not payable and money is sent, revert
-            if not function.is_payable():
-                zero = self.viper_ast.IntLit(0)
-                # TODO: how to handle this case?
-                # is_not_zero = self.viper_ast.NeCmp(value_acc, zero)
-                # body.append(self.fail_if(is_not_zero, ctx))
-                is_zero = self.viper_ast.EqCmp(value_acc, zero)
-                payable_info = self.to_info(["Function is not payable"])
-                assume = self.viper_ast.Inhale(is_zero, info=payable_info)
-                body.append(assume)
-            else:
-                balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
-                inc_sum = self.viper_ast.Add(balance_acc, value_acc)
-                payable_info = self.to_info(["Fuction is payable"])
-                inc = self.viper_ast.FieldAssign(balance_acc, inc_sum, info=payable_info)
-                body.append(inc)
-
             # In the initializer initialize all fields to their default values
             if function.name == names.INIT:
                 defaults = []
@@ -137,6 +118,35 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     defaults += stmts + [assign]
 
                 body.extend(self._seqn_with_info(defaults, "Assign default values to state vars"))
+
+            msg_value = builtins.msg_value_field(self.viper_ast)
+            value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
+            # If a function is not payable and money is sent, revert
+            if not function.is_payable():
+                zero = self.viper_ast.IntLit(0)
+                # TODO: how to handle this case?
+                # is_not_zero = self.viper_ast.NeCmp(value_acc, zero)
+                # body.append(self.fail_if(is_not_zero, ctx))
+                is_zero = self.viper_ast.EqCmp(value_acc, zero)
+                payable_info = self.to_info(["Function is not payable"])
+                assume = self.viper_ast.Inhale(is_zero, info=payable_info)
+                body.append(assume)
+            else:
+                # Increase balance by msg.value
+                balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
+                inc_sum = self.viper_ast.Add(balance_acc, value_acc)
+                payable_info = self.to_info(["Fuction is payable"])
+                inc = self.viper_ast.FieldAssign(balance_acc, inc_sum, info=payable_info)
+                body.append(inc)
+
+                # Increase received for msg.sender by msg.value
+                msg_sender = builtins.msg_sender_field_acc(self.viper_ast)
+                rec = builtins.self_received_field_acc(self.viper_ast)
+                rec_acc = builtins.self_received_map_get(self.viper_ast, msg_sender)
+                rec_inc_sum = self.viper_ast.Add(rec_acc, value_acc)
+                rec_set = builtins.self_received_map_set(self.viper_ast, msg_sender, rec_inc_sum)
+                rec_inc = self.viper_ast.FieldAssign(rec, rec_set)
+                body.append(rec_inc)
 
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
             body.extend(self._seqn_with_info(body_stmts, "Function body"))

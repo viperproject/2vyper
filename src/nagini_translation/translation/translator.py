@@ -44,6 +44,10 @@ class ProgramTranslator(PositionTranslator):
         sent_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
         sent_var = VyperVar(builtins.SENT_FIELD, sent_type, None)
         vyper_program.state[sent_var.name] = sent_var
+        # Add self.$received field
+        received_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+        received_var = VyperVar(builtins.RECEIVED_FIELD, received_type, None)
+        vyper_program.state[received_var.name] = received_var
 
         # Add built-in methods
         methods = seq_to_list(self.builtins.methods())

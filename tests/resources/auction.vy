@@ -16,6 +16,7 @@ pendingReturns: public(map(address, wei_value))
 
 #@ invariant: implies(block.timestamp < self.auctionEnd, not self.ended)
 #@ invariant: implies(not self.ended, sum(self.pendingReturns) + self.highestBid <= self.balance)
+#@ invariant: implies(not self.ended, sum(self.pendingReturns) + self.highestBid == sum(received()) - sum(sent()))
 #@ invariant: implies(self.ended, sum(self.pendingReturns) <= self.balance)
 
 #@ invariant: self.highestBid >= old(self.highestBid)
@@ -29,6 +30,9 @@ pendingReturns: public(map(address, wei_value))
 #@ invariant: self.pendingReturns[self.beneficiary] == 0
 #@ invariant: implies(not self.ended, sent(self.beneficiary) == 0)
 #@ invariant: implies(self.ended, sent(self.beneficiary) == self.highestBid)
+
+#@ invariant: sent(self.highestBidder) + self.highestBid + self.pendingReturns[self.highestBidder] == received(self.highestBidder)
+#@ invariant: forall({a: address}, {received(a)}, implies(a != self.highestBidder and a != self.beneficiary, sent(a) + self.pendingReturns[a] == received(a)))
 
 
 @public

@@ -29,6 +29,7 @@ BLOCK = names.BLOCK
 BLOCK_TIMESTAMP = names.BLOCK_TIMESTAMP
 
 SENT_FIELD = '$sent'
+RECEIVED_FIELD = '$received'
 
 RESULT_VAR = '$res'
 SUCCESS_VAR = '$succ'
@@ -124,6 +125,27 @@ def self_sent_map_get(viper_ast: ViperAST, idx, pos=None, info=None):
 
 def self_sent_map_set(viper_ast: ViperAST, idx, val, pos=None, info=None):
     field_acc = self_sent_field_acc(viper_ast, pos, info)
+    return map_set(viper_ast, field_acc, idx, val, viper_ast.Int, viper_ast.Int, pos, info)
+
+
+def self_received_field(viper_ast: ViperAST, pos=None, info=None):
+    received_type = map_type(viper_ast, viper_ast.Int, viper_ast.Int)
+    return viper_ast.Field(RECEIVED_FIELD, received_type, pos, info)
+
+
+def self_received_field_acc(viper_ast: ViperAST, pos=None, info=None):
+    self_local = self_var(viper_ast, pos, info).localVar()
+    field = self_received_field(viper_ast)
+    return viper_ast.FieldAccess(self_local, field, pos, info)
+
+
+def self_received_map_get(viper_ast: ViperAST, idx, pos=None, info=None):
+    field_acc = self_received_field_acc(viper_ast, pos, info)
+    return map_get(viper_ast, field_acc, idx, viper_ast.Int, viper_ast.Int, pos, info)
+
+
+def self_received_map_set(viper_ast: ViperAST, idx, val, pos=None, info=None):
+    field_acc = self_received_field_acc(viper_ast, pos, info)
     return map_set(viper_ast, field_acc, idx, val, viper_ast.Int, viper_ast.Int, pos, info)
 
 

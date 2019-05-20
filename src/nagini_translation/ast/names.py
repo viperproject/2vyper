@@ -89,5 +89,6 @@ RESULT = 'result'
 OLD = 'old'
 SUM = 'sum'
 SENT = 'sent'
+RECEIVED = 'received'
 
 NOT_ALLOWED_IN_SPEC = [CLEAR, SEND, RANGE]
