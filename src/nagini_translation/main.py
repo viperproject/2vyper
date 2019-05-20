@@ -205,7 +205,7 @@ def main() -> None:
     parser.add_argument(
         '--viper-jar-path',
         help='Java CLASSPATH that includes Viper class files',
-        default=config.classpath)
+        default=None)
     parser.add_argument(
         '--boogie',
         help='path to Boogie executable',
@@ -271,16 +271,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    config.classpath = args.viper_jar_path
+    if args.viper_jar_path:
+        config.classpath = args.viper_jar_path
+    else:
+        config.set_verifier(args.verifier)
     config.boogie_path = args.boogie
     config.z3_path = args.z3
-    config.set_verifier(args.verifier)
 
     if not config.classpath:
         parser.error('missing argument: --viper-jar-path')
     if not config.z3_path:
         parser.error('missing argument: --z3')
-    if args.verifier == 'carbon' and not config.classpath:
+    if args.verifier == 'carbon' and not config.boogie_path:
         parser.error('missing argument: --boogie')
 
     logging.basicConfig(level=args.log)
