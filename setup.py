@@ -12,8 +12,8 @@ setup(
         packages=find_packages('src'),
         package_dir={'': 'src'},
         package_data={
-            '': ['*.vpr'],
-            'nagini_translation.resources': ['backends/*.jar']
+            'nagini_translation.resources': ['*.vpr'],
+            'nagini_translation.backends': ['*.jar']
         },
         requires=[
             'distribute',

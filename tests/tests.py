@@ -56,6 +56,7 @@ from nagini_translation.verification.verifier import ViperVerifier
 from nagini_translation.verification.result import VerificationResult
 
 
+config.set_classpath('silicon')
 _JVM = jvmaccess.JVM(config.classpath)
 
 
