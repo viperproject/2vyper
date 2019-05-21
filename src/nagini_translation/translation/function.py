@@ -284,7 +284,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             args_list = list(args.values())
             locals_list = [*locals.values(), *ctx.new_local_vars]
 
-        method = self.viper_ast.Method(function.name, args_list, rets, all_pres, all_posts, locals_list, body, pos)
+        viper_name = builtins.method_name(function.name)
+        method = self.viper_ast.Method(viper_name, args_list, rets, all_pres, all_posts, locals_list, body, pos)
         return method
 
     def _translate_var(self, var: VyperVar, ctx: Context):
