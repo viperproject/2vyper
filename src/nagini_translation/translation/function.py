@@ -291,7 +291,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
         type = self.type_translator.translate(var.type, ctx)
-        return self.viper_ast.LocalVarDecl(var.name, type, pos)
+        name = builtins.local_var_name(var.name)
+        return self.viper_ast.LocalVarDecl(name, type, pos)
 
     def _non_negative(self, var, ctx: Context) -> Stmt:
         zero = self.viper_ast.IntLit(0)

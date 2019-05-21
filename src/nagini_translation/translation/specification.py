@@ -93,7 +93,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 for name in node.args[0].keys:
                     name_pos = self.to_position(name, ctx)
                     type = self.type_translator.translate(name.type, ctx)
-                    var_decl = self.viper_ast.LocalVarDecl(name.id, type, name_pos)
+                    qname = builtins.quantifier_var_name(name.id)
+                    var_decl = self.viper_ast.LocalVarDecl(qname, type, name_pos)
                     ctx.quantified_vars[name.id] = var_decl
                     ctx.all_vars[name.id] = var_decl
 

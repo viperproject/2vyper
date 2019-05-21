@@ -59,6 +59,17 @@ def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
 
 
+def local_var_name(vyper_name: str) -> str:
+    if vyper_name in {SELF, MSG, BLOCK}:
+        return vyper_name
+    else:
+        return f'l${vyper_name}'
+
+
+def quantifier_var_name(vyper_name: str) -> str:
+    return f'q${vyper_name}'
+
+
 def read_perm(viper_ast: ViperAST, pos=None, info=None):
     one = viper_ast.FullPerm(pos, info)
     two = viper_ast.IntLit(2, pos, info)
