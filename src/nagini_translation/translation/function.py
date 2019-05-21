@@ -169,10 +169,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # Postconditions hold for single transactions, invariants across transactions.
             # Therefore, after the function execution the following steps happen:
             #   - Assert the specified postconditions of the function
-            #   - Havoc variables like block.timestamp or self.balance
+            #   - Havoc self.balance
             #   - Assert invariants
-            # This is necessary to not be able to prove the invariant
-            # old(block.timestamp) == block.timestamp
+            # This is necessary because a contract may receive additional money through
+            # seldestruct or mining
 
             # First the postconditions are asserted
             post_assertions = []
@@ -201,10 +201,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             body.extend(self._seqn_with_info(post_assertions, "Assert postconditions"))
 
-            # Havoc block.timestamp
-            block_timestamp = builtins.block_timestamp_field(self.viper_ast)
-            time_acc = self.viper_ast.FieldAccess(ctx.block_var.localVar(), block_timestamp)
-            body.extend(self._havoc_uint(time_acc, ctx))
             # Havoc self.balance
             balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
             body.extend(self._havoc_uint(balance_acc, ctx))

@@ -63,7 +63,7 @@ class SpecificationTranslator(ExpressionTranslator):
         return expr
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
-        if self._invariant_mode and node.id == names.MSG:
+        if self._invariant_mode and (node.id == names.MSG or node.id == names.BLOCK):
             assert False  # TODO: handle
         elif not self._ignore_old and not ctx.use_old and ctx.inside_old and node.id == names.SELF:
             pos = self.to_position(node, ctx)
