@@ -109,7 +109,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     triggers.append(trigger)
 
                 quants = ctx.quantified_vars.values()
-                return [], self.viper_ast.Forall(quants, triggers, expr, pos)
+            return [], self.viper_ast.Forall(quants, triggers, expr, pos)
         elif name == names.RESULT or name == names.SUCCESS:
             cap = name.capitalize()
             if self._invariant_mode:
