@@ -11,9 +11,7 @@
             "stopOnEntry": false,
             "pythonPath": "${workspaceFolder}/env/bin/python3",
             "program": "${workspaceFolder}/env/bin/2vyper",
-            "args": [
-                "--viper-jar-path", "${workspaceFolder}/viper/silicon.jar", "${file}"
-            ],
+            "args": ["${file}"],
             "cwd": "${workspaceFolder}",
             "env": {},
             "console": "integratedTerminal"
@@ -26,7 +24,6 @@
             "pythonPath": "${workspaceFolder}/env/bin/python3",
             "program": "${workspaceFolder}/env/bin/2vyper",
             "args": [
-                "--viper-jar-path", "${workspaceFolder}/viper/silicon.jar",
                 "--write-silver-to-file", "${fileDirname}/${fileBasenameNoExtension}.vpr",
                 "${file}"
             ],
