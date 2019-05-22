@@ -164,7 +164,9 @@ class TypeAnnotator:
             else:
                 assert False, f"encountered function {node.func.id}"
         else:
-            assert False
+            name = node.func.attr
+            function = self.program.functions[name]
+            node.type = function.type.return_type
 
     def annotate_Bytes(self, node: ast.Bytes):
         node.type = types.ArrayType(types.VYPER_BYTE, len(node.s), False)

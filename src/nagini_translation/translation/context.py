@@ -13,6 +13,7 @@ class Context:
     def __init__(self, file: str):
         self.file = file
         self.program = None
+        self.inlined = {}
         # All Vyper self-fields not including ghost fields
         self.fields = {}
         # Permissions of fields that have to be passed around
@@ -63,6 +64,8 @@ class Context:
         self.new_local_vars = []
 
         self._quantified_var_counter = -1
+        self._inline_counter = -1
+        self._current_inline = -1
 
     def new_local_var_name(self, name: str = 'local') -> str:
         self._local_var_counter += 1
@@ -71,6 +74,12 @@ class Context:
     def new_quantified_var_name(self) -> str:
         self._quantified_var_counter += 1
         return f'$q{self._quantified_var_counter}'
+
+    def inline_prefix(self) -> str:
+        if self._current_inline == -1:
+            return ''
+        else:
+            return f'i{self._current_inline}$'
 
     def _next_break_label(self) -> str:
         self._break_label_counter += 1
@@ -115,6 +124,8 @@ def function_scope(ctx: Context):
     new_local_vars = ctx.new_local_vars
 
     quantified_var_counter = ctx._quantified_var_counter
+    inline_counter = ctx._inline_counter
+    current_inline = ctx._current_inline
 
     ctx.function = None
 
@@ -142,6 +153,8 @@ def function_scope(ctx: Context):
     ctx.new_local_vars = []
 
     ctx._quantified_var_counter = -1
+    ctx._inline_counter = -1
+    ctx._current_inline = -1
 
     yield
 
@@ -171,6 +184,8 @@ def function_scope(ctx: Context):
     ctx.new_local_vars = new_local_vars
 
     ctx._quantified_var_counter = quantified_var_counter
+    ctx._inline_counter = inline_counter
+    ctx._current_inline = current_inline
 
 
 @contextmanager
@@ -185,6 +200,28 @@ def quantified_var_scope(ctx: Context):
     ctx.all_vars = all_vars
     ctx.quantified_vars = quantified_vars
     ctx._quantified_var_counter = quantified_var_counter
+
+
+@contextmanager
+def inline_scope(ctx: Context):
+    result_var = ctx.result_var
+    ctx.result_var = None
+
+    end_label = ctx.end_label
+    ctx.end_label = None
+
+    all_vars = ctx.all_vars.copy()
+    old_inline = ctx._current_inline
+    ctx._inline_counter += 1
+    ctx._current_inline = ctx._inline_counter
+
+    yield
+
+    ctx.result_var = result_var
+    ctx.end_label = end_label
+
+    ctx.all_vars = all_vars
+    ctx._current_inline = old_inline
 
 
 @contextmanager

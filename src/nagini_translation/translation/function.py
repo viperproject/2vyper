@@ -15,12 +15,13 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context, function_scope, use_old_scope
+from nagini_translation.translation.context import Context
+from nagini_translation.translation.context import function_scope, use_old_scope, inline_scope
 
 from nagini_translation.translation import builtins
 
 from nagini_translation.viper.ast import ViperAST
-from nagini_translation.viper.typedefs import Method, Stmt
+from nagini_translation.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
 
 from nagini_translation.verification import rules
 
@@ -214,30 +215,29 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # For that we can use the normal old
             invariant_assertions_fail = []
             translate_inv = self.specification_translator.translate_invariant
-            if function.is_public():
-                for inv in ctx.program.invariants:
-                    with use_old_scope(False, ctx):
-                        expr = translate_inv(inv, ctx, False, is_init)
-                    fail = translate_inv(inv, ctx, False, is_init)
-                    invariants.append(fail)
+            for inv in ctx.program.invariants:
+                with use_old_scope(False, ctx):
+                    expr = translate_inv(inv, ctx, False, is_init)
+                fail = translate_inv(inv, ctx, False, is_init)
+                invariants.append(fail)
 
-                    # If we have a synthesized __init__ we only create an
-                    # error message on the invariant
-                    # Additionally, invariants only have to hold on success
-                    if is_init:
-                        apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
-                    else:
-                        via = [('invariant', expr.pos())]
-                        apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
+                # If we have a synthesized __init__ we only create an
+                # error message on the invariant
+                # Additionally, invariants only have to hold on success
+                if is_init:
+                    apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
+                else:
+                    via = [('invariant', expr.pos())]
+                    apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
 
-                    assertion = self.viper_ast.Assert(expr, apos)
-                    fail_assertion = self.viper_ast.Assert(fail, apos)
-                    invariant_assertions.append(assertion)
-                    invariant_assertions_fail.append(fail_assertion)
+                assertion = self.viper_ast.Assert(expr, apos)
+                fail_assertion = self.viper_ast.Assert(fail, apos)
+                invariant_assertions.append(assertion)
+                invariant_assertions_fail.append(fail_assertion)
 
-                inv_info = self.to_info(["Assert invariants"])
-                if_stmt = self.viper_ast.If(success_var.localVar(), invariant_assertions, invariant_assertions_fail)
-                body.append(self.viper_ast.Seqn([if_stmt], info=inv_info))
+            inv_info = self.to_info(["Assert invariants"])
+            if_stmt = self.viper_ast.If(success_var.localVar(), invariant_assertions, invariant_assertions_fail)
+            body.append(self.viper_ast.Seqn([if_stmt], info=inv_info))
 
             # If the return value is of type uint256 add non-negativeness to
             # poscondition, but don't assert it (as it always holds anyway)
@@ -284,10 +284,51 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         method = self.viper_ast.Method(viper_name, args_list, rets, all_pres, all_posts, locals_list, body, pos)
         return method
 
+    def inline(self, function: VyperFunction, args: List[Expr], ctx: Context) -> StmtsAndExpr:
+        with inline_scope(ctx):
+            pos = self.to_position(function.node, ctx)
+            body = []
+            # Add arguments to local vars, assign passed args
+            for (name, var), arg in zip(function.args.items(), args):
+                apos = self.to_position(var.node, ctx)
+                arg_decl = self._translate_var(var, ctx)
+                ctx.all_vars[name] = arg_decl
+                ctx.new_local_vars.append(arg_decl)
+                body.append(self.viper_ast.LocalVarAssign(arg_decl.localVar(), arg, apos))
+
+            # Add prefixed locals to local vars
+            for name, var in function.local_vars.items():
+                var_decl = self._translate_var(var, ctx)
+                ctx.all_vars[name] = var_decl
+                ctx.new_local_vars.append(var_decl)
+
+            # Define return var
+            if function.type.return_type:
+                ret_type = self.type_translator.translate(function.type.return_type, ctx)
+                ret_name = ctx.inline_prefix() + builtins.RESULT_VAR
+                ret_var_decl = self.viper_ast.LocalVarDecl(ret_name, ret_type, pos)
+                ctx.new_local_vars.append(ret_var_decl)
+                ctx.result_var = ret_var_decl
+                ret_var = ret_var_decl.localVar()
+            else:
+                ret_var = None
+
+            # Define end label for inlined return statements
+            end_label_name = ctx.inline_prefix() + builtins.END_LABEL
+            end_label = self.viper_ast.Label(end_label_name)
+            ctx.end_label = end_label_name
+
+            # Translate body
+            body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
+            body.extend(body_stmts)
+
+            seqn = self._seqn_with_info(body, f"Inlined call of {function.name}")
+            return seqn + [end_label], ret_var
+
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
         type = self.type_translator.translate(var.type, ctx)
-        name = builtins.local_var_name(var.name)
+        name = ctx.inline_prefix() + builtins.local_var_name(var.name)
         return self.viper_ast.LocalVarDecl(name, type, pos)
 
     def _non_negative(self, var, ctx: Context) -> Stmt:

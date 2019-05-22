@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 from nagini_translation.ast.types import VyperType, FunctionType
 
 
@@ -21,14 +21,15 @@ class VyperVar:
 
 class VyperFunction:
 
-    def __init__(self, name: str, 
-                       args: Dict[str, VyperVar], 
-                       local_vars: Dict[str, VyperVar], 
-                       type: FunctionType,
-                       preconditions: List[ast.Expr],
-                       postconditions: List[ast.Expr],
-                       decorators: List[str],
-                       node: ast.FunctionDef):
+    def __init__(self,
+                 name: str,
+                 args: Dict[str, VyperVar],
+                 local_vars: Dict[str, VyperVar],
+                 type: FunctionType,
+                 preconditions: List[ast.Expr],
+                 postconditions: List[ast.Expr],
+                 decorators: List[str],
+                 node: ast.FunctionDef):
         self.name = name
         self.args = args
         self.local_vars = local_vars
@@ -37,7 +38,7 @@ class VyperFunction:
         self.postconditions = postconditions
         self.decorators = decorators
         self.node = node
-    
+
     def is_public(self) -> bool:
         return 'public' in self.decorators
 
@@ -47,10 +48,11 @@ class VyperFunction:
 
 class VyperProgram:
 
-    def __init__(self, state: Dict[str, VyperVar], 
-                       functions: Dict[str, VyperFunction], 
-                       invariants: List[ast.Expr],
-                       general_postconditions: List[ast.Expr]):
+    def __init__(self,
+                 state: Dict[str, VyperVar],
+                 functions: Dict[str, VyperFunction],
+                 invariants: List[ast.Expr],
+                 general_postconditions: List[ast.Expr]):
         self.state = state
         self.functions = functions
         self.invariants = invariants

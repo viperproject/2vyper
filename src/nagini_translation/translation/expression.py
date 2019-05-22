@@ -284,6 +284,14 @@ class ExpressionTranslator(NodeTranslator):
                     return_value = None
 
                 return stmts + inv_assertions + inh_exh + assumes + afters, return_value
+        else:
+            name = node.func.attr
+            stmts = []
+            args = []
+            for arg in node.args:
+                arg_stmts, arg_expr = self.translate(arg, ctx)
+                stmts.extend(arg_stmts)
+                args.append(arg_expr)
 
-        # TODO: error handling
-        raise AssertionError("Not yet supported")
+            call_stmts, res = ctx.inlined[name](args, ctx)
+            return stmts + call_stmts, res

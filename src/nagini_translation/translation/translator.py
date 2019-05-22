@@ -121,9 +121,16 @@ class ProgramTranslator(PositionTranslator):
         # Assume block.timestamp >= 0
         ctx.unchecked_invariants.append(self.viper_ast.GeCmp(timestamp_acc, zero))
 
+        # Create inlinable versions of all private functions
+        for func in vyper_program.functions.values():
+            if not func.is_public():
+                def inline(args, ctx, func=func):
+                    return self.function_translator.inline(func, args, ctx)
+                ctx.inlined[func.name] = inline
+
         fields_list = [*ctx.fields.values(), *ctx.immutable_fields.values()]
 
-        functions = vyper_program.functions.values()
+        functions = [f for f in vyper_program.functions.values() if f.is_public()]
         methods.append(self._create_transitivity_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in functions]
         viper_program = self.viper_ast.Program(domains, fields_list, [], [], methods)
