@@ -109,12 +109,15 @@ class StatementTranslator(NodeTranslator):
     def translate_Return(self, node: ast.Return, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
 
-        stmts, expr = self.expression_translator.translate(node.value, ctx)
-        result_var = ctx.result_var
-        assign = self.viper_ast.LocalVarAssign(result_var.localVar(), expr, pos)
         jmp_to_end = self.viper_ast.Goto(ctx.end_label, pos)
 
-        return stmts + [assign, jmp_to_end]
+        if node.value:
+            stmts, expr = self.expression_translator.translate(node.value, ctx)
+            result_var = ctx.result_var
+            assign = self.viper_ast.LocalVarAssign(result_var.localVar(), expr, pos)
+            return stmts + [assign, jmp_to_end]
+        else:
+            return [jmp_to_end]
 
     def translate_If(self, node: ast.If, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
