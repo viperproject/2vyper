@@ -7,5 +7,6 @@ def func() -> bool:
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: success()
+@public
 def func2():
     assert False
