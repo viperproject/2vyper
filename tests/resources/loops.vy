@@ -26,21 +26,21 @@ def cc(amount: wei_value) -> bool:
 	val: wei_value = amount + amount + (-amount)
 	return did_pay
 	
-@private
+@public
 def ffi(amount: wei_value, bb: bool) -> wei_value:
 	if bb and not True:
 		return amount
 	else:
 		return amount + amount
 
-@private
+@public
 def loop() -> int128:
 	res: int128 = 0
 	for i in range(5):
 		res = res + i
 	return res
 
-@private
+@public
 def range2() -> int128:
 	res: int128
 	p: int128 = 20
@@ -48,7 +48,7 @@ def range2() -> int128:
 		res += i
 	return res
 
-@private
+@public
 def nested_loop() -> int128:
 	res: int128 = 0
 	for i in range(5):
