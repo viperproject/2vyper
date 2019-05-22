@@ -59,7 +59,8 @@ class StatementTranslator(NodeTranslator):
         # We only support single assignments for now
         left = node.targets[0]
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
-        return self.assignment_translator.assign_to(left, rhs, ctx) + rhs_stmts
+        assign_stmts, assign = self.assignment_translator.assign_to(left, rhs, ctx)
+        return assign_stmts + rhs_stmts + [assign]
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
@@ -83,7 +84,9 @@ class StatementTranslator(NodeTranslator):
             stmts.append(self.fail_if(cond, ctx, pos))
 
         value = op(lhs, rhs, pos)
-        return stmts + self.assignment_translator.assign_to(node.target, value, ctx)
+
+        assign_stmts, assign = self.assignment_translator.assign_to(node.target, value, ctx)
+        return stmts + assign_stmts + [assign]
 
     def translate_Expr(self, node: ast.Expr, ctx: Context) -> List[Stmt]:
         # Check if we are translating a call to clear
@@ -93,7 +96,8 @@ class StatementTranslator(NodeTranslator):
         if is_call(node.value) and is_clear(node.value.func):
             arg = node.value.args[0]
             stmts, value = self.type_translator.default_value(node, arg.type, ctx)
-            return stmts + self.assignment_translator.assign_to(arg, value, ctx)
+            assign_stmts, assign = self.assignment_translator.assign_to(arg, value, ctx)
+            return assign_stmts + stmts + [assign]
         else:
             # Ignore the expression, return the stmts
             stmts, _ = self.expression_translator.translate(node.value, ctx)
@@ -190,13 +194,13 @@ class _AssignmentTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
         lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
         assign = self.viper_ast.LocalVarAssign(lhs, value, pos)
-        return lhs_stmts + [assign]
+        return lhs_stmts, assign
 
     def assign_to_Attribute(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
         lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
         assign = self.viper_ast.FieldAssign(lhs, value, pos)
-        return lhs_stmts + [assign]
+        return lhs_stmts, assign
 
     def assign_to_Subscript(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
@@ -219,4 +223,5 @@ class _AssignmentTranslator(NodeTranslator):
         # We simply evaluate the receiver and index statements here, even though they
         # might get evaluated again in the recursive call. This is ok as long as the lhs of the
         # assignment is pure.
-        return receiver_stmts + index_stmts + stmts + self.assign_to(node.value, new_value, ctx)
+        assign_stmts, assign = self.assign_to(node.value, new_value, ctx)
+        return receiver_stmts + index_stmts + stmts + assign_stmts, assign
