@@ -23,11 +23,15 @@ from nagini_translation.errors.translation import InvalidProgramException
 
 
 def parse(contract: str, filename: str) -> VyperProgram:
-    contract = preprocess(contract)
-    contract_ast = ast.parse(contract, filename)
-    contract_ast = transform(contract_ast)
-    program_builder = ProgramBuilder()
-    return program_builder.build(contract_ast)
+    try:
+        preprocessed_contract = preprocess(contract)
+        contract_ast = ast.parse(preprocessed_contract, filename)
+        contract_ast = transform(contract_ast)
+        program_builder = ProgramBuilder()
+        return program_builder.build(contract_ast)
+    except SyntaxError as err:
+        err.text = contract.splitlines()[err.lineno - 1]
+        raise err
 
 
 class ProgramBuilder(ast.NodeVisitor):
