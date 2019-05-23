@@ -16,7 +16,7 @@ from tests import _test
 def get_tests():
     test_dir = os.path.join(os.path.dirname(__file__), 'resources/')
     files = [f for f in glob.glob(test_dir + "/**/*.vy", recursive=True)]
-    return files
+    return sorted(files, key=str.casefold)
 
 
 def file_id(file):
