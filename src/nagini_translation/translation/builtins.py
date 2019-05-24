@@ -20,13 +20,14 @@ from nagini_translation.viper.ast import ViperAST
 INIT = names.INIT
 SELF = names.SELF
 OLD_SELF = f'$old_{names.SELF}'
+SELF_BALANCE = 's$balance'
 
 MSG = names.MSG
-MSG_SENDER = names.MSG_SENDER
-MSG_VALUE = names.MSG_VALUE
+MSG_SENDER = f's${names.MSG_SENDER}'
+MSG_VALUE = f's${names.MSG_VALUE}'
 
 BLOCK = names.BLOCK
-BLOCK_TIMESTAMP = names.BLOCK_TIMESTAMP
+BLOCK_TIMESTAMP = f's${names.BLOCK_TIMESTAMP}'
 
 SENT_FIELD = '$sent'
 RECEIVED_FIELD = '$received'
@@ -36,6 +37,9 @@ SUCCESS_VAR = '$succ'
 
 END_LABEL = 'end'
 REVERT_LABEL = 'revert'
+
+CONTRACT_DOMAIN = '$Contract'
+SELF_ADDRESS = '$self_address'
 
 ARRAY_DOMAIN = '$Array'
 ARRAY_ELEMENT_VAR = '$E'
@@ -57,6 +61,13 @@ TRANSITIVITY_CHECK = '$transitivity_check'
 
 def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
+
+
+def field_name(vyper_name: str) -> str:
+    if vyper_name in {SENT_FIELD, RECEIVED_FIELD}:
+        return vyper_name
+    else:
+        return f's${vyper_name}'
 
 
 def local_var_name(vyper_name: str) -> str:
@@ -178,6 +189,10 @@ def end_label(viper_ast: ViperAST, pos=None, info=None):
 
 def revert_label(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.Label(REVERT_LABEL, pos, info)
+
+
+def self_address(viper_ast: ViperAST, pos=None, info=None):
+    return viper_ast.DomainFuncApp(SELF_ADDRESS, [], viper_ast.Int, pos, info, CONTRACT_DOMAIN)
 
 
 def array_type(viper_ast: ViperAST, element_type):

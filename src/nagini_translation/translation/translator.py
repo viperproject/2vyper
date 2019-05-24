@@ -92,7 +92,7 @@ class ProgramTranslator(PositionTranslator):
         ctx.immutable_permissions = []
         # Create msg.sender field
         msg_sender = builtins.msg_sender_field(self.viper_ast)
-        ctx.immutable_fields[builtins.MSG_SENDER] = msg_sender
+        ctx.immutable_fields[names.MSG_SENDER] = msg_sender
         # Pass around the permissions for msg.sender
         sender_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_sender)
         acc = self._create_field_access_predicate(sender_acc, 0, ctx)
@@ -103,7 +103,7 @@ class ProgramTranslator(PositionTranslator):
 
         # Create msg.value field
         msg_value = builtins.msg_value_field(self.viper_ast)
-        ctx.immutable_fields[builtins.MSG_VALUE] = msg_value
+        ctx.immutable_fields[names.MSG_VALUE] = msg_value
         # Pass around the permissions for msg.value
         value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
         acc = self._create_field_access_predicate(value_acc, 0, ctx)
@@ -113,7 +113,7 @@ class ProgramTranslator(PositionTranslator):
 
         # Create block.timestamp field
         block_timestamp = builtins.block_timestamp_field(self.viper_ast)
-        ctx.immutable_fields[builtins.BLOCK_TIMESTAMP] = block_timestamp
+        ctx.immutable_fields[names.BLOCK_TIMESTAMP] = block_timestamp
         # Pass around the permissions for block.timestamp
         timestamp_acc = self.viper_ast.FieldAccess(ctx.block_var.localVar(), block_timestamp)
         acc = self._create_field_access_predicate(timestamp_acc, 1, ctx)
@@ -121,12 +121,11 @@ class ProgramTranslator(PositionTranslator):
         # Assume block.timestamp >= 0
         ctx.unchecked_invariants.append(self.viper_ast.GeCmp(timestamp_acc, zero))
 
-        # Create inlinable versions of all private functions
+        # Create inlinable versions of all functions
         for func in vyper_program.functions.values():
-            if not func.is_public():
-                def inline(args, ctx, func=func):
-                    return self.function_translator.inline(func, args, ctx)
-                ctx.inlined[func.name] = inline
+            def inline(args, ctx, func=func):
+                return self.function_translator.inline(func, args, ctx)
+            ctx.inlined[func.name] = inline
 
         fields_list = [*ctx.fields.values(), *ctx.immutable_fields.values()]
 
@@ -139,7 +138,7 @@ class ProgramTranslator(PositionTranslator):
     def _translate_field(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
 
-        name = var.name
+        name = builtins.field_name(var.name)
         type = self.type_translator.translate(var.type, ctx)
         field = self.viper_ast.Field(name, type, pos)
 

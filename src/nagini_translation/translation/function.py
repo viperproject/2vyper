@@ -288,6 +288,35 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         with inline_scope(ctx):
             pos = self.to_position(function.node, ctx)
             body = []
+
+            # Define new msg variable
+            msg_name = ctx.inline_prefix() + builtins.MSG
+            msg_decl = self.viper_ast.LocalVarDecl(msg_name, self.viper_ast.Ref)
+            ctx.all_vars[names.MSG] = msg_decl
+            ctx.new_local_vars.append(msg_decl)
+
+            # Add permissions for msg.sender and msg.value
+            msg_sender_field = builtins.msg_sender_field(self.viper_ast)
+            msg_sender = self.viper_ast.FieldAccess(msg_decl.localVar(), msg_sender_field)
+            msg_sender_perm = self._create_field_access_predicate(msg_sender, 0, ctx)
+            body.append(self.viper_ast.Inhale(msg_sender_perm))
+
+            # msg.sender == self
+            self_address = builtins.self_address(self.viper_ast)
+            msg_sender_eq = self.viper_ast.EqCmp(msg_sender, self_address)
+            body.append(self.viper_ast.Inhale(msg_sender_eq))
+
+            # Add permissions for msg.value
+            msg_value_field = builtins.msg_value_field(self.viper_ast)
+            msg_value = self.viper_ast.FieldAccess(msg_decl.localVar(), msg_value_field)
+            msg_value_perm = self._create_field_access_predicate(msg_value, 0, ctx)
+            body.append(self.viper_ast.Inhale(msg_value_perm))
+
+            # msg.value == 0
+            # TODO: Support sending money
+            msg_value_eq = self.viper_ast.EqCmp(msg_value, self.viper_ast.IntLit(0))
+            body.append(self.viper_ast.Inhale(msg_value_eq))
+
             # Add arguments to local vars, assign passed args
             for (name, var), arg in zip(function.args.items(), args):
                 apos = self.to_position(var.node, ctx)
@@ -353,3 +382,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         inc = self.viper_ast.Add(field_acc, havoc.localVar())
         assign = self.viper_ast.FieldAssign(field_acc, inc)
         return [assume_pos, assign]
+
+    def _create_field_access_predicate(self, field_access, amount, ctx: Context):
+        if amount == 1:
+            perm = self.viper_ast.FullPerm()
+        else:
+            perm = builtins.read_perm(self.viper_ast)
+        return self.viper_ast.FieldAccessPredicate(field_access, perm)
