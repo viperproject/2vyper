@@ -37,6 +37,9 @@ SUCCESS_VAR = '$succ'
 END_LABEL = 'end'
 REVERT_LABEL = 'revert'
 
+CONTRACT_DOMAIN = '$Contract'
+SELF_ADDRESS = '$self_address'
+
 ARRAY_DOMAIN = '$Array'
 ARRAY_ELEMENT_VAR = '$E'
 
@@ -178,6 +181,10 @@ def end_label(viper_ast: ViperAST, pos=None, info=None):
 
 def revert_label(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.Label(REVERT_LABEL, pos, info)
+
+
+def self_address(viper_ast: ViperAST, pos=None, info=None):
+    return viper_ast.DomainFuncApp(SELF_ADDRESS, [], viper_ast.Int, pos, info, CONTRACT_DOMAIN)
 
 
 def array_type(viper_ast: ViperAST, element_type):

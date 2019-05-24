@@ -121,12 +121,11 @@ class ProgramTranslator(PositionTranslator):
         # Assume block.timestamp >= 0
         ctx.unchecked_invariants.append(self.viper_ast.GeCmp(timestamp_acc, zero))
 
-        # Create inlinable versions of all private functions
+        # Create inlinable versions of all functions
         for func in vyper_program.functions.values():
-            if not func.is_public():
-                def inline(args, ctx, func=func):
-                    return self.function_translator.inline(func, args, ctx)
-                ctx.inlined[func.name] = inline
+            def inline(args, ctx, func=func):
+                return self.function_translator.inline(func, args, ctx)
+            ctx.inlined[func.name] = inline
 
         fields_list = [*ctx.fields.values(), *ctx.immutable_fields.values()]
 
