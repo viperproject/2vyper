@@ -252,7 +252,7 @@ class ExpressionTranslator(NodeTranslator):
                 stmts = [*to_stmts, *amount_stmts, check, *ctx.copy_old, sub_stmt, sent_assign]
 
                 with use_old_scope(False, ctx):
-                    invs = ctx.invariants()
+                    invs = ctx.invariants(ctx)
                 inv_assertions = []
                 for inv in invs:
                     via = [('invariant', inv.pos())]

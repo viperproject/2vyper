@@ -62,7 +62,7 @@ class ProgramTranslator(PositionTranslator):
         ctx.msg_var = builtins.msg_var(self.viper_ast)
         ctx.block_var = builtins.block_var(self.viper_ast)
 
-        def translate_invs(is_pre=False, is_init=False):
+        def translate_invs(ctx, is_pre=False, is_init=False):
             specs = self.specification_translator.translate_invariant
             invs = [specs(inv, ctx, is_pre, is_init) for inv in vyper_program.invariants]
             return list(filter(None, invs))

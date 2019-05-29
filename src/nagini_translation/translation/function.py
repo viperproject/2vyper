@@ -176,14 +176,12 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # seldestruct or mining
 
             # First the postconditions are asserted
-            post_assertions = []
             posts = []
             # Postconditions are asserted with normal old expressions
             for post in function.postconditions:
                 cond = self.specification_translator.translate_postcondition(post, ctx)
-                posts.append(cond)
                 post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
-                post_assertions.append(self.viper_ast.Assert(cond, post_pos))
+                posts.append(self.viper_ast.Assert(cond, post_pos))
 
             for post in ctx.program.general_postconditions:
                 cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
@@ -191,16 +189,14 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 if is_init:
                     succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), post_pos)
                     succ_post = self.viper_ast.Implies(succ, cond, post_pos)
-                    posts.append(succ_post)
                     post_pos_r = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
-                    post_assertions.append(self.viper_ast.Assert(succ_post, post_pos_r))
+                    posts.append(self.viper_ast.Assert(succ_post, post_pos_r))
                 else:
-                    posts.append(cond)
                     via = [('general postcondition', post_pos)]
                     func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via)
-                    post_assertions.append(self.viper_ast.Assert(cond, func_pos))
+                    posts.append(self.viper_ast.Assert(cond, func_pos))
 
-            body.extend(self._seqn_with_info(post_assertions, "Assert postconditions"))
+            body.extend(self._seqn_with_info(posts, "Assert postconditions"))
 
             # Havoc self.balance
             balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
@@ -239,29 +235,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             if_stmt = self.viper_ast.If(success_var.localVar(), invariant_assertions, invariant_assertions_fail)
             body.append(self.viper_ast.Seqn([if_stmt], info=inv_info))
 
-            # If the return value is of type uint256 add non-negativeness to
-            # poscondition, but don't assert it (as it always holds anyway)
-            # If the return value is an array, add size to postconditions
-            ret_posts = []
-            if function.type.return_type:
-                ret_var_local = ret_var.localVar()
-                non_negs = self.type_translator.non_negative(ret_var_local, function.type.return_type, ctx)
-                arr_lens = self.type_translator.array_length(ret_var_local, function.type.return_type, ctx)
-                ret_posts.extend(non_negs)
-                ret_posts.extend(arr_lens)
-
-            # Postconditions are:
-            #   - The permissions that are passed around
-            #   - The unchecked invariants
-            #   - The assumptions about non-negativeness and size of arguments (needed for well-definedness) TODO: reevaluate once function calling is supported
-            #   - An assumption about non-negativeness for uint256 results and size for array results
-            #   - The postconditions specified by the user
-            #   - The invariants
-            perms = ctx.permissions + ctx.immutable_permissions
-            all_posts = perms + ctx.unchecked_invariants + argument_conds + ret_posts + posts + invariants
-
             # Add preconditions; invariants do not have to hold before __init__
-            inv_pres = ctx.invariants(is_pre=True, is_init=is_init)
+            inv_pres = ctx.invariants(ctx, is_pre=True, is_init=is_init)
             translate_pre = self.specification_translator.translate_precondition
             pres = [translate_pre(pre, ctx) for pre in function.preconditions]
             # Preconditions are:
