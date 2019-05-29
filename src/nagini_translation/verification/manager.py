@@ -9,6 +9,8 @@ from uuid import uuid1
 
 from typing import Any, Dict, List, Optional
 
+from nagini_translation.utils import unique
+
 from nagini_translation.viper.jvmaccess import JVM
 from nagini_translation.viper.typedefs import Node, AbstractSourcePosition
 from nagini_translation.viper.typedefs import AbstractVerificationError
@@ -47,7 +49,12 @@ class ErrorManager:
 
         It does that by wrapping in ``Error`` subclasses.
         """
-        return [self._convert_error(error, jvm) for error in errors]
+        def eq(e1: Error, e2: Error) -> bool:
+            ide = e1.string(True, True) == e2.string(True, True)
+            normal = e1.string(False, True) == e2.string(False, True)
+            return ide and normal
+
+        return unique(eq, [self._convert_error(error, jvm) for error in errors])
 
     def get_vias(self, node_id: str) -> List[Any]:
         """Get via information for the given ``node_id``."""

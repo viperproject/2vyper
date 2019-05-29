@@ -8,13 +8,27 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 import astunparse
 
+from typing import Iterable
+
 
 def first_index(statisfying, l):
     return next(i for i, v in enumerate(l) if statisfying(v))
 
 
-def flatten(lists):
-    return [item for sublist in lists for item in sublist]
+def flatten(iterables: Iterable[Iterable]):
+    return [item for subiterable in iterables for item in subiterable]
+
+
+def unique(eq, iterable: Iterable):
+    unique_iterable = []
+    for elem in iterable:
+        for uelem in unique_iterable:
+            if eq(elem, uelem):
+                break
+        else:
+            unique_iterable.append(elem)
+
+    return unique_iterable
 
 
 def seq_to_list(scala_iterable):

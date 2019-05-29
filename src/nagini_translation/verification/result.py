@@ -6,7 +6,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from typing import List, Optional
-
 from abc import ABCMeta
 
 from nagini_translation.viper.typedefs import AbstractVerificationError
@@ -45,9 +44,5 @@ class Failure(VerificationResult):
         return False
 
     def to_string(self, ide_mode: bool, show_viper_errors: bool) -> str:
-        all_errors = [error.string(ide_mode, show_viper_errors) for error in self.errors]
-        unique_errors = []
-        for e in all_errors:
-            if e not in unique_errors:
-                unique_errors.append(e)
-        return "Verification failed\nErrors:\n" + '\n'.join(unique_errors)
+        errors = [error.string(ide_mode, show_viper_errors) for error in self.errors]
+        return "Verification failed\nErrors:\n" + '\n'.join(errors)
