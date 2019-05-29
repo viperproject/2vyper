@@ -162,7 +162,7 @@ class Error:
             file_name = self.position.file_name
             line = self.position.line
             col = self.position.column
-            msg = self.position.message
+            msg = self.message
             reason = self.reason
             return f"{file_name}:{line}:{col}: error: {msg} {reason}"
         else:
