@@ -58,7 +58,6 @@ def bid():
     self.highestBid = msg.value
 
 
-#@ ensures: implies(self.balance <= old(self.balance), self.balance - old(self.balance) <= old(self.pendingReturns[msg.sender]))
 @public
 def withdraw():
     pending_amount: wei_value = self.pendingReturns[msg.sender]

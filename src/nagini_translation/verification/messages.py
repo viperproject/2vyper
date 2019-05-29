@@ -18,7 +18,7 @@ ERRORS = {
     'call.failed':
         lambda i: 'Method call might fail.',
     'not.wellformed':
-        lambda i: 'Contract might not be well-formed.',
+        lambda i: f"Function {i.function} might not be well-formed.",
     'call.invariant':
         lambda i: f"An invariant might not hold before the call {pprint(i.node)}.",
     'call.precondition':
@@ -69,7 +69,9 @@ REASONS = {
     'division.by.zero':
         lambda i: 'Divisor {} might be zero.'.format(pprint(i.node)),
     'seq.index.length':
-        lambda i: f"Index {pprint(i.node)} might exceed sequence length.",
+        lambda i: f"Index {pprint(i.node)} might exceed array length.",
+    'seq.index.negative':
+        lambda i: f"Index {pprint(i.node)} might be negative.",
     'negative.permission':
         lambda i: 'Fraction {} might be negative.'.format(pprint(i.node)),
     'insufficient.permission':

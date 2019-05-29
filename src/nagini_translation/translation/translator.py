@@ -53,6 +53,8 @@ class ProgramTranslator(PositionTranslator):
         methods = seq_to_list(self.builtins.methods())
         # Add built-in domains
         domains = seq_to_list(self.builtins.domains())
+        # Add built-in functions
+        functions = seq_to_list(self.builtins.functions())
 
         ctx = Context(file)
         ctx.program = vyper_program
@@ -129,10 +131,10 @@ class ProgramTranslator(PositionTranslator):
 
         fields_list = [*ctx.fields.values(), *ctx.immutable_fields.values()]
 
-        functions = [f for f in vyper_program.functions.values() if f.is_public()]
+        vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
         methods.append(self._create_transitivity_check(ctx))
-        methods += [self.function_translator.translate(function, ctx) for function in functions]
-        viper_program = self.viper_ast.Program(domains, fields_list, [], [], methods)
+        methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
+        viper_program = self.viper_ast.Program(domains, fields_list, functions, [], methods)
         return viper_program
 
     def _translate_field(self, var: VyperVar, ctx: Context):

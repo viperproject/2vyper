@@ -88,3 +88,17 @@ def acc_map():
 @public
 def acc_bounds() -> int128:
     return self.mp[2][1000]
+
+
+#:: ExpectedOutput(not.wellformed:seq.index.negative)
+#@ ensures: a[n] == 0
+@public
+def index_negative_fail(a: int128[5], n: int128):
+    pass
+
+
+#:: ExpectedOutput(not.wellformed:seq.index.length)
+#@ ensures: implies(n >= 0, a[n] == 0)
+@public
+def index_size_fail(a: int128[5], n: int128):
+    pass

@@ -266,7 +266,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             pres = [translate_pre(pre, ctx) for pre in function.preconditions]
             # Preconditions are:
             #   - The permissions that are passed around
-            #   - The preconditions are were specified by the user
+            #   - The preconditions that were specified by the user
             #   - The invariants
             # Note: Unchecked invariants are assumed at the beginning so they do not have to
             # be checked on a method call
@@ -281,7 +281,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             locals_list = [*locals.values(), *ctx.new_local_vars]
 
         viper_name = builtins.method_name(function.name)
-        method = self.viper_ast.Method(viper_name, args_list, rets, all_pres, all_posts, locals_list, body, pos)
+        method = self.viper_ast.Method(viper_name, args_list, rets, all_pres, [], locals_list, body, pos)
         return method
 
     def inline(self, function: VyperFunction, args: List[Expr], ctx: Context) -> StmtsAndExpr:

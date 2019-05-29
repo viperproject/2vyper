@@ -19,7 +19,13 @@ INVARIANT_FAIL = {
 
 POSTCONDITION_FAIL = {
     ('assert.failed', 'assertion.false'):
-        ('postcondition.violated', 'assertion.false')
+        ('postcondition.violated', 'assertion.false'),
+    ('assert.failed', 'division.by.zero'):
+        ('not.wellformed', 'division.by.zero'),
+    ('assert.failed', 'seq.index.length'):
+        ('not.wellformed', 'seq.index.length'),
+    ('assert.failed', 'seq.index.negative'):
+        ('not.wellformed', 'seq.index.negative')
 }
 
 CALL_INVARIANT_FAIL = {
