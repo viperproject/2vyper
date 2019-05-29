@@ -14,7 +14,13 @@ Rules = Dict[Tuple[str, str], Tuple[str, str]]
 
 INVARIANT_FAIL = {
     ('assert.failed', 'assertion.false'):
-        ('invariant.violated', 'assertion.false')
+        ('invariant.violated', 'assertion.false'),
+    ('assert.failed', 'division.by.zero'):
+        ('invariant.not.wellformed', 'division.by.zero'),
+    ('assert.failed', 'seq.index.length'):
+        ('invariant.not.wellformed', 'seq.index.length'),
+    ('assert.failed', 'seq.index.negative'):
+        ('invariant.not.wellformed', 'seq.index.negative')
 }
 
 POSTCONDITION_FAIL = {
@@ -31,6 +37,15 @@ POSTCONDITION_FAIL = {
 CALL_INVARIANT_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('call.invariant', 'assertion.false')
+}
+
+INHALE_INVARIANT_FAIL = {
+    ('inhale.failed', 'division.by.zero'):
+        ('invariant.not.wellformed', 'division.by.zero'),
+    ('inhale.failed', 'seq.index.length'):
+        ('invariant.not.wellformed', 'seq.index.length'),
+    ('inhale.failed', 'seq.index.negative'):
+        ('invariant.not.wellformed', 'seq.index.negative')
 }
 
 TRANSITIVITY_VIOLATED = {

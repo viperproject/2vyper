@@ -66,13 +66,9 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 rets.append(ret_var)
                 ctx.result_var = ret_var
 
-            def returnBool(value: bool) -> Stmt:
-                local_var = success_var.localVar()
-                lit = self.viper_ast.TrueLit if value else self.viper_ast.FalseLit
-                return self.viper_ast.LocalVarAssign(local_var, lit())
+            pres = ctx.permissions + ctx.immutable_permissions
 
-            # If we do not encounter an exception we will return success
-            body = [returnBool(True)]
+            body = []
 
             # Assume all unchecked invariants
             unchecked_invs = [self.viper_ast.Inhale(inv) for inv in ctx.unchecked_invariants]
@@ -87,8 +83,20 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 argument_conds.extend(arr_lens)
 
             argument_cond_assumes = [self.viper_ast.Inhale(c) for c in argument_conds]
-            info_msg = "Assume non-negativeness of uint256 and sizes of array args"
-            body.extend(self._seqn_with_info(argument_cond_assumes, info_msg))
+            ui_info_msg = "Assume non-negativeness of uint256 and sizes of array args"
+            body.extend(self._seqn_with_info(argument_cond_assumes, ui_info_msg))
+
+            # Assume user-specified invariants
+            translate_inv = self.specification_translator.translate_invariant
+            inv_pres = []
+            for inv in ctx.program.invariants:
+                expr = translate_inv(inv, ctx, True, is_init)
+                if expr:
+                    ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                    inv_pres.append(self.viper_ast.Inhale(expr, ppos))
+
+            iv_info_msg = "Assume invariants"
+            body.extend(self._seqn_with_info(inv_pres, iv_info_msg))
 
             # Introduce old_self
             old_self = builtins.old_self_var(self.viper_ast)
@@ -105,6 +113,14 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             copy_old = self._seqn_with_info(copy_old_stmts, "New old state")
             ctx.copy_old = copy_old
             body.extend(copy_old)
+
+            def returnBool(value: bool) -> Stmt:
+                local_var = success_var.localVar()
+                lit = self.viper_ast.TrueLit if value else self.viper_ast.FalseLit
+                return self.viper_ast.LocalVarAssign(local_var, lit())
+
+            # If we do not encounter an exception we will return success
+            body.append(returnBool(True))
 
             # In the initializer initialize all fields to their default values
             if function.name == names.INIT:
@@ -203,7 +219,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.extend(self._havoc_uint(balance_acc, ctx))
 
             # If the function is public we also assert the invariants
-            invariants = []
             # Invariants if we don't fail: old == last old we encountered
             # We use the special $old_self variable
             invariant_assertions = []
@@ -215,7 +230,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 with use_old_scope(False, ctx):
                     expr = translate_inv(inv, ctx, False, is_init)
                 fail = translate_inv(inv, ctx, False, is_init)
-                invariants.append(fail)
 
                 # If we have a synthesized __init__ we only create an
                 # error message on the invariant
@@ -235,18 +249,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             if_stmt = self.viper_ast.If(success_var.localVar(), invariant_assertions, invariant_assertions_fail)
             body.append(self.viper_ast.Seqn([if_stmt], info=inv_info))
 
-            # Add preconditions; invariants do not have to hold before __init__
-            inv_pres = ctx.invariants(ctx, is_pre=True, is_init=is_init)
-            translate_pre = self.specification_translator.translate_precondition
-            pres = [translate_pre(pre, ctx) for pre in function.preconditions]
-            # Preconditions are:
-            #   - The permissions that are passed around
-            #   - The preconditions that were specified by the user
-            #   - The invariants
-            # Note: Unchecked invariants are assumed at the beginning so they do not have to
-            # be checked on a method call
-            all_pres = ctx.permissions + ctx.immutable_permissions + pres + inv_pres
-
             # Since we check the postconditions and invariants in the body we can just assume
             # false, so the actual posconditions always succeed
             assume_false = self.viper_ast.Inhale(self.viper_ast.FalseLit())
@@ -256,7 +258,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             locals_list = [*locals.values(), *ctx.new_local_vars]
 
         viper_name = builtins.method_name(function.name)
-        method = self.viper_ast.Method(viper_name, args_list, rets, all_pres, [], locals_list, body, pos)
+        method = self.viper_ast.Method(viper_name, args_list, rets, pres, [], locals_list, body, pos)
         return method
 
     def inline(self, function: VyperFunction, args: List[Expr], ctx: Context) -> StmtsAndExpr:

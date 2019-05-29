@@ -263,7 +263,10 @@ class ExpressionTranslator(NodeTranslator):
                 inh_exh = ex_fields + in_fields
 
                 uinvs = ctx.unchecked_invariants
-                assume_invs = [self.viper_ast.Inhale(inv) for inv in invs]
+                assume_invs = []
+                for inv, expr in zip(ctx.program.invariants, invs):
+                    ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                    assume_invs.append(self.viper_ast.Inhale(expr, ipos))
                 assume_unchecked = [self.viper_ast.Inhale(inv) for inv in uinvs]
                 assumes = assume_invs + assume_unchecked
 

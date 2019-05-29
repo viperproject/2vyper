@@ -174,8 +174,9 @@ class ProgramTranslator(PositionTranslator):
         inv1_assumptions = []
         with old_label_scope(old1, ctx):
             for inv in ctx.program.invariants:
+                pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                inv1_assumptions.append(self.viper_ast.Inhale(inv_expr))
+                inv1_assumptions.append(self.viper_ast.Inhale(inv_expr, pos))
 
         body.extend(inv1_assumptions)
 
@@ -188,8 +189,9 @@ class ProgramTranslator(PositionTranslator):
         inv2_assumptions = []
         with old_label_scope(old2, ctx):
             for inv in ctx.program.invariants:
+                pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                inv2_assumptions.append(self.viper_ast.Inhale(inv_expr))
+                inv2_assumptions.append(self.viper_ast.Inhale(inv_expr, pos))
 
         body.extend(inv2_assumptions)
 
