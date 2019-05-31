@@ -249,11 +249,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             if_stmt = self.viper_ast.If(success_var.localVar(), invariant_assertions, invariant_assertions_fail)
             body.append(self.viper_ast.Seqn([if_stmt], info=inv_info))
 
-            # Since we check the postconditions and invariants in the body we can just assume
-            # false, so the actual posconditions always succeed
-            assume_false = self.viper_ast.Inhale(self.viper_ast.FalseLit())
-            body.append(assume_false)
-
             args_list = list(args.values())
             locals_list = [*locals.values(), *ctx.new_local_vars]
 
