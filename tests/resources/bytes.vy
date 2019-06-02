@@ -11,3 +11,9 @@ def get_bb100() -> bytes[100]:
 @public
 def set_bb100():
     self.bb100 = b"abc"
+
+
+#@ ensures: len(result()) == 0
+@public
+def empty() -> bytes[5]:
+    return b""

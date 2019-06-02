@@ -15,3 +15,9 @@ def set_ss(new_ss: string[5]):
 @public
 def get_ss() -> string[6]:
     return self.ss
+
+
+#@ ensures: len(result()) == 0
+@public
+def empty() -> string[5]:
+    return ""

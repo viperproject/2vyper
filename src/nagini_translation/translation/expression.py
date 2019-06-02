@@ -169,6 +169,10 @@ class ExpressionTranslator(NodeTranslator):
     def translate_List(self, node: ast.List, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
+        if not node.elts:
+            type = self.type_translator.translate(node.type.element_type, ctx)
+            return [], self.viper_ast.EmptySeq(type, pos)
+
         stmts = []
         elems = []
         for e in node.elts:
@@ -180,13 +184,21 @@ class ExpressionTranslator(NodeTranslator):
 
     def translate_Str(self, node: ast.Str, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
-        elems = [self.viper_ast.IntLit(e, pos) for e in bytes(node.s, 'utf-8')]
-        return [], self.viper_ast.ExplicitSeq(elems, pos)
+        if not node.s:
+            type = self.type_translator.translate(node.type.element_type, ctx)
+            return [], self.viper_ast.EmptySeq(type, pos)
+        else:
+            elems = [self.viper_ast.IntLit(e, pos) for e in bytes(node.s, 'utf-8')]
+            return [], self.viper_ast.ExplicitSeq(elems, pos)
 
     def translate_Bytes(self, node: ast.Bytes, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
-        elems = [self.viper_ast.IntLit(e, pos) for e in node.s]
-        return [], self.viper_ast.ExplicitSeq(elems, pos)
+        if not node.s:
+            type = self.type_translator.translate(node.type.element_type, ctx)
+            return [], self.viper_ast.EmptySeq(type, pos)
+        else:
+            elems = [self.viper_ast.IntLit(e, pos) for e in node.s]
+            return [], self.viper_ast.ExplicitSeq(elems, pos)
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
