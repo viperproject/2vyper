@@ -228,22 +228,14 @@ class ViperAST:
 
     def DomainFuncApp(self, func_name, args, type_passed,
                       position, info, domain_name, type_var_map={}):
-        arg_decls = [self.LocalVarDecl('arg' + str(i), arg.typ(), arg.pos(),
-                                       arg.info())
-                     for i, arg in enumerate(args)]
-
         def type_passed_apply(slf):
             return type_passed
 
-        def args_passed_apply(slf):
-            return self.to_seq(arg_decls)
-
         type_passed_func = self.to_function0(type_passed_apply)
-        args_passed_func = self.to_function0(args_passed_apply)
         result = self.ast.DomainFuncApp(func_name, self.to_seq(args),
                                         self.to_map(type_var_map), position,
                                         info, type_passed_func,
-                                        args_passed_func, domain_name, self.NoTrafos)
+                                        domain_name, self.NoTrafos)
         return result
 
     def TypeVar(self, name):
@@ -463,17 +455,10 @@ class ViperAST:
         info = info or self.NoInfo
         return self.ast.Implies(left, right, position, info, self.NoTrafos)
 
-    def FuncApp(self, name, args, position=None, info=None, type=None, formalargs=None):
+    def FuncApp(self, name, args, position=None, info=None, type=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-
-        if formalargs is None:
-            formalargs = []
-            for i, a in enumerate(args):
-                formalargs.append(self.LocalVarDecl('p' + str(i), a.typ(), a.pos(),
-                                                    a.info()))
-        return self.ast.FuncApp(name, self.to_seq(args), position, info, type,
-                                self.to_seq(formalargs), self.NoTrafos)
+        return self.ast.FuncApp(name, self.to_seq(args), position, info, type, self.NoTrafos)
 
     def ExplicitSeq(self, elems, position=None, info=None):
         position = position or self.NoPosition
