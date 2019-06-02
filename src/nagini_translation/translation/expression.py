@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from nagini_translation.utils import first_index
+from nagini_translation.utils import flatten, first_index
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
@@ -112,7 +112,7 @@ class ExpressionTranslator(NodeTranslator):
         def build(values):
             head, *tail = values
             stmts, lhs = self.translate(head, ctx)
-            if (len(tail) == 0):
+            if not tail:
                 return stmts, lhs
             else:
                 more, rhs = build(tail)
@@ -213,6 +213,17 @@ class ExpressionTranslator(NodeTranslator):
             elif name == names.LEN:
                 arr_stmts, arr = self.translate(node.args[0], ctx)
                 return arr_stmts, self.viper_ast.SeqLength(arr, pos)
+            elif name == names.CONCAT:
+                concat_stmts, concats = zip(*[self.translate(arg, ctx) for arg in node.args])
+
+                def concat(args):
+                    arg, *tail = args
+                    if not tail:
+                        return arg
+                    else:
+                        return self.viper_ast.SeqAppend(arg, concat(tail), pos)
+
+                return flatten(concat_stmts), concat(concats)
             elif name == names.SEND or name == names.RAW_CALL:
                 # Sends are translated as follows:
                 #    - Evaluate arguments to and amount
