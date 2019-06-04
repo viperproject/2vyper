@@ -106,6 +106,7 @@ class TypeBuilder(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> VyperType:
         # We allow public and map, constant should already be replaced
+        # Anything else treated as a unit
         if node.func.id == names.PUBLIC:
             return self.visit(node.args[0])
         elif node.func.id == names.MAP:
@@ -113,7 +114,7 @@ class TypeBuilder(ast.NodeVisitor):
             value_type = self.visit(node.args[1])
             return MapType(key_type, value_type)
         else:
-            assert False  # TODO handle
+            return TYPES[node.func.id]
 
     def visit_Subscript(self, node: ast.Subscript) -> VyperType:
         element_type = self.visit(node.value)
