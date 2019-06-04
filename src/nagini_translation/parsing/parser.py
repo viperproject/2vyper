@@ -77,9 +77,11 @@ class ProgramBuilder(ast.NodeVisitor):
         self._check_no_prepostconditions()
 
         variable_name = node.target.id
-        variable_type = self.type_builder.build(node.annotation)
-        var = VyperVar(variable_name, variable_type, node)
-        self.state[variable_name] = var
+        # We ignore the units declaration
+        if variable_name != names.UNITS:
+            variable_type = self.type_builder.build(node.annotation)
+            var = VyperVar(variable_name, variable_type, node)
+            self.state[variable_name] = var
 
     def visit_Assign(self, node):
         # This is for invariants and pre/postconditions which get translated to

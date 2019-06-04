@@ -45,6 +45,9 @@ CONSTANT_VALUES = {
     ZERO_ADDRESS: 0
 }
 
+# Special
+UNITS = 'units'
+
 # Ether units
 ETHER_UNITS = {
     'wei': 1,
