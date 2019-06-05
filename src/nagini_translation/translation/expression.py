@@ -261,7 +261,8 @@ class ExpressionTranslator(NodeTranslator):
 
                 self_balance = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
                 lt = self.viper_ast.LtCmp(self_balance, amount)
-                check = self.fail_if(lt, ctx)
+                eq = self.viper_ast.EqCmp(self.viper_ast.IntLit(0), amount)
+                check = self.fail_if(self.viper_ast.Or(lt, eq), ctx)
 
                 sub = self.viper_ast.Sub(self_balance, amount)
                 sub_stmt = self.viper_ast.FieldAssign(self_balance, sub)

@@ -19,3 +19,9 @@ def send_balance_fail(to: address):
     #:: ExpectedOutput(call.invariant:assertion.false, MM)
     send(to, self.money)
     self.money = 0
+
+
+#@ ensures: not success()
+@public
+def send_zero_fail(to: address):
+    send(to, as_wei_value(0, "wei"))
