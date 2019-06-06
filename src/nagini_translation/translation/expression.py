@@ -236,6 +236,12 @@ class ExpressionTranslator(NodeTranslator):
                         return self.viper_ast.SeqAppend(arg, concat(tail), pos)
 
                 return flatten(concat_stmts), concat(concats)
+            elif name == names.KECCAK256:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                return arg_stmts, builtins.array_keccak256(self.viper_ast, arg, pos)
+            elif name == names.SHA256:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                return arg_stmts, builtins.array_sha256(self.viper_ast, arg, pos)
             elif name == names.SEND or name == names.RAW_CALL:
                 # Sends are translated as follows:
                 #    - Evaluate arguments to and amount

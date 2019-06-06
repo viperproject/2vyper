@@ -42,9 +42,12 @@ CONTRACT_DOMAIN = '$Contract'
 SELF_ADDRESS = '$self_address'
 
 ARRAY_DOMAIN = '$Array'
+ARRAY_INT_DOMAIN = '$ArrayInt'
 ARRAY_ELEMENT_VAR = '$E'
 
 ARRAY_INIT = '$array_init'
+ARRAY_KECCAK256 = '$array_keccak256'
+ARRAY_SHA256 = '$array_sha256'
 
 MAP_DOMAIN = '$Map'
 MAP_INT_DOMAIN = '$MapInt'
@@ -204,6 +207,16 @@ def array_init(viper_ast: ViperAST, arg, size: int, element_type, pos=None, info
     type_vars = {viper_ast.TypeVar(ARRAY_ELEMENT_VAR): element_type}
     size = viper_ast.IntLit(size, pos, info)
     return viper_ast.DomainFuncApp(ARRAY_INIT, [arg, size], arr_type, pos, info, ARRAY_DOMAIN, type_vars)
+
+
+def array_keccak256(viper_ast: ViperAST, arg, pos=None, info=None):
+    int_array_type = viper_ast.SeqType(viper_ast.Int)
+    return viper_ast.DomainFuncApp(ARRAY_KECCAK256, [arg], int_array_type, pos, info, ARRAY_INT_DOMAIN)
+
+
+def array_sha256(viper_ast: ViperAST, arg, pos=None, info=None):
+    int_array_type = viper_ast.SeqType(viper_ast.Int)
+    return viper_ast.DomainFuncApp(ARRAY_SHA256, [arg], int_array_type, pos, info, ARRAY_INT_DOMAIN)
 
 
 def array_length(viper_ast: ViperAST, ref, pos=None, info=None):

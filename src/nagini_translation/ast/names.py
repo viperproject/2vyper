@@ -74,6 +74,8 @@ AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 LEN = 'len'
 CONCAT = 'concat'
+KECCAK256 = 'keccak256'
+SHA256 = 'sha256'
 
 RAW_CALL = 'raw_call'
 RAW_CALL_OUTSIZE = 'outsize'

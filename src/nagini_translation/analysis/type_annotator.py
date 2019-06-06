@@ -153,6 +153,8 @@ class TypeAnnotator:
             elif name == names.CONCAT:
                 size = sum(arg.type.size for arg in node.args)
                 node.type = ArrayType(node.args[0].type.element_type, size, False)
+            elif name == names.KECCAK256 or name == names.SHA256:
+                node.type = types.VYPER_BYTES32
             elif name == names.IMPLIES or name == names.SUCCESS:
                 node.type = types.VYPER_BOOL
             elif name == names.RESULT:
