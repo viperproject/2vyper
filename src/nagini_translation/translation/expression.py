@@ -44,6 +44,7 @@ class ExpressionTranslator(NodeTranslator):
             ast.Mult: self.viper_ast.Mul,
             ast.Div: self.viper_ast.Div,  # Note that / in Vyper means floor division
             ast.Mod: self.viper_ast.Mod,
+            ast.Pow: lambda l, r, pos: builtins.pow(viper_ast, l, r, pos),
             ast.Eq: self.viper_ast.EqCmp,
             ast.NotEq: self.viper_ast.NeCmp,
             ast.Lt: self.viper_ast.LtCmp,

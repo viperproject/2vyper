@@ -41,6 +41,9 @@ REVERT_LABEL = 'revert'
 CONTRACT_DOMAIN = '$Contract'
 SELF_ADDRESS = '$self_address'
 
+MATH_DOMAIN = '$Math'
+MATH_POW = '$pow'
+
 ARRAY_DOMAIN = '$Array'
 ARRAY_INT_DOMAIN = '$ArrayInt'
 ARRAY_ELEMENT_VAR = '$E'
@@ -196,6 +199,10 @@ def revert_label(viper_ast: ViperAST, pos=None, info=None):
 
 def self_address(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.DomainFuncApp(SELF_ADDRESS, [], viper_ast.Int, pos, info, CONTRACT_DOMAIN)
+
+
+def pow(viper_ast: ViperAST, base, exp, pos=None, info=None):
+    return viper_ast.DomainFuncApp(MATH_POW, [base, exp], viper_ast.Int, pos, info, MATH_DOMAIN)
 
 
 def array_type(viper_ast: ViperAST, element_type):

@@ -1,0 +1,24 @@
+/*
+  Copyright (c) 2019 ETH Zurich
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+domain $Math {
+
+    function $pow($a: Int, $b: Int): Int
+
+    axiom $pow0N_ax {
+        forall $a: Int :: { $pow(0, $a) } $a != 0 ==> $pow(0, $a) == 0
+    }
+
+    axiom $powN0_ax {
+        forall $a: Int :: { $pow($a, 0) } $a != 0 ==> $pow($a, 0) == 1
+    }
+    
+    axiom $pow_pos_ax {
+        forall $a: Int, $b: Int :: { $pow($a, $b) } $a >= 0 && $b >= 0 ==> $pow($a, $b) >= 0
+    }
+
+}
