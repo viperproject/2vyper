@@ -168,10 +168,14 @@ class TypeAnnotator:
                     node.type = types.VYPER_WEI_VALUE
             else:
                 assert False, f"encountered function {node.func.id}"
-        else:
+        elif node.func.value.id == names.LOG:
+            node.type = None
+        elif node.func.value.id == names.SELF:
             name = node.func.attr
             function = self.program.functions[name]
             node.type = function.type.return_type
+        else:
+            assert False  # TODO: handle
 
     def annotate_Bytes(self, node: ast.Bytes):
         node.type = types.ArrayType(types.VYPER_BYTE, len(node.s), False)

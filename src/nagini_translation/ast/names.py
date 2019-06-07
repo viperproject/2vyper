@@ -24,6 +24,7 @@ MAP = 'map'
 BYTE = 'bytes'
 BYTES32 = 'bytes32'
 STRING = 'string'
+EVENT = 'event'
 
 # Functions
 INIT = '__init__'
@@ -37,6 +38,7 @@ MSG_VALUE = 'value'
 MSG_GAS = 'gas'
 BLOCK = 'block'
 BLOCK_TIMESTAMP = 'timestamp'
+LOG = 'log'
 
 # Constants
 ZERO_ADDRESS = 'ZERO_ADDRESS'

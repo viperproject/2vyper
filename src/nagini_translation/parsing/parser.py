@@ -17,7 +17,7 @@ from nagini_translation.ast import names
 from nagini_translation.ast import types
 
 from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperVar
-from nagini_translation.ast.types import FunctionType
+from nagini_translation.ast.types import FunctionType, EventType
 
 from nagini_translation.errors.translation import InvalidProgramException
 
@@ -80,8 +80,10 @@ class ProgramBuilder(ast.NodeVisitor):
         # We ignore the units declaration
         if variable_name != names.UNITS:
             variable_type = self.type_builder.build(node.annotation)
-            var = VyperVar(variable_name, variable_type, node)
-            self.state[variable_name] = var
+            # We also ignore event declarations
+            if not isinstance(variable_type, EventType):
+                var = VyperVar(variable_name, variable_type, node)
+                self.state[variable_name] = var
 
     def visit_Assign(self, node):
         # This is for invariants and pre/postconditions which get translated to

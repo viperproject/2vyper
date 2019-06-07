@@ -62,6 +62,12 @@ class PrimitiveType(VyperType):
         super().__init__(name)
 
 
+class EventType(VyperType):
+
+    def __init__(self):
+        super().__init__('event')
+
+
 VYPER_BOOL = PrimitiveType(names.BOOL)
 VYPER_WEI_VALUE = PrimitiveType(names.WEI_VALUE)
 VYPER_TIME = PrimitiveType(names.TIMESTAMP)
@@ -105,14 +111,21 @@ class TypeBuilder(ast.NodeVisitor):
         return TYPES[node.id]
 
     def visit_Call(self, node: ast.Call) -> VyperType:
-        # We allow public and map, constant should already be replaced
-        # Anything else treated as a unit
+        # We allow
+        #   - public: not important for verification
+        #   - map: map type
+        #   - event: event type
+        # Not allowed is
+        #   - constant: should already be replaced
+        # Anything else is treated as a unit
         if node.func.id == names.PUBLIC:
             return self.visit(node.args[0])
         elif node.func.id == names.MAP:
             key_type = self.visit(node.args[0])
             value_type = self.visit(node.args[1])
             return MapType(key_type, value_type)
+        elif node.func.id == names.EVENT:
+            return EventType()
         else:
             return TYPES[node.func.id]
 

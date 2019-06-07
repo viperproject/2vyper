@@ -67,6 +67,12 @@ class CommonTranslator:
         body = [self.viper_ast.Goto(ctx.revert_label, pos)]
         return self.viper_ast.If(cond, body, [], pos)
 
+    def _seqn_with_info(self, stmts: [Stmt], comment: str) -> [Stmt]:
+        if not stmts:
+            return stmts
+        info = self.to_info([comment])
+        return [self.viper_ast.Seqn(stmts, info=info)]
+
 
 class NodeTranslator(PositionTranslator, CommonTranslator):
 

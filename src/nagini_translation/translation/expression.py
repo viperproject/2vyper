@@ -327,5 +327,8 @@ class ExpressionTranslator(NodeTranslator):
                 stmts.extend(arg_stmts)
                 args.append(arg_expr)
 
-            call_stmts, res = ctx.inlined[name](args, ctx)
-            return stmts + call_stmts, res
+            if node.func.value.id == names.LOG:
+                return self._seqn_with_info(stmts, f"Event: {name}"), None
+            else:
+                call_stmts, res = ctx.inlined[name](args, ctx)
+                return stmts + call_stmts, res

@@ -340,12 +340,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         gez = self._non_negative(var, ctx)
         return self.viper_ast.Inhale(gez)
 
-    def _seqn_with_info(self, stmts: [Stmt], comment: str) -> [Stmt]:
-        if not stmts:
-            return stmts
-        info = self.to_info([comment])
-        return [self.viper_ast.Seqn(stmts, info=info)]
-
     def _havoc_uint(self, field_acc, ctx: Context) -> List[Stmt]:
         havoc_name = ctx.new_local_var_name('havoc')
         havoc = self.viper_ast.LocalVarDecl(havoc_name, self.viper_ast.Int)
