@@ -24,6 +24,13 @@ def array_write() -> int128:
     return self.array[0]
 
 
+#@ ensures: forall({i: int128}, {self.array[i]}, implies(0 <= i and i < 12, self.array[i] == 42))
+@public
+def array_write_all():
+    for i in range(12):
+        self.array[i] = 42
+
+
 #@ ensures: result() == 100
 @public
 def matrix_write() -> int128:
