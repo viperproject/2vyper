@@ -42,9 +42,11 @@ LOG = 'log'
 
 # Constants
 ZERO_ADDRESS = 'ZERO_ADDRESS'
+EMPTY_BYTES32 = 'EMPTY_BYTES32'
 
 CONSTANT_VALUES = {
-    ZERO_ADDRESS: 0
+    ZERO_ADDRESS: '0',
+    EMPTY_BYTES32: '"\\x00"' * 32
 }
 
 # Special

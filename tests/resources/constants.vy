@@ -27,3 +27,7 @@ def some() -> bool:
 @public
 def zero_add() -> address:
     return ZERO_ADDRESS
+
+@public
+def empty_bytes() -> bytes32:
+    return EMPTY_BYTES32

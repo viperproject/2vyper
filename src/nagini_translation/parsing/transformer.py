@@ -20,12 +20,14 @@ def transform(ast: ast.Module) -> ast.Module:
     return transformed_ast
 
 
+def _parse_value(val):
+    return ast.parse(f'{val}', mode='eval').body
+
+
 def _builtin_constants():
-    # The zero address
-    name = 'ZERO_ADDRESS'
-    value = 0
-    node = ast.Num(value)
-    return {name: value}, {name: node}
+    values = {name: value for name, value in names.CONSTANT_VALUES.items()}
+    constants = {name: _parse_value(value) for name, value in names.CONSTANT_VALUES.items()}
+    return values, constants
 
 
 def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
@@ -35,7 +37,7 @@ def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
         name = node.target.id
         value = interpreter.visit(node.value)
         env[name] = value
-        constants[name] = ast.parse(f'{value}', mode='eval').body
+        constants[name] = _parse_value(value)
 
     return constants
 
