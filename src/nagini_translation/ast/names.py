@@ -51,6 +51,7 @@ CONSTANT_VALUES = {
 
 # Special
 UNITS = 'units'
+UNREACHABLE = 'UNREACHABLE'
 
 # Ether units
 ETHER_UNITS = {

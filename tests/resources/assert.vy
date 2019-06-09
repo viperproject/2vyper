@@ -23,3 +23,19 @@ def assert_true() -> int128:
 def set(val: int128):
     assert val > self.f2
     self.f1 = val
+
+
+@public
+def assert_label(val: int128):
+    assert val > self.f2, "Error"
+
+
+@public
+def assert_unreachable(val: uint256):
+    assert val >= 0, UNREACHABLE
+
+
+@public
+def assert_unreachable_fail(val: int128):
+    #:: ExpectedOutput(assert.failed:assertion.false)
+    assert False, UNREACHABLE

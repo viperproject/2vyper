@@ -111,8 +111,12 @@ class StatementTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         stmts, expr = self.expression_translator.translate(node.test, ctx)
-        cond = self.viper_ast.Not(expr, pos)
-        return stmts + [self.fail_if(cond, ctx, pos)]
+
+        if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
+            return stmts + [self.viper_ast.Assert(expr, pos)]
+        else:
+            cond = self.viper_ast.Not(expr, pos)
+            return stmts + [self.fail_if(cond, ctx, pos)]
 
     def translate_Return(self, node: ast.Return, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
