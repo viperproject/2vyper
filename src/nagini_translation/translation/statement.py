@@ -103,6 +103,10 @@ class StatementTranslator(NodeTranslator):
             stmts, _ = self.expression_translator.translate(node.value, ctx)
             return stmts
 
+    def translate_Raise(self, node: ast.Raise, ctx: Context) -> List[Stmt]:
+        pos = self.to_position(node, ctx)
+        return [self.viper_ast.Goto(ctx.revert_label, pos)]
+
     def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
 

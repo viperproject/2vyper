@@ -85,6 +85,9 @@ class TypeAnnotator:
         for stmt in node.body + node.orelse:
             self.annotate(stmt)
 
+    def annotate_Raise(self, node: ast.Raise):
+        self.annotate(node.exc)
+
     def annotate_Assert(self, node: ast.Assert):
         self.annotate(node.test)
 
