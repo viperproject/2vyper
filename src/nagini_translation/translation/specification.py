@@ -84,8 +84,7 @@ class SpecificationTranslator(ExpressionTranslator):
             lhs = self._translate_spec(node.args[0], ctx)
             rhs = self._translate_spec(node.args[1], ctx)
 
-            implies = self.viper_ast.Or(self.viper_ast.Not(lhs, pos), rhs, pos)
-            return [], implies
+            return [], self.viper_ast.Implies(lhs, rhs, pos)
         elif name == names.FORALL:
             with quantified_var_scope(ctx):
                 num_args = len(node.args)
@@ -110,7 +109,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     triggers.append(trigger)
 
                 quants = ctx.quantified_vars.values()
-            return [], self.viper_ast.Forall(quants, triggers, expr, pos)
+                return [], self.viper_ast.Forall(quants, triggers, expr, pos)
         elif name == names.RESULT or name == names.SUCCESS:
             cap = name.capitalize()
             if self._invariant_mode:
