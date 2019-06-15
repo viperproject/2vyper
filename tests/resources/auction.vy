@@ -34,6 +34,10 @@ pendingReturns: public(map(address, wei_value))
 #@ invariant: sent(self.highestBidder) + self.highestBid + self.pendingReturns[self.highestBidder] == received(self.highestBidder)
 #@ invariant: forall({a: address}, {received(a)}, implies(a != self.highestBidder and a != self.beneficiary, sent(a) + self.pendingReturns[a] == received(a)))
 
+#@ invariant: sent(ZERO_ADDRESS) == 0
+#@ invariant: forall({a: address}, {self.pendingReturns[a]}, implies(self.pendingReturns[a] != 0, received(a) != 0))
+#@ invariant: forall({a: address}, {received(a)}, implies(a != self.beneficiary and received(a) == 0, sent(a) == 0))
+
 
 @public
 def __init__(_beneficiary: address, _bidding_time: timedelta):
