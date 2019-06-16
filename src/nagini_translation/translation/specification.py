@@ -89,20 +89,20 @@ class SpecificationTranslator(ExpressionTranslator):
             with quantified_var_scope(ctx):
                 num_args = len(node.args)
                 # The first argument to forall is the variable declaration dict
-                for name in node.args[0].keys:
-                    name_pos = self.to_position(name, ctx)
-                    type = self.type_translator.translate(name.type, ctx)
-                    qname = builtins.quantifier_var_name(name.id)
+                for var_name in node.args[0].keys:
+                    name_pos = self.to_position(var_name, ctx)
+                    type = self.type_translator.translate(var_name.type, ctx)
+                    qname = builtins.quantifier_var_name(var_name.id)
                     var_decl = self.viper_ast.LocalVarDecl(qname, type, name_pos)
-                    ctx.quantified_vars[name.id] = var_decl
-                    ctx.all_vars[name.id] = var_decl
+                    ctx.quantified_vars[var_name.id] = var_decl
+                    ctx.all_vars[var_name.id] = var_decl
 
                 # The last argument to forall is the quantified expression
                 expr = self._translate_spec(node.args[num_args - 1], ctx)
 
                 # The arguments in the middle are the triggers
                 triggers = []
-                for arg in node.args[1: num_args - 2]:
+                for arg in node.args[1: num_args - 1]:
                     trigger_pos = self.to_position(arg, ctx)
                     trigger_exprs = [self._translate_spec(t, ctx) for t in arg.elts]
                     trigger = self.viper_ast.Trigger(trigger_exprs, trigger_pos)
