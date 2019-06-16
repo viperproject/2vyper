@@ -228,6 +228,9 @@ class ViperAST:
 
     def DomainFuncApp(self, func_name, args, type_passed,
                       position, info, domain_name, type_var_map={}):
+        position = position or self.NoPosition
+        info = info or self.NoInfo
+
         def type_passed_apply(slf):
             return type_passed
 
