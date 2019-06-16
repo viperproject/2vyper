@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
 import sys
+import shutil
 
 import nagini_translation.backends
 
@@ -14,6 +15,10 @@ import nagini_translation.backends
 def _backend_path(verifier: str):
     backends = os.path.dirname(nagini_translation.backends.__file__)
     return os.path.join(backends, f'{verifier}.jar')
+
+
+def _executable_path(cmd: str) -> str:
+    return shutil.which(cmd, os.X_OK)
 
 
 def _construct_classpath(verifier: str = 'silicon'):
@@ -43,38 +48,35 @@ def _get_boogie_path():
     """ Tries to detect path to Boogie executable.
 
     First tries the environment variable ``BOOGIE_EXE``. If it is not
-    defined, then checks the OS specific directory. On Ubuntu returns a
-    path only if it also finds a mono installation.
+    defined, then checks the OS specific directory.
     """
 
     boogie_exe = os.environ.get('BOOGIE_EXE')
     if boogie_exe:
         return boogie_exe
 
-    if sys.platform.startswith('linux'):
-        if (os.path.exists('/usr/bin/boogie') and os.path.exists('/usr/bin/mono')):
-            return '/usr/bin/boogie'
-
-    return None
+    cmd = 'Boogie.exe' if sys.platform.startswith('win') else 'boogie'
+    return _executable_path(cmd)
 
 
 def _get_z3_path():
     """ Tries to detect path to Z3 executable.
 
-    First tries the environment variable ``Z3_EXE``. If it is not
-    defined, then checks the OS specific directories.
+    First tries the environment variable ``Z3_EXE``. If it is not defined,
+    then checks the z3 dependency. Otherwise, the system default is used.
     """
 
     z3_exe = os.environ.get('Z3_EXE')
     if z3_exe:
         return z3_exe
 
+    cmd = 'z3.exe' if sys.platform.startswith('win') else 'z3'
     ex_path = os.path.dirname(sys.executable)
-    path = os.path.join(ex_path, 'z3.exe' if sys.platform.startswith('win') else 'z3')
-    if os.path.exists(path):
+    path = os.path.join(ex_path, cmd)
+    if os.path.isfile(path) and os.access(path, os.X_OK):
         return path
 
-    return None
+    return _executable_path(cmd)
 
 
 def set_classpath(v: str):
