@@ -10,7 +10,12 @@ import pytest
 import os
 import glob
 
-from tests import _test
+from conftest import option
+from tests import _init_jvm, _test_verification
+
+
+def setup_module(module):
+    _init_jvm(option.verifier)
 
 
 def get_tests():
@@ -25,4 +30,4 @@ def file_id(file):
 
 @pytest.mark.parametrize('file', get_tests(), ids=file_id)
 def test_file(file):
-    _test(file)
+    _test_verification(file)

@@ -75,7 +75,7 @@ def load_sil_files(jvm: JVM, sif: bool = False):
 
 def translate(path: str, jvm: JVM, selected: Set[str] = set(),
               sif: bool = False, ignore_global: bool = False,
-              reload_resources: bool = False, verbose: bool = False) -> Program:
+              verbose: bool = False) -> Program:
     """
     Translates the Python module at the given path to a Viper program
     """

@@ -14,6 +14,9 @@ run:
 test:
 	env/bin/pytest tests/run_tests.py
 
+test-carbon:
+	env/bin/pytest --verifier carbon tests/run_tests.py
+
 clean:
 	find ./src -type d -name __pycache__ -exec rm -r {} \+
 
@@ -23,4 +26,4 @@ clean-egg:
 clean-env: clean clean-egg
 	rm -r env
 
-.PHONY: env init run test clean clean-env
+.PHONY: env init run test test-carbon clean clean-egg clean-env

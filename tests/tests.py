@@ -5,46 +5,43 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-"""
-Nagini tests based on pytest framework.
 
-Nagini tests are based on ideas taken from ``Silver``. Each test is a
-Python source file with annotations that specify the expected behaviour.
-The goal of the test suite is to catch changes in the behaviour,
-therefore, annotations must be always up-to-date. Annotations are
-written in Python comments that start with ``::``. Multiple annotations
-on the same line are separated by ``|``.
+# Nagini tests based on pytest framework.
 
-Supported annotation types are:
+# Nagini tests are based on ideas taken from ``Silver``. Each test is a
+# Python source file with annotations that specify the expected behaviour.
+# The goal of the test suite is to catch changes in the behaviour,
+# therefore, annotations must be always up-to-date. Annotations are
+# written in Python comments that start with ``::``. Multiple annotations
+# on the same line are separated by ``|``.
 
-1.  ``ExpectedOutput<(backend)>(<error_id>, <via1>, <via2>,…)`` –
-    indicates that the following line should produce the specified
-    error.
-2.  ``UnexpectedOutput<(backend)>(<error_id>, <issue>, <via1>, <via2>,…)``
-    – indicates that the following line should not produce the
-    specified error, but it currently does. The problem is currently
-    tracked in ``backend`` (if missing, then Nagini) issue tracker's
-    issue ``issue``.
-3.  ``MissingOutput<(backend)>(<error_id>, <issue>, <via1>, <via2>,…)`` –
-    indicates that the error mentioned in the matching
-    ``ExpectedOutput`` annotation is not produced due to issue
-    ``issue``.
-4.  ``Label(via)`` – mark location to be used in other annotations.
-5.  ``IgnoreFile(<issue>)`` – mark that file cannot be tested due to
-    critical issue such as a crash, which is tracked in ``issue``.
-"""
+# Supported annotation types are:
 
+# 1.  ``ExpectedOutput<(backend)>(<error_id>, <via1>, <via2>,…)`` –
+#     indicates that the following line should produce the specified
+#     error.
+# 2.  ``UnexpectedOutput<(backend)>(<error_id>, <issue>, <via1>, <via2>,…)``
+#     – indicates that the following line should not produce the
+#     specified error, but it currently does. The problem is currently
+#     tracked in ``backend`` (if missing, then Nagini) issue tracker's
+#     issue ``issue``.
+# 3.  ``MissingOutput<(backend)>(<error_id>, <issue>, <via1>, <via2>,…)`` –
+#     indicates that the error mentioned in the matching
+#     ``ExpectedOutput`` annotation is not produced due to issue
+#     ``issue``.
+# 4.  ``Label(via)`` – mark location to be used in other annotations.
+# 5.  ``IgnoreFile(<issue>)`` – mark that file cannot be tested due to
+#     critical issue such as a crash, which is tracked in ``issue``.
 
 import abc
 import os
+import sys
 import pytest
 import re
 import tokenize
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
-import os
-import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
 from nagini_translation import config
@@ -56,8 +53,16 @@ from nagini_translation.verification.verifier import ViperVerifier
 from nagini_translation.verification.result import VerificationResult
 
 
-config.set_classpath('silicon')
-_JVM = jvmaccess.JVM(config.classpath)
+_JVM = None
+VERIFIER = ViperVerifier.silicon
+
+
+def _init_jvm(verifier):
+    config.set_classpath(verifier)
+    global _JVM
+    _JVM = jvmaccess.JVM(config.classpath)
+    global VERIFIER
+    VERIFIER = ViperVerifier[verifier]
 
 
 _BACKEND_SILICON = 'silicon'
@@ -559,14 +564,13 @@ class VerificationTest(AnnotatedTest):
     """Test for testing verification of successfully translated programs."""
 
     def test_file(
-            self, path: str, jvm: jvmaccess.JVM, verifier: ViperVerifier,
-            sif: bool, reload_resources: bool):
+            self, path: str, jvm: jvmaccess.JVM, verifier: ViperVerifier, sif: bool):
         """Test specific Python file."""
         annotation_manager = self.get_annotation_manager(path, verifier.name)
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         path = os.path.abspath(path)
-        prog = translate(path, jvm, sif=sif, reload_resources=reload_resources)
+        prog = translate(path, jvm, sif=sif)
         assert prog is not None
         vresult = verify(prog, path, jvm, verifier)
         self._evaluate_result(vresult, annotation_manager, jvm, sif)
@@ -605,23 +609,22 @@ class VerificationTest(AnnotatedTest):
 _VERIFICATION_TESTER = VerificationTest()
 
 
-def _test_verification(path, verifier, sif, reload_resources):
+def _test_verification(path, sif=False):
     """Execute provided verification test."""
-    _VERIFICATION_TESTER.test_file(path, _JVM, verifier, sif, reload_resources)
+    _VERIFICATION_TESTER.test_file(path, _JVM, VERIFIER, sif)
 
 
 class TranslationTest(AnnotatedTest):
     """Test for testing translation errors."""
 
-    def test_file(self, path: str, jvm: jvmaccess.JVM, sif: bool,
-                  reload_resources: bool):
+    def test_file(self, path: str, jvm: jvmaccess.JVM, sif: bool):
         """Test specific Python file."""
         annotation_manager = self.get_annotation_manager(path, _BACKEND_ANY)
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         path = os.path.abspath(path)
         try:
-            translate(path, jvm, sif=sif, reload_resources=reload_resources)
+            translate(path, jvm, sif=sif)
             actual_errors = []
         except InvalidProgramException as exp1:
             actual_errors = [InvalidProgramError(exp1)]
@@ -633,11 +636,6 @@ class TranslationTest(AnnotatedTest):
 _TRANSLATION_TESTER = TranslationTest()
 
 
-def _test_translation(path, sif, reload_resources):
+def _test_translation(path, sif):
     """Execute provided translation test."""
-    _TRANSLATION_TESTER.test_file(path, _JVM, sif, reload_resources)
-
-
-def _test(path):
-    """Execute provided verification test."""
-    _VERIFICATION_TESTER.test_file(path, _JVM, ViperVerifier.silicon, False, False)
+    _TRANSLATION_TESTER.test_file(path, _JVM, sif)
