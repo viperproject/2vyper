@@ -1,7 +1,6 @@
 
 time: timestamp
 
-#@ invariant: block.timestamp >= old(block.timestamp)
 
 #@ ensures: self.time == t
 #@ ensures: t >= 0
