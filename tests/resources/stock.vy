@@ -10,6 +10,12 @@ price: public(uint256 (wei / currency_value))
 # Store a ledger of stockholder holdings.
 holdings: map(address, uint256(currency_value))
 
+
+#@ invariant: self.totalShares == old(self.totalShares)
+#@ invariant: self.totalShares == sum(self.holdings)
+#@ invariant: self.price == old(self.price)
+
+
 # Set up the company.
 @public
 def __init__(_company: address, _total_shares: uint256(currency_value),
