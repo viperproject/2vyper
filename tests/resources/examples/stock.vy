@@ -29,6 +29,12 @@ units: {
     currency_value: "Currency Value"
 }
 
+# Financial events the contract logs
+Transfer: event({_from: indexed(address), _to: indexed(address), _value: uint256(currency_value)})
+Buy: event({_buyer: indexed(address), _buy_order: uint256(currency_value)})
+Sell: event({_seller: indexed(address), _sell_order: uint256(currency_value)})
+Pay: event({_vendor: indexed(address), _amount: wei_value})
+
 # Initiate the variables for the company and it's own shares.
 company: public(address)
 totalShares: public(uint256(currency_value))
@@ -77,6 +83,9 @@ def buyStock():
     self.holdings[self.company] -= buy_order
     self.holdings[msg.sender] += buy_order
 
+    # Log the buy event.
+    log.Buy(msg.sender, buy_order)
+
 # Find out how much stock any address (that's owned by someone) has.
 @public
 @constant
@@ -105,6 +114,9 @@ def sellStock(sell_order: uint256(currency_value)):
     self.holdings[self.company] += sell_order
     send(msg.sender, sell_order * self.price)
 
+    # Log the sell event.
+    log.Sell(msg.sender, sell_order)
+
 # Transfer stock from one stockholder to another. (Assume that the
 # receiver is given some compensation, but this is not enforced.)
 @public
@@ -117,6 +129,9 @@ def transferStock(receiver: address, transfer_order: uint256(currency_value)):
     self.holdings[msg.sender] -= transfer_order
     self.holdings[receiver] += transfer_order
 
+    # Log the transfer event.
+    log.Transfer(msg.sender, receiver, transfer_order)
+
 # Allow the company to pay someone for services rendered.
 @public
 def payBill(vendor: address, amount: wei_value):
@@ -127,6 +142,9 @@ def payBill(vendor: address, amount: wei_value):
 
     # Pay the bill!
     send(vendor, amount)
+
+    # Log the payment event.
+    log.Pay(vendor, amount)
 
 # Return the amount in wei that a company has raised in stock offerings.
 @public
