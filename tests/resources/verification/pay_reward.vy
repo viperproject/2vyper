@@ -13,6 +13,7 @@ reward: wei_value
 #@ invariant: forall({a: address}, {sent(a)}, {old(sent(a))}, old(sent(a)) <= sent(a))
 #:: Label(INV)
 #@ invariant: implies(not self.did_pay, self.balance >= self.reward)
+#:: Label(INVC)
 #@ invariant: implies(not self.did_pay, sum(sent()) == 0)
 #@ invariant: implies(self.did_pay, sum(sent()) == self.reward)
 
@@ -33,7 +34,7 @@ def claim_reward():
 def claim_reward_fail():
 	if (not self.did_pay):
 		# send reward to the caller
-		#:: ExpectedOutput(call.invariant:assertion.false, INV)
+		#:: ExpectedOutput(call.invariant:assertion.false, INV) | ExpectedOutput(carbon)(call.invariant:assertion.false, INVC)
 		send(msg.sender, self.reward)
 		self.did_pay = True
 
@@ -48,6 +49,6 @@ def claim_reward_raw():
 def claim_reward__raw_fail():
 	if (not self.did_pay):
 		# send reward to the caller
-		#:: ExpectedOutput(call.invariant:assertion.false, INV)
+		#:: ExpectedOutput(call.invariant:assertion.false, INV) | ExpectedOutput(carbon)(call.invariant:assertion.false, INVC)
 		raw_call(msg.sender, b"", outsize=0, value=self.reward, gas=msg.gas)
 		self.did_pay = True

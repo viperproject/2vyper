@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-NUM_TOKENS: constant(int128) = 100
+NUM_TOKENS: constant(int128) = 99
 
 idToOwner: map(uint256, address)
 ownerToNFTokenCount: map(address, uint256)
