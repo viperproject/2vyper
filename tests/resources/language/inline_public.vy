@@ -7,7 +7,7 @@
 
 val: uint256
 const_val: uint256
-add: address
+addr: address
 
 
 #:: Label(CC)
@@ -95,14 +95,14 @@ def test6(by: uint256):
 
 
 @public
-def set_add():
-    self.add = msg.sender
+def set_addr():
+    self.addr = msg.sender
 
 
 #@ ensures: result() == True
 @public
 def test7() -> bool:
-    self.set_add()
-    a: address = self.add
-    self.set_add()
-    return a == self.add
+    self.set_addr()
+    a: address = self.addr
+    self.set_addr()
+    return a == self.addr

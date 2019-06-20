@@ -63,20 +63,23 @@ def matrix_write_fail() -> int128:
 #@ ensures: not success()
 @public
 def out_of_bounds_read():
-    a: int128 = self.array[42]
+    i: int128 = 42
+    a: int128 = self.array[i]
 
 
 #@ ensures: not success()
 @public
 def out_of_bounds_write():
-    self.array[42] = 12
+    i: int128 = 42
+    self.array[i] = 12
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: result() == 0
 @public
 def get_zeros_fail() -> int128:
-    return self.zeros[1000]
+    i: int128 = 1000
+    return self.zeros[i]
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
@@ -100,7 +103,8 @@ def acc_map():
 #@ ensures: not success()
 @public
 def acc_bounds() -> int128:
-    return self.mp[2][1000]
+    i: int128 = 1000
+    return self.mp[2][i]
 
 
 #:: ExpectedOutput(not.wellformed:seq.index.negative) | ExpectedOutput(carbon)(postcondition.violated:assertion.false)

@@ -13,7 +13,7 @@ f2: int128
 
 #@ ensures: implies(success(), result() == 2 * self.f1)
 @public
-def add() -> int128:
+def _add() -> int128:
     assert self.f1 > 10
     return self.f1 + self.f2
 
@@ -21,6 +21,6 @@ def add() -> int128:
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: implies(success(), result() == self.f1 * self.f1)
 @public
-def mul() -> int128:
+def _mul() -> int128:
     assert self.f1 > 10
     return self.f1 + self.f2

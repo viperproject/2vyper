@@ -54,10 +54,10 @@ def get_payment():
 
 
 @public
-def send_payment():
+def send_payment(to: address):
     assert msg.sender == self.owner
-    assert self.owner != 1
+    assert self.owner != to
     self.should_pay = True
     to_send: wei_value = self.reward
     self.reward = 0
-    send(1, to_send)
+    send(to, to_send)

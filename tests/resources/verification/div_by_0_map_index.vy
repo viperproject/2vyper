@@ -10,7 +10,7 @@ mpp: map(int128, map(int128, uint256))
 
 #@ ensures: implies(a == 0, not success())
 @public
-def div(a: int128):
+def div1(a: int128):
     self.mp[100 / a] = 12
 
 

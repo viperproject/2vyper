@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-i: int128
+i: public(int128)
 
 #@ invariant: self.i == 0
 #:: ExpectedOutput(invariant.violated:assertion.false)

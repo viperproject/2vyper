@@ -22,7 +22,7 @@ def minus_fail(k: uint256):
     self.f -= k
 
 
-#@ ensures: success() == k <= self.f
+#@ ensures: success() == (self.f <= old(self.mp[12]))
 @public
 def map_minus():
     self.mp[12] -= self.f
@@ -31,18 +31,18 @@ def map_minus():
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: self.mp[12] + self.f == old(self.mp[12])
 @public
-def map_minus():
+def map_minus_fail():
     self.mp[12] -= self.f
 
 
 #@ ensures: success() == (a != 0)
 @public
-def div(a: uint256):
+def _div(a: uint256):
     self.f /= a
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: success()
 @public
-def div(a: uint256):
+def div_fail(a: uint256):
     self.f /= a

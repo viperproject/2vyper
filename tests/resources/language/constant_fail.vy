@@ -18,6 +18,6 @@ def one() -> int128:
 #:: ExpectedOutput(not.wellformed:division.by.zero)
 #@ ensures: result() == 1 / ZERO
 @public
-def div_by_ZERO() -> int128:
-    a: int128 = 1 / ZERO
+def div_by_ZERO(i: int128) -> int128:
+    a: int128 = i / (i * ZERO)
     return a

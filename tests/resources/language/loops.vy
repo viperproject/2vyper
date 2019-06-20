@@ -20,7 +20,7 @@ def claim_reward(amount: wei_value):
 	val: wei_value = amount + amount
 
 @public
-def cc(amount: wei_value) -> bool:
+def ccc(amount: wei_value) -> bool:
 	num: uint256 = 12
 	if num == 12 or num < 13 or 45 > num:
 		num = 14
@@ -31,7 +31,7 @@ def cc(amount: wei_value) -> bool:
 	did_pay = True or False
 	val: wei_value = amount + amount + (-amount)
 	return did_pay
-	
+
 @public
 def ffi(amount: wei_value, bb: bool) -> wei_value:
 	if bb and not True:

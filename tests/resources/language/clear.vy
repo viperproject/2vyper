@@ -14,14 +14,14 @@ ad: address
 
 #@ ensures: self.fi == 0
 #@ ensures: self.ad == ZERO_ADDRESS
-#@ ensures: self.mp[12] == 0
+#@ ensures: self.mp[self.ad] == 0
 #@ ensures: self.mpp[10][10000] == 0
 @public
 def set():
     clear(self.fi)
     clear(self.ad)
-    clear(self.mp[12])
-    clear(self.mpp)
+    clear(self.mp[self.ad])
+    clear(self.mpp[10][10000])
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)

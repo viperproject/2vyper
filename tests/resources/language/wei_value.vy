@@ -25,12 +25,12 @@ def args(arg: wei_value) -> wei_value:
 
 #@ ensures: result() >= 0
 @public
-def add(a: wei_value, b: wei_value) -> wei_value:
-    return a + b * a + a * b
+def _add(a: wei_value, b: wei_value) -> wei_value:
+    return a + a + b + a + b
 
 #@ ensures: success()
 @public
-def div(a: wei_value, b: wei_value) -> wei_value:
+def _div(a: wei_value, b: wei_value) -> uint256:
     return a / (b + 1)
 
 #@ ensures: not success()
@@ -38,6 +38,7 @@ def div(a: wei_value, b: wei_value) -> wei_value:
 def fail(a: wei_value, b: wei_value) -> wei_value:
     assert a > b
     self.ui = b - a
+    return a
 
 #@ ensures: result() == as_wei_value(i, "lovelace")
 @public

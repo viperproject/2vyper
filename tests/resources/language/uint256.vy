@@ -27,12 +27,12 @@ def args(arg: uint256) -> uint256:
 
 #@ ensures: result() >= 0
 @public
-def add(a: uint256, b: uint256) -> uint256:
+def _add(a: uint256, b: uint256) -> uint256:
     return a + b * a + a * b
 
 #@ ensures: success()
 @public
-def div(a: uint256, b: uint256) -> uint256:
+def _div(a: uint256, b: uint256) -> uint256:
     return a / (b + 1)
 
 #@ ensures: not success()
@@ -40,6 +40,7 @@ def div(a: uint256, b: uint256) -> uint256:
 def fail(a: uint256, b: uint256) -> uint256:
     assert a > b
     self.ui = b - a
+    return self.ui
 
 #@ ensures: success()
 @public
@@ -52,7 +53,7 @@ def access_arr_map():
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: success()
 @public
-def access_arr_map():
+def access_arr_map_fail():
     assert self.ui >= 0
     assert self.mp[2] >= 0
     assert self.array[2] >= 0
