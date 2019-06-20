@@ -21,7 +21,8 @@ setup(
         install_requires=[
             'jpype1==0.6.2',
             'astunparse==1.6.2',
-            'z3-solver'
+            'z3-solver',
+            'vyper'
             ],
         entry_points={
              'console_scripts': [

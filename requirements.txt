@@ -1,3 +1,4 @@
+-e git+https://github.com/robinsierra/2vyper.git@31e620ca881479e93e81591d010b92dc1bfb7bad#egg=2vyper
 astunparse==1.6.2
 atomicwrites==1.3.0
 attrs==19.1.0
@@ -9,8 +10,10 @@ more-itertools==7.0.0
 pluggy==0.11.0
 py==1.8.0
 pycodestyle==2.5.0
+pycryptodome==3.8.2
 pyflakes==2.1.1
 pytest==4.5.0
 six==1.12.0
+vyper==0.1.0b10
 wcwidth==0.1.7
 z3-solver==4.8.5.0

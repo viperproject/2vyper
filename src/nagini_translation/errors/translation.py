@@ -9,6 +9,13 @@ import ast
 import astunparse
 
 
+class InvalidVyperException(Exception):
+
+    def __init__(self):
+        self.message = "Not a valid Vyper contract."
+        super().__init__(self.message)
+
+
 class TranslationException(Exception):
 
     def __init__(self, node: ast.AST, message: str):

@@ -31,6 +31,8 @@ from nagini_translation.verification.verifier import (
 from typing import Set
 
 
+from nagini_translation import vyper
+
 from nagini_translation.parsing import parser
 from nagini_translation.analysis import analyzer
 from nagini_translation.translation.translator import ProgramTranslator
@@ -83,6 +85,9 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     error_manager.clear()
     # current_path = os.path.dirname(inspect.stack()[0][1])
     # resources_path = os.path.join(current_path, 'resources')
+
+    # Check that the file is a valid Vyper contract
+    vyper.check(path)
 
     if sif:
         # viper_ast = ViperASTExtended(jvm, jvm.java, jvm.scala, jvm.viper, path)
