@@ -5,13 +5,15 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from subprocess import check_call, DEVNULL, CalledProcessError
+from subprocess import Popen, PIPE
 
 from nagini_translation.errors.translation import InvalidVyperException
 
 
 def check(file: str):
-    try:
-        check_call(['vyper', file], stdout=DEVNULL, stderr=DEVNULL)
-    except CalledProcessError:
-        raise InvalidVyperException()
+    pipes = Popen(['vyper', file], stdout=PIPE, stderr=PIPE)
+    _, stderr = pipes.communicate()
+
+    if pipes.returncode != 0:
+        err_msg = stderr.strip().decode('utf-8')
+        raise InvalidVyperException(err_msg)

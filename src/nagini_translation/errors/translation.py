@@ -11,8 +11,8 @@ import astunparse
 
 class InvalidVyperException(Exception):
 
-    def __init__(self):
-        self.message = "Not a valid Vyper contract."
+    def __init__(self, vyper_output: str):
+        self.message = f"Not a valid Vyper contract:\n{vyper_output}"
         super().__init__(self.message)
 
 
