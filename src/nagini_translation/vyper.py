@@ -7,10 +7,13 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from subprocess import Popen, PIPE
 
-from nagini_translation.errors.translation import InvalidVyperException
+from nagini_translation.exceptions import InvalidVyperException
 
 
 def check(file: str):
+    """
+    Checks that the file is a valid Vyper contract. If not, throws an `InvalidVyperException`.
+    """
     pipes = Popen(['vyper', file], stdout=PIPE, stderr=PIPE)
     _, stderr = pipes.communicate()
 

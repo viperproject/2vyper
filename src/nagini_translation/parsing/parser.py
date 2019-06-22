@@ -19,7 +19,7 @@ from nagini_translation.ast import types
 from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperVar
 from nagini_translation.ast.types import FunctionType, EventType
 
-from nagini_translation.errors.translation import InvalidProgramException
+from nagini_translation.exceptions import InvalidProgramException
 
 
 def parse(contract: str, filename: str) -> VyperProgram:

@@ -24,7 +24,7 @@ from nagini_translation.translation.builtins import (
 
 from nagini_translation.translation import builtins
 
-from nagini_translation.errors.translation import UnsupportedException
+from nagini_translation.exceptions import UnsupportedException
 
 from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import StmtsAndExpr

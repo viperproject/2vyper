@@ -10,7 +10,7 @@ import ast
 from typing import List, Dict, Any
 
 from nagini_translation.ast import names
-from nagini_translation.errors.translation import InvalidProgramException
+from nagini_translation.exceptions import InvalidProgramException
 
 
 def transform(ast: ast.Module) -> ast.Module:

@@ -37,8 +37,8 @@ from nagini_translation.parsing import parser
 from nagini_translation.analysis import analyzer
 from nagini_translation.translation.translator import ProgramTranslator
 
-from nagini_translation.errors.translation import (
-    UnsupportedException, InvalidProgramException, ConsistencyException
+from nagini_translation.exceptions import (
+    InvalidVyperException, UnsupportedException, InvalidProgramException, ConsistencyException
 )
 
 
@@ -374,6 +374,8 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
             print(issue + ' (' + vyper_file + '@' + line + '.' + col + ')')
     except ConsistencyException as e:
         print(e.message + ': Translated AST contains inconsistencies.')
+    except InvalidVyperException as e:
+        print(e.message)
 
     except JavaException as e:
         print(e.stacktrace())

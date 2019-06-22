@@ -15,7 +15,7 @@ from nagini_translation.translation.builtins import map_sum
 
 from nagini_translation.translation import builtins
 
-from nagini_translation.errors.translation import InvalidProgramException
+from nagini_translation.exceptions import InvalidProgramException
 
 from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import StmtsAndExpr

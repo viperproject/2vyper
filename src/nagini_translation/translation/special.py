@@ -13,7 +13,7 @@ from nagini_translation.translation.context import Context
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 
-from nagini_translation.errors.translation import InvalidProgramException
+from nagini_translation.exceptions import InvalidProgramException
 
 from nagini_translation.viper.typedefs import Expr, Stmt
 from nagini_translation.viper.ast import ViperAST
