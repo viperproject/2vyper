@@ -264,7 +264,10 @@ class ExpressionTranslator(NodeTranslator):
                     to_stmts.extend(function_stmts)
                     # Get the index of the value expression
                     val_idx = first_index(lambda n: n.arg == names.RAW_CALL_VALUE, node.keywords)
-                    amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
+                    if val_idx >= 0:
+                        amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
+                    else:
+                        amount_stmts, amount = [], self.viper_ast.IntLit(0, pos)
 
                 self_balance = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
                 lt = self.viper_ast.LtCmp(self_balance, amount)

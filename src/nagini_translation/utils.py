@@ -12,7 +12,7 @@ from typing import Iterable
 
 
 def first_index(statisfying, l):
-    return next(i for i, v in enumerate(l) if statisfying(v))
+    return next((i for i, v in enumerate(l) if statisfying(v)), -1)
 
 
 def flatten(iterables: Iterable[Iterable]):

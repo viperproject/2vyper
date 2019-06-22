@@ -29,3 +29,8 @@ def get_reward_out_of_order():
 @public
 def call_with_result(func: bytes[4]):
     res: bytes[4] = raw_call(msg.sender, func, outsize=4, value=self.reward, gas=msg.gas)
+
+
+@public
+def raw_call_no_val(func: bytes[4]):
+    res: bytes[128] = raw_call(msg.sender, func, outsize=128, gas=msg.gas)
