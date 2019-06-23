@@ -86,7 +86,8 @@ class TypeAnnotator:
             self.annotate(stmt)
 
     def annotate_Raise(self, node: ast.Raise):
-        self.annotate(node.exc)
+        if not (isinstance(node.exc, ast.Name) and node.exc.id == names.UNREACHABLE):
+            self.annotate(node.exc)
 
     def annotate_Assert(self, node: ast.Assert):
         self.annotate(node.test)

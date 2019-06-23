@@ -105,7 +105,11 @@ class StatementTranslator(NodeTranslator):
 
     def translate_Raise(self, node: ast.Raise, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        return [self.viper_ast.Goto(ctx.revert_label, pos)]
+
+        if isinstance(node.exc, ast.Name) and node.exc.id == names.UNREACHABLE:
+            return [self.viper_ast.Assert(self.viper_ast.FalseLit(pos), pos)]
+        else:
+            return [self.viper_ast.Goto(ctx.revert_label, pos)]
 
     def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)

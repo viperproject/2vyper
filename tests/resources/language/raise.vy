@@ -16,3 +16,16 @@ def test_raise():
 def test_raise_conditional(a: bool):
     if a:
         raise "Error"
+
+
+@public
+def test_raise_unreachable(a: int128):
+    if a > 0 and a < 0:
+        raise UNREACHABLE
+
+
+@public
+def test_raise_unreachable_fail(a: int128):
+    if a > 0:
+        #:: ExpectedOutput(assert.failed:assertion.false)
+        raise UNREACHABLE
