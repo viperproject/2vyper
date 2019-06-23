@@ -45,3 +45,8 @@ def assert_unreachable(val: uint256):
 def assert_unreachable_fail(val: int128):
     #:: ExpectedOutput(assert.failed:assertion.false)
     assert False, UNREACHABLE
+
+
+@public
+def assert_property():
+    assert -1 + 1 == 0, UNREACHABLE

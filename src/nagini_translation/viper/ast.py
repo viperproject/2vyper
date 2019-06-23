@@ -8,7 +8,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import types
 
 
-INT_SIZE = 2147483647
 FUNCTION_DOMAIN_NAME = 'Function'
 
 
@@ -107,25 +106,11 @@ class ViperAST:
             result = result.updated(k, v)
         return result
 
-    def to_big_int(self, num):
-        # We cannot give integers directly to Scala if they don't
-        # fit into a C long int, so we have to split things up.
-        negative = num < 0
-        if negative:
-            num = -num
-        cutoff = INT_SIZE
-        cutoff_int = self.java.math.BigInteger.valueOf(cutoff)
-        rest = num
-        result_int = self.java.math.BigInteger.valueOf(0)
-        while rest > 0:
-            current_part = rest % cutoff
-            current_int = self.java.math.BigInteger.valueOf(current_part)
-            result_int = result_int.multiply(cutoff_int)
-            result_int = result_int.add(current_int)
-            rest = rest // cutoff
-        if negative:
-            result_int = result_int.negate()
-        return self.scala.math.BigInt(result_int)
+    def to_big_int(self, num: int):
+        # Python ints might not fit into a C int, therefore we use a String
+        num_str = str(num)
+        big_int = getobject(self.scala.math, 'BigInt')
+        return big_int.apply(num_str)
 
     def Program(self, domains, fields, functions, predicates, methods, position=None, info=None):
         position = position or self.NoPosition
