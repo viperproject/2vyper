@@ -149,20 +149,26 @@ class SpecificationTranslator(ExpressionTranslator):
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
             return [], map_sum(self.viper_ast, expr, key_type, pos)
-        elif name == names.SENT:
-            if not node.args:
-                sent_acc = builtins.self_sent_field_acc(self.viper_ast, pos)
-                return [], sent_acc
+        elif name == names.SENT or name == names.RECEIVED:
+            if not self._ignore_old and not ctx.use_viper_old and ctx.inside_old:
+                self_var = builtins.old_self_var(self.viper_ast, pos).localVar()
             else:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, builtins.self_sent_map_get(self.viper_ast, arg, pos)
-        elif name == names.RECEIVED:
-            if not node.args:
-                received_acc = builtins.self_received_field_acc(self.viper_ast, pos)
-                return [], received_acc
-            else:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, builtins.self_received_map_get(self.viper_ast, arg, pos)
+                self_var = builtins.self_var(self.viper_ast, pos).localVar()
+
+            if name == names.SENT:
+                if not node.args:
+                    sent_acc = builtins.self_sent_field_acc(self.viper_ast, self_var, pos)
+                    return [], sent_acc
+                else:
+                    arg_stmts, arg = self.translate(node.args[0], ctx)
+                    return arg_stmts, builtins.self_sent_map_get(self.viper_ast, arg, self_var, pos)
+            elif name == names.RECEIVED:
+                if not node.args:
+                    received_acc = builtins.self_received_field_acc(self.viper_ast, self_var, pos)
+                    return [], received_acc
+                else:
+                    arg_stmts, arg = self.translate(node.args[0], ctx)
+                    return arg_stmts, builtins.self_received_map_get(self.viper_ast, arg, self_var, pos)
         elif name not in names.NOT_ALLOWED_IN_SPEC:
             return super().translate_Call(node, ctx)
         else:

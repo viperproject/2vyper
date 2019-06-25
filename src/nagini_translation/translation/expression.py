@@ -269,7 +269,8 @@ class ExpressionTranslator(NodeTranslator):
                     else:
                         amount_stmts, amount = [], self.viper_ast.IntLit(0, pos)
 
-                self_balance = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
+                self_var = ctx.self_var.localVar()
+                self_balance = self.viper_ast.FieldAccess(self_var, ctx.balance_field)
                 lt = self.viper_ast.LtCmp(self_balance, amount)
                 eq = self.viper_ast.EqCmp(self.viper_ast.IntLit(0), amount)
                 check = self.fail_if(self.viper_ast.Or(lt, eq), ctx)
@@ -277,10 +278,10 @@ class ExpressionTranslator(NodeTranslator):
                 sub = self.viper_ast.Sub(self_balance, amount)
                 sub_stmt = self.viper_ast.FieldAssign(self_balance, sub)
 
-                sent_get = builtins.self_sent_map_get(self.viper_ast, to, pos)
+                sent_get = builtins.self_sent_map_get(self.viper_ast, to, self_var, pos)
                 sent_add = self.viper_ast.Add(sent_get, amount, pos)
-                sent_acc = builtins.self_sent_field_acc(self.viper_ast, pos)
-                sent_set = builtins.self_sent_map_set(self.viper_ast, to, sent_add, pos)
+                sent_acc = builtins.self_sent_field_acc(self.viper_ast, self_var, pos)
+                sent_set = builtins.self_sent_map_set(self.viper_ast, to, sent_add, self_var, pos)
                 sent_assign = self.viper_ast.FieldAssign(sent_acc, sent_set, pos)
 
                 stmts = [*to_stmts, *amount_stmts, check, sub_stmt, sent_assign]

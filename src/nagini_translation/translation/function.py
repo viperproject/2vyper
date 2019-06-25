@@ -158,10 +158,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
                 # Increase received for msg.sender by msg.value
                 msg_sender = builtins.msg_sender_field_acc(self.viper_ast)
-                rec = builtins.self_received_field_acc(self.viper_ast)
-                rec_acc = builtins.self_received_map_get(self.viper_ast, msg_sender)
+                rec = builtins.self_received_field_acc(self.viper_ast, ctx.self_var.localVar())
+                rec_acc = builtins.self_received_map_get(self.viper_ast, msg_sender, ctx.self_var.localVar())
                 rec_inc_sum = self.viper_ast.Add(rec_acc, value_acc)
-                rec_set = builtins.self_received_map_set(self.viper_ast, msg_sender, rec_inc_sum)
+                rec_set = builtins.self_received_map_set(self.viper_ast, msg_sender, rec_inc_sum, ctx.self_var.localVar())
                 rec_inc = self.viper_ast.FieldAssign(rec, rec_set)
                 body.append(rec_inc)
 
