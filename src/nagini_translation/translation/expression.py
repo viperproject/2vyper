@@ -283,7 +283,7 @@ class ExpressionTranslator(NodeTranslator):
                 sent_set = builtins.self_sent_map_set(self.viper_ast, to, sent_add, pos)
                 sent_assign = self.viper_ast.FieldAssign(sent_acc, sent_set, pos)
 
-                stmts = [*to_stmts, *amount_stmts, check, *ctx.copy_old, sub_stmt, sent_assign]
+                stmts = [*to_stmts, *amount_stmts, check, sub_stmt, sent_assign]
 
                 with use_old_scope(False, ctx):
                     invs = ctx.invariants(ctx)
@@ -320,7 +320,7 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     return_value = None
 
-                return stmts + inv_assertions + inh_exh + assumes + afters, return_value
+                return stmts + inv_assertions + ctx.copy_old + inh_exh + assumes + afters, return_value
         else:
             name = node.func.attr
             stmts = []
