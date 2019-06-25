@@ -65,7 +65,7 @@ class SpecificationTranslator(ExpressionTranslator):
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
         if self._invariant_mode and (node.id == names.MSG or node.id == names.BLOCK):
             assert False  # TODO: handle
-        elif not self._ignore_old and not ctx.use_old and ctx.inside_old and node.id == names.SELF:
+        elif not self._ignore_old and not ctx.use_viper_old and ctx.inside_old and node.id == names.SELF:
             pos = self.to_position(node, ctx)
             return [], builtins.old_self_var(self.viper_ast, pos).localVar()
         else:
@@ -125,10 +125,16 @@ class SpecificationTranslator(ExpressionTranslator):
                 raise InvalidProgramException(node, "Old expression requires a single argument.")
 
             arg = node.args[0]
+
+            # We are inside an 'old' statement
             with inside_old_scope(ctx):
                 expr = self._translate_spec(arg, ctx)
-            if self._ignore_old or not ctx.use_old:
+            # If we ignore old or if we use the 'old' state, we don't need to do more, as we
+            # already use $old_self variables
+            if self._ignore_old or not ctx.use_viper_old:
                 return [], expr
+            # Else we use Viper 'old' statements, of which we can either use a labelled or
+            # an unlablled one
             else:
                 if ctx.old_label:
                     return [], self.viper_ast.LabelledOld(expr, ctx.old_label.name(), pos)

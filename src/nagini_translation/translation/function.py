@@ -16,7 +16,7 @@ from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.context import function_scope, use_old_scope, inline_scope
+from nagini_translation.translation.context import function_scope, use_viper_old_scope, inline_scope
 
 from nagini_translation.translation import builtins
 
@@ -227,7 +227,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             invariant_assertions_fail = []
             translate_inv = self.specification_translator.translate_invariant
             for inv in ctx.program.invariants:
-                with use_old_scope(False, ctx):
+                with use_viper_old_scope(False, ctx):
                     expr = translate_inv(inv, ctx, False, is_init)
                 fail = translate_inv(inv, ctx, False, is_init)
 

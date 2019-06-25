@@ -16,7 +16,7 @@ from nagini_translation.ast.types import MapType, ArrayType
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context, use_old_scope
+from nagini_translation.translation.context import Context, use_viper_old_scope
 
 from nagini_translation.translation.builtins import (
     map_get, array_get, array_contains, array_not_contains
@@ -285,7 +285,7 @@ class ExpressionTranslator(NodeTranslator):
 
                 stmts = [*to_stmts, *amount_stmts, check, sub_stmt, sent_assign]
 
-                with use_old_scope(False, ctx):
+                with use_viper_old_scope(False, ctx):
                     invs = ctx.invariants(ctx)
                 inv_assertions = []
                 for inv in invs:
