@@ -59,7 +59,7 @@ class ProgramBuilder(ast.NodeVisitor):
 
     def build(self, node) -> VyperProgram:
         self.visit(node)
-        # No trailing pre and postconditions allowed
+        # No trailing local specs allowed
         self._check_no_local_spec()
         return VyperProgram(self.state,
                             self.functions,
@@ -68,6 +68,10 @@ class ProgramBuilder(ast.NodeVisitor):
                             self.general_checks)
 
     def _check_no_local_spec(self):
+        """
+        Checks that there are no specifications for functions pending, i.e. there
+        are no local specifications followed by either global specifications or eof.
+        """
         if self.preconditions:
             cond = "Precondition"
             node = self.preconditions[0]
@@ -82,7 +86,7 @@ class ProgramBuilder(ast.NodeVisitor):
         raise InvalidProgramException(node, f"{cond} only allowed before function")
 
     def visit_AnnAssign(self, node):
-        # No preconditions and postconditions are allowed before contract state variables
+        # No local specs are allowed before contract state variables
         self._check_no_local_spec()
 
         variable_name = node.target.id
@@ -143,6 +147,7 @@ class ProgramBuilder(ast.NodeVisitor):
         function = VyperFunction(node.name, args, local_vars, type,
                                  self.preconditions, self.postconditions, self.checks, decs, node)
         self.functions[node.name] = function
+        # Reset local specs
         self.preconditions = []
         self.postconditions = []
         self.checks = []
