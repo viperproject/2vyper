@@ -13,7 +13,6 @@ class Context:
     def __init__(self, file: str):
         self.file = file
         self.program = None
-        self.inlined = {}
         # All Vyper self-fields not including ghost fields
         self.fields = {}
         # Permissions of fields that have to be passed around

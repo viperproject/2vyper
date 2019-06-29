@@ -65,6 +65,11 @@ class ExpressionTranslator(NodeTranslator):
         from nagini_translation.translation.specification import SpecificationTranslator
         return SpecificationTranslator(self.viper_ast)
 
+    @property
+    def function_translator(self):
+        from nagini_translation.translation.function import FunctionTranslator
+        return FunctionTranslator(self.viper_ast)
+
     def translate_Num(self, node: ast.Num, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
@@ -351,5 +356,6 @@ class ExpressionTranslator(NodeTranslator):
             if node.func.value.id == names.LOG:
                 return self._seqn_with_info(stmts, f"Event: {name}"), None
             else:
-                call_stmts, res = ctx.inlined[name](args, ctx)
+                func = ctx.program.functions[name]
+                call_stmts, res = self.function_translator.inline(func, args, ctx)
                 return stmts + call_stmts, res
