@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from itertools import chain
+
 from nagini_translation.utils import flatten, first_index
 
 from nagini_translation.ast import names
@@ -293,19 +295,21 @@ class ExpressionTranslator(NodeTranslator):
 
                 check_assertions = []
                 with use_viper_old_scope(False, ctx):
-                    for check in ctx.function.checks + ctx.program.general_checks:
+                    for check in chain(ctx.function.checks, ctx.program.general_checks):
                         check_cond = self.spec_translator.translate_check(check, ctx)
                         via = [('check', check_cond.pos())]
                         check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via)
                         check_assertions.append(self.viper_ast.Assert(check_cond, check_pos))
 
-                with use_viper_old_scope(False, ctx):
-                    invs = ctx.invariants(ctx)
+                invs = []
                 inv_assertions = []
-                for inv in invs:
-                    via = [('invariant', inv.pos())]
+                for inv in ctx.program.invariants:
+                    with use_viper_old_scope(False, ctx):
+                        cond = self.spec_translator.translate_invariant(inv, ctx)
+                        invs.append(cond)
+                    via = [('invariant', cond.pos())]
                     call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
-                    inv_assertions.append(self.viper_ast.Assert(inv, call_pos))
+                    inv_assertions.append(self.viper_ast.Assert(cond, call_pos))
                 ex_fields = [self.viper_ast.Exhale(perm) for perm in ctx.permissions]
                 in_fields = [self.viper_ast.Inhale(perm) for perm in ctx.permissions]
                 inh_exh = ex_fields + in_fields

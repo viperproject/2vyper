@@ -140,7 +140,7 @@ class SpecificationTranslator(ExpressionTranslator):
             if self._ignore_old or not ctx.use_viper_old:
                 return [], expr
             # Else we use Viper 'old' statements, of which we can either use a labelled or
-            # an unlablled one
+            # an unlabelled one
             else:
                 if ctx.old_label:
                     return [], self.viper_ast.LabelledOld(expr, ctx.old_label.name(), pos)

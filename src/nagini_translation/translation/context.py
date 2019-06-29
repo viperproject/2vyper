@@ -25,9 +25,6 @@ class Context:
         # Note: already translated, as they should never fail
         self.permissions = []
         self.immutable_permissions = []
-        # Invariants specified by the user
-        # Since we need the current self-variables etc. this is a function TODO: change
-        self.invariants = None
         # Invariants that are not checked at the end of each function but just assumed, namely
         # conditions like non-negativeness for uint256
         # Note: already translated, as they are never checked and therfore cannot fail
