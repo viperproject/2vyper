@@ -14,8 +14,10 @@ def preprocess(program: str) -> str:
     # The spaces are used to keep the column numbers correct in the preprocessed program.
     program = program.replace('#@ requires:', 'requires   =')
     program = program.replace('#@ ensures:', 'ensures   =')
+    program = program.replace('#@ check:', 'check   =')
     program = program.replace('#@ invariant:', 'invariant   =')
     program = program.replace('#@ always ensures:', 'always_ensures   =')
+    program = program.replace('#@ always check:', 'always_check   =')
 
     if '#@' in program:
         raise InvalidProgramException(None, "Invalid specification: #@ not allowed here.")

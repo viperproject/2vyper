@@ -7,4 +7,5 @@
 
 i: public(int128)
 
-#@ invariant: self.i == 0
+#:: ExpectedOutput(check.violated:assertion.false)
+#@ always check: self.i < 0

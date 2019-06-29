@@ -41,6 +41,12 @@ class SpecificationTranslator(ExpressionTranslator):
         self._ignore_old = is_init
         return self._translate_spec(post, ctx)
 
+    def translate_check(self, check: ast.AST, ctx: Context, is_init=False):
+        # TODO Replace by check mode
+        self._invariant_mode = False
+        self._ignore_old = is_init
+        return self._translate_spec(check, ctx)
+
     def translate_invariant(self, inv: ast.AST, ctx: Context, is_pre=False, is_init=False):
         # Invariants do not have to hold before __init__
         if is_pre and is_init:

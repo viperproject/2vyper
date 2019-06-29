@@ -58,6 +58,11 @@ class ExpressionTranslator(NodeTranslator):
             ast.Not: self.viper_ast.Not
         }
 
+    @property
+    def spec_translator(self):
+        from nagini_translation.translation.specification import SpecificationTranslator
+        return SpecificationTranslator(self.viper_ast)
+
     def translate_Num(self, node: ast.Num, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
@@ -286,6 +291,14 @@ class ExpressionTranslator(NodeTranslator):
 
                 stmts = [*to_stmts, *amount_stmts, check, sub_stmt, sent_assign]
 
+                check_assertions = []
+                with use_viper_old_scope(False, ctx):
+                    for check in ctx.function.checks + ctx.program.general_checks:
+                        check_cond = self.spec_translator.translate_check(check, ctx)
+                        via = [('check', check_cond.pos())]
+                        check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via)
+                        check_assertions.append(self.viper_ast.Assert(check_cond, check_pos))
+
                 with use_viper_old_scope(False, ctx):
                     invs = ctx.invariants(ctx)
                 inv_assertions = []
@@ -321,7 +334,7 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     return_value = None
 
-                return stmts + inv_assertions + ctx.copy_old + inh_exh + assumes + afters, return_value
+                return stmts + check_assertions + inv_assertions + ctx.copy_old + inh_exh + assumes + afters, return_value
         else:
             name = node.func.attr
             stmts = []

@@ -49,32 +49,41 @@ class ProgramBuilder(ast.NodeVisitor):
         self.functions = {}
         self.invariants = []
         self.general_postconditions = []
+        self.general_checks = []
 
         self.preconditions = []
         self.postconditions = []
+        self.checks = []
 
         self.type_builder = TypeBuilder()
 
     def build(self, node) -> VyperProgram:
         self.visit(node)
         # No trailing pre and postconditions allowed
-        self._check_no_prepostconditions()
-        return VyperProgram(self.state, self.functions, self.invariants, self.general_postconditions)
+        self._check_no_local_spec()
+        return VyperProgram(self.state,
+                            self.functions,
+                            self.invariants,
+                            self.general_postconditions,
+                            self.general_checks)
 
-    def _check_no_prepostconditions(self):
+    def _check_no_local_spec(self):
         if self.preconditions:
             cond = "Precondition"
             node = self.preconditions[0]
         elif self.postconditions:
             cond = "Postcondition"
             node = self.postconditions[0]
+        elif self.checks:
+            cond = "Check"
+            node = self.checks[0]
         else:
             return
         raise InvalidProgramException(node, f"{cond} only allowed before function")
 
     def visit_AnnAssign(self, node):
         # No preconditions and postconditions are allowed before contract state variables
-        self._check_no_prepostconditions()
+        self._check_no_local_spec()
 
         variable_name = node.target.id
         # We ignore the units declaration
@@ -98,18 +107,25 @@ class ProgramBuilder(ast.NodeVisitor):
         name = node.targets[0].id
         if name == names.INVARIANT:
             # No preconditions and posconditions allowed before invariants
-            self._check_no_prepostconditions()
+            self._check_no_local_spec()
 
             self.invariants.append(node.value)
         elif name == names.GENERAL_POSTCONDITION:
             # No preconditions and posconditions allowed before general postconditions
-            self._check_no_prepostconditions()
+            self._check_no_local_spec()
 
             self.general_postconditions.append(node.value)
+        elif name == names.GENERAL_CHECK:
+            # No preconditions and posconditions allowed before general check
+            self._check_no_local_spec()
+
+            self.general_checks.append(node.value)
         elif name == names.PRECONDITION:
             self.preconditions.append(node.value)
         elif name == names.POSTCONDITION:
             self.postconditions.append(node.value)
+        elif name == names.CHECK:
+            self.checks.append(node.value)
         else:
             # TODO: handle
             raise AssertionError("Top-level assigns that are not specifications should never happen.")
@@ -124,10 +140,12 @@ class ProgramBuilder(ast.NodeVisitor):
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
         decs = self._decorators(node)
-        function = VyperFunction(node.name, args, local_vars, type, self.preconditions, self.postconditions, decs, node)
+        function = VyperFunction(node.name, args, local_vars, type,
+                                 self.preconditions, self.postconditions, self.checks, decs, node)
         self.functions[node.name] = function
         self.preconditions = []
         self.postconditions = []
+        self.checks = []
 
 
 class LocalProgramBuilder(ast.NodeVisitor):

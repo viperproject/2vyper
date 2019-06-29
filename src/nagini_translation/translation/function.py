@@ -183,9 +183,11 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # The end of a program, label where return statements jump to
             body.append(end_label)
 
-            # Postconditions hold for single transactions, invariants across transactions.
+            # Postconditions hold for single transactions, checks hold before any public state,
+            # invariants across transactions.
             # Therefore, after the function execution the following steps happen:
             #   - Assert the specified postconditions of the function
+            #   - Assert the checks
             #   - Havoc self.balance
             #   - Assert invariants
             # This is necessary because a contract may receive additional money through
@@ -213,6 +215,45 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     posts.append(self.viper_ast.Assert(cond, func_pos))
 
             body.extend(self._seqn_with_info(posts, "Assert postconditions"))
+
+            # Translate function checks:
+            #   - Use old state
+            checks_succ = []
+            checks_fail = []
+            for check in function.checks:
+                check_pos = self.to_position(check, ctx, rules.CHECK_FAIL)
+                with use_viper_old_scope(False, ctx):
+                    cond_succ = self.specification_translator.translate_check(check, ctx)
+                    checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
+                cond_fail = self.specification_translator.translate_check(check, ctx)
+                # Checks do not have to hold if init fails
+                if not is_init:
+                    checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
+
+            for check in ctx.program.general_checks:
+                with use_viper_old_scope(False, ctx):
+                    cond_succ = self.specification_translator.translate_check(check, ctx, is_init)
+                cond_fail = self.specification_translator.translate_check(check, ctx)
+
+                # If we are in the initializer we might have a synthesized init, therefore
+                # just use always check as position, else use function as position and create
+                # via to always check
+                if is_init:
+                    check_pos = self.to_position(check, ctx, rules.CHECK_FAIL)
+                else:
+                    check_pos = self.to_position(check, ctx)
+                    via = [('check', check_pos)]
+                    check_pos = self.to_position(function.node, ctx, rules.CHECK_FAIL, via)
+
+                checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
+                # Checks do not have to hold if init fails
+                if not is_init:
+                    checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
+
+            if checks_succ or checks_fail:
+                checks_info = self.to_info(["Assert checks"])
+                if_stmt = self.viper_ast.If(success_var.localVar(), checks_succ, checks_fail)
+                body.append(self.viper_ast.Seqn([if_stmt], info=checks_info))
 
             # Havoc self.balance
             balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)

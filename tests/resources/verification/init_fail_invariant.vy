@@ -5,6 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-i: public(int128)
+#@ invariant: False
 
-#@ invariant: self.i == 0
+#@ ensures: not success()
+@public
+def __init__():
+    assert False

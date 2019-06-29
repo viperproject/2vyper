@@ -19,6 +19,8 @@ ERRORS = {
         lambda i: f"Function {i.function} might not be well-formed.",
     'call.invariant':
         lambda i: f"An invariant might not hold before the call {pprint(i.node)}.",
+    'call.check':
+        lambda i: f"A check might not hold before the call {pprint(i.node)}.",
     'call.precondition':
         lambda i: f"The precondition of function {pprint(i.node)} might not hold.",
     'application.precondition':
@@ -37,6 +39,8 @@ ERRORS = {
         lambda i: f"Postcondition of {i.function} might not hold.",
     'invariant.violated':
         lambda i: f"Invariant not preserved by {i.function}.",
+    'check.violated':
+        lambda i: f"A check might not hold after the body of {i.function}.",
     'invariant.not.wellformed':
         lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
     'fold.failed':

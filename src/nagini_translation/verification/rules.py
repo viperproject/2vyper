@@ -34,9 +34,25 @@ POSTCONDITION_FAIL = {
         ('not.wellformed', 'seq.index.negative')
 }
 
+CHECK_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('check.violated', 'assertion.false'),
+    ('assert.failed', 'division.by.zero'):
+        ('not.wellformed', 'division.by.zero'),
+    ('assert.failed', 'seq.index.length'):
+        ('not.wellformed', 'seq.index.length'),
+    ('assert.failed', 'seq.index.negative'):
+        ('not.wellformed', 'seq.index.negative')
+}
+
 CALL_INVARIANT_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('call.invariant', 'assertion.false')
+}
+
+CALL_CHECK_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('call.check', 'assertion.false')
 }
 
 INHALE_INVARIANT_FAIL = {

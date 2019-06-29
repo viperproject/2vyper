@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ invariant: False
+#@ always check: False
 
 #@ ensures: not success()
 @public

@@ -96,7 +96,7 @@ def read_perm(viper_ast: ViperAST, pos=None, info=None):
 def init_function() -> ast.FunctionDef:
     node = ast.FunctionDef(INIT, [], [], [], None)
     type = FunctionType([], None)
-    return VyperFunction(INIT, {}, {}, type, [], [], [names.PUBLIC], node)
+    return VyperFunction(INIT, {}, {}, type, [], [], [], [names.PUBLIC], node)
 
 
 def self_var(viper_ast: ViperAST, pos=None, info=None):

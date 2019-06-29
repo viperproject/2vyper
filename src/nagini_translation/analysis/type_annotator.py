@@ -36,6 +36,8 @@ class TypeAnnotator:
                 self.annotate(pre)
             for post in function.postconditions:
                 self.annotate(post)
+            for check in function.checks:
+                self.annotate(check)
             self.current_func = None
 
         for inv in self.program.invariants:
@@ -43,6 +45,9 @@ class TypeAnnotator:
 
         for post in self.program.general_postconditions:
             self.annotate(post)
+
+        for check in self.program.general_checks:
+            self.annotate(check)
 
     def annotate(self, node: ast.AST):
         """Annotate a node."""

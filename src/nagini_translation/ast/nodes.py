@@ -28,6 +28,7 @@ class VyperFunction:
                  type: FunctionType,
                  preconditions: List[ast.Expr],
                  postconditions: List[ast.Expr],
+                 checks: List[ast.Expr],
                  decorators: List[str],
                  node: ast.FunctionDef):
         self.name = name
@@ -36,6 +37,7 @@ class VyperFunction:
         self.type = type
         self.preconditions = preconditions
         self.postconditions = postconditions
+        self.checks = checks
         self.decorators = decorators
         self.node = node
 
@@ -52,8 +54,10 @@ class VyperProgram:
                  state: Dict[str, VyperVar],
                  functions: Dict[str, VyperFunction],
                  invariants: List[ast.Expr],
-                 general_postconditions: List[ast.Expr]):
+                 general_postconditions: List[ast.Expr],
+                 general_checks: List[ast.Expr]):
         self.state = state
         self.functions = functions
         self.invariants = invariants
         self.general_postconditions = general_postconditions
+        self.general_checks = general_checks
