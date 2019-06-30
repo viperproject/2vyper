@@ -88,9 +88,9 @@ def quantifier_var_name(vyper_name: str) -> str:
 
 
 def read_perm(viper_ast: ViperAST, pos=None, info=None):
-    one = viper_ast.FullPerm(pos, info)
+    one = viper_ast.IntLit(1, pos, info)
     two = viper_ast.IntLit(2, pos, info)
-    return viper_ast.PermDiv(one, two, pos, info)
+    return viper_ast.FractionalPerm(one, two, pos, info)
 
 
 def init_function() -> ast.FunctionDef:
