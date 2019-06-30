@@ -94,12 +94,14 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.FORALL:
             with quantified_var_scope(ctx):
                 num_args = len(node.args)
+                quants = []
                 # The first argument to forall is the variable declaration dict
                 for var_name in node.args[0].keys:
                     name_pos = self.to_position(var_name, ctx)
                     type = self.type_translator.translate(var_name.type, ctx)
                     qname = builtins.quantifier_var_name(var_name.id)
                     var_decl = self.viper_ast.LocalVarDecl(qname, type, name_pos)
+                    quants.append(var_decl)
                     ctx.quantified_vars[var_name.id] = var_decl
                     ctx.all_vars[var_name.id] = var_decl
 
@@ -114,7 +116,6 @@ class SpecificationTranslator(ExpressionTranslator):
                     trigger = self.viper_ast.Trigger(trigger_exprs, trigger_pos)
                     triggers.append(trigger)
 
-                quants = ctx.quantified_vars.values()
                 return [], self.viper_ast.Forall(quants, triggers, expr, pos)
         elif name == names.RESULT or name == names.SUCCESS:
             cap = name.capitalize()

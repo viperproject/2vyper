@@ -165,8 +165,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             return ret
 
         with quantified_var_scope(ctx):
-            ret = construct(type, node)
-        return ret
+            return construct(type, node)
 
     def array_bounds_check(self, array, index, ctx: Context) -> Stmt:
         leq = self.viper_ast.LeCmp(self.viper_ast.IntLit(0), index)
