@@ -26,7 +26,8 @@ class FunctionType(VyperType):
     def __init__(self, arg_types: List[VyperType], return_type: Optional[VyperType]):
         self.arg_types = arg_types
         self.return_type = return_type
-        name = f'({", ".join(str(arg_types))}) -> {return_type}'
+        arg_type_names = [str(arg) for arg in arg_types]
+        name = f'({", ".join(arg_type_names)}) -> {return_type}'
         super().__init__(name)
 
 
