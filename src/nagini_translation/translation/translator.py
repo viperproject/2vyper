@@ -194,9 +194,9 @@ class ProgramTranslator(PositionTranslator):
         inv_assertions = []
         with old_label_scope(old1, ctx):
             for inv in ctx.program.invariants:
-                inv_expr = self.specification_translator.translate_invariant(inv, ctx)
                 rule = rules.TRANSITIVITY_VIOLATED
                 apos = self.to_position(inv, ctx, rule)
+                inv_expr = self.specification_translator.translate_invariant(inv, ctx)
                 inv_assertions.append(self.viper_ast.Assert(inv_expr, apos))
 
         body.extend(inv_assertions)
