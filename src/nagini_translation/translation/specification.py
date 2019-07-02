@@ -167,15 +167,26 @@ class SpecificationTranslator(ExpressionTranslator):
                     sent_acc = builtins.self_sent_field_acc(self.viper_ast, self_var, pos)
                     return [], sent_acc
                 else:
-                    arg_stmts, arg = self.translate(node.args[0], ctx)
-                    return arg_stmts, builtins.self_sent_map_get(self.viper_ast, arg, self_var, pos)
+                    arg = self._translate_spec(node.args[0], ctx)
+                    return [], builtins.self_sent_map_get(self.viper_ast, arg, self_var, pos)
             elif name == names.RECEIVED:
                 if not node.args:
                     received_acc = builtins.self_received_field_acc(self.viper_ast, self_var, pos)
                     return [], received_acc
                 else:
-                    arg_stmts, arg = self.translate(node.args[0], ctx)
-                    return arg_stmts, builtins.self_received_map_get(self.viper_ast, arg, self_var, pos)
+                    arg = self._translate_spec(node.args[0], ctx)
+                    return [], builtins.self_received_map_get(self.viper_ast, arg, self_var, pos)
+        elif name == names.EVENT:
+            event = node.args[0]
+            event_name = builtins.event_name(event.func.id)
+            args = [self._translate_spec(arg, ctx) for arg in event.args]
+            full_perm = self.viper_ast.FullPerm(pos)
+            one = self.viper_ast.IntLit(1, pos)
+            num = self._translate_spec(node.args[1], ctx) if len(node.args) == 2 else one
+            perm = self.viper_ast.IntPermMul(num, full_perm, pos)
+            pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
+            current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
+            return [], self.viper_ast.EqCmp(current_perm, perm, pos)
         elif name not in names.NOT_ALLOWED_IN_SPEC:
             return super().translate_Call(node, ctx)
         else:

@@ -354,6 +354,11 @@ class ExpressionTranslator(NodeTranslator):
                 args.append(arg_expr)
 
             if node.func.value.id == names.LOG:
+                event_name = builtins.event_name(name)
+                pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
+                one = self.viper_ast.FullPerm(pos)
+                pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, one, pos)
+                stmts.append(self.viper_ast.Inhale(pred_acc_pred, pos))
                 return self._seqn_with_info(stmts, f"Event: {name}"), None
             else:
                 func = ctx.program.functions[name]

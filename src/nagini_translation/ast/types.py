@@ -65,8 +65,10 @@ class PrimitiveType(VyperType):
 
 class EventType(VyperType):
 
-    def __init__(self):
-        super().__init__('event')
+    def __init__(self, arg_types: List[VyperType]):
+        self.arg_types = arg_types
+        arg_type_names = [str(arg) for arg in arg_types]
+        super().__init__(f'event({", ".join(arg_type_names)})')
 
 
 VYPER_BOOL = PrimitiveType(names.BOOL)
@@ -113,20 +115,22 @@ class TypeBuilder(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> VyperType:
         # We allow
-        #   - public: not important for verification
+        #   - public, indexed: not important for verification
         #   - map: map type
         #   - event: event type
         # Not allowed is
         #   - constant: should already be replaced
         # Anything else is treated as a unit
-        if node.func.id == names.PUBLIC:
+        if node.func.id == names.PUBLIC or node.func.id == names.INDEXED:
             return self.visit(node.args[0])
         elif node.func.id == names.MAP:
             key_type = self.visit(node.args[0])
             value_type = self.visit(node.args[1])
             return MapType(key_type, value_type)
         elif node.func.id == names.EVENT:
-            return EventType()
+            dict_literal = node.args[0]
+            arg_types = [self.visit(arg) for arg in dict_literal.values]
+            return EventType(arg_types)
         else:
             return TYPES[node.func.id]
 

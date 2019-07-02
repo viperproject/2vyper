@@ -27,6 +27,8 @@ def inc_val() -> address:
 
 
 #@ ensures: self.val == old(self.val) + 1
+#@ ensures: event(Transfer(msg.sender, self.ad, self.weis), 1)
+#@ ensures: event(Transfer(msg.sender, self.ad, self.weis))
 @public
 def transfer_stmts():
     log.Transfer(msg.sender, self.inc_val(), self.weis)
@@ -37,3 +39,19 @@ def transfer_stmts():
 def transfer_not_success(idx: int128):
     assert idx > 10
     log.Transfer(msg.sender, self.ads[idx], self.weis)
+
+
+#@ ensures: implies(success(), event(Transfer(msg.sender, self.ads[idx], self.weis), 2))
+@public
+def transfer_twice(idx: int128):
+    log.Transfer(msg.sender, self.ads[idx], self.weis)
+    log.Transfer(msg.sender, self.ads[idx], self.weis)
+
+
+#@ ensures: not success()
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: event(Transfer(msg.sender, self.ad, self.weis))
+@public
+def transfer_revert_fail(idx: int128):
+    log.Transfer(msg.sender, self.ad, self.weis)
+    assert False

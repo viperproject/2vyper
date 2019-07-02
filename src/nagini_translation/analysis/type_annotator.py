@@ -132,9 +132,13 @@ class TypeAnnotator:
         self.annotate(node.comparators[0])
 
     def annotate_Call(self, node: ast.Call):
-        if isinstance(node.func, ast.Name) and node.func.id == names.FORALL:
-            self._annotate_forall(node)
-            return
+        if isinstance(node.func, ast.Name):
+            if node.func.id == names.FORALL:
+                self._annotate_forall(node)
+                return
+            elif node.func.id == names.EVENT:
+                self._annotate_event(node)
+                return
 
         for arg in node.args:
             self.annotate(arg)
@@ -186,13 +190,6 @@ class TypeAnnotator:
         else:
             assert False  # TODO: handle
 
-    def annotate_Bytes(self, node: ast.Bytes):
-        node.type = types.ArrayType(types.VYPER_BYTE, len(node.s), False)
-
-    def annotate_Str(self, node: ast.Str):
-        string_bytes = bytes(node.s, 'utf-8')
-        node.type = types.StringType(len(string_bytes))
-
     def _annotate_forall(self, node: ast.Call):
         old_quants = self.quantified_vars.copy()
         var_decls = node.args[0]  # This is a dictionary of variable declarations
@@ -206,6 +203,24 @@ class TypeAnnotator:
             self.annotate(arg)
 
         self.quantified_vars = old_quants
+
+    def _annotate_event(self, node: ast.Call):
+        assert isinstance(node.args[0], ast.Call)  # TODO: handle
+
+        for arg in node.args[0].args:
+            self.annotate(arg)
+
+        if len(node.args) == 2:
+            self.annotate(node.args[1])
+
+        node.type = types.VYPER_BOOL
+
+    def annotate_Bytes(self, node: ast.Bytes):
+        node.type = types.ArrayType(types.VYPER_BYTE, len(node.s), False)
+
+    def annotate_Str(self, node: ast.Str):
+        string_bytes = bytes(node.s, 'utf-8')
+        node.type = types.StringType(len(string_bytes))
 
     def annotate_Set(self, node: ast.Set):
         for elem in node.elts:

@@ -9,7 +9,7 @@ from nagini_translation.utils import seq_to_list
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.nodes import VyperProgram, VyperVar
+from nagini_translation.ast.nodes import VyperProgram, VyperEvent, VyperVar
 
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.function import FunctionTranslator
@@ -118,10 +118,13 @@ class ProgramTranslator(PositionTranslator):
 
         fields_list = [*ctx.fields.values(), *ctx.immutable_fields.values()]
 
+        # Events
+        predicates = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
+
         vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
         methods.append(self._create_transitivity_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
-        viper_program = self.viper_ast.Program(domains, fields_list, functions, [], methods)
+        viper_program = self.viper_ast.Program(domains, fields_list, functions, predicates, methods)
         return viper_program
 
     def _translate_field(self, var: VyperVar, ctx: Context):
@@ -132,6 +135,12 @@ class ProgramTranslator(PositionTranslator):
         field = self.viper_ast.Field(name, type, pos)
 
         return field
+
+    def _translate_event(self, event: VyperEvent, ctx: Context):
+        name = builtins.event_name(event.name)
+        types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+        args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type) for idx, type in enumerate(types)]
+        return self.viper_ast.Predicate(name, args, None)
 
     def _create_field_access_predicate(self, field_access, amount, ctx: Context):
         if amount == 1:

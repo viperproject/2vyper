@@ -16,7 +16,7 @@ from nagini_translation.ast.types import TypeBuilder
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 
-from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperVar
+from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperEvent, VyperVar
 from nagini_translation.ast.types import FunctionType, EventType
 
 from nagini_translation.exceptions import InvalidProgramException
@@ -47,6 +47,7 @@ class ProgramBuilder(ast.NodeVisitor):
     def __init__(self):
         self.state = {}
         self.functions = {}
+        self.events = {}
         self.invariants = []
         self.general_postconditions = []
         self.general_checks = []
@@ -63,6 +64,7 @@ class ProgramBuilder(ast.NodeVisitor):
         self._check_no_local_spec()
         return VyperProgram(self.state,
                             self.functions,
+                            self.events,
                             self.invariants,
                             self.general_postconditions,
                             self.general_checks)
@@ -93,8 +95,10 @@ class ProgramBuilder(ast.NodeVisitor):
         # We ignore the units declaration
         if variable_name != names.UNITS:
             variable_type = self.type_builder.build(node.annotation)
-            # We also ignore event declarations
-            if not isinstance(variable_type, EventType):
+            if isinstance(variable_type, EventType):
+                event = VyperEvent(variable_name, variable_type)
+                self.events[variable_name] = event
+            else:
                 var = VyperVar(variable_name, variable_type, node)
                 self.state[variable_name] = var
 

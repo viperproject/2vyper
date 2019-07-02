@@ -51,6 +51,7 @@ CONSTANT_VALUES = {
 
 # Special
 UNITS = 'units'
+INDEXED = 'indexed'
 UNREACHABLE = 'UNREACHABLE'
 
 # Ether units
@@ -103,5 +104,6 @@ OLD = 'old'
 SUM = 'sum'
 SENT = 'sent'
 RECEIVED = 'received'
+EVENT = 'event'
 
 NOT_ALLOWED_IN_SPEC = [CLEAR, SEND, RANGE]

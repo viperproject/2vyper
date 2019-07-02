@@ -69,6 +69,10 @@ def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
 
 
+def event_name(vyper_name: str) -> str:
+    return f'e${vyper_name}'
+
+
 def field_name(vyper_name: str) -> str:
     if vyper_name in {SENT_FIELD, RECEIVED_FIELD}:
         return vyper_name
