@@ -18,7 +18,7 @@ from nagini_translation.ast.types import MapType, ArrayType
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.context import Context, use_viper_old_scope
+from nagini_translation.translation.context import Context
 
 from nagini_translation.translation.builtins import (
     map_get, array_get, array_contains, array_not_contains
@@ -299,19 +299,17 @@ class ExpressionTranslator(NodeTranslator):
                 stmts = [*to_stmts, *amount_stmts, check, sub_stmt, sent_assign]
 
                 check_assertions = []
-                with use_viper_old_scope(False, ctx):
-                    for check in chain(ctx.function.checks, ctx.program.general_checks):
-                        check_cond = self.spec_translator.translate_check(check, ctx)
-                        via = [('check', check_cond.pos())]
-                        check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via)
-                        check_assertions.append(self.viper_ast.Assert(check_cond, check_pos))
+                for check in chain(ctx.function.checks, ctx.program.general_checks):
+                    check_cond = self.spec_translator.translate_check(check, ctx)
+                    via = [('check', check_cond.pos())]
+                    check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via)
+                    check_assertions.append(self.viper_ast.Assert(check_cond, check_pos))
 
                 invs = []
                 inv_assertions = []
                 for inv in ctx.program.invariants:
-                    with use_viper_old_scope(False, ctx):
-                        cond = self.spec_translator.translate_invariant(inv, ctx)
-                        invs.append(cond)
+                    cond = self.spec_translator.translate_invariant(inv, ctx)
+                    invs.append(cond)
                     via = [('invariant', cond.pos())]
                     call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
                     inv_assertions.append(self.viper_ast.Assert(cond, call_pos))

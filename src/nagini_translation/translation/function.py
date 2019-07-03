@@ -16,7 +16,7 @@ from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.context import function_scope, use_viper_old_scope, inline_scope
+from nagini_translation.translation.context import function_scope, inline_scope
 
 from nagini_translation.translation import builtins
 
@@ -193,28 +193,45 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # This is necessary because a contract may receive additional money through
             # seldestruct or mining
 
+            # We have to distinguish between the success state (in which we evaluate the
+            # conditions in the new state) and the failure state (in which we evaluate the
+            # conditions in the old state before the execution of the function).
+            #
+            # For invariants, we cannot use the old state before the function, because we have
+            # to havoc the balance variable even if the function reverts. Therefore, we reset
+            # the current state to the state before the function and then havoc the balace.
+            # This is possible, because there are no events in invariants, therefore the only
+            # heap accesses are for state variables.
+            succ_stmts = []
+            fail_stmts = []
+
             # First the postconditions are asserted
-            posts = []
+            posts_succ = []
+            posts_fail = []
             # Postconditions are asserted with normal old expressions
             for post in function.postconditions:
-                cond = self.specification_translator.translate_postcondition(post, ctx)
                 post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
-                posts.append(self.viper_ast.Assert(cond, post_pos))
+                cond_succ = self.specification_translator.translate_postcondition(post, ctx, False, False)
+                posts_succ.append(self.viper_ast.Assert(cond_succ, post_pos))
+                cond_fail = self.specification_translator.translate_postcondition(post, ctx, False, True)
+                posts_fail.append(self.viper_ast.Assert(cond_fail, post_pos))
 
             for post in ctx.program.general_postconditions:
-                cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
-                post_pos = self.to_position(post, ctx)
+                cond_succ = self.specification_translator.translate_postcondition(post, ctx, is_init, False)
+                cond_fail = self.specification_translator.translate_postcondition(post, ctx, is_init, True)
                 if is_init:
-                    succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), post_pos)
-                    succ_post = self.viper_ast.Implies(succ, cond, post_pos)
-                    post_pos_r = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
-                    posts.append(self.viper_ast.Assert(succ_post, post_pos_r))
+                    post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
+                    # General postconditions only have to hold for init if it succeeds
+                    posts_succ.append(self.viper_ast.Assert(cond_succ, post_pos))
                 else:
+                    post_pos = self.to_position(post, ctx)
                     via = [('general postcondition', post_pos)]
                     func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via)
-                    posts.append(self.viper_ast.Assert(cond, func_pos))
+                    posts_succ.append(self.viper_ast.Assert(cond_succ, func_pos))
+                    posts_fail.append(self.viper_ast.Assert(cond_fail, func_pos))
 
-            body.extend(self._seqn_with_info(posts, "Assert postconditions"))
+            succ_stmts.extend(self._seqn_with_info(posts_succ, "Assert postconditions"))
+            fail_stmts.extend(self._seqn_with_info(posts_fail, "Assert postconditions"))
 
             # Translate function checks:
             #   - Use old state
@@ -222,20 +239,18 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             checks_fail = []
             for check in function.checks:
                 check_pos = self.to_position(check, ctx, rules.CHECK_FAIL)
-                with use_viper_old_scope(False, ctx):
-                    cond_succ = self.specification_translator.translate_check(check, ctx)
-                    checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
-                cond_fail = self.specification_translator.translate_check(check, ctx)
+                cond_succ = self.specification_translator.translate_check(check, ctx, is_fail=False)
+                checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
+                cond_fail = self.specification_translator.translate_check(check, ctx, is_fail=True)
                 # Checks do not have to hold if init fails
                 if not is_init:
                     checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
             for check in ctx.program.general_checks:
-                with use_viper_old_scope(False, ctx):
-                    cond_succ = self.specification_translator.translate_check(check, ctx, is_init)
-                cond_fail = self.specification_translator.translate_check(check, ctx)
+                cond_succ = self.specification_translator.translate_check(check, ctx, is_init, False)
+                cond_fail = self.specification_translator.translate_check(check, ctx, is_init, True)
 
-                # If we are in the initializer we might have a synthesized init, therefore
+                # If we are in the initializer we might have a synthesized __init__, therefore
                 # just use always check as position, else use function as position and create
                 # via to always check
                 if is_init:
@@ -246,49 +261,49 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     check_pos = self.to_position(function.node, ctx, rules.CHECK_FAIL, via)
 
                 checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
-                # Checks do not have to hold if init fails
+                # Checks do not have to hold if __init__ fails
                 if not is_init:
                     checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
-            if checks_succ or checks_fail:
-                checks_info = self.to_info(["Assert checks"])
-                if_stmt = self.viper_ast.If(success_var.localVar(), checks_succ, checks_fail)
-                body.append(self.viper_ast.Seqn([if_stmt], info=checks_info))
+            succ_stmts.extend(self._seqn_with_info(checks_succ, "Assert checks"))
+            fail_stmts.extend(self._seqn_with_info(checks_fail, "Assert checks"))
 
             # Havoc self.balance
             balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
-            body.extend(self._havoc_uint(balance_acc, ctx))
+            havoc_balance = self._havoc_uint(balance_acc, ctx)
+            succ_stmts.extend(havoc_balance)
+            fail_stmts.extend(havoc_balance)
 
-            # If the function is public we also assert the invariants
-            # Invariants if we don't fail: old == last old we encountered
-            # We use the special $old_self variable
-            invariant_assertions = []
-            # Invariants if we fail: old == beginning of the function
-            # For that we can use the normal old
-            invariant_assertions_fail = []
+            # If the function succeeds we check the invariant in the current state with havoced
+            # balance, where old is the last publicly seen state. If the function reverts, we
+            # reset the state, then havoc the balance, and last evaluate the invariant in the
+            # current (reverted) state where old is the state before the function call.
+            invariants_succ = []
+            invariants_fail = []
             translate_inv = self.specification_translator.translate_invariant
             for inv in ctx.program.invariants:
-                with use_viper_old_scope(False, ctx):
-                    expr = translate_inv(inv, ctx, False, is_init)
-                fail = translate_inv(inv, ctx, False, is_init)
+                inv_succ = translate_inv(inv, ctx, False, is_init, False)
+                inv_fail = translate_inv(inv, ctx, False, is_init, True)
 
                 # If we have a synthesized __init__ we only create an
                 # error message on the invariant
-                # Additionally, invariants only have to hold on success
                 if is_init:
                     apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
                 else:
-                    via = [('invariant', expr.pos())]
+                    inv_pos = self.to_position(inv, ctx)
+                    via = [('invariant', inv_pos)]
                     apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
 
-                assertion = self.viper_ast.Assert(expr, apos)
-                fail_assertion = self.viper_ast.Assert(fail, apos)
-                invariant_assertions.append(assertion)
-                invariant_assertions_fail.append(fail_assertion)
+                invariants_succ.append(self.viper_ast.Assert(inv_succ, apos))
+                # Invariants do not have to hold if __init__ fails
+                if not is_init:
+                    invariants_fail.append(self.viper_ast.Assert(inv_fail, apos))
 
-            inv_info = self.to_info(["Assert invariants"])
-            if_stmt = self.viper_ast.If(success_var.localVar(), invariant_assertions, invariant_assertions_fail)
-            body.append(self.viper_ast.Seqn([if_stmt], info=inv_info))
+            succ_stmts.extend(self._seqn_with_info(invariants_succ, "Assert Invariants"))
+            fail_stmts.extend(self._seqn_with_info(invariants_fail, "Assert Invariants"))
+
+            if_stmt = self.viper_ast.If(success_var.localVar(), succ_stmts, fail_stmts)
+            body.append(if_stmt)
 
             args_list = list(args.values())
             locals_list = [*locals.values(), *ctx.new_local_vars]

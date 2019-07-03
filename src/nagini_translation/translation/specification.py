@@ -30,39 +30,52 @@ class SpecificationTranslator(ExpressionTranslator):
         # replace old expressions by their expression in preconditions and in the
         # postcondition of __init__
         self._ignore_old = None
+        # In places where we refer to the pre-function state we want the Viper old expressions
+        # instead of the last publicly seen state represented by the $old_self variable
+        self._use_viper_old = None
 
     def translate_precondition(self, pre: ast.AST, ctx: Context):
         self._invariant_mode = False
         self._ignore_old = True
         return self._translate_spec(pre, ctx)
 
-    def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False):
+    def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False, is_fail=False):
         self._invariant_mode = False
         self._ignore_old = is_init
-        return self._translate_spec(post, ctx)
+        self._use_viper_old = True
+        expr = self._translate_spec(post, ctx)
+        if is_fail:
+            # Postconditions after failing functions are evaluate in the pre-state of the
+            # function represented by the Viper old-state. Since in Viper old expressions are
+            # evaluated in the old heap but the current stack, we still get the correct value
+            # for $succ.
+            pos = self.to_position(post, ctx)
+            return self.viper_ast.Old(expr, pos)
+        else:
+            return expr
 
-    def translate_check(self, check: ast.AST, ctx: Context, is_init=False):
-        # TODO Replace by check mode
+    def translate_check(self, check: ast.AST, ctx: Context, is_init=False, is_fail=False):
+        # TODO Replace by check mode, better: check somewhere else
         self._invariant_mode = False
         self._ignore_old = is_init
-        return self._translate_spec(check, ctx)
+        self._use_viper_old = is_fail
+        expr = self._translate_spec(check, ctx)
+        if is_fail:
+            # Same as with postconditions
+            pos = self.to_position(check, ctx)
+            return self.viper_ast.Old(expr, pos)
+        else:
+            return expr
 
-    def translate_invariant(self, inv: ast.AST, ctx: Context, is_pre=False, is_init=False):
+    def translate_invariant(self, inv: ast.AST, ctx: Context, is_pre=False, is_init=False, is_fail=False):
         # Invariants do not have to hold before __init__
         if is_pre and is_init:
             return None
 
         self._invariant_mode = True
         self._ignore_old = is_pre or is_init
-        expr = self._translate_spec(inv, ctx)
-
-        # Invariants of __init__ only have to hold if it succeeds
-        if not is_pre and is_init:
-            success_var = ctx.success_var
-            succ = self.viper_ast.LocalVar(success_var.name(), success_var.typ(), expr.pos())
-            return self.viper_ast.Implies(succ, expr, expr.pos())
-        else:
-            return expr
+        self._use_viper_old = is_fail or ctx.old_label is not None
+        return self._translate_spec(inv, ctx)
 
     def _translate_spec(self, node, ctx: Context):
         _, expr = self.translate(node, ctx)
@@ -71,7 +84,7 @@ class SpecificationTranslator(ExpressionTranslator):
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
         if self._invariant_mode and (node.id == names.MSG or node.id == names.BLOCK):
             assert False  # TODO: handle
-        elif not self._ignore_old and not ctx.use_viper_old and ctx.inside_old and node.id == names.SELF:
+        elif not self._ignore_old and not self._use_viper_old and ctx.inside_old and node.id == names.SELF:
             pos = self.to_position(node, ctx)
             return [], builtins.old_self_var(self.viper_ast, pos).localVar()
         else:
@@ -84,6 +97,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
         name = node.func.id
         if name == names.IMPLIES:
+            # TODO: handle in different place
             if len(node.args) != 2:
                 raise InvalidProgramException(node, "Implication requires 2 arguments.")
 
@@ -136,17 +150,15 @@ class SpecificationTranslator(ExpressionTranslator):
             # We are inside an 'old' statement
             with inside_old_scope(ctx):
                 expr = self._translate_spec(arg, ctx)
-            # If we ignore old or if we use the 'old' state, we don't need to do more, as we
-            # already use $old_self variables
-            if self._ignore_old or not ctx.use_viper_old:
-                return [], expr
-            # Else we use Viper 'old' statements, of which we can either use a labelled or
-            # an unlabelled one
+
+            if ctx.old_label and not self._ignore_old:
+                return [], self.viper_ast.LabelledOld(expr, ctx.old_label.name(), pos)
+            elif self._use_viper_old and not self._ignore_old:
+                # We need to use Viper old expressions
+                return [], self.viper_ast.Old(expr, pos)
             else:
-                if ctx.old_label:
-                    return [], self.viper_ast.LabelledOld(expr, ctx.old_label.name(), pos)
-                else:
-                    return [], self.viper_ast.Old(expr, pos)
+                # We need to use $old_self or we are ignoring old entirely
+                return [], expr
         elif name == names.SUM:
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Sum expression requires a single argument.")
@@ -157,7 +169,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
             return [], map_sum(self.viper_ast, expr, key_type, pos)
         elif name == names.SENT or name == names.RECEIVED:
-            if not self._ignore_old and not ctx.use_viper_old and ctx.inside_old:
+            if not self._ignore_old and not self._use_viper_old and ctx.inside_old:
                 self_var = builtins.old_self_var(self.viper_ast, pos).localVar()
             else:
                 self_var = builtins.self_var(self.viper_ast, pos).localVar()

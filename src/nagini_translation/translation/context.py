@@ -43,8 +43,6 @@ class Context:
 
         # The expressions to save the current state as 'old' state
         self.copy_old = []
-        # If True, use Viper 'old' expressions, else use 'old' state
-        self.use_viper_old = True
         # True if being inside an old statement
         self.inside_old = False
         # The old label to use if Viper 'old' statements are used
@@ -106,7 +104,6 @@ def function_scope(ctx: Context):
     quantified_vars = ctx.quantified_vars
 
     copy_old = ctx.copy_old
-    use_viper_old = ctx.use_viper_old
     inside_old = ctx.inside_old
     old_label = ctx.old_label
 
@@ -135,7 +132,6 @@ def function_scope(ctx: Context):
     ctx.quantified_vars = {}
 
     ctx.copy_old = []
-    ctx.use_viper_old = True
     ctx.inside_old = False
     ctx.old_label = None
 
@@ -166,7 +162,6 @@ def function_scope(ctx: Context):
     ctx.quantified_vars = quantified_vars
 
     ctx.copy_old = copy_old
-    ctx.use_viper_old = use_viper_old
     ctx.inside_old = inside_old
     ctx.old_label = old_label
 
@@ -222,16 +217,6 @@ def inline_scope(ctx: Context):
 
     ctx.all_vars = all_vars
     ctx._current_inline = old_inline
-
-
-@contextmanager
-def use_viper_old_scope(use_viper_old: bool, ctx: Context):
-    old_use_viper_old = ctx.use_viper_old
-    ctx.use_viper_old = use_viper_old
-
-    yield
-
-    ctx.use_viper_old = old_use_viper_old
 
 
 @contextmanager
