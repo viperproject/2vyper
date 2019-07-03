@@ -12,3 +12,8 @@
 @public
 def foo():
     pass
+
+#:: ExpectedOutput(invariant.violated:assertion.false, CONST_BALANCE)
+@public
+def bar():
+    assert False
