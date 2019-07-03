@@ -35,14 +35,14 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import abc
 import os
-import sys
 import pytest
 import re
 import tokenize
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+# Change path such that the following imports succeed
+import context  # noqa
 
 from nagini_translation import config
 from nagini_translation.viper import jvmaccess
