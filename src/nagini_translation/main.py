@@ -110,10 +110,10 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
 
     consistency_errors = viper_ast.to_list(viper_program.checkTransitively())
     for error in consistency_errors:
-        # TODO: Why?
+        # TODO: Print this when catching the consistency exception
         print(error.toString())
     if consistency_errors:
-        print(viper_program)
+        # print(viper_program)
         raise ConsistencyException('consistency.error')
 
     return viper_program
