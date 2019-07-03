@@ -17,19 +17,19 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # Supported annotation types are:
 
-# 1.  ``ExpectedOutput<(backend)>(<error_id>, <via1>, <via2>,…)`` –
+# 1.  ``ExpectedOutput(<backend>)(<error_id>, <via1>, <via2>,…)`` –
 #     indicates that the following line should produce the specified
 #     error.
-# 2.  ``UnexpectedOutput<(backend)>(<error_id>, <issue>, <via1>, <via2>,…)``
+# 2.  ``UnexpectedOutput(<backend>)(<error_id>, <issue>, <via1>, <via2>,…)``
 #     – indicates that the following line should not produce the
 #     specified error, but it currently does. The problem is currently
 #     tracked in ``backend`` (if missing, then Nagini) issue tracker's
 #     issue ``issue``.
-# 3.  ``MissingOutput<(backend)>(<error_id>, <issue>, <via1>, <via2>,…)`` –
+# 3.  ``MissingOutput(<backend>)(<error_id>, <issue>, <via1>, <via2>,…)`` –
 #     indicates that the error mentioned in the matching
 #     ``ExpectedOutput`` annotation is not produced due to issue
 #     ``issue``.
-# 4.  ``Label(via)`` – mark location to be used in other annotations.
+# 4.  ``Label(<via>)`` – mark location to be used in other annotations.
 # 5.  ``IgnoreFile(<issue>)`` – mark that file cannot be tested due to
 #     critical issue such as a crash, which is tracked in ``issue``.
 
