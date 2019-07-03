@@ -46,6 +46,15 @@ total_supply: uint256
 minter: address
 
 
+#@ invariant: self.minter == old(self.minter)
+#@ invariant: self.total_supply == sum(self.balanceOf)
+#@ always check: implies(msg.sender != self.minter, old(self.total_supply) >= self.total_supply)
+#@ always check: forall({a: address, b: address}, {self.balanceOf[a], self.balanceOf[b]}, implies(self.balanceOf[a] > old(self.balanceOf[a]) and self.balanceOf[b] < old(self.balanceOf[b]), event(Transfer(b, a, self.balanceOf[a] - old(self.balanceOf[a])))))
+#@ always check: forall({a: address}, {self.balanceOf[a]}, {old(self.balanceOf[a])}, implies(old(self.balanceOf[a]) > self.balanceOf[a] and forall({b: address}, {old(self.balanceOf[b])}, {self.balanceOf[b]}, implies(b != a, self.balanceOf[b] == old(self.balanceOf[b]))), event(Transfer(a, ZERO_ADDRESS, old(self.balanceOf[a]) - self.balanceOf[a]))))
+#@ always check: forall({a: address}, {self.balanceOf[a]}, {old(self.balanceOf[a])}, implies(old(self.balanceOf[a]) < self.balanceOf[a] and forall({b: address}, {self.balanceOf[b]}, {old(self.balanceOf[b])}, implies(b != a, self.balanceOf[b] == old(self.balanceOf[b]))), event(Transfer(ZERO_ADDRESS, a, self.balanceOf[a] - old(self.balanceOf[a])))))
+#@ always check: forall({a: address, b: address}, {self.allowances[a][b]}, {old(self.allowances[a][b])}, implies(old(self.allowances[a][b]) < self.allowances[a][b], event(Approval(a, b, self.allowances[a][b]))))
+
+
 @public
 def __init__(_name: string[64], _symbol: string[32], _decimals: uint256, _supply: uint256):
     init_supply: uint256 = _supply * 10 ** _decimals
@@ -58,6 +67,7 @@ def __init__(_name: string[64], _symbol: string[32], _decimals: uint256, _supply
     log.Transfer(ZERO_ADDRESS, msg.sender, init_supply)
 
 
+#@ ensures: result() == sum(self.balanceOf)
 @public
 @constant
 def totalSupply() -> uint256:
@@ -69,7 +79,7 @@ def totalSupply() -> uint256:
 
 @public
 @constant
-def allowance(_owner : address, _spender : address) -> uint256:
+def allowance(_owner: address, _spender: address) -> uint256:
     """
     @dev Function to check the amount of tokens that an owner allowed to a spender.
     @param _owner The address which owns the funds.
@@ -79,8 +89,10 @@ def allowance(_owner : address, _spender : address) -> uint256:
     return self.allowances[_owner][_spender]
 
 
+#@ ensures: implies(_value > old(self.balanceOf[msg.sender]), not success())
+#@ check: implies(success(), event(Transfer(msg.sender, _to, _value)))
 @public
-def transfer(_to : address, _value : uint256) -> bool:
+def transfer(_to: address, _value: uint256) -> bool:
     """
     @dev Transfer token for a specified address
     @param _to The address to transfer to.
@@ -94,8 +106,10 @@ def transfer(_to : address, _value : uint256) -> bool:
     return True
 
 
+#@ ensures: implies(_value > old(self.allowances[_from][msg.sender]), not success())
+#@ check: implies(success(), event(Transfer(_from, _to, _value)))
 @public
-def transferFrom(_from : address, _to : address, _value : uint256) -> bool:
+def transferFrom(_from : address, _to: address, _value: uint256) -> bool:
     """
      @dev Transfer tokens from one address to another.
           Note that while this function emits a Transfer event, this is not required as per the specification,
@@ -115,8 +129,9 @@ def transferFrom(_from : address, _to : address, _value : uint256) -> bool:
     return True
 
 
+#@ check: implies(success(), event(Approval(msg.sender, _spender, _value)))
 @public
-def approve(_spender : address, _value : uint256) -> bool:
+def approve(_spender: address, _value : uint256) -> bool:
     """
     @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
          Beware that changing an allowance with this method brings the risk that someone may use both the old
