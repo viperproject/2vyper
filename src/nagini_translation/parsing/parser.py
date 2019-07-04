@@ -105,13 +105,7 @@ class ProgramBuilder(ast.NodeVisitor):
     def visit_Assign(self, node):
         # This is for invariants and pre/postconditions which get translated to
         # assignments during preprocessing.
-
-        # TODO: handle
-        if not len(node.targets) == 1:
-            raise AssertionError("Contracts should only have a single target.")
-        if not isinstance(node.targets[0], ast.Name):
-            raise AssertionError("The target of a contract should be a name.")
-
+        assert len(node.targets) == 1
         name = node.targets[0].id
         if name == names.INVARIANT:
             # No preconditions and posconditions allowed before invariants
@@ -135,8 +129,7 @@ class ProgramBuilder(ast.NodeVisitor):
         elif name == names.CHECK:
             self.checks.append(node.value)
         else:
-            # TODO: handle
-            raise AssertionError("Top-level assigns that are not specifications should never happen.")
+            assert False
 
     def _decorators(self, node: ast.FunctionDef) -> List[str]:
         return [dec.id for dec in node.decorator_list if isinstance(dec, ast.Name)]

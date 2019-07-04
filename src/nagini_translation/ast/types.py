@@ -10,6 +10,7 @@ import ast
 from typing import Optional, List
 
 from nagini_translation.ast import names
+from nagini_translation.exceptions import UnsupportedException
 
 
 class VyperType:
@@ -108,7 +109,7 @@ class TypeBuilder(ast.NodeVisitor):
         return self.visit(node)
 
     def generic_visit(self, node):
-        assert False  # TODO: handle
+        raise UnsupportedException(node)
 
     def visit_Name(self, node: ast.Name) -> VyperType:
         return TYPES[node.id]

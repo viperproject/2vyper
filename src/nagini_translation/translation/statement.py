@@ -27,6 +27,8 @@ from nagini_translation.translation.builtins import array_set, map_set
 from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import Stmt
 
+from nagini_translation.exceptions import UnsupportedException
+
 
 class StatementTranslator(NodeTranslator):
 
@@ -148,8 +150,7 @@ class StatementTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         if not self.special_translator.is_range(node.iter):
-            # TODO:
-            raise AssertionError("Not supported yet")
+            raise UnsupportedException(node.iter, "Only ranges are supported at the moment.")
 
         with break_scope(ctx):
             loop_var = ctx.all_vars[node.target.id].localVar()
@@ -199,8 +200,7 @@ class _AssignmentTranslator(NodeTranslator):
         return visitor(node, value, ctx)
 
     def generic_assign_to(self, node, value, ctx):
-        # TODO:
-        raise AssertionError(f"Node of type {type(node)} not supported.")
+        assert False
 
     def assign_to_Name(self, node: ast.Name, value, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
@@ -230,7 +230,7 @@ class _AssignmentTranslator(NodeTranslator):
             stmts.append(self.type_translator.array_bounds_check(receiver, index, ctx))
             new_value = array_set(self.viper_ast, receiver, index, value, type.element_type, pos)
         else:
-            assert False  # TODO: handle
+            assert False
 
         # We simply evaluate the receiver and index statements here, even though they
         # might get evaluated again in the recursive call. This is ok as long as the lhs of the

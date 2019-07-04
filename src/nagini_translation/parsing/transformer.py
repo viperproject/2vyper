@@ -10,7 +10,7 @@ import ast
 from typing import List, Dict, Any
 
 from nagini_translation.ast import names
-from nagini_translation.exceptions import InvalidProgramException
+from nagini_translation.exceptions import UnsupportedException
 
 
 def transform(ast: ast.Module) -> ast.Module:
@@ -56,6 +56,8 @@ class ConstantInterpreter(ast.NodeVisitor):
             return all(operands)
         elif isinstance(node.op, ast.Or):
             return any(operands)
+        else:
+            assert False
 
     def visit_BinOp(self, node: ast.BinOp):
         lhs = self.visit(node.left)
@@ -75,7 +77,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         elif isinstance(op, ast.Pow):
             return lhs ** rhs
         else:
-            raise InvalidProgramException(node)
+            assert False
 
     def visit_UnaryOp(self, node: ast.UnaryOp):
         operand = self.visit(node.operand)
@@ -84,7 +86,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         elif isinstance(node.op, ast.Not):
             return not operand
         else:
-            raise InvalidProgramException(node)
+            assert False
 
     def visit_Compare(self, node: ast.Compare):
         lhs = self.visit(node.left)
@@ -103,7 +105,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         elif isinstance(op, ast.GtE):
             return lhs >= rhs
         else:
-            raise InvalidProgramException(node)
+            assert False
 
     def visit_Call(self, node: ast.Call):
         args = [self.visit(arg) for arg in node.args]
@@ -113,7 +115,7 @@ class ConstantInterpreter(ast.NodeVisitor):
             elif node.func.id == names.MAX:
                 return max(args)
 
-        raise InvalidProgramException(node)
+        raise UnsupportedException(node)
 
     def visit_Num(self, node: ast.Num):
         return node.n

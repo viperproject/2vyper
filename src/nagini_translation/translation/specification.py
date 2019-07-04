@@ -91,8 +91,6 @@ class SpecificationTranslator(ExpressionTranslator):
             return super().translate_Name(node, ctx)
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
-        assert isinstance(node.func, ast.Name)  # TODO: handle
-
         pos = self.to_position(node, ctx)
 
         name = node.func.id
@@ -132,17 +130,12 @@ class SpecificationTranslator(ExpressionTranslator):
 
                 return [], self.viper_ast.Forall(quants, triggers, expr, pos)
         elif name == names.RESULT or name == names.SUCCESS:
-            cap = name.capitalize()
-            if self._invariant_mode:
-                raise InvalidProgramException(node, f"{cap} not allowed in invariant.")
-            if node.args:
-                raise InvalidProgramException(node, f"{cap} must not have arguments.")
-
             var = ctx.result_var if name == names.RESULT else ctx.success_var
             local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
             return [], local_var
         elif name == names.OLD:
             if len(node.args) != 1:
+                # TODO: remove this
                 raise InvalidProgramException(node, "Old expression requires a single argument.")
 
             arg = node.args[0]
@@ -160,6 +153,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 # We need to use $old_self or we are ignoring old entirely
                 return [], expr
         elif name == names.SUM:
+            # TODO: remove this
             if len(node.args) != 1:
                 raise InvalidProgramException(node, "Sum expression requires a single argument.")
 
@@ -202,4 +196,5 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name not in names.NOT_ALLOWED_IN_SPEC:
             return super().translate_Call(node, ctx)
         else:
+            # TODO: remove this
             raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")

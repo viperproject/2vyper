@@ -6,6 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from nagini_translation.ast.nodes import VyperProgram
+from nagini_translation.analysis.structure_checker import check_structure
 from nagini_translation.analysis.type_annotator import TypeAnnotator
 
 
@@ -13,4 +14,5 @@ def analyze(program: VyperProgram):
     """
     Adds type information to all program expressions.
     """
+    check_structure(program)
     TypeAnnotator(program).annotate_program()

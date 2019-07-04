@@ -18,7 +18,7 @@ from nagini_translation.translation.builtins import (
 )
 
 from nagini_translation.viper.ast import ViperAST
-from nagini_translation.viper.typedefs import Expr, Stmt, StmtsAndExpr
+from nagini_translation.viper.typedefs import Expr, Stmt, StmtsAndExpr, Type
 
 
 class TypeTranslator(PositionTranslator, CommonTranslator):
@@ -35,7 +35,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             types.VYPER_BYTE: viper_ast.Int
         }
 
-    def translate(self, type: VyperType, ctx: Context) -> VyperType:
+    def translate(self, type: VyperType, ctx: Context) -> Type:
         if isinstance(type, PrimitiveType):
             return self.type_dict[type]
         elif isinstance(type, MapType):
@@ -46,7 +46,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             element_type = self.translate(type.element_type, ctx)
             return array_type(self.viper_ast, element_type)
         else:
-            assert False  # TODO: handle
+            assert False
 
     def revert(self, type: VyperType, field, ctx: Context) -> [Stmt]:
         self_var = ctx.self_var.localVar()
@@ -77,7 +77,6 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             array = array_init(self.viper_ast, element_default, type.size, element_type, pos)
             return stmts, array
         else:
-            # TODO:
             assert False
 
     def non_negative(self, node, type: VyperType, ctx: Context) -> List[Expr]:
