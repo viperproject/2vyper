@@ -9,10 +9,10 @@ import ast
 
 from itertools import chain
 
-from nagini_translation.utils import flatten
-from nagini_translation.ast.nodes import VyperProgram
 from nagini_translation.ast import names
+from nagini_translation.ast.nodes import VyperProgram
 from nagini_translation.exceptions import InvalidProgramException
+from nagini_translation.utils import flatten
 
 
 def check_structure(program: VyperProgram):
