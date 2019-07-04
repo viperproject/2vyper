@@ -26,7 +26,7 @@ class TranslationException(Exception):
     def error_string(self, file: str) -> str:
         line = str(self.node.lineno)
         col = str(self.node.col_offset)
-        return self.message + ' (' + file + '@' + line + '.' + col + ')'
+        return f"{self.message} ({file}@{line}.{col})"
 
 
 class UnsupportedException(TranslationException):
@@ -47,11 +47,14 @@ class InvalidProgramException(TranslationException):
     Signals that the input program is invalid and cannot be translated
     """
 
-    def __init__(self, node: ast.AST, message: str = None):
+    def __init__(self, node: ast.AST, reason_code: str, message: str = None):
         self.node = node
+        self.code = 'invalid.program'
+        self.reason_code = reason_code
         if not message:
-            message = astunparse.unparse(node)
-        super().__init__(node, f"Invalid program: Node {message} not allowed here.")
+            node_msg = astunparse.unparse(node)
+            message = f"Node {node_msg} not allowed here."
+        super().__init__(node, f"Invalid program: {message}")
 
 
 class ConsistencyException(Exception):

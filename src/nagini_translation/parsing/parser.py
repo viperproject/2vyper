@@ -85,7 +85,7 @@ class ProgramBuilder(ast.NodeVisitor):
             node = self.checks[0]
         else:
             return
-        raise InvalidProgramException(node, f"{cond} only allowed before function")
+        raise InvalidProgramException(node, 'local.spec', f"{cond} only allowed before function")
 
     def visit_AnnAssign(self, node):
         # No local specs are allowed before contract state variables

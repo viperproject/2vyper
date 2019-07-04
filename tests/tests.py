@@ -125,8 +125,7 @@ class VerificationError(Error):
         self._error = actual_error
 
     def __repr__(self) -> str:
-        return 'VerificationError({}, line={}, vias={})'.format(
-            self.full_id, self.line, self.get_vias())
+        return f'VerificationError({self.full_id}, line={self.line}, vias={self.get_vias()})'
 
     @property
     def full_id(self) -> str:
@@ -156,12 +155,11 @@ class InvalidProgramError(Error):
         self._exception = exception
 
     def __repr__(self) -> str:
-        return 'InvalidProgramError({}, line={}, vias={})'.format(
-            self.full_id, self.line, self.get_vias())
+        return f'InvalidProgramError({self.full_id}, line={self.line}, vias={self.get_vias()})'
 
     @property
     def full_id(self) -> str:
-        return 'invalid.program:' + self._exception.code
+        return f'{self._exception.code}:{self._exception.reason_code}'
 
     @property
     def line(self) -> int:
@@ -570,10 +568,16 @@ class VerificationTest(AnnotatedTest):
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         path = os.path.abspath(path)
-        prog = translate(path, jvm, sif=sif)
-        assert prog is not None
-        vresult = verify(prog, path, jvm, verifier)
-        self._evaluate_result(vresult, annotation_manager, jvm, sif)
+        try:
+            prog = translate(path, jvm, sif=sif)
+        except InvalidProgramException as e:
+            actual_errors = [InvalidProgramError(e)]
+            annotation_manager.check_errors(actual_errors)
+            if annotation_manager.has_unexpected_missing():
+                pytest.skip('Unexpected or missing output')
+        else:
+            vresult = verify(prog, path, jvm, verifier)
+            self._evaluate_result(vresult, annotation_manager, jvm, sif)
 
     def _evaluate_result(
             self, vresult: VerificationResult,

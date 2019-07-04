@@ -6,15 +6,14 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 import argparse
-import astunparse
 import inspect
 import logging
 import os
-import time
 import traceback
 
-
+from time import time
 from jpype import JavaException
+
 from nagini_translation import config
 from nagini_translation.viper.jvmaccess import JVM
 from nagini_translation.viper.typedefs import Program
@@ -317,7 +316,7 @@ def main() -> None:
 
 def translate_and_verify(vyper_file, jvm, args, print=print):
     try:
-        start = time.time()
+        start = time()
         selected = set(args.select.split(',')) if args.select else set()
         prog = translate(vyper_file, jvm, selected, args.sif,
                          ignore_global=args.ignore_global, verbose=args.verbose)
@@ -335,48 +334,27 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
         else:
             raise ValueError('Unknown verifier specified: ' + args.verifier)
         if args.benchmark >= 1:
-            print("Run, Total, Start, End, Time".format())
+            print("Run, Total, Start, End, Time")
             for i in range(args.benchmark):
-                start = time.time()
+                start = time()
                 prog = translate(vyper_file, jvm, selected, args.sif)
                 vresult = verify(prog, vyper_file, jvm, backend=backend)
-                end = time.time()
-                print("{}, {}, {}, {}, {}".format(
-                    i, args.benchmark, start, end, end - start))
+                end = time()
+                print(f"{i}, {args.benchmark}, {start}, {end}, {end - start}")
         else:
             vresult = verify(prog, vyper_file, jvm, backend=backend)
         if args.verbose:
             print("Verification completed.")
         print(vresult.to_string(args.ide_mode, args.show_viper_errors))
-        duration = '{:.2f}'.format(time.time() - start)
-        print('Verification took ' + duration + ' seconds.')
+        end = time()
+        duration = end - start
+        print(f"Verification took {duration:.2f} seconds.")
     except (InvalidProgramException, UnsupportedException) as e:
-        # TODO: remove this branch
-        print("Translation failed")
-        # TODO: put this in debug mode
-        import traceback
-        traceback.print_exc()
-        if isinstance(e, (InvalidProgramException, UnsupportedException)):
-            if isinstance(e, InvalidProgramException):
-                issue = 'Invalid program: '
-                if e.message:
-                    issue += e.message
-                else:
-                    issue += e.code
-            else:
-                issue = 'Not supported: '
-                if e.args[0]:
-                    issue += e.args[0]
-                else:
-                    issue += astunparse.unparse(e.node)
-            line = str(e.node.lineno)
-            col = str(e.node.col_offset)
-            print(issue + ' (' + vyper_file + '@' + line + '.' + col + ')')
+        print(e.error_string(vyper_file))
     except ConsistencyException as e:
         print(e.message + ': Translated AST contains inconsistencies.')
     except InvalidVyperException as e:
         print(e.message)
-
     except JavaException as e:
         print(e.stacktrace())
         raise e
