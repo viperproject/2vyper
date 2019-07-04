@@ -25,7 +25,6 @@ class SpecificationTranslator(ExpressionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
-        self._invariant_mode = None
         # We require history invariants to be reflexive, therefore we can simply
         # replace old expressions by their expression in preconditions and in the
         # postcondition of __init__
@@ -35,12 +34,10 @@ class SpecificationTranslator(ExpressionTranslator):
         self._use_viper_old = None
 
     def translate_precondition(self, pre: ast.AST, ctx: Context):
-        self._invariant_mode = False
         self._ignore_old = True
         return self._translate_spec(pre, ctx)
 
     def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False, is_fail=False):
-        self._invariant_mode = False
         self._ignore_old = is_init
         self._use_viper_old = True
         expr = self._translate_spec(post, ctx)
@@ -55,8 +52,6 @@ class SpecificationTranslator(ExpressionTranslator):
             return expr
 
     def translate_check(self, check: ast.AST, ctx: Context, is_init=False, is_fail=False):
-        # TODO Replace by check mode, better: check somewhere else
-        self._invariant_mode = False
         self._ignore_old = is_init
         self._use_viper_old = is_fail
         expr = self._translate_spec(check, ctx)
@@ -72,7 +67,6 @@ class SpecificationTranslator(ExpressionTranslator):
         if is_pre and is_init:
             return None
 
-        self._invariant_mode = True
         self._ignore_old = is_pre or is_init
         self._use_viper_old = is_fail or ctx.old_label is not None
         return self._translate_spec(inv, ctx)
@@ -82,9 +76,7 @@ class SpecificationTranslator(ExpressionTranslator):
         return expr
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
-        if self._invariant_mode and (node.id == names.MSG or node.id == names.BLOCK):
-            assert False  # TODO: handle
-        elif not self._ignore_old and not self._use_viper_old and ctx.inside_old and node.id == names.SELF:
+        if not self._ignore_old and not self._use_viper_old and ctx.inside_old and node.id == names.SELF:
             pos = self.to_position(node, ctx)
             return [], builtins.old_self_var(self.viper_ast, pos).localVar()
         else:
