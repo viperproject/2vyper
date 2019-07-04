@@ -11,9 +11,11 @@ import logging
 import os
 import traceback
 
+from typing import Set
 from time import time
 from jpype import JavaException
 
+from nagini_translation import vyper
 from nagini_translation import config
 from nagini_translation.viper.jvmaccess import JVM
 from nagini_translation.viper.typedefs import Program
@@ -27,10 +29,6 @@ from nagini_translation.verification.verifier import (
     VerificationResult,
     ViperVerifier
 )
-from typing import Set
-
-
-from nagini_translation import vyper
 
 from nagini_translation.parsing import parser
 from nagini_translation.analysis import analyzer
