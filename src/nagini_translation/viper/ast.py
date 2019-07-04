@@ -63,7 +63,7 @@ class ViperAST:
         self.Ref = getconst('Ref')
         self.Perm = getconst('Perm')
         self.sourcefile = sourcefile
-        self.none = getobject(self.scala, 'None')
+        self.None_ = getobject(self.scala, 'None')
 
     def is_available(self) -> bool:
         """
@@ -122,7 +122,7 @@ class ViperAST:
     def Function(self, name, args, type, pres, posts, body, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        body = self.scala.Some(body) if body is not None else self.none
+        body = self.scala.Some(body) if body is not None else self.None_
         return self.ast.Function(name, self.to_seq(args), type,
                                  self.to_seq(pres),
                                  self.to_seq(posts),
@@ -134,7 +134,7 @@ class ViperAST:
         info = info or self.NoInfo
 
         if body is None:
-            body_with_locals = self.none
+            body_with_locals = self.None_
         else:
             body_with_locals = self.scala.Some(self.Seqn(body, position, info, locals))
         method = getobject(self.ast, "MethodWithLabelsInScope")
@@ -151,7 +151,7 @@ class ViperAST:
     def Predicate(self, name, args, body, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        body = self.scala.Some(body) if body is not None else self.none
+        body = self.scala.Some(body) if body is not None else self.None_
         return self.ast.Predicate(name, self.to_seq(args),
                                   body, position, info, self.NoTrafos)
 
@@ -637,7 +637,7 @@ class ViperAST:
         return self.ast.Let(variable, exp, body, position, info, self.NoTrafos)
 
     def from_option(self, option):
-        if option == self.none:
+        if option == self.None_:
             return None
         else:
             return option.get()
@@ -672,7 +672,7 @@ class ViperAST:
                                               expr.end_col_offset)
             end = self.scala.Some(end)
         else:
-            end = self.none
+            end = self.None_
         return self.ast.IdentifierPosition(path, start, end, id)
 
     def is_heap_dependent(self, expr) -> bool:
