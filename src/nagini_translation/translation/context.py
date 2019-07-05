@@ -22,7 +22,6 @@ class Context:
         self.immutable_fields = {}
         # Permissions of immutable that have to be passed around
         # Note: already translated, as they should never fail
-        self.permissions = []
         self.immutable_permissions = []
         # Invariants that are not checked at the end of each function but just assumed, namely
         # conditions like non-negativeness for uint256
