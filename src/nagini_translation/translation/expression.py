@@ -264,7 +264,7 @@ class ExpressionTranslator(NodeTranslator):
                 #    - Exhale field permissions (forget all values)
                 #    - Inhale field permissions
                 #    - Assume invariants (where old refers to the state before send)
-                #    - Assume unchecked invariants
+                #    - Assume global unchecked invariants
 
                 to_stmts, to = self.translate(node.args[0], ctx)
 
@@ -317,7 +317,7 @@ class ExpressionTranslator(NodeTranslator):
                 in_fields = [self.viper_ast.Inhale(perm) for perm in ctx.permissions]
                 inh_exh = ex_fields + in_fields
 
-                uinvs = ctx.unchecked_invariants
+                uinvs = ctx.global_unchecked_invariants
                 assume_invs = []
                 for inv, expr in zip(ctx.program.invariants, invs):
                     ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)

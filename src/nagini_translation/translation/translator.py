@@ -64,7 +64,7 @@ class ProgramTranslator(PositionTranslator):
 
         ctx.fields = {}
         ctx.permissions = []
-        ctx.unchecked_invariants = []
+        ctx.global_unchecked_invariants = []
         for var in vyper_program.state.values():
             # Create field
             field = self._translate_field(var, ctx)
@@ -76,15 +76,14 @@ class ProgramTranslator(PositionTranslator):
             ctx.permissions.append(acc)
 
             non_negs = self.type_translator.non_negative(field_acc, var.type, ctx)
-            ctx.unchecked_invariants.extend(non_negs)
+            ctx.global_unchecked_invariants.extend(non_negs)
 
             array_lens = self.type_translator.array_length(field_acc, var.type, ctx)
-            ctx.unchecked_invariants.extend(array_lens)
-
-        global_unchecked_invariants = ctx.unchecked_invariants.copy()
+            ctx.global_unchecked_invariants.extend(array_lens)
 
         ctx.balance_field = ctx.fields[names.SELF_BALANCE]
 
+        ctx.local_unchecked_invariants = []
         ctx.immutable_fields = {}
         ctx.immutable_permissions = []
         # Create msg.sender field
@@ -96,7 +95,7 @@ class ProgramTranslator(PositionTranslator):
         ctx.immutable_permissions.append(acc)
         # Assume msg.sender != 0
         zero = self.viper_ast.IntLit(0)
-        ctx.unchecked_invariants.append(self.viper_ast.NeCmp(sender_acc, zero))
+        ctx.local_unchecked_invariants.append(self.viper_ast.NeCmp(sender_acc, zero))
 
         # Create msg.value field
         msg_value = builtins.msg_value_field(self.viper_ast)
@@ -106,7 +105,7 @@ class ProgramTranslator(PositionTranslator):
         acc = self._create_field_access_predicate(value_acc, 0, ctx)
         ctx.immutable_permissions.append(acc)
         # Assume msg.value >= 0
-        ctx.unchecked_invariants.append(self.viper_ast.GeCmp(value_acc, zero))
+        ctx.local_unchecked_invariants.append(self.viper_ast.GeCmp(value_acc, zero))
 
         # Create block.timestamp field
         block_timestamp = builtins.block_timestamp_field(self.viper_ast)
@@ -116,7 +115,7 @@ class ProgramTranslator(PositionTranslator):
         acc = self._create_field_access_predicate(timestamp_acc, 1, ctx)
         ctx.immutable_permissions.append(acc)
         # Assume block.timestamp >= 0
-        ctx.unchecked_invariants.append(self.viper_ast.GeCmp(timestamp_acc, zero))
+        ctx.local_unchecked_invariants.append(self.viper_ast.GeCmp(timestamp_acc, zero))
 
         fields_list = [*ctx.fields.values(), *ctx.immutable_fields.values()]
 
@@ -124,7 +123,7 @@ class ProgramTranslator(PositionTranslator):
         predicates = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
 
         vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
-        methods.append(self._create_transitivity_check(global_unchecked_invariants, ctx))
+        methods.append(self._create_transitivity_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
         viper_program = self.viper_ast.Program(domains, fields_list, functions, predicates, methods)
         return viper_program
@@ -151,7 +150,7 @@ class ProgramTranslator(PositionTranslator):
             perm = builtins.read_perm(self.viper_ast)
         return self.viper_ast.FieldAccessPredicate(field_access, perm)
 
-    def _create_transitivity_check(self, global_checked_invariants, ctx: Context):
+    def _create_transitivity_check(self, ctx: Context):
         # Creates a check that all invariants are transitive. This is needed, because we
         # want to assume the invariant after a call, which could have reentered multiple
         # times.
@@ -170,7 +169,7 @@ class ProgramTranslator(PositionTranslator):
         locals = [builtins.self_var(self.viper_ast)]
         body = []
         body.extend(inhales)
-        for inv in global_checked_invariants:
+        for inv in ctx.global_unchecked_invariants:
             body.append(self.viper_ast.Inhale(inv))
 
         old1 = self.viper_ast.Label('$old1')
@@ -180,7 +179,7 @@ class ProgramTranslator(PositionTranslator):
         body.extend(inhales)
 
         inv1_assumptions = []
-        for inv in global_checked_invariants:
+        for inv in ctx.global_unchecked_invariants:
             inv1_assumptions.append(self.viper_ast.Inhale(inv))
 
         with old_label_scope(old1, ctx):
@@ -198,7 +197,7 @@ class ProgramTranslator(PositionTranslator):
         body.extend(inhales)
 
         inv2_assumptions = []
-        for inv in global_checked_invariants:
+        for inv in ctx.global_unchecked_invariants:
             inv2_assumptions.append(self.viper_ast.Inhale(inv))
 
         with old_label_scope(old2, ctx):

@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from itertools import chain
 from contextlib import contextmanager
 
 
@@ -26,7 +27,10 @@ class Context:
         # Invariants that are not checked at the end of each function but just assumed, namely
         # conditions like non-negativeness for uint256
         # Note: already translated, as they are never checked and therfore cannot fail
-        self.unchecked_invariants = []
+        # Global: About globally available fields, i.e. self fields
+        self.global_unchecked_invariants = []
+        # Local: About locally available fields, i.e. msg and block fields
+        self.local_unchecked_invariants = []
 
         self.self_var = None
         self.balance_field = None
@@ -63,6 +67,10 @@ class Context:
         self._quantified_var_counter = -1
         self._inline_counter = -1
         self._current_inline = -1
+
+    @property
+    def unchecked_invariants(self):
+        return chain(self.global_unchecked_invariants, self.local_unchecked_invariants)
 
     def new_local_var_name(self, name: str = 'local') -> str:
         self._local_var_counter += 1
