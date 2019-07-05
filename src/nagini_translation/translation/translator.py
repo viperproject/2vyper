@@ -81,6 +81,8 @@ class ProgramTranslator(PositionTranslator):
             array_lens = self.type_translator.array_length(field_acc, var.type, ctx)
             ctx.unchecked_invariants.extend(array_lens)
 
+        global_unchecked_invariants = ctx.unchecked_invariants.copy()
+
         ctx.balance_field = ctx.fields[names.SELF_BALANCE]
 
         ctx.immutable_fields = {}
@@ -122,7 +124,7 @@ class ProgramTranslator(PositionTranslator):
         predicates = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
 
         vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
-        methods.append(self._create_transitivity_check(ctx))
+        methods.append(self._create_transitivity_check(global_unchecked_invariants, ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
         viper_program = self.viper_ast.Program(domains, fields_list, functions, predicates, methods)
         return viper_program
@@ -149,7 +151,15 @@ class ProgramTranslator(PositionTranslator):
             perm = builtins.read_perm(self.viper_ast)
         return self.viper_ast.FieldAccessPredicate(field_access, perm)
 
-    def _create_transitivity_check(self, ctx: Context):
+    def _create_transitivity_check(self, global_checked_invariants, ctx: Context):
+        # Creates a check that all invariants are transitive. This is needed, because we
+        # want to assume the invariant after a call, which could have reentered multiple
+        # times.
+        # To check transitivity, we create 3 states, assume the global unchecked invariants
+        # for all of them, assume the invariants for state no 2 (with state no 1 being the
+        # old state), and again for state no 3 (with state no 2 being the old state). In the
+        # end we assert the invariants for state no 3 (with state no 1 being the old state)
+
         name = builtins.TRANSITIVITY_CHECK
 
         ctx.all_vars[names.SELF] = ctx.self_var
@@ -160,6 +170,8 @@ class ProgramTranslator(PositionTranslator):
         locals = [builtins.self_var(self.viper_ast)]
         body = []
         body.extend(inhales)
+        for inv in global_checked_invariants:
+            body.append(self.viper_ast.Inhale(inv))
 
         old1 = self.viper_ast.Label('$old1')
         body.append(old1)
@@ -168,6 +180,9 @@ class ProgramTranslator(PositionTranslator):
         body.extend(inhales)
 
         inv1_assumptions = []
+        for inv in global_checked_invariants:
+            inv1_assumptions.append(self.viper_ast.Inhale(inv))
+
         with old_label_scope(old1, ctx):
             for inv in ctx.program.invariants:
                 pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
@@ -183,6 +198,9 @@ class ProgramTranslator(PositionTranslator):
         body.extend(inhales)
 
         inv2_assumptions = []
+        for inv in global_checked_invariants:
+            inv2_assumptions.append(self.viper_ast.Inhale(inv))
+
         with old_label_scope(old2, ctx):
             for inv in ctx.program.invariants:
                 pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
