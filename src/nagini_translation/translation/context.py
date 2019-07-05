@@ -80,6 +80,7 @@ class Context:
         self._quantified_var_counter += 1
         return f'$q{self._quantified_var_counter}'
 
+    @property
     def inline_prefix(self) -> str:
         if self._current_inline == -1:
             return ''

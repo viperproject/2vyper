@@ -318,7 +318,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body = []
 
             # Define new msg variable
-            msg_name = ctx.inline_prefix() + builtins.MSG
+            msg_name = ctx.inline_prefix + builtins.MSG
             msg_decl = self.viper_ast.LocalVarDecl(msg_name, self.viper_ast.Ref)
             ctx.all_vars[names.MSG] = msg_decl
             ctx.new_local_vars.append(msg_decl)
@@ -362,7 +362,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # Define return var
             if function.type.return_type:
                 ret_type = self.type_translator.translate(function.type.return_type, ctx)
-                ret_name = ctx.inline_prefix() + builtins.RESULT_VAR
+                ret_name = ctx.inline_prefix + builtins.RESULT_VAR
                 ret_var_decl = self.viper_ast.LocalVarDecl(ret_name, ret_type, pos)
                 ctx.new_local_vars.append(ret_var_decl)
                 ctx.result_var = ret_var_decl
@@ -371,7 +371,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 ret_var = None
 
             # Define end label for inlined return statements
-            end_label_name = ctx.inline_prefix() + builtins.END_LABEL
+            end_label_name = ctx.inline_prefix + builtins.END_LABEL
             end_label = self.viper_ast.Label(end_label_name)
             ctx.end_label = end_label_name
 
@@ -385,7 +385,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
         type = self.type_translator.translate(var.type, ctx)
-        name = ctx.inline_prefix() + builtins.local_var_name(var.name)
+        name = ctx.inline_prefix + builtins.local_var_name(var.name)
         return self.viper_ast.LocalVarDecl(name, type, pos)
 
     def _non_negative(self, var, ctx: Context) -> Stmt:
