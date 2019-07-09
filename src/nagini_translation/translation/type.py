@@ -100,21 +100,24 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         Computes the assumptions for either array length or non-negativeness of nested
         structures.
 
-        If mode == 0: constructs array lengths
-        If mode == 1: constructs non-negativeness
+        If mode == 0: constructs non-negativeness
+        If mode == 1: constructs array lengths
         """
 
         def construct(type, node):
             ret = []
 
-            # If we encounter a map, we add the following assumption:
-            #   forall k: Key :: construct(map_get(k))
-            # where constuct constructs the assumption for the values contained
-            # in the map (may be empty)
+            # If we encounter an unsigned primitive type we add the following assumption:
+            #   x >= 0
+            # where x is said integer
             if mode == 0 and types.is_unsigned(type):
                 zero = self.viper_ast.IntLit(0)
                 non_neg = self.viper_ast.GeCmp(node, zero)
                 ret.append(non_neg)
+            # If we encounter a map, we add the following assumption:
+            #   forall k: Key :: construct(map_get(k))
+            # where constuct constructs the assumption for the values contained
+            # in the map (may be empty)
             elif isinstance(type, MapType):
                 key_type = self.translate(type.key_type, ctx)
                 value_type = self.translate(type.value_type, ctx)
