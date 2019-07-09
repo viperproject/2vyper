@@ -27,6 +27,9 @@ def send_balance_fail(to: address):
     self.money = 0
 
 
+# This function always fails when sending money to a contract, but no when sending money
+# to a wallet
+#:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: not success()
 @public
 def send_zero_fail(to: address):
