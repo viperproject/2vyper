@@ -14,7 +14,7 @@ from nagini_translation.translation.abstract import PositionTranslator, CommonTr
 from nagini_translation.translation.context import Context, quantified_var_scope
 
 from nagini_translation.translation.builtins import (
-    array_type, array_init, array_get, map_type, map_init, map_get
+    array_type, array_init, array_get, map_type, map_init, map_get, map_sum
 )
 
 from nagini_translation.viper.ast import ViperAST
@@ -114,8 +114,11 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                 zero = self.viper_ast.IntLit(0)
                 non_neg = self.viper_ast.GeCmp(node, zero)
                 ret.append(non_neg)
-            # If we encounter a map, we add the following assumption:
+            # If we encounter a map, we add the following assumptions:
+            # In any mode:
             #   forall k: Key :: construct(map_get(k))
+            # If mode == 0:
+            #   forall k: Key :: map_get(k) <= map_sum()
             # where constuct constructs the assumption for the values contained
             # in the map (may be empty)
             elif isinstance(type, MapType):
@@ -131,6 +134,11 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                     quantifier = self.viper_ast.Forall([quant_decl], [trigger], r)
                     ret.append(quantifier)
 
+                if mode == 0 and types.is_unsigned(type.value_type):
+                    mp_sum = map_sum(self.viper_ast, node, key_type)
+                    r = self.viper_ast.LeCmp(new_node, mp_sum)
+                    quantifier = self.viper_ast.Forall([quant_decl], [trigger], r)
+                    ret.append(quantifier)
             # If we encounter an array, we add the follwing assumptions:
             # If mode == 0:
             #   forall i: Int :: 0 <= i && i < |array| ==> construct(array[i]) >= 0
