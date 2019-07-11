@@ -35,6 +35,8 @@ RECEIVED_FIELD = '$received'
 RESULT_VAR = '$res'
 SUCCESS_VAR = '$succ'
 
+MSG_SENDER_CALL_FAIL = '$msg_sender_call_fail'
+
 END_LABEL = 'end'
 REVERT_LABEL = 'revert'
 
@@ -189,6 +191,10 @@ def ret_var(viper_ast: ViperAST, ret_type, pos=None, info=None):
 
 def success_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(SUCCESS_VAR, viper_ast.Bool, pos, info)
+
+
+def msg_sender_call_fail_var(viper_ast: ViperAST, pos=None, info=None):
+    return viper_ast.LocalVarDecl(MSG_SENDER_CALL_FAIL, viper_ast.Bool, pos, info)
 
 
 def end_label(viper_ast: ViperAST, pos=None, info=None):

@@ -168,6 +168,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
             body.extend(self._seqn_with_info(body_stmts, "Function body"))
 
+            # Add variable for success(-msg.sender) that tracks whether a call to
+            # msg.sender failed
+            ctx.new_local_vars.append(builtins.msg_sender_call_fail_var(self.viper_ast))
+
             # If we reach this point do not revert the state
             body.append(self.viper_ast.Goto(ctx.end_label))
             # Revert the state

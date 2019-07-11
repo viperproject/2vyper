@@ -121,10 +121,26 @@ class SpecificationTranslator(ExpressionTranslator):
                     triggers.append(trigger)
 
                 return [], self.viper_ast.Forall(quants, triggers, expr, pos)
-        elif name == names.RESULT or name == names.SUCCESS:
-            var = ctx.result_var if name == names.RESULT else ctx.success_var
+        elif name == names.RESULT:
+            var = ctx.result_var
             local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
             return [], local_var
+        elif name == names.SUCCESS:
+            var = ctx.success_var
+            local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
+
+            def is_msg_sender(node) -> bool:
+                is_attr = lambda n: isinstance(n.operand, ast.Attribute)
+                is_sender = lambda n: n.operand.attr == names.MSG_SENDER
+                is_msg_sender = lambda n: isinstance(n.operand.value, ast.Name) and n.operand.value.id == names.MSG
+                return is_attr(node) and is_sender(node) and is_msg_sender(node)
+
+            if len(node.args) == 1 and is_msg_sender(node.args[0]):
+                msg_sender_call_failed = builtins.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
+                not_msg_sender_call_failed = self.viper_ast.Not(msg_sender_call_failed, pos)
+                return [], self.viper_ast.Implies(not_msg_sender_call_failed, local_var, pos)
+            else:
+                return [], local_var
         elif name == names.OLD:
             if len(node.args) != 1:
                 # TODO: remove this

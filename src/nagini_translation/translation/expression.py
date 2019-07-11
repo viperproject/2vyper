@@ -326,7 +326,13 @@ class ExpressionTranslator(NodeTranslator):
                 send_fail_name = ctx.new_local_var_name('send_fail')
                 send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
                 ctx.new_local_vars.append(send_fail)
-                fail = self.fail_if(send_fail.localVar(), ctx)
+                fail_cond = send_fail.localVar()
+                msg_sender = builtins.msg_sender_field_acc(self.viper_ast)
+                msg_sender_eq = self.viper_ast.EqCmp(to, msg_sender)
+                msg_sender_call_failed = builtins.msg_sender_call_fail_var(self.viper_ast).localVar()
+                assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
+                goto_revert = self.viper_ast.Goto(ctx.revert_label, pos)
+                fail = self.viper_ast.If(fail_cond, [assume_msg_sender_call_failed, goto_revert], [])
 
                 afters = [fail] + ctx.copy_old
 
