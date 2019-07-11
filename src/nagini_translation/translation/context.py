@@ -34,8 +34,6 @@ class Context:
         # Local: About locally available fields, i.e. msg and block fields
         self.local_unchecked_invariants = []
 
-        self.balance_field = None
-
         self.function = None
 
         self.all_vars = {}
@@ -78,6 +76,10 @@ class Context:
     @property
     def block_var(self):
         return self.all_vars[names.BLOCK]
+
+    @property
+    def balance_field(self):
+        return self.fields[names.SELF_BALANCE]
 
     @property
     def unchecked_invariants(self):

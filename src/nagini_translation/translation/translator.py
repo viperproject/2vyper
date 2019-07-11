@@ -81,8 +81,6 @@ class ProgramTranslator(PositionTranslator):
             array_lens = self.type_translator.array_length(field_acc, var.type, ctx)
             ctx.global_unchecked_invariants.extend(array_lens)
 
-        ctx.balance_field = ctx.fields[names.SELF_BALANCE]
-
         ctx.local_unchecked_invariants = []
         ctx.immutable_fields = {}
         ctx.immutable_permissions = []
