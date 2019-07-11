@@ -174,7 +174,7 @@ class SpecificationTranslator(ExpressionTranslator):
             if not self._ignore_old and not self._use_viper_old and ctx.inside_old:
                 self_var = builtins.old_self_var(self.viper_ast, pos).localVar()
             else:
-                self_var = builtins.self_var(self.viper_ast, pos).localVar()
+                self_var = ctx.self_var.localVar()
 
             if name == names.SENT:
                 if not node.args:

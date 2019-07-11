@@ -15,7 +15,7 @@ from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.function import FunctionTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
-from nagini_translation.translation.context import Context, old_label_scope
+from nagini_translation.translation.context import Context, old_label_scope, function_scope
 
 from nagini_translation.translation import builtins
 
@@ -58,9 +58,9 @@ class ProgramTranslator(PositionTranslator):
 
         ctx = Context(file)
         ctx.program = vyper_program
-        ctx.self_var = builtins.self_var(self.viper_ast)
-        ctx.msg_var = builtins.msg_var(self.viper_ast)
-        ctx.block_var = builtins.block_var(self.viper_ast)
+        ctx.all_vars[names.SELF] = builtins.self_var(self.viper_ast)
+        ctx.all_vars[names.MSG] = builtins.msg_var(self.viper_ast)
+        ctx.all_vars[names.BLOCK] = builtins.block_var(self.viper_ast)
 
         ctx.fields = {}
         ctx.permissions = []
@@ -159,63 +159,64 @@ class ProgramTranslator(PositionTranslator):
         # old state), and again for state no 3 (with state no 2 being the old state). In the
         # end we assert the invariants for state no 3 (with state no 1 being the old state)
 
-        name = builtins.TRANSITIVITY_CHECK
+        with function_scope(ctx):
+            name = builtins.TRANSITIVITY_CHECK
 
-        ctx.all_vars[names.SELF] = ctx.self_var
+            ctx.all_vars[names.SELF] = builtins.self_var(self.viper_ast)
 
-        inhales = [self.viper_ast.Inhale(p) for p in ctx.permissions]
-        exhales = [self.viper_ast.Exhale(p) for p in ctx.permissions]
+            inhales = [self.viper_ast.Inhale(p) for p in ctx.permissions]
+            exhales = [self.viper_ast.Exhale(p) for p in ctx.permissions]
 
-        locals = [builtins.self_var(self.viper_ast)]
-        body = []
-        body.extend(inhales)
-        for inv in ctx.global_unchecked_invariants:
-            body.append(self.viper_ast.Inhale(inv))
+            locals = [builtins.self_var(self.viper_ast)]
+            body = []
+            body.extend(inhales)
+            for inv in ctx.global_unchecked_invariants:
+                body.append(self.viper_ast.Inhale(inv))
 
-        old1 = self.viper_ast.Label('$old1')
-        body.append(old1)
+            old1 = self.viper_ast.Label('$old1')
+            body.append(old1)
 
-        body.extend(exhales)
-        body.extend(inhales)
+            body.extend(exhales)
+            body.extend(inhales)
 
-        inv1_assumptions = []
-        for inv in ctx.global_unchecked_invariants:
-            inv1_assumptions.append(self.viper_ast.Inhale(inv))
+            inv1_assumptions = []
+            for inv in ctx.global_unchecked_invariants:
+                inv1_assumptions.append(self.viper_ast.Inhale(inv))
 
-        with old_label_scope(old1, ctx):
-            for inv in ctx.program.invariants:
-                pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                inv1_assumptions.append(self.viper_ast.Inhale(inv_expr, pos))
+            with old_label_scope(old1, ctx):
+                for inv in ctx.program.invariants:
+                    pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                    inv_expr = self.specification_translator.translate_invariant(inv, ctx)
+                    inv1_assumptions.append(self.viper_ast.Inhale(inv_expr, pos))
 
-        body.extend(inv1_assumptions)
+            body.extend(inv1_assumptions)
 
-        old2 = self.viper_ast.Label('$old2')
-        body.append(old2)
+            old2 = self.viper_ast.Label('$old2')
+            body.append(old2)
 
-        body.extend(exhales)
-        body.extend(inhales)
+            body.extend(exhales)
+            body.extend(inhales)
 
-        inv2_assumptions = []
-        for inv in ctx.global_unchecked_invariants:
-            inv2_assumptions.append(self.viper_ast.Inhale(inv))
+            inv2_assumptions = []
+            for inv in ctx.global_unchecked_invariants:
+                inv2_assumptions.append(self.viper_ast.Inhale(inv))
 
-        with old_label_scope(old2, ctx):
-            for inv in ctx.program.invariants:
-                pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                inv2_assumptions.append(self.viper_ast.Inhale(inv_expr, pos))
+            with old_label_scope(old2, ctx):
+                for inv in ctx.program.invariants:
+                    pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                    inv_expr = self.specification_translator.translate_invariant(inv, ctx)
+                    inv2_assumptions.append(self.viper_ast.Inhale(inv_expr, pos))
 
-        body.extend(inv2_assumptions)
+            body.extend(inv2_assumptions)
 
-        inv_assertions = []
-        with old_label_scope(old1, ctx):
-            for inv in ctx.program.invariants:
-                rule = rules.TRANSITIVITY_VIOLATED
-                apos = self.to_position(inv, ctx, rule)
-                inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                inv_assertions.append(self.viper_ast.Assert(inv_expr, apos))
+            inv_assertions = []
+            with old_label_scope(old1, ctx):
+                for inv in ctx.program.invariants:
+                    rule = rules.TRANSITIVITY_VIOLATED
+                    apos = self.to_position(inv, ctx, rule)
+                    inv_expr = self.specification_translator.translate_invariant(inv, ctx)
+                    inv_assertions.append(self.viper_ast.Assert(inv_expr, apos))
 
-        body.extend(inv_assertions)
+            body.extend(inv_assertions)
 
-        return self.viper_ast.Method(name, [], [], [], [], locals, body)
+            return self.viper_ast.Method(name, [], [], [], [], locals, body)

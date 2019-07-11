@@ -43,9 +43,9 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             is_init = (function.name == names.INIT)
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
-            args[builtins.SELF] = ctx.self_var
-            args[builtins.MSG] = ctx.msg_var
-            args[builtins.BLOCK] = ctx.block_var
+            args[builtins.SELF] = builtins.self_var(self.viper_ast)
+            args[builtins.MSG] = builtins.msg_var(self.viper_ast)
+            args[builtins.BLOCK] = builtins.block_var(self.viper_ast)
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
             ctx.args = args
             ctx.locals = locals
@@ -106,7 +106,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 old_acc = self.viper_ast.FieldAccess(old_self.localVar(), field)
                 perm = self.viper_ast.FieldAccessPredicate(old_acc, self.viper_ast.FullPerm())
                 body.append(self.viper_ast.Inhale(perm))
-                self_var = builtins.self_var(self.viper_ast).localVar()
+                self_var = ctx.self_var.localVar()
                 self_acc = self.viper_ast.FieldAccess(self_var, field)
                 copy_old_stmts.append(self.viper_ast.FieldAssign(old_acc, self_acc))
 

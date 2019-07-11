@@ -8,6 +8,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from itertools import chain
 from contextlib import contextmanager
 
+from nagini_translation.ast import names
+
 
 class Context:
 
@@ -32,10 +34,7 @@ class Context:
         # Local: About locally available fields, i.e. msg and block fields
         self.local_unchecked_invariants = []
 
-        self.self_var = None
         self.balance_field = None
-        self.msg_var = None
-        self.block_var = None
 
         self.function = None
 
@@ -67,6 +66,18 @@ class Context:
         self._quantified_var_counter = -1
         self._inline_counter = -1
         self._current_inline = -1
+
+    @property
+    def self_var(self):
+        return self.all_vars[names.SELF]
+
+    @property
+    def msg_var(self):
+        return self.all_vars[names.MSG]
+
+    @property
+    def block_var(self):
+        return self.all_vars[names.BLOCK]
 
     @property
     def unchecked_invariants(self):
