@@ -15,6 +15,7 @@ reward: wei_value
 #@ invariant: implies(not self.did_pay, self.balance >= self.reward)
 #:: Label(INVC)
 #@ invariant: implies(not self.did_pay, sum(sent()) == 0)
+#:: Label(INVC2)
 #@ invariant: implies(self.did_pay, sum(sent()) == self.reward)
 
 @public
@@ -30,6 +31,7 @@ def claim_reward():
 		self.did_pay = True
 		send(msg.sender, self.reward)
 
+#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, INVC2)
 @public
 def claim_reward_fail():
 	if (not self.did_pay):
@@ -45,6 +47,7 @@ def claim_reward_raw():
 		self.did_pay = True
 		raw_call(msg.sender, b"", outsize=0, value=self.reward, gas=msg.gas)
 
+#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, INVC2)
 @public
 def claim_reward__raw_fail():
 	if (not self.did_pay):

@@ -11,6 +11,7 @@ should_pay: bool
 owner: address
 
 
+#:: Label(OP)
 #@ always ensures: implies(msg.sender != self.owner, self.should_pay == old(self.should_pay))
 
 #@ invariant: self.owner == old(self.owner)
@@ -35,6 +36,7 @@ def approve_payment():
     self.should_pay = True
 
 
+#:: ExpectedOutput(carbon)(postcondition.violated:assertion.false, OP)
 @public
 def send_fail():
     assert msg.sender != self.owner
