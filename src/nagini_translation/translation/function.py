@@ -312,9 +312,9 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             args_list = list(args.values())
             locals_list = [*locals.values(), *ctx.new_local_vars]
 
-        viper_name = builtins.method_name(function.name)
-        method = self.viper_ast.Method(viper_name, args_list, rets, pres, [], locals_list, body, pos)
-        return method
+            viper_name = builtins.method_name(function.name)
+            method = self.viper_ast.Method(viper_name, args_list, rets, pres, [], locals_list, body, pos)
+            return method
 
     def inline(self, function: VyperFunction, args: List[Expr], ctx: Context) -> StmtsAndExpr:
         with inline_scope(ctx):
