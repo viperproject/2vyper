@@ -91,6 +91,10 @@ def struct_field_name(vyper_struct_name: str) -> str:
     return f'd${vyper_struct_name}$field'
 
 
+def struct_init_name(vyper_struct_name: str) -> str:
+    return f'd${vyper_struct_name}$init'
+
+
 def axiom_name(viper_name: str) -> str:
     return f'{viper_name}_ax'
 
@@ -321,6 +325,12 @@ def struct_field(viper_ast: ViperAST, ref, idx, struct_type: StructType, pos=Non
     field_name = struct_field_name(struct_type.name)
     int = viper_ast.Int
     return viper_ast.DomainFuncApp(field_name, [ref, idx], int, pos, info, struct)
+
+
+def struct_init(viper_ast: ViperAST, args, struct: StructType, pos=None, info=None):
+    domain = struct_name(struct.name)
+    init_name = struct_init_name(struct.name)
+    return viper_ast.DomainFuncApp(init_name, args, struct_type(viper_ast, struct), pos, info, domain)
 
 
 def struct_get(viper_ast: ViperAST, ref, member: str, member_type, struct_type: StructType, pos=None, info=None):

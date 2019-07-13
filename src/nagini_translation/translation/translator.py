@@ -152,6 +152,8 @@ class ProgramTranslator(PositionTranslator):
 
         functions = [fields_function]
         axioms = []
+        init_args = {}
+        init_get = {}
         for name, type in struct.type.arg_types.items():
             member_type = self.type_translator.translate(type, ctx)
 
@@ -174,14 +176,38 @@ class ProgramTranslator(PositionTranslator):
 
             set_ax_name = builtins.axiom_name(f'{setter_name}_1')
             local_f = field_var.localVar()
-            idx = self.viper_ast.IntLit(struct.type.arg_indices[name])
-            neq = self.viper_ast.NeCmp(local_f, idx)
+            idx = struct.type.arg_indices[name]
+            idx_lit = self.viper_ast.IntLit(idx)
+            neq = self.viper_ast.NeCmp(local_f, idx_lit)
             field_v_f = builtins.struct_field(self.viper_ast, local_s, local_f, struct.type)
             field_set_f = builtins.struct_field(self.viper_ast, set_m, local_f, struct.type)
             impl = self.viper_ast.Implies(neq, self.viper_ast.EqCmp(field_v_f, field_set_f))
             trigger = self.viper_ast.Trigger([field_set_f])
             quant = self.viper_ast.Forall([struct_var, new_var, field_var], [trigger], impl)
             axioms.append(self.viper_ast.DomainAxiom(set_ax_name, quant, struct_name))
+
+            init_args[idx] = self.viper_ast.LocalVarDecl(f'arg_{idx}', member_type)
+
+            def ig(s, name=name, member_type=member_type):
+                return builtins.struct_get(self.viper_ast, s, name, member_type, struct.type)
+            init_get[idx] = ig
+
+        i_args = [init_args[i] for i in range(len(init_args))]
+        init_name = builtins.struct_init_name(struct.name)
+        init_f = self.viper_ast.DomainFunc(init_name, i_args, struct_type, False, struct_name)
+        functions.append(init_f)
+
+        init = builtins.struct_init(self.viper_ast, [arg.localVar() for arg in i_args], struct.type)
+        expr = self.viper_ast.TrueLit()
+        for i in range(len(init_args)):
+            get = init_get[i](init)
+            eq = self.viper_ast.EqCmp(get, init_args[i].localVar())
+            expr = self.viper_ast.And(expr, eq)
+
+        trigger = self.viper_ast.Trigger([init])
+        quant = self.viper_ast.Forall(i_args, [trigger], expr)
+        init_ax_name = builtins.axiom_name(init_name)
+        axioms.append(self.viper_ast.DomainAxiom(init_ax_name, quant, struct_name))
 
         return self.viper_ast.Domain(struct_name, functions, axioms, [])
 

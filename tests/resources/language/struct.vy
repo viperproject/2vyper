@@ -14,8 +14,14 @@ struct Rational:
 struct Person:
     i: int128
     friends: int128[3]
+    percent: Rational
 
 
+me: Person
+zero: Rational
+
+
+#@ ensures: implies(success(), self.me.i == 0 and self.me.friends[0] == 0 and self.me.percent.numerator == 0)
 @public
 def __init__():
     pass

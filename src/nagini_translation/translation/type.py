@@ -14,7 +14,7 @@ from nagini_translation.translation.abstract import PositionTranslator, CommonTr
 from nagini_translation.translation.context import Context, quantified_var_scope
 
 from nagini_translation.translation.builtins import (
-    array_type, array_init, array_get, map_type, map_init, map_get, map_sum, struct_type, struct_get
+    array_type, array_init, array_get, map_type, map_init, map_get, map_sum, struct_type, struct_get, struct_init
 )
 
 from nagini_translation.viper.ast import ViperAST
@@ -78,6 +78,16 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             stmts, element_default = self.default_value(node, type.element_type, ctx)
             array = array_init(self.viper_ast, element_default, type.size, element_type, pos)
             return stmts, array
+        elif isinstance(type, StructType):
+            init_args = {}
+            stmts = []
+            for name, member_type in type.arg_types.items():
+                idx = type.arg_indices[name]
+                default_stmts, val = self.default_value(node, member_type, ctx)
+                init_args[idx] = val
+                stmts.extend(default_stmts)
+            args = [init_args[i] for i in range(len(init_args))]
+            return stmts, struct_init(self.viper_ast, args, type, pos)
         else:
             assert False
 
