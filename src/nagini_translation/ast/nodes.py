@@ -8,7 +8,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from typing import Dict, List
-from nagini_translation.ast.types import VyperType, FunctionType, EventType
+
+from nagini_translation.ast.types import VyperType, FunctionType, StructType, EventType
 
 
 class VyperVar:
@@ -48,6 +49,13 @@ class VyperFunction:
         return 'payable' in self.decorators
 
 
+class VyperStruct:
+
+    def __init__(self, name: str, type: StructType, node: ast.ClassDef):
+        self.name = name
+        self.type = type
+
+
 class VyperEvent:
 
     def __init__(self, name: str, type: EventType):
@@ -60,12 +68,14 @@ class VyperProgram:
     def __init__(self,
                  state: Dict[str, VyperVar],
                  functions: Dict[str, VyperFunction],
+                 structs: Dict[str, VyperStruct],
                  events: Dict[str, VyperEvent],
                  invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr]):
         self.state = state
         self.functions = functions
+        self.structs = structs
         self.events = events
         self.invariants = invariants
         self.general_postconditions = general_postconditions

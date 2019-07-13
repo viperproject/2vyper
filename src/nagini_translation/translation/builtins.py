@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from nagini_translation.ast import names
-from nagini_translation.ast.types import FunctionType
+from nagini_translation.ast.types import FunctionType, StructType
 from nagini_translation.ast.nodes import VyperFunction
 
 from nagini_translation.viper.ast import ViperAST
@@ -69,6 +69,30 @@ TRANSITIVITY_CHECK = '$transitivity_check'
 
 def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
+
+
+def struct_name(vyper_name: str) -> str:
+    return f'd${vyper_name}'
+
+
+def struct_member_name(vyper_struct_name: str, vyper_member_name: str) -> str:
+    return f'd${vyper_struct_name}${vyper_member_name}'
+
+
+def struct_member_getter_name(vyper_struct_name: str, vyper_member_name: str) -> str:
+    return f'd${vyper_struct_name}$get_{vyper_member_name}'
+
+
+def struct_member_setter_name(vyper_struct_name: str, vyper_member_name: str) -> str:
+    return f'd${vyper_struct_name}$set_{vyper_member_name}'
+
+
+def struct_field_name(vyper_struct_name: str) -> str:
+    return f'd${vyper_struct_name}$field'
+
+
+def axiom_name(viper_name: str) -> str:
+    return f'{viper_name}_ax'
 
 
 def event_name(vyper_name: str) -> str:
@@ -286,3 +310,29 @@ def map_sum(viper_ast: ViperAST, ref, key_type, pos=None, info=None):
     type_vars = {viper_ast.TypeVar(MAP_KEY_VAR): key_type}
     type = viper_ast.Int
     return viper_ast.DomainFuncApp(MAP_SUM, [ref], type, pos, info, MAP_INT_DOMAIN, type_vars)
+
+
+def struct_type(viper_ast: ViperAST, struct_type: StructType):
+    return viper_ast.DomainType(struct_name(struct_type.name), {}, [])
+
+
+def struct_field(viper_ast: ViperAST, ref, idx, struct_type: StructType, pos=None, info=None):
+    struct = struct_name(struct_type.name)
+    field_name = struct_field_name(struct_type.name)
+    int = viper_ast.Int
+    return viper_ast.DomainFuncApp(field_name, [ref, idx], int, pos, info, struct)
+
+
+def struct_get(viper_ast: ViperAST, ref, member: str, member_type, struct_type: StructType, pos=None, info=None):
+    struct = struct_name(struct_type.name)
+    idx = viper_ast.IntLit(struct_type.arg_indices[member])
+    field = struct_field(viper_ast, ref, idx, struct_type, pos, info)
+    getter = struct_member_getter_name(struct_type.name, member)
+    return viper_ast.DomainFuncApp(getter, [field], member_type, pos, info, struct)
+
+
+def struct_set(viper_ast: ViperAST, ref, val, member: str, type: StructType, pos=None, info=None):
+    setter = struct_member_setter_name(type.name, member)
+    s_type = struct_type(viper_ast, type)
+    s_name = struct_name(type.name)
+    return viper_ast.DomainFuncApp(setter, [ref, val], s_type, pos, info, s_name)

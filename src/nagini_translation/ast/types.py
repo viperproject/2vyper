@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from nagini_translation.ast import names
 from nagini_translation.exceptions import UnsupportedException
@@ -48,6 +48,14 @@ class ArrayType(VyperType):
         self.size = size
         self.is_strict = is_strict
         name = f'{element_type}[{size}]'
+        super().__init__(name)
+
+
+class StructType(VyperType):
+
+    def __init__(self, name: str, arg_types: Dict[str, VyperType]):
+        self.arg_types = arg_types
+        self.arg_indices = {k: i for i, k in enumerate(arg_types)}
         super().__init__(name)
 
 
@@ -105,6 +113,9 @@ def has_strict_array_size(element_type: VyperType) -> bool:
 
 class TypeBuilder(ast.NodeVisitor):
 
+    def __init__(self, type_map: Dict[str, VyperType]):
+        self.type_map = type_map
+
     def build(self, node) -> VyperType:
         return self.visit(node)
 
@@ -112,7 +123,11 @@ class TypeBuilder(ast.NodeVisitor):
         raise UnsupportedException(node)
 
     def visit_Name(self, node: ast.Name) -> VyperType:
-        return TYPES[node.id]
+        return self.type_map.get(node.id) or TYPES[node.id]
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> VyperType:
+        members = {n.target.id: self.visit(n.annotation) for n in node.body}
+        return StructType(node.name, members)
 
     def visit_Call(self, node: ast.Call) -> VyperType:
         # We allow

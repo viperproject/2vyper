@@ -157,8 +157,15 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         stmts, expr = self.translate(node.value, ctx)
-        field = ctx.fields.get(node.attr, ctx.immutable_fields.get(node.attr))
-        return stmts, self.viper_ast.FieldAccess(expr, field, pos)
+
+        if isinstance(node.value.type, types.StructType):
+            struct_type = node.value.type
+            type = self.type_translator.translate(node.type, ctx)
+            get = builtins.struct_get(self.viper_ast, expr, node.attr, type, struct_type, pos)
+            return stmts, get
+        else:
+            field = ctx.fields.get(node.attr, ctx.immutable_fields.get(node.attr))
+            return stmts, self.viper_ast.FieldAccess(expr, field, pos)
 
     def translate_Subscript(self, node: ast.Subscript, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)

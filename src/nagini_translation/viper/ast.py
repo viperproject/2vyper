@@ -197,11 +197,15 @@ class ViperAST:
                                self.to_seq(axioms), self.to_seq(typevars),
                                position, info, self.NoTrafos)
 
-    def DomainFunc(self, name, args, type, unique, position, info, domain_name):
+    def DomainFunc(self, name, args, type, unique, domain_name, position=None, info=None):
+        position = position or self.NoPosition
+        info = info or self.NoInfo
         return self.ast.DomainFunc(name, self.to_seq(args), type, unique,
                                    position, info, domain_name, self.NoTrafos)
 
-    def DomainAxiom(self, name, expr, position, info, domain_name):
+    def DomainAxiom(self, name, expr, domain_name, position=None, info=None):
+        position = position or self.NoPosition
+        info = info or self.NoInfo
         return self.ast.DomainAxiom(name, expr, position, info, domain_name,
                                     self.NoTrafos)
 

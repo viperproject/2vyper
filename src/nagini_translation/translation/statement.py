@@ -14,7 +14,7 @@ from nagini_translation.utils import flatten
 from nagini_translation.ast import types
 from nagini_translation.ast import names
 
-from nagini_translation.ast.types import MapType, ArrayType
+from nagini_translation.ast.types import MapType, ArrayType, StructType
 
 from nagini_translation.translation.context import Context, break_scope, continue_scope
 from nagini_translation.translation.abstract import NodeTranslator
@@ -22,7 +22,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.special import SpecialTranslator
 
-from nagini_translation.translation.builtins import array_set, map_set
+from nagini_translation.translation.builtins import array_set, map_set, struct_set
 
 from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import Stmt
@@ -210,9 +210,15 @@ class _AssignmentTranslator(NodeTranslator):
 
     def assign_to_Attribute(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-        lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
-        assign = self.viper_ast.FieldAssign(lhs, value, pos)
-        return lhs_stmts, assign
+        if isinstance(node.value.type, StructType):
+            receiver_stmts, rec = self.expression_translator.translate(node.value, ctx)
+            new_value = struct_set(self.viper_ast, rec, value, node.attr, node.value.type, pos)
+            assign_stmts, assign = self.assign_to(node.value, new_value, ctx)
+            return receiver_stmts + assign_stmts, assign
+        else:
+            lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
+            assign = self.viper_ast.FieldAssign(lhs, value, pos)
+            return lhs_stmts, assign
 
     def assign_to_Subscript(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)

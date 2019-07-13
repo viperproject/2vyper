@@ -11,7 +11,7 @@ from nagini_translation.utils import first_index
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.types import MapType, ArrayType
+from nagini_translation.ast.types import MapType, ArrayType, StructType
 from nagini_translation.ast.nodes import VyperProgram
 
 from nagini_translation.ast.types import TypeBuilder
@@ -22,7 +22,8 @@ class TypeAnnotator:
     # TODO: error handling
 
     def __init__(self, program: VyperProgram):
-        self.type_builder = TypeBuilder()
+        type_map = {name: struct.type for name, struct in program.structs.items()}
+        self.type_builder = TypeBuilder(type_map)
 
         self.program = program
         self.current_func = None
@@ -237,7 +238,9 @@ class TypeAnnotator:
 
     def annotate_Attribute(self, node: ast.Attribute):
         self.annotate(node.value)
-        if node.attr == names.MSG_SENDER:
+        if isinstance(node.value.type, StructType):
+            node.type = node.value.type.arg_types[node.attr]
+        elif node.attr == names.MSG_SENDER:
             node.type = types.VYPER_ADDRESS
         elif node.attr == names.MSG_VALUE or node.attr == names.SELF_BALANCE or node.attr == names.MSG_GAS:
             node.type = types.VYPER_WEI_VALUE

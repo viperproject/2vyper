@@ -9,7 +9,7 @@ from nagini_translation.utils import seq_to_list
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.nodes import VyperProgram, VyperEvent, VyperVar
+from nagini_translation.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperVar
 
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.function import FunctionTranslator
@@ -117,6 +117,10 @@ class ProgramTranslator(PositionTranslator):
 
         fields_list = [*ctx.fields.values(), *ctx.immutable_fields.values()]
 
+        # Structs
+        for struct in vyper_program.structs.values():
+            domains.append(self._translate_struct(struct, ctx))
+
         # Events
         predicates = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
 
@@ -134,6 +138,52 @@ class ProgramTranslator(PositionTranslator):
         field = self.viper_ast.Field(name, type, pos)
 
         return field
+
+    def _translate_struct(self, struct: VyperStruct, ctx: Context):
+        viper_int = self.viper_ast.Int
+        struct_name = builtins.struct_name(struct.name)
+        struct_type = self.type_translator.translate(struct.type, ctx)
+
+        struct_var = self.viper_ast.LocalVarDecl('$s', struct_type)
+        field_var = self.viper_ast.LocalVarDecl('$f', viper_int)
+
+        fields_function_name = builtins.struct_field_name(struct.name)
+        fields_function = self.viper_ast.DomainFunc(fields_function_name, [struct_var, field_var], viper_int, False, struct_name)
+
+        functions = [fields_function]
+        axioms = []
+        for name, type in struct.type.arg_types.items():
+            member_type = self.type_translator.translate(type, ctx)
+
+            getter_name = builtins.struct_member_getter_name(struct.name, name)
+            functions.append(self.viper_ast.DomainFunc(getter_name, [field_var], member_type, False, struct_name))
+
+            setter_name = builtins.struct_member_setter_name(struct.name, name)
+            new_var = self.viper_ast.LocalVarDecl('$v', member_type)
+            functions.append(self.viper_ast.DomainFunc(setter_name, [struct_var, new_var], struct_type, False, struct_name))
+
+            set_ax_name = builtins.axiom_name(f'{setter_name}_0')
+            local_s = struct_var.localVar()
+            local_v = new_var.localVar()
+            set_m = builtins.struct_set(self.viper_ast, local_s, local_v, name, struct.type)
+            get_m = builtins.struct_get(self.viper_ast, set_m, name, member_type, struct.type)
+            eq = self.viper_ast.EqCmp(get_m, local_v)
+            trigger = self.viper_ast.Trigger([get_m])
+            quant = self.viper_ast.Forall([struct_var, new_var], [trigger], eq)
+            axioms.append(self.viper_ast.DomainAxiom(set_ax_name, quant, struct_name))
+
+            set_ax_name = builtins.axiom_name(f'{setter_name}_1')
+            local_f = field_var.localVar()
+            idx = self.viper_ast.IntLit(struct.type.arg_indices[name])
+            neq = self.viper_ast.NeCmp(local_f, idx)
+            field_v_f = builtins.struct_field(self.viper_ast, local_s, local_f, struct.type)
+            field_set_f = builtins.struct_field(self.viper_ast, set_m, local_f, struct.type)
+            impl = self.viper_ast.Implies(neq, self.viper_ast.EqCmp(field_v_f, field_set_f))
+            trigger = self.viper_ast.Trigger([field_set_f])
+            quant = self.viper_ast.Forall([struct_var, new_var, field_var], [trigger], impl)
+            axioms.append(self.viper_ast.DomainAxiom(set_ax_name, quant, struct_name))
+
+        return self.viper_ast.Domain(struct_name, functions, axioms, [])
 
     def _translate_event(self, event: VyperEvent, ctx: Context):
         name = builtins.event_name(event.name)

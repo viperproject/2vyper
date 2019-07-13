@@ -5,10 +5,15 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+import re
+
 from nagini_translation.exceptions import InvalidProgramException
 
 
 def preprocess(program: str) -> str:
+    # Change structs to classes
+    program = re.sub(r'(?<=^)struct(?=\s.*:\s*$)', r'class ', program, flags=re.MULTILINE)
+
     # Make preconditions valid python statements. We use assignments instead of variable
     # declarations because we could have contract variables called 'requires'.
     # The spaces are used to keep the column numbers correct in the preprocessed program.

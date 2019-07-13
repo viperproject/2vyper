@@ -16,7 +16,9 @@ from nagini_translation.ast.types import TypeBuilder
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 
-from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperEvent, VyperVar
+from nagini_translation.ast.nodes import (
+    VyperProgram, VyperFunction, VyperStruct, VyperEvent, VyperVar
+)
 from nagini_translation.ast.types import FunctionType, EventType
 
 from nagini_translation.exceptions import InvalidProgramException
@@ -47,6 +49,7 @@ class ProgramBuilder(ast.NodeVisitor):
     def __init__(self):
         self.state = {}
         self.functions = {}
+        self.structs = {}
         self.events = {}
         self.invariants = []
         self.general_postconditions = []
@@ -56,7 +59,10 @@ class ProgramBuilder(ast.NodeVisitor):
         self.postconditions = []
         self.checks = []
 
-        self.type_builder = TypeBuilder()
+    @property
+    def type_builder(self):
+        self.type_map = type_map = {name: struct.type for name, struct in self.structs.items()}
+        return TypeBuilder(type_map)
 
     def build(self, node) -> VyperProgram:
         self.visit(node)
@@ -64,6 +70,7 @@ class ProgramBuilder(ast.NodeVisitor):
         self._check_no_local_spec()
         return VyperProgram(self.state,
                             self.functions,
+                            self.structs,
                             self.events,
                             self.invariants,
                             self.general_postconditions,
@@ -86,6 +93,11 @@ class ProgramBuilder(ast.NodeVisitor):
         else:
             return
         raise InvalidProgramException(node, 'local.spec', f"{cond} only allowed before function")
+
+    def visit_ClassDef(self, node: ast.ClassDef):
+        struct_type = self.type_builder.build(node)
+        struct = VyperStruct(node.name, struct_type, node)
+        self.structs[struct.name] = struct
 
     def visit_AnnAssign(self, node):
         # No local specs are allowed before contract state variables
@@ -135,7 +147,7 @@ class ProgramBuilder(ast.NodeVisitor):
         return [dec.id for dec in node.decorator_list if isinstance(dec, ast.Name)]
 
     def visit_FunctionDef(self, node):
-        local = LocalProgramBuilder()
+        local = LocalProgramBuilder(self.type_builder)
         args, local_vars = local.build(node)
         arg_types = [arg.type for arg in args.values()]
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
@@ -152,11 +164,11 @@ class ProgramBuilder(ast.NodeVisitor):
 
 class LocalProgramBuilder(ast.NodeVisitor):
 
-    def __init__(self):
+    def __init__(self, type_builder: TypeBuilder):
         self.args = {}
         self.local_vars = {}
 
-        self.type_builder = TypeBuilder()
+        self.type_builder = type_builder
 
     def build(self, node):
         self.visit(node)

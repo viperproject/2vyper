@@ -8,13 +8,13 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from typing import Optional, List
 
 from nagini_translation.ast import types
-from nagini_translation.ast.types import VyperType, PrimitiveType, MapType, ArrayType
+from nagini_translation.ast.types import VyperType, PrimitiveType, MapType, ArrayType, StructType
 
 from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
 
 from nagini_translation.translation.builtins import (
-    array_type, array_init, array_get, map_type, map_init, map_get, map_sum
+    array_type, array_init, array_get, map_type, map_init, map_get, map_sum, struct_type, struct_get
 )
 
 from nagini_translation.viper.ast import ViperAST
@@ -45,6 +45,8 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         elif isinstance(type, ArrayType):
             element_type = self.translate(type.element_type, ctx)
             return array_type(self.viper_ast, element_type)
+        elif isinstance(type, StructType):
+            return struct_type(self.viper_ast, type)
         else:
             assert False
 
@@ -171,7 +173,13 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                     implies = self.viper_ast.Implies(bounds, r)
                     quantifier = self.viper_ast.Forall([quant_decl], [trigger], implies)
                     ret.append(quantifier)
-
+            # If we encounter a struct type we simply add the necessary assumptions for
+            # all struct members
+            elif isinstance(type, StructType):
+                for member_name, member_type in type.arg_types.items():
+                    viper_type = self.translate(member_type, ctx)
+                    get = struct_get(self.viper_ast, node, member_name, viper_type, type)
+                    ret.extend(construct(member_type, get))
             return ret
 
         with quantified_var_scope(ctx):
