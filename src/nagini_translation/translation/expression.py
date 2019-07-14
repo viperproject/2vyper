@@ -244,7 +244,7 @@ class ExpressionTranslator(NodeTranslator):
                 return self.translate(node.args[0], ctx)
             elif name == names.LEN:
                 arr_stmts, arr = self.translate(node.args[0], ctx)
-                return arr_stmts, self.viper_ast.SeqLength(arr, pos)
+                return arr_stmts, builtins.array_length(self.viper_ast, arr, pos)
             elif name == names.CONCAT:
                 concat_stmts, concats = zip(*[self.translate(arg, ctx) for arg in node.args])
 
