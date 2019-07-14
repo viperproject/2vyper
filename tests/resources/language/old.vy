@@ -11,6 +11,6 @@ counter: int128
 
 #@ ensures: implies(success(), self.counter <= old(self.counter) - 2)
 @public
-def incr():
+def decr():
     self.counter -= 2
     send(ZERO_ADDRESS, as_wei_value(5, "wei"))
