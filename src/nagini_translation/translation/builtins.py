@@ -20,6 +20,7 @@ from nagini_translation.viper.ast import ViperAST
 INIT = names.INIT
 SELF = names.SELF
 OLD_SELF = f'$old_{names.SELF}'
+PRE_SELF = f'$pre_{names.SELF}'
 SELF_BALANCE = 's$balance'
 
 MSG = names.MSG
@@ -133,12 +134,19 @@ def init_function() -> ast.FunctionDef:
     return VyperFunction(INIT, {}, {}, type, [], [], [], [names.PUBLIC], node)
 
 
-def self_var(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.LocalVarDecl(SELF, viper_ast.Ref, pos, info)
+def self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
+    type = struct_type(viper_ast, self_type)
+    return viper_ast.LocalVarDecl(SELF, type, pos, info)
 
 
-def old_self_var(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.LocalVarDecl(OLD_SELF, viper_ast.Ref, pos, info)
+def old_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
+    type = struct_type(viper_ast, self_type)
+    return viper_ast.LocalVarDecl(OLD_SELF, type, pos, info)
+
+
+def pre_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
+    type = struct_type(viper_ast, self_type)
+    return viper_ast.LocalVarDecl(PRE_SELF, type, pos, info)
 
 
 def msg_var(viper_ast: ViperAST, pos=None, info=None):
@@ -171,46 +179,6 @@ def block_var(viper_ast: ViperAST, pos=None, info=None):
 
 def block_timestamp_field(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.Field(BLOCK_TIMESTAMP, viper_ast.Int, pos, info)
-
-
-def self_sent_field(viper_ast: ViperAST, pos=None, info=None):
-    sent_type = map_type(viper_ast, viper_ast.Int, viper_ast.Int)
-    return viper_ast.Field(SENT_FIELD, sent_type, pos, info)
-
-
-def self_sent_field_acc(viper_ast: ViperAST, self_var, pos=None, info=None):
-    field = self_sent_field(viper_ast)
-    return viper_ast.FieldAccess(self_var, field, pos, info)
-
-
-def self_sent_map_get(viper_ast: ViperAST, idx, self_var, pos=None, info=None):
-    field_acc = self_sent_field_acc(viper_ast, self_var, pos, info)
-    return map_get(viper_ast, field_acc, idx, viper_ast.Int, viper_ast.Int, pos, info)
-
-
-def self_sent_map_set(viper_ast: ViperAST, idx, val, self_var, pos=None, info=None):
-    field_acc = self_sent_field_acc(viper_ast, self_var, pos, info)
-    return map_set(viper_ast, field_acc, idx, val, viper_ast.Int, viper_ast.Int, pos, info)
-
-
-def self_received_field(viper_ast: ViperAST, pos=None, info=None):
-    received_type = map_type(viper_ast, viper_ast.Int, viper_ast.Int)
-    return viper_ast.Field(RECEIVED_FIELD, received_type, pos, info)
-
-
-def self_received_field_acc(viper_ast: ViperAST, self_var, pos=None, info=None):
-    field = self_received_field(viper_ast)
-    return viper_ast.FieldAccess(self_var, field, pos, info)
-
-
-def self_received_map_get(viper_ast: ViperAST, idx, self_var, pos=None, info=None):
-    field_acc = self_received_field_acc(viper_ast, self_var, pos, info)
-    return map_get(viper_ast, field_acc, idx, viper_ast.Int, viper_ast.Int, pos, info)
-
-
-def self_received_map_set(viper_ast: ViperAST, idx, val, self_var, pos=None, info=None):
-    field_acc = self_received_field_acc(viper_ast, self_var, pos, info)
-    return map_set(viper_ast, field_acc, idx, val, viper_ast.Int, viper_ast.Int, pos, info)
 
 
 def ret_var(viper_ast: ViperAST, ret_type, pos=None, info=None):
@@ -335,7 +303,7 @@ def struct_init(viper_ast: ViperAST, args, struct: StructType, pos=None, info=No
 
 def struct_get(viper_ast: ViperAST, ref, member: str, member_type, struct_type: StructType, pos=None, info=None):
     struct = struct_name(struct_type.name)
-    idx = viper_ast.IntLit(struct_type.arg_indices[member])
+    idx = viper_ast.IntLit(struct_type.member_indices[member])
     field = struct_field(viper_ast, ref, idx, struct_type, pos, info)
     getter = struct_member_getter_name(struct_type.name, member)
     return viper_ast.DomainFuncApp(getter, [field], member_type, pos, info, struct)

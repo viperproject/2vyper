@@ -164,7 +164,7 @@ class ExpressionTranslator(NodeTranslator):
             get = builtins.struct_get(self.viper_ast, expr, node.attr, type, struct_type, pos)
             return stmts, get
         else:
-            field = ctx.fields.get(node.attr, ctx.immutable_fields.get(node.attr))
+            field = ctx.immutable_fields.get(node.attr)
             return stmts, self.viper_ast.FieldAccess(expr, field, pos)
 
     def translate_Subscript(self, node: ast.Subscript, ctx: Context) -> StmtsAndExpr:
@@ -289,17 +289,23 @@ class ExpressionTranslator(NodeTranslator):
                         amount_stmts, amount = [], self.viper_ast.IntLit(0, pos)
 
                 self_var = ctx.self_var.localVar()
-                self_balance = self.viper_ast.FieldAccess(self_var, ctx.balance_field)
+                balance_type = ctx.field_types[names.SELF_BALANCE]
+                self_balance = builtins.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
                 check = self.fail_if(self.viper_ast.LtCmp(self_balance, amount), ctx)
 
-                sub = self.viper_ast.Sub(self_balance, amount)
-                sub_stmt = self.viper_ast.FieldAssign(self_balance, sub)
+                diff = self.viper_ast.Sub(self_balance, amount)
+                sub = builtins.struct_set(self.viper_ast, self_var, diff, names.SELF_BALANCE, ctx.self_type)
+                sub_stmt = self.viper_ast.LocalVarAssign(self_var, sub)
 
-                sent_get = builtins.self_sent_map_get(self.viper_ast, to, self_var, pos)
-                sent_add = self.viper_ast.Add(sent_get, amount, pos)
-                sent_acc = builtins.self_sent_field_acc(self.viper_ast, self_var, pos)
-                sent_set = builtins.self_sent_map_set(self.viper_ast, to, sent_add, self_var, pos)
-                sent_assign = self.viper_ast.FieldAssign(sent_acc, sent_set, pos)
+                sent_type = ctx.field_types[builtins.SENT_FIELD]
+                sent = builtins.struct_get(self.viper_ast, self_var, builtins.SENT_FIELD, sent_type, ctx.self_type, pos)
+                # TODO: improve this type stuff
+                sent_to = builtins.map_get(self.viper_ast, sent, to, self.viper_ast.Int, self.viper_ast.Int, pos)
+                sent_inc = self.viper_ast.Add(sent_to, amount, pos)
+                # TODO: improve this type stuff
+                sent_set = builtins.map_set(self.viper_ast, sent, to, sent_inc, self.viper_ast.Int, self.viper_ast.Int)
+                self_set = builtins.struct_set(self.viper_ast, self_var, sent_set, builtins.SENT_FIELD, ctx.self_type)
+                sent_assign = self.viper_ast.LocalVarAssign(self_var, self_set)
 
                 stmts = [*to_stmts, *amount_stmts, check, sub_stmt, sent_assign]
 
@@ -318,9 +324,15 @@ class ExpressionTranslator(NodeTranslator):
                     via = [('invariant', cond.pos())]
                     call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
                     inv_assertions.append(self.viper_ast.Assert(cond, call_pos))
-                ex_fields = [self.viper_ast.Exhale(perm) for perm in ctx.permissions]
-                in_fields = [self.viper_ast.Inhale(perm) for perm in ctx.permissions]
-                inh_exh = ex_fields + in_fields
+
+                old_self = builtins.old_self_var(self.viper_ast, ctx.self_type, pos)
+                copy_old = self.viper_ast.LocalVarAssign(old_self.localVar(), self_var)
+
+                # Havov self
+                havoc_name = ctx.new_local_var_name('havoc')
+                havoc = self.viper_ast.LocalVarDecl(havoc_name, ctx.self_var.typ())
+                ctx.new_local_vars.append(havoc)
+                havoc_self = self.viper_ast.LocalVarAssign(self_var, havoc.localVar(), pos)
 
                 uinvs = ctx.global_unchecked_invariants
                 assume_invs = []
@@ -341,7 +353,7 @@ class ExpressionTranslator(NodeTranslator):
                 goto_revert = self.viper_ast.Goto(ctx.revert_label, pos)
                 fail = self.viper_ast.If(fail_cond, [assume_msg_sender_call_failed, goto_revert], [])
 
-                afters = [fail] + ctx.copy_old
+                afters = [fail, copy_old]
 
                 if name == names.RAW_CALL:
                     ret_name = ctx.new_local_var_name('raw_ret')
@@ -352,7 +364,7 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     return_value = None
 
-                return stmts + check_assertions + inv_assertions + ctx.copy_old + inh_exh + assumes + afters, return_value
+                return stmts + check_assertions + inv_assertions + [copy_old, havoc_self] + assumes + afters, return_value
         else:
             name = node.func.attr
             stmts = []

@@ -66,14 +66,14 @@ class VyperEvent:
 class VyperProgram:
 
     def __init__(self,
-                 state: Dict[str, VyperVar],
+                 fields: VyperStruct,
                  functions: Dict[str, VyperFunction],
                  structs: Dict[str, VyperStruct],
                  events: Dict[str, VyperEvent],
                  invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr]):
-        self.state = state
+        self.fields = fields
         self.functions = functions
         self.structs = structs
         self.events = events

@@ -10,7 +10,8 @@ import ast
 from nagini_translation.ast import names
 
 from nagini_translation.translation.expression import ExpressionTranslator
-from nagini_translation.translation.context import Context, quantified_var_scope, inside_old_scope
+from nagini_translation.translation.context import Context
+from nagini_translation.translation.context import quantified_var_scope, self_scope
 from nagini_translation.translation.builtins import map_sum
 
 from nagini_translation.translation import builtins
@@ -25,62 +26,45 @@ class SpecificationTranslator(ExpressionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
-        # We require history invariants to be reflexive, therefore we can simply
-        # replace old expressions by their expression in preconditions and in the
-        # postcondition of __init__
-        self._ignore_old = None
-        # In places where we refer to the pre-function state we want the Viper old expressions
-        # instead of the last publicly seen state represented by the $old_self variable
-        self._use_viper_old = None
 
     def translate_precondition(self, pre: ast.AST, ctx: Context):
-        self._ignore_old = True
         return self._translate_spec(pre, ctx)
 
-    def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False, is_fail=False):
-        self._ignore_old = is_init
-        self._use_viper_old = True
-        expr = self._translate_spec(post, ctx)
-        if is_fail:
-            # Postconditions after failing functions are evaluate in the pre-state of the
-            # function represented by the Viper old-state. Since in Viper old expressions are
-            # evaluated in the old heap but the current stack, we still get the correct value
-            # for $succ.
-            pos = self.to_position(post, ctx)
-            return self.viper_ast.Old(expr, pos)
-        else:
-            return expr
+    def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False):
+        # For postconditions the old state is the state before the function call, except for
+        # __init__ where we use the self state instead (since there is no pre-state)
+        old_var = ctx.self_var if is_init else ctx.pre_self_var
+        with self_scope(ctx.self_var, old_var, ctx):
+            return self._translate_spec(post, ctx)
 
     def translate_check(self, check: ast.AST, ctx: Context, is_init=False, is_fail=False):
-        self._ignore_old = is_init
-        self._use_viper_old = is_fail
-        expr = self._translate_spec(check, ctx)
+        # In a check we use the last publicly seen state as the old state except for __init__
+        # where we use the normal self state instead
+        old_var = ctx.self_var if is_init else ctx.old_self_var
+        with self_scope(ctx.self_var, old_var, ctx):
+            expr = self._translate_spec(check, ctx)
         if is_fail:
-            # Same as with postconditions
+            # We evaluate the check on failure in the old heap because events didn't
+            # happen there
             pos = self.to_position(check, ctx)
             return self.viper_ast.Old(expr, pos)
         else:
             return expr
 
-    def translate_invariant(self, inv: ast.AST, ctx: Context, is_pre=False, is_init=False, is_fail=False):
+    def translate_invariant(self, inv: ast.AST, ctx: Context, is_pre=False, is_init=False):
         # Invariants do not have to hold before __init__
         if is_pre and is_init:
             return None
 
-        self._ignore_old = is_pre or is_init
-        self._use_viper_old = is_fail or ctx.old_label is not None
-        return self._translate_spec(inv, ctx)
+        # In invariants we use the last publicly seen state as the old state except when we
+        # are assuming the invariant or we are in __init__
+        old_var = ctx.self_var if is_pre or is_init else ctx.old_self_var
+        with self_scope(ctx.self_var, old_var, ctx):
+            return self._translate_spec(inv, ctx)
 
     def _translate_spec(self, node, ctx: Context):
         _, expr = self.translate(node, ctx)
         return expr
-
-    def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
-        if not self._ignore_old and not self._use_viper_old and ctx.inside_old and node.id == names.SELF:
-            pos = self.to_position(node, ctx)
-            return [], builtins.old_self_var(self.viper_ast, pos).localVar()
-        else:
-            return super().translate_Name(node, ctx)
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
@@ -146,20 +130,9 @@ class SpecificationTranslator(ExpressionTranslator):
                 # TODO: remove this
                 raise InvalidProgramException(node, "Old expression requires a single argument.")
 
-            arg = node.args[0]
-
-            # We are inside an 'old' statement
-            with inside_old_scope(ctx):
-                expr = self._translate_spec(arg, ctx)
-
-            if ctx.old_label and not self._ignore_old:
-                return [], self.viper_ast.LabelledOld(expr, ctx.old_label.name(), pos)
-            elif self._use_viper_old and not self._ignore_old:
-                # We need to use Viper old expressions
-                return [], self.viper_ast.Old(expr, pos)
-            else:
-                # We need to use $old_self or we are ignoring old entirely
-                return [], expr
+            with self_scope(ctx.old_self_var, ctx.old_self_var, ctx):
+                arg = node.args[0]
+                return [], self._translate_spec(arg, ctx)
         elif name == names.SUM:
             # TODO: remove this
             if len(node.args) != 1:
@@ -171,25 +144,27 @@ class SpecificationTranslator(ExpressionTranslator):
 
             return [], map_sum(self.viper_ast, expr, key_type, pos)
         elif name == names.SENT or name == names.RECEIVED:
-            if not self._ignore_old and not self._use_viper_old and ctx.inside_old:
-                self_var = builtins.old_self_var(self.viper_ast, pos).localVar()
-            else:
-                self_var = ctx.self_var.localVar()
+            self_var = ctx.self_var.localVar()
 
             if name == names.SENT:
+                sent_type = ctx.field_types[builtins.SENT_FIELD]
+                sent = builtins.struct_get(self.viper_ast, self_var, builtins.SENT_FIELD, sent_type, ctx.self_type, pos)
                 if not node.args:
-                    sent_acc = builtins.self_sent_field_acc(self.viper_ast, self_var, pos)
-                    return [], sent_acc
+                    return [], sent
                 else:
                     arg = self._translate_spec(node.args[0], ctx)
-                    return [], builtins.self_sent_map_get(self.viper_ast, arg, self_var, pos)
+                    get_arg = builtins.map_get(self.viper_ast, sent, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
+                    return [], get_arg
             elif name == names.RECEIVED:
+                rec_type = ctx.field_types[builtins.RECEIVED_FIELD]
+                rec = builtins.struct_get(self.viper_ast, self_var, builtins.RECEIVED_FIELD, rec_type, ctx.self_type, pos)
                 if not node.args:
-                    received_acc = builtins.self_received_field_acc(self.viper_ast, self_var, pos)
-                    return [], received_acc
+                    return [], rec
                 else:
                     arg = self._translate_spec(node.args[0], ctx)
-                    return [], builtins.self_received_map_get(self.viper_ast, arg, self_var, pos)
+                    # TODO: handle type stuff better
+                    get_arg = builtins.map_get(self.viper_ast, rec, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
+                    return [], get_arg
         elif name == names.EVENT:
             event = node.args[0]
             event_name = builtins.event_name(event.func.id)

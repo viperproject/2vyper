@@ -9,13 +9,13 @@ from nagini_translation.utils import seq_to_list
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperVar
+from nagini_translation.ast.nodes import VyperProgram, VyperEvent, VyperStruct
 
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.function import FunctionTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
-from nagini_translation.translation.context import Context, old_label_scope, function_scope
+from nagini_translation.translation.context import Context, function_scope, self_scope
 
 from nagini_translation.translation import builtins
 
@@ -37,18 +37,6 @@ class ProgramTranslator(PositionTranslator):
         if names.INIT not in vyper_program.functions:
             vyper_program.functions[builtins.INIT] = builtins.init_function()
 
-        # Add self.balance field
-        balance_var = VyperVar(names.SELF_BALANCE, types.VYPER_WEI_VALUE, None)
-        vyper_program.state[balance_var.name] = balance_var
-        # Add self.$sent field
-        sent_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
-        sent_var = VyperVar(builtins.SENT_FIELD, sent_type, None)
-        vyper_program.state[sent_var.name] = sent_var
-        # Add self.$received field
-        received_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
-        received_var = VyperVar(builtins.RECEIVED_FIELD, received_type, None)
-        vyper_program.state[received_var.name] = received_var
-
         # Add built-in methods
         methods = seq_to_list(self.builtins.methods())
         # Add built-in domains
@@ -56,30 +44,29 @@ class ProgramTranslator(PositionTranslator):
         # Add built-in functions
         functions = seq_to_list(self.builtins.functions())
 
+        # Add self.$sent field
+        sent_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+        vyper_program.fields.type.add_member(builtins.SENT_FIELD, sent_type)
+        # Add self.$received field
+        received_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+        vyper_program.fields.type.add_member(builtins.RECEIVED_FIELD, received_type)
+
         ctx = Context(file)
         ctx.program = vyper_program
-        ctx.all_vars[names.SELF] = builtins.self_var(self.viper_ast)
+        ctx.self_type = vyper_program.fields.type
+        ctx.all_vars[names.SELF] = builtins.self_var(self.viper_ast, ctx.self_type)
         ctx.all_vars[names.MSG] = builtins.msg_var(self.viper_ast)
         ctx.all_vars[names.BLOCK] = builtins.block_var(self.viper_ast)
 
-        ctx.fields = {}
-        ctx.permissions = []
-        ctx.global_unchecked_invariants = []
-        for var in vyper_program.state.values():
-            # Create field
-            field = self._translate_field(var, ctx)
-            ctx.fields[var.name] = field
+        # Translate self
+        self_domain = self._translate_struct(vyper_program.fields, ctx)
+        domains.append(self_domain)
+        self_var = ctx.self_var.localVar()
 
-            # Pass around the permissions for all fields
-            field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field)
-            acc = self._create_field_access_predicate(field_acc, 1, ctx)
-            ctx.permissions.append(acc)
+        for field, field_type in vyper_program.fields.type.member_types.items():
+            ctx.field_types[field] = self.type_translator.translate(field_type, ctx)
 
-            non_negs = self.type_translator.non_negative(field_acc, var.type, ctx)
-            ctx.global_unchecked_invariants.extend(non_negs)
-
-            array_lens = self.type_translator.array_length(field_acc, var.type, ctx)
-            ctx.global_unchecked_invariants.extend(array_lens)
+        ctx.global_unchecked_invariants = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
 
         ctx.local_unchecked_invariants = []
         ctx.immutable_fields = {}
@@ -115,7 +102,7 @@ class ProgramTranslator(PositionTranslator):
         # Assume block.timestamp >= 0
         ctx.local_unchecked_invariants.append(self.viper_ast.GeCmp(timestamp_acc, zero))
 
-        fields_list = [*ctx.fields.values(), *ctx.immutable_fields.values()]
+        fields_list = ctx.immutable_fields.values()
 
         # Structs
         for struct in vyper_program.structs.values():
@@ -129,15 +116,6 @@ class ProgramTranslator(PositionTranslator):
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
         viper_program = self.viper_ast.Program(domains, fields_list, functions, predicates, methods)
         return viper_program
-
-    def _translate_field(self, var: VyperVar, ctx: Context):
-        pos = self.to_position(var.node, ctx)
-
-        name = builtins.field_name(var.name)
-        type = self.type_translator.translate(var.type, ctx)
-        field = self.viper_ast.Field(name, type, pos)
-
-        return field
 
     def _translate_struct(self, struct: VyperStruct, ctx: Context):
         viper_int = self.viper_ast.Int
@@ -154,7 +132,7 @@ class ProgramTranslator(PositionTranslator):
         axioms = []
         init_args = {}
         init_get = {}
-        for name, type in struct.type.arg_types.items():
+        for name, type in struct.type.member_types.items():
             member_type = self.type_translator.translate(type, ctx)
 
             getter_name = builtins.struct_member_getter_name(struct.name, name)
@@ -176,7 +154,7 @@ class ProgramTranslator(PositionTranslator):
 
             set_ax_name = builtins.axiom_name(f'{setter_name}_1')
             local_f = field_var.localVar()
-            idx = struct.type.arg_indices[name]
+            idx = struct.type.member_indices[name]
             idx_lit = self.viper_ast.IntLit(idx)
             neq = self.viper_ast.NeCmp(local_f, idx_lit)
             field_v_f = builtins.struct_field(self.viper_ast, local_s, local_f, struct.type)
@@ -229,68 +207,46 @@ class ProgramTranslator(PositionTranslator):
         # want to assume the invariant after a call, which could have reentered multiple
         # times.
         # To check transitivity, we create 3 states, assume the global unchecked invariants
-        # for all of them, assume the invariants for state no 2 (with state no 1 being the
-        # old state), and again for state no 3 (with state no 2 being the old state). In the
-        # end we assert the invariants for state no 3 (with state no 1 being the old state)
+        # for all of them, assume the invariants for state no 1 (with state no 1 being the
+        # old state), for state no 2 (with state no 1 being the old state), and again for
+        # state no 3 (with state no 2 being the old state).
+        # In the end we assert the invariants for state no 3 (with state no 1 being the old state)
 
         with function_scope(ctx):
             name = builtins.TRANSITIVITY_CHECK
 
-            ctx.all_vars[names.SELF] = builtins.self_var(self.viper_ast)
-
-            inhales = [self.viper_ast.Inhale(p) for p in ctx.permissions]
-            exhales = [self.viper_ast.Exhale(p) for p in ctx.permissions]
-
-            locals = [builtins.self_var(self.viper_ast)]
+            self_type = self.type_translator.translate(ctx.self_type, ctx)
+            states = [self.viper_ast.LocalVarDecl(f'$s{i}', self_type) for i in range(3)]
             body = []
-            body.extend(inhales)
-            for inv in ctx.global_unchecked_invariants:
-                body.append(self.viper_ast.Inhale(inv))
 
-            old1 = self.viper_ast.Label('$old1')
-            body.append(old1)
+            # Assume type assumptions for all self-states
+            for state in states:
+                var = state.localVar()
+                type_assumptions = self.type_translator.type_assumptions(var, ctx.self_type, ctx)
+                body.extend([self.viper_ast.Inhale(a) for a in type_assumptions])
 
-            body.extend(exhales)
-            body.extend(inhales)
+            def assume_invariants(self_state, old_state):
+                with self_scope(self_state, old_state, ctx):
+                    for inv in ctx.program.invariants:
+                        pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        inv_expr = self.specification_translator.translate_invariant(inv, ctx)
+                        body.append(self.viper_ast.Inhale(inv_expr, pos))
 
-            inv1_assumptions = []
-            for inv in ctx.global_unchecked_invariants:
-                inv1_assumptions.append(self.viper_ast.Inhale(inv))
+            # Assume invariants for current state 0 and old state 0
+            assume_invariants(states[0], states[0])
 
-            with old_label_scope(old1, ctx):
-                for inv in ctx.program.invariants:
-                    pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                    inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                    inv1_assumptions.append(self.viper_ast.Inhale(inv_expr, pos))
+            # Assume invariants for current state 1 and old state 0
+            assume_invariants(states[1], states[0])
 
-            body.extend(inv1_assumptions)
+            # Assume invariants for current state 2 and old state 1
+            assume_invariants(states[2], states[1])
 
-            old2 = self.viper_ast.Label('$old2')
-            body.append(old2)
-
-            body.extend(exhales)
-            body.extend(inhales)
-
-            inv2_assumptions = []
-            for inv in ctx.global_unchecked_invariants:
-                inv2_assumptions.append(self.viper_ast.Inhale(inv))
-
-            with old_label_scope(old2, ctx):
-                for inv in ctx.program.invariants:
-                    pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                    inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                    inv2_assumptions.append(self.viper_ast.Inhale(inv_expr, pos))
-
-            body.extend(inv2_assumptions)
-
-            inv_assertions = []
-            with old_label_scope(old1, ctx):
+            # Check invariants for current state 2 and old state 0
+            with self_scope(states[2], states[0], ctx):
                 for inv in ctx.program.invariants:
                     rule = rules.TRANSITIVITY_VIOLATED
                     apos = self.to_position(inv, ctx, rule)
                     inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                    inv_assertions.append(self.viper_ast.Assert(inv_expr, apos))
+                    body.append(self.viper_ast.Assert(inv_expr, apos))
 
-            body.extend(inv_assertions)
-
-            return self.viper_ast.Method(name, [], [], [], [], locals, body)
+            return self.viper_ast.Method(name, [], [], [], [], states, body)

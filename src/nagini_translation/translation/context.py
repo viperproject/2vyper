@@ -9,6 +9,7 @@ from itertools import chain
 from contextlib import contextmanager
 
 from nagini_translation.ast import names
+from nagini_translation.translation import builtins
 
 
 class Context:
@@ -16,11 +17,9 @@ class Context:
     def __init__(self, file: str):
         self.file = file
         self.program = None
-        # All Vyper self-fields not including ghost fields
-        self.fields = {}
-        # Permissions of fields that have to be passed around
-        # Note: already translated, as they should never fail
-        self.permissions = []
+        self.self_type = None
+        # The translated types of all fields
+        self.field_types = {}
         # Non-self fields like msg.sender which are immutable
         self.immutable_fields = {}
         # Permissions of immutable that have to be passed around
@@ -40,13 +39,6 @@ class Context:
         self.args = {}
         self.locals = {}
         self.quantified_vars = {}
-
-        # The expressions to save the current state as 'old' state
-        self.copy_old = []
-        # True if being inside an old statement
-        self.inside_old = False
-        # The old label to use if Viper 'old' statements are used
-        self.old_label = None
 
         self._break_label_counter = -1
         self._continue_label_counter = -1
@@ -68,6 +60,14 @@ class Context:
     @property
     def self_var(self):
         return self.all_vars[names.SELF]
+
+    @property
+    def old_self_var(self):
+        return self.all_vars[builtins.OLD_SELF]
+
+    @property
+    def pre_self_var(self):
+        return self.all_vars[builtins.PRE_SELF]
 
     @property
     def msg_var(self):
@@ -124,10 +124,6 @@ def function_scope(ctx: Context):
     locals = ctx.locals
     quantified_vars = ctx.quantified_vars
 
-    copy_old = ctx.copy_old
-    inside_old = ctx.inside_old
-    old_label = ctx.old_label
-
     _break_label_counter = ctx._break_label_counter
     _continue_label_counter = ctx._continue_label_counter
     break_label = ctx.break_label
@@ -151,10 +147,6 @@ def function_scope(ctx: Context):
     ctx.args = {}
     ctx.locals = {}
     ctx.quantified_vars = {}
-
-    ctx.copy_old = []
-    ctx.inside_old = False
-    ctx.old_label = None
 
     ctx._break_label_counter = -1
     ctx._continue_label_counter = -1
@@ -181,10 +173,6 @@ def function_scope(ctx: Context):
     ctx.args = args
     ctx.locals = locals
     ctx.quantified_vars = quantified_vars
-
-    ctx.copy_old = copy_old
-    ctx.inside_old = inside_old
-    ctx.old_label = old_label
 
     ctx._break_label_counter = _break_label_counter
     ctx._continue_label_counter = _continue_label_counter
@@ -241,23 +229,18 @@ def inline_scope(ctx: Context):
 
 
 @contextmanager
-def inside_old_scope(ctx: Context):
-    inside_old = ctx.inside_old
-    ctx.inside_old = True
+def self_scope(self_var, old_self_var, ctx: Context):
+    all_vars = ctx.all_vars.copy()
+    local_vars = ctx.locals.copy()
+    ctx.all_vars[names.SELF] = self_var
+    ctx.locals[names.SELF] = self_var
+    ctx.all_vars[builtins.OLD_SELF] = old_self_var
+    ctx.locals[builtins.OLD_SELF] = old_self_var
 
     yield
 
-    ctx.inside_old = inside_old
-
-
-@contextmanager
-def old_label_scope(label, ctx: Context):
-    old_label = ctx.old_label
-    ctx.old_label = label
-
-    yield
-
-    ctx.old_label = old_label
+    ctx.all_vars = all_vars
+    ctx.locals = local_vars
 
 
 @contextmanager

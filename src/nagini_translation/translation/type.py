@@ -81,8 +81,8 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         elif isinstance(type, StructType):
             init_args = {}
             stmts = []
-            for name, member_type in type.arg_types.items():
-                idx = type.arg_indices[name]
+            for name, member_type in type.member_types.items():
+                idx = type.member_indices[name]
                 default_stmts, val = self.default_value(node, member_type, ctx)
                 init_args[idx] = val
                 stmts.extend(default_stmts)
@@ -91,7 +91,10 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         else:
             assert False
 
-    def non_negative(self, node, type: VyperType, ctx: Context) -> List[Expr]:
+    def type_assumptions(self, node, type: VyperType, ctx: Context) -> List[Expr]:
+        return [*self._non_negative(node, type, ctx), *self._array_length(node, type, ctx)]
+
+    def _non_negative(self, node, type: VyperType, ctx: Context) -> List[Expr]:
         """
         Computes the non-negativeness assumptions for a node `node` of type `type`.
         Node has to be a translated viper node.
@@ -99,7 +102,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
 
         return self._construct_quantifiers(node, type, ctx, 0)
 
-    def array_length(self, node, type: VyperType, ctx: Context) -> List[Expr]:
+    def _array_length(self, node, type: VyperType, ctx: Context) -> List[Expr]:
         """
         Computes the array-length assumptions for a node `node` of type `type`.
         Node has to be a translated viper node.
@@ -186,7 +189,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             # If we encounter a struct type we simply add the necessary assumptions for
             # all struct members
             elif isinstance(type, StructType):
-                for member_name, member_type in type.arg_types.items():
+                for member_name, member_type in type.member_types.items():
                     viper_type = self.translate(member_type, ctx)
                     get = struct_get(self.viper_ast, node, member_name, viper_type, type)
                     ret.extend(construct(member_type, get))

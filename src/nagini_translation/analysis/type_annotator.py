@@ -238,8 +238,9 @@ class TypeAnnotator:
 
     def annotate_Attribute(self, node: ast.Attribute):
         self.annotate(node.value)
+        # TODO: improve
         if isinstance(node.value.type, StructType):
-            node.type = node.value.type.arg_types[node.attr]
+            node.type = node.value.type.member_types[node.attr]
         elif node.attr == names.MSG_SENDER:
             node.type = types.VYPER_ADDRESS
         elif node.attr == names.MSG_VALUE or node.attr == names.SELF_BALANCE or node.attr == names.MSG_GAS:
@@ -247,7 +248,7 @@ class TypeAnnotator:
         elif node.attr == names.BLOCK_TIMESTAMP:
             node.type = types.VYPER_TIME
         else:
-            node.type = self.program.state[node.attr].type
+            assert False  # TODO: handle
 
     def annotate_Subscript(self, node: ast.Subscript):
         self.annotate(node.value)
@@ -261,7 +262,9 @@ class TypeAnnotator:
             assert False  # TODO: handle
 
     def annotate_Name(self, node: ast.Name):
-        if node.id == names.SELF or node.id == names.MSG or node.id == names.BLOCK:
+        if node.id == names.SELF:
+            node.type = self.program.fields.type
+        elif node.id == names.MSG or node.id == names.BLOCK:
             node.type = None
         else:
             quant = self.quantified_vars.get(node.id)

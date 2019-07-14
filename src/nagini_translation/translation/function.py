@@ -43,13 +43,21 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             is_init = (function.name == names.INIT)
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
-            args[builtins.SELF] = builtins.self_var(self.viper_ast)
+            locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
+            locals[builtins.SELF] = builtins.self_var(self.viper_ast, ctx.self_type)
+            # The last publicly visible state of self
+            locals[builtins.OLD_SELF] = builtins.old_self_var(self.viper_ast, ctx.self_type)
+            # The state of self before the function call
+            locals[builtins.PRE_SELF] = builtins.pre_self_var(self.viper_ast, ctx.self_type)
             args[builtins.MSG] = builtins.msg_var(self.viper_ast)
             args[builtins.BLOCK] = builtins.block_var(self.viper_ast)
-            locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
-            ctx.args = args
-            ctx.locals = locals
+            ctx.args = args.copy()
+            ctx.locals = locals.copy()
             ctx.all_vars = {**args, **locals}
+
+            self_var = ctx.self_var.localVar()
+            old_self_var = ctx.old_self_var.localVar()
+            pre_self_var = locals[builtins.PRE_SELF].localVar()
 
             success_var = builtins.success_var(self.viper_ast)
             ctx.success_var = success_var
@@ -66,7 +74,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 rets.append(ret_var)
                 ctx.result_var = ret_var
 
-            pres = ctx.permissions + ctx.immutable_permissions
+            pres = ctx.immutable_permissions
 
             body = []
 
@@ -77,10 +85,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             argument_conds = []
             for var in function.args.values():
                 local_var = args[var.name].localVar()
-                non_negs = self.type_translator.non_negative(local_var, var.type, ctx)
-                arr_lens = self.type_translator.array_length(local_var, var.type, ctx)
-                argument_conds.extend(non_negs)
-                argument_conds.extend(arr_lens)
+                assumptions = self.type_translator.type_assumptions(local_var, var.type, ctx)
+                argument_conds.extend(assumptions)
 
             argument_cond_assumes = [self.viper_ast.Inhale(c) for c in argument_conds]
             ui_info_msg = "Assume non-negativeness of uint256 and sizes of array args"
@@ -98,21 +104,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             iv_info_msg = "Assume invariants"
             body.extend(self._seqn_with_info(inv_pres, iv_info_msg))
 
-            # Introduce old_self
-            old_self = builtins.old_self_var(self.viper_ast)
-            ctx.new_local_vars.append(old_self)
-            copy_old_stmts = []
-            for field in ctx.fields.values():
-                old_acc = self.viper_ast.FieldAccess(old_self.localVar(), field)
-                perm = self.viper_ast.FieldAccessPredicate(old_acc, self.viper_ast.FullPerm())
-                body.append(self.viper_ast.Inhale(perm))
-                self_var = ctx.self_var.localVar()
-                self_acc = self.viper_ast.FieldAccess(self_var, field)
-                copy_old_stmts.append(self.viper_ast.FieldAssign(old_acc, self_acc))
-
-            copy_old = self._seqn_with_info(copy_old_stmts, "New old state")
-            ctx.copy_old = copy_old
-            body.extend(copy_old)
+            # old_self and pre_self are the same as self in the beginning
+            copy_old = self.viper_ast.LocalVarAssign(old_self_var, self_var)
+            copy_pre = self.viper_ast.LocalVarAssign(pre_self_var, self_var)
+            body.extend([copy_old, copy_pre])
 
             def returnBool(value: bool) -> Stmt:
                 local_var = success_var.localVar()
@@ -124,17 +119,14 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             # In the initializer initialize all fields to their default values
             if function.name == names.INIT:
-                defaults = []
-                for name, field in ctx.fields.items():
-                    if name == names.SELF_BALANCE:
-                        continue
-                    field_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), field)
-                    type = ctx.program.state[name].type
-                    stmts, expr = self.type_translator.default_value(None, type, ctx)
-                    assign = self.viper_ast.FieldAssign(field_acc, expr)
-                    defaults += stmts + [assign]
+                stmts, default_self = self.type_translator.default_value(None, ctx.self_type, ctx)
+                self_assign = self.viper_ast.LocalVarAssign(self_var, default_self)
+                body.extend(stmts)
+                body.append(self_assign)
 
-                body.extend(self._seqn_with_info(defaults, "Assign default values to state vars"))
+                # Havoc self.balance, because we are not allwed to assume self.balance == 0
+                # in the beginning
+                body.extend(self._havoc_balance(ctx))
 
             msg_value = builtins.msg_value_field(self.viper_ast)
             value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
@@ -150,23 +142,33 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 body.append(assume)
             else:
                 # Increase balance by msg.value
-                balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
-                inc_sum = self.viper_ast.Add(balance_acc, value_acc)
+                balance_type = ctx.field_types[names.SELF_BALANCE]
+                get_balance = builtins.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
+                inc_sum = self.viper_ast.Add(get_balance, value_acc)
                 payable_info = self.to_info(["Fuction is payable"])
-                inc = self.viper_ast.FieldAssign(balance_acc, inc_sum, info=payable_info)
-                body.append(inc)
+                inc = builtins.struct_set(self.viper_ast, self_var, inc_sum, names.SELF_BALANCE, ctx.self_type)
+                self_assign = self.viper_ast.LocalVarAssign(self_var, inc, info=payable_info)
+                body.append(self_assign)
 
                 # Increase received for msg.sender by msg.value
                 msg_sender = builtins.msg_sender_field_acc(self.viper_ast)
-                rec = builtins.self_received_field_acc(self.viper_ast, ctx.self_var.localVar())
-                rec_acc = builtins.self_received_map_get(self.viper_ast, msg_sender, ctx.self_var.localVar())
-                rec_inc_sum = self.viper_ast.Add(rec_acc, value_acc)
-                rec_set = builtins.self_received_map_set(self.viper_ast, msg_sender, rec_inc_sum, ctx.self_var.localVar())
-                rec_inc = self.viper_ast.FieldAssign(rec, rec_set)
-                body.append(rec_inc)
+                rec_type = ctx.field_types[builtins.RECEIVED_FIELD]
+                rec = builtins.struct_get(self.viper_ast, self_var, builtins.RECEIVED_FIELD, rec_type, ctx.self_type)
+                # TODO: improve this type stuff
+                rec_sender = builtins.map_get(self.viper_ast, rec, msg_sender, self.viper_ast.Int, self.viper_ast.Int)
+                rec_inc_sum = self.viper_ast.Add(rec_sender, value_acc)
+                # TODO: improve this type stuff
+                rec_set = builtins.map_set(self.viper_ast, rec, msg_sender, rec_inc_sum, self.viper_ast.Int, self.viper_ast.Int)
+                self_set = builtins.struct_set(self.viper_ast, self_var, rec_set, builtins.RECEIVED_FIELD, ctx.self_type)
+                body.append(self.viper_ast.LocalVarAssign(self_var, self_set))
 
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
             body.extend(self._seqn_with_info(body_stmts, "Function body"))
+
+            # # Fail, if we ran out of gas
+            # out_of_gas_var = builtins.out_of_gas_var(self.viper_ast)
+            # ctx.new_local_vars.append(out_of_gas_var)
+            # body.append(self.fail_if(out_of_gas_var.localVar(), ctx))
 
             # Add variable for success(-msg.sender) that tracks whether a call to
             # msg.sender failed
@@ -178,11 +180,11 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.append(revert_label)
             # Return False
             body.append(returnBool(False))
-            # Revert the fields, the return value does not have to be havoced because
-            # it was never assigned to
-            for name, field in ctx.fields.items():
-                type = ctx.program.state[name].type
-                body += self.type_translator.revert(type, field, ctx)
+            # Revert self and old_self to the state before the function
+            # The return value does not have to be havoced because it was never assigned to
+            copy_self = self.viper_ast.LocalVarAssign(self_var, pre_self_var)
+            copy_old = self.viper_ast.LocalVarAssign(old_self_var, pre_self_var)
+            body.extend([copy_self, copy_old])
 
             # The end of a program, label where return statements jump to
             body.append(end_label)
@@ -197,48 +199,33 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # This is necessary because a contract may receive additional money through
             # seldestruct or mining
 
-            # We have to distinguish between the success state (in which we evaluate the
-            # conditions in the new state) and the failure state (in which we evaluate the
-            # conditions in the old state before the execution of the function).
-            #
-            # For invariants, we cannot use the old state before the function, because we have
-            # to havoc the balance variable even if the function reverts. Therefore, we reset
-            # the current state to the state before the function and then havoc the balace.
-            # This is possible, because there are no events in invariants, therefore the only
-            # heap accesses are for state variables.
-            succ_stmts = []
-            fail_stmts = []
-
-            # First the postconditions are asserted
-            posts_succ = []
-            posts_fail = []
-            # Postconditions are asserted with normal old expressions
+            # Assert postconditions
+            post_stmts = []
             for post in function.postconditions:
                 post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
-                cond_succ = self.specification_translator.translate_postcondition(post, ctx, False, False)
-                posts_succ.append(self.viper_ast.Assert(cond_succ, post_pos))
-                cond_fail = self.specification_translator.translate_postcondition(post, ctx, False, True)
-                posts_fail.append(self.viper_ast.Assert(cond_fail, post_pos))
+                cond = self.specification_translator.translate_postcondition(post, ctx, False)
+                post_assert = self.viper_ast.Assert(cond, post_pos)
+                post_stmts.append(post_assert)
 
             for post in ctx.program.general_postconditions:
-                cond_succ = self.specification_translator.translate_postcondition(post, ctx, is_init, False)
-                cond_fail = self.specification_translator.translate_postcondition(post, ctx, is_init, True)
+                post_pos = self.to_position(post, ctx)
+                cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
                 if is_init:
-                    post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
+                    init_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
                     # General postconditions only have to hold for init if it succeeds
-                    posts_succ.append(self.viper_ast.Assert(cond_succ, post_pos))
+                    cond = self.viper_ast.Implies(success_var.localVar(), cond, post_pos)
+                    post_stmts.append(self.viper_ast.Assert(cond, init_pos))
                 else:
-                    post_pos = self.to_position(post, ctx)
                     via = [('general postcondition', post_pos)]
                     func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via)
-                    posts_succ.append(self.viper_ast.Assert(cond_succ, func_pos))
-                    posts_fail.append(self.viper_ast.Assert(cond_fail, func_pos))
+                    post_stmts.append(self.viper_ast.Assert(cond, func_pos))
 
-            succ_stmts.extend(self._seqn_with_info(posts_succ, "Assert postconditions"))
-            fail_stmts.extend(self._seqn_with_info(posts_fail, "Assert postconditions"))
+            body.extend(self._seqn_with_info(post_stmts, "Assert postconditions"))
 
-            # Translate function checks:
-            #   - Use old state
+            # Assert checks
+            # For the checks we need to differentiate between success and failure because we
+            # on failure the assertion is evaluated in the old heap where events where not
+            # inhaled yet
             checks_succ = []
             checks_fail = []
             for check in function.checks:
@@ -269,45 +256,33 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 if not is_init:
                     checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
-            succ_stmts.extend(self._seqn_with_info(checks_succ, "Assert checks"))
-            fail_stmts.extend(self._seqn_with_info(checks_fail, "Assert checks"))
+            check_info = self.to_info(["Assert checks"])
+            if_stmt = self.viper_ast.If(success_var.localVar(), checks_succ, checks_fail, info=check_info)
+            body.append(if_stmt)
 
             # Havoc self.balance
-            balance_acc = self.viper_ast.FieldAccess(ctx.self_var.localVar(), ctx.balance_field)
-            havoc_balance = self._havoc_uint(balance_acc, ctx)
-            succ_stmts.extend(havoc_balance)
-            fail_stmts.extend(havoc_balance)
+            body.extend(self._havoc_balance(ctx))
 
-            # If the function succeeds we check the invariant in the current state with havoced
-            # balance, where old is the last publicly seen state. If the function reverts, we
-            # reset the state, then havoc the balance, and last evaluate the invariant in the
-            # current (reverted) state where old is the state before the function call.
-            invariants_succ = []
-            invariants_fail = []
+            # Assert the invariants
+            invariant_stmts = []
             translate_inv = self.specification_translator.translate_invariant
             for inv in ctx.program.invariants:
-                inv_succ = translate_inv(inv, ctx, False, is_init, False)
-                inv_fail = translate_inv(inv, ctx, False, is_init, True)
+                inv_pos = self.to_position(inv, ctx)
+                cond = translate_inv(inv, ctx, False, is_init)
 
                 # If we have a synthesized __init__ we only create an
                 # error message on the invariant
                 if is_init:
+                    # Invariants do not have to hold if __init__ fails
+                    cond = self.viper_ast.Implies(success_var.localVar(), cond, inv_pos)
                     apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
                 else:
-                    inv_pos = self.to_position(inv, ctx)
                     via = [('invariant', inv_pos)]
                     apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
 
-                invariants_succ.append(self.viper_ast.Assert(inv_succ, apos))
-                # Invariants do not have to hold if __init__ fails
-                if not is_init:
-                    invariants_fail.append(self.viper_ast.Assert(inv_fail, apos))
+                invariant_stmts.append(self.viper_ast.Assert(cond, apos))
 
-            succ_stmts.extend(self._seqn_with_info(invariants_succ, "Assert Invariants"))
-            fail_stmts.extend(self._seqn_with_info(invariants_fail, "Assert Invariants"))
-
-            if_stmt = self.viper_ast.If(success_var.localVar(), succ_stmts, fail_stmts)
-            body.append(if_stmt)
+            body.extend(self._seqn_with_info(invariant_stmts, "Assert Invariants"))
 
             args_list = list(args.values())
             locals_list = [*locals.values(), *ctx.new_local_vars]
@@ -400,14 +375,21 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         gez = self._non_negative(var, ctx)
         return self.viper_ast.Inhale(gez)
 
-    def _havoc_uint(self, field_acc, ctx: Context) -> List[Stmt]:
+    def _havoc_balance(self, ctx: Context):
+        self_var = ctx.self_var.localVar()
+
         havoc_name = ctx.new_local_var_name('havoc')
         havoc = self.viper_ast.LocalVarDecl(havoc_name, self.viper_ast.Int)
         ctx.new_local_vars.append(havoc)
         assume_pos = self._assume_non_negative(havoc.localVar(), ctx)
-        inc = self.viper_ast.Add(field_acc, havoc.localVar())
-        assign = self.viper_ast.FieldAssign(field_acc, inc)
-        return [assume_pos, assign]
+
+        balance_type = ctx.field_types[names.SELF_BALANCE]
+        get_balance = builtins.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
+        inc_sum = self.viper_ast.Add(get_balance, havoc.localVar())
+        inc = builtins.struct_set(self.viper_ast, self_var, inc_sum, names.SELF_BALANCE, ctx.self_type)
+        self_assign = self.viper_ast.LocalVarAssign(self_var, inc)
+
+        return [assume_pos, self_assign]
 
     def _create_field_access_predicate(self, field_access, amount, ctx: Context):
         if amount == 1:

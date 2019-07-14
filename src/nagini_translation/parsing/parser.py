@@ -11,7 +11,7 @@ from typing import List
 
 from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
-from nagini_translation.ast.types import TypeBuilder
+from nagini_translation.ast.types import TypeBuilder, StructType
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
@@ -47,7 +47,7 @@ class ProgramBuilder(ast.NodeVisitor):
     # definition.
 
     def __init__(self):
-        self.state = {}
+        self.field_types = {}
         self.functions = {}
         self.structs = {}
         self.events = {}
@@ -68,7 +68,16 @@ class ProgramBuilder(ast.NodeVisitor):
         self.visit(node)
         # No trailing local specs allowed
         self._check_no_local_spec()
-        return VyperProgram(self.state,
+
+        # Add self.balance
+        assert not self.field_types.get(names.SELF_BALANCE)
+        self.field_types[names.SELF_BALANCE] = types.VYPER_WEI_VALUE
+
+        # Create the self-type
+        self_type = StructType(names.SELF, self.field_types)
+        self_struct = VyperStruct(names.SELF, self_type, None)
+
+        return VyperProgram(self_struct,
                             self.functions,
                             self.structs,
                             self.events,
@@ -111,8 +120,7 @@ class ProgramBuilder(ast.NodeVisitor):
                 event = VyperEvent(variable_name, variable_type)
                 self.events[variable_name] = event
             else:
-                var = VyperVar(variable_name, variable_type, node)
-                self.state[variable_name] = var
+                self.field_types[variable_name] = variable_type
 
     def visit_Assign(self, node):
         # This is for invariants and pre/postconditions which get translated to

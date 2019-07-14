@@ -53,10 +53,14 @@ class ArrayType(VyperType):
 
 class StructType(VyperType):
 
-    def __init__(self, name: str, arg_types: Dict[str, VyperType]):
-        self.arg_types = arg_types
-        self.arg_indices = {k: i for i, k in enumerate(arg_types)}
+    def __init__(self, name: str, member_types: Dict[str, VyperType]):
+        self.member_types = member_types
+        self.member_indices = {k: i for i, k in enumerate(member_types)}
         super().__init__(name)
+
+    def add_member(self, name: str, type: VyperType):
+        self.member_types[name] = type
+        self.member_indices[name] = len(self.member_indices)
 
 
 class StringType(ArrayType):
