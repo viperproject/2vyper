@@ -51,15 +51,25 @@ class SpecificationTranslator(ExpressionTranslator):
         else:
             return expr
 
-    def translate_invariant(self, inv: ast.AST, ctx: Context, is_pre=False, is_init=False):
+    def translate_invariant(self, inv: ast.AST, ctx: Context, is_pre=False, is_init=False, is_issued=False):
         # Invariants do not have to hold before __init__
-        if is_pre and is_init:
+        if (is_pre or is_issued) and is_init:
             return None
 
-        # In invariants we use the last publicly seen state as the old state except when we
-        # are assuming the invariant or we are in __init__
-        old_var = ctx.self_var if is_pre or is_init else ctx.old_self_var
-        with self_scope(ctx.self_var, old_var, ctx):
+        # If we assume the invariant for the issued state alone we use that as self
+        self_var = ctx.issued_self_var if is_issued and is_pre else ctx.self_var
+        # If we assume the invariant for a single state or if we are in init, old and self
+        # are the same
+        if is_pre or is_init:
+            old_var = self_var
+        # If we use the issued state, that is our old state
+        elif is_issued:
+            old_var = ctx.issued_self_var
+        # Else we use the normal old state
+        else:
+            old_var = ctx.old_self_var
+
+        with self_scope(self_var, old_var, ctx):
             return self._translate_spec(inv, ctx)
 
     def _translate_spec(self, node, ctx: Context):
@@ -125,12 +135,13 @@ class SpecificationTranslator(ExpressionTranslator):
                 return [], self.viper_ast.Implies(not_msg_sender_call_failed, local_var, pos)
             else:
                 return [], local_var
-        elif name == names.OLD:
+        elif name == names.OLD or name == names.ISSUED:
             if len(node.args) != 1:
                 # TODO: remove this
                 raise InvalidProgramException(node, "Old expression requires a single argument.")
 
-            with self_scope(ctx.old_self_var, ctx.old_self_var, ctx):
+            self_var = ctx.old_self_var if name == names.OLD else ctx.issued_self_var
+            with self_scope(self_var, self_var, ctx):
                 arg = node.args[0]
                 return [], self._translate_spec(arg, ctx)
         elif name == names.SUM:

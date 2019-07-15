@@ -149,7 +149,7 @@ class TypeAnnotator:
 
         if isinstance(node.func, ast.Name):
             name = node.func.id
-            if name == names.MIN or name == names.MAX or name == names.OLD:
+            if name == names.MIN or name == names.MAX or name == names.OLD or name == names.ISSUED:
                 node.type = node.args[0].type
             elif name == names.RANGE or name == names.LEN:
                 node.type = types.VYPER_INT128

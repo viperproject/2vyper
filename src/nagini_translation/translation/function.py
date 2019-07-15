@@ -49,6 +49,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             locals[builtins.OLD_SELF] = builtins.old_self_var(self.viper_ast, ctx.self_type)
             # The state of self before the function call
             locals[builtins.PRE_SELF] = builtins.pre_self_var(self.viper_ast, ctx.self_type)
+            # The state of self when the transaction was issued
+            locals[builtins.ISSUED_SELF] = builtins.issued_self_var(self.viper_ast, ctx.self_type)
             args[builtins.MSG] = builtins.msg_var(self.viper_ast)
             args[builtins.BLOCK] = builtins.block_var(self.viper_ast)
             ctx.args = args.copy()
@@ -57,7 +59,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             self_var = ctx.self_var.localVar()
             old_self_var = ctx.old_self_var.localVar()
-            pre_self_var = locals[builtins.PRE_SELF].localVar()
+            pre_self_var = ctx.pre_self_var.localVar()
+            issued_self_var = ctx.issued_self_var.localVar()
 
             success_var = builtins.success_var(self.viper_ast)
             ctx.success_var = success_var
@@ -80,7 +83,12 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             # Assume all unchecked invariants
             unchecked_invs = [self.viper_ast.Inhale(inv) for inv in ctx.unchecked_invariants]
-            body.extend(self._seqn_with_info(unchecked_invs, "Assume all unchecked invariants"))
+            body.extend(self._seqn_with_info(unchecked_invs, "Self state assumptions"))
+
+            # Assume type assumptions for issued self state
+            issued = self.type_translator.type_assumptions(issued_self_var, ctx.self_type, ctx)
+            issued_assumptions = [self.viper_ast.Inhale(a) for a in issued]
+            body.extend(self._seqn_with_info(issued_assumptions, "Issued state assumptions"))
 
             argument_conds = []
             for var in function.args.values():
@@ -94,15 +102,23 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             # Assume user-specified invariants
             translate_inv = self.specification_translator.translate_invariant
-            inv_pres = []
-            for inv in ctx.program.invariants:
-                expr = translate_inv(inv, ctx, True, is_init)
-                if expr:
-                    ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                    inv_pres.append(self.viper_ast.Inhale(expr, ppos))
+            inv_pres_issued = []
+            inv_pres_self = []
 
-            iv_info_msg = "Assume invariants"
-            body.extend(self._seqn_with_info(inv_pres, iv_info_msg))
+            for inv in ctx.program.invariants:
+                # We translate the invariants once for the issued state alone and once for
+                # the self state with the issued state as the old state
+                for b in [True, False]:
+                    expr = translate_inv(inv, ctx, b, is_init, True)
+                    inv_pres = inv_pres_issued if b else inv_pres_self
+                    if expr:
+                        ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        inv_pres.append(self.viper_ast.Inhale(expr, ppos))
+
+            iv_info_msg = "Assume invariants for issued self"
+            body.extend(self._seqn_with_info(inv_pres_issued, iv_info_msg))
+            iv_info_msg = "Assume invariants for self"
+            body.extend(self._seqn_with_info(inv_pres_self, iv_info_msg))
 
             # old_self and pre_self are the same as self in the beginning
             copy_old = self.viper_ast.LocalVarAssign(old_self_var, self_var)

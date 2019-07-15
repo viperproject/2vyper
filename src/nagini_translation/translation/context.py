@@ -70,6 +70,10 @@ class Context:
         return self.all_vars[builtins.PRE_SELF]
 
     @property
+    def issued_self_var(self):
+        return self.all_vars[builtins.ISSUED_SELF]
+
+    @property
     def msg_var(self):
         return self.all_vars[names.MSG]
 

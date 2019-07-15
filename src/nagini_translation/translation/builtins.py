@@ -21,6 +21,7 @@ INIT = names.INIT
 SELF = names.SELF
 OLD_SELF = f'$old_{names.SELF}'
 PRE_SELF = f'$pre_{names.SELF}'
+ISSUED_SELF = f'$issued_{names.SELF}'
 SELF_BALANCE = 's$balance'
 
 MSG = names.MSG
@@ -147,6 +148,11 @@ def old_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None
 def pre_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
     type = struct_type(viper_ast, self_type)
     return viper_ast.LocalVarDecl(PRE_SELF, type, pos, info)
+
+
+def issued_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
+    type = struct_type(viper_ast, self_type)
+    return viper_ast.LocalVarDecl(ISSUED_SELF, type, pos, info)
 
 
 def msg_var(viper_ast: ViperAST, pos=None, info=None):
