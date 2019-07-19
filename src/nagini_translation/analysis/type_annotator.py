@@ -140,6 +140,9 @@ class TypeAnnotator:
             elif node.func.id == names.EVENT:
                 self._annotate_event(node)
                 return
+            elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
+                self._annotate_struct_init(node)
+                return
 
         for arg in node.args:
             self.annotate(arg)
@@ -206,8 +209,6 @@ class TypeAnnotator:
         self.quantified_vars = old_quants
 
     def _annotate_event(self, node: ast.Call):
-        assert isinstance(node.args[0], ast.Call)  # TODO: handle
-
         for arg in node.args[0].args:
             self.annotate(arg)
 
@@ -215,6 +216,11 @@ class TypeAnnotator:
             self.annotate(node.args[1])
 
         node.type = types.VYPER_BOOL
+
+    def _annotate_struct_init(self, node: ast.Call):
+        node.type = self.program.structs[node.func.id].type
+        for value in node.args[0].values:
+            self.annotate(value)
 
     def annotate_Bytes(self, node: ast.Bytes):
         node.type = types.ArrayType(types.VYPER_BYTE, len(node.s), False)

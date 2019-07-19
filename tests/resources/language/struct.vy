@@ -24,7 +24,7 @@ zero: Rational
 #@ ensures: implies(success(), self.me.i == 0 and self.me.friends[0] == 0 and self.me.percent.numerator == 0)
 @public
 def __init__():
-    pass
+    self.me = Person({i: 0, friends: [0, 0, 0], percent: self.zero})
 
 
 @public

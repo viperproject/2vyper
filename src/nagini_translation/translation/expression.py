@@ -365,6 +365,18 @@ class ExpressionTranslator(NodeTranslator):
                     return_value = None
 
                 return stmts + check_assertions + inv_assertions + [copy_old, havoc_self] + assumes + afters, return_value
+            elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
+                stmts = []
+                exprs = {}
+                for key, value in zip(node.args[0].keys, node.args[0].values):
+                    value_stmts, value_expr = self.translate(value, ctx)
+                    stmts.extend(value_stmts)
+                    idx = node.type.member_indices[key.id]
+                    exprs[idx] = value_expr
+
+                init_args = [exprs[i] for i in range(len(exprs))]
+                init = builtins.struct_init(self.viper_ast, init_args, node.type, pos)
+                return stmts, init
         else:
             name = node.func.attr
             stmts = []
