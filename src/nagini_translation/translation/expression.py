@@ -141,6 +141,14 @@ class ExpressionTranslator(NodeTranslator):
         stmts, expr = self.translate(node.operand, ctx)
         return stmts, op(expr, pos)
 
+    def translate_IfExp(self, node: ast.IfExp, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
+        test_stmts, test = self.translate(node.test, ctx)
+        body_stmts, body = self.translate(node.body, ctx)
+        orelse_stmts, orelse = self.translate(node.orelse, ctx)
+        expr = self.viper_ast.CondExp(test, body, orelse, pos)
+        return [*test_stmts, *body_stmts, *orelse_stmts], expr
+
     def translate_Compare(self, node: ast.Compare, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 

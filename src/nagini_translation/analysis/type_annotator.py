@@ -127,6 +127,12 @@ class TypeAnnotator:
         self.annotate(node.operand)
         node.type = node.operand.type
 
+    def annotate_IfExp(self, node: ast.IfExp):
+        self.annotate(node.test)
+        self.annotate(node.body)
+        self.annotate(node.orelse)
+        node.type = node.body.type
+
     def annotate_Compare(self, node: ast.Compare):
         node.type = types.VYPER_BOOL
         self.annotate(node.left)
