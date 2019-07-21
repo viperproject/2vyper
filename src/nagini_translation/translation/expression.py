@@ -301,10 +301,6 @@ class ExpressionTranslator(NodeTranslator):
                 self_balance = builtins.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
                 check = self.fail_if(self.viper_ast.LtCmp(self_balance, amount), [], ctx)
 
-                diff = self.viper_ast.Sub(self_balance, amount)
-                sub = builtins.struct_set(self.viper_ast, self_var, diff, names.SELF_BALANCE, ctx.self_type)
-                sub_stmt = self.viper_ast.LocalVarAssign(self_var, sub)
-
                 sent_type = ctx.field_types[builtins.SENT_FIELD]
                 sent = builtins.struct_get(self.viper_ast, self_var, builtins.SENT_FIELD, sent_type, ctx.self_type, pos)
                 # TODO: improve this type stuff
@@ -315,7 +311,11 @@ class ExpressionTranslator(NodeTranslator):
                 self_set = builtins.struct_set(self.viper_ast, self_var, sent_set, builtins.SENT_FIELD, ctx.self_type)
                 sent_assign = self.viper_ast.LocalVarAssign(self_var, self_set)
 
-                stmts = [*to_stmts, *amount_stmts, check, sub_stmt, sent_assign]
+                diff = self.viper_ast.Sub(self_balance, amount)
+                sub = builtins.struct_set(self.viper_ast, self_var, diff, names.SELF_BALANCE, ctx.self_type)
+                sub_stmt = self.viper_ast.LocalVarAssign(self_var, sub)
+
+                stmts = [*to_stmts, *amount_stmts, check, sent_assign, sub_stmt]
 
                 check_assertions = []
                 for check in chain(ctx.function.checks, ctx.program.general_checks):
