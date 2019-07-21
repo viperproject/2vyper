@@ -78,12 +78,12 @@ class StatementTranslator(NodeTranslator):
         # If the divisor is 0 revert the transaction
         if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
             cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos), pos)
-            stmts.append(self.fail_if(cond, ctx, pos))
+            stmts.append(self.fail_if(cond, [], ctx, pos))
 
         # If the result of a uint subtraction is negative, revert the transaction
         if isinstance(node.op, ast.Sub) and types.is_unsigned(left.type):
             cond = self.viper_ast.GtCmp(rhs, lhs, pos)
-            stmts.append(self.fail_if(cond, ctx, pos))
+            stmts.append(self.fail_if(cond, [], ctx, pos))
 
         value = op(lhs, rhs, pos)
 
@@ -122,7 +122,7 @@ class StatementTranslator(NodeTranslator):
             return stmts + [self.viper_ast.Assert(expr, pos)]
         else:
             cond = self.viper_ast.Not(expr, pos)
-            return stmts + [self.fail_if(cond, ctx, pos)]
+            return stmts + [self.fail_if(cond, [], ctx, pos)]
 
     def translate_Return(self, node: ast.Return, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)

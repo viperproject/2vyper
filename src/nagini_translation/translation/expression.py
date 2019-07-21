@@ -108,12 +108,12 @@ class ExpressionTranslator(NodeTranslator):
         # If the divisor is 0 revert the transaction
         if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
             cond = self.viper_ast.EqCmp(right, self.viper_ast.IntLit(0, pos), pos)
-            stmts.append(self.fail_if(cond, ctx, pos))
+            stmts.append(self.fail_if(cond, [], ctx, pos))
 
         # If the result of a uint subtraction is negative, revert the transaction
         if isinstance(node.op, ast.Sub) and types.is_unsigned(node.type):
             cond = self.viper_ast.GtCmp(right, left, pos)
-            stmts.append(self.fail_if(cond, ctx, pos))
+            stmts.append(self.fail_if(cond, [], ctx, pos))
 
         return stmts, op(left, right, pos)
 
@@ -299,7 +299,7 @@ class ExpressionTranslator(NodeTranslator):
                 self_var = ctx.self_var.localVar()
                 balance_type = ctx.field_types[names.SELF_BALANCE]
                 self_balance = builtins.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
-                check = self.fail_if(self.viper_ast.LtCmp(self_balance, amount), ctx)
+                check = self.fail_if(self.viper_ast.LtCmp(self_balance, amount), [], ctx)
 
                 diff = self.viper_ast.Sub(self_balance, amount)
                 sub = builtins.struct_set(self.viper_ast, self_var, diff, names.SELF_BALANCE, ctx.self_type)
@@ -358,8 +358,7 @@ class ExpressionTranslator(NodeTranslator):
                 msg_sender_eq = self.viper_ast.EqCmp(to, msg_sender)
                 msg_sender_call_failed = builtins.msg_sender_call_fail_var(self.viper_ast).localVar()
                 assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
-                goto_revert = self.viper_ast.Goto(ctx.revert_label, pos)
-                fail = self.viper_ast.If(fail_cond, [assume_msg_sender_call_failed, goto_revert], [])
+                fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
 
                 afters = [fail, copy_old]
 

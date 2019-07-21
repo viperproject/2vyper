@@ -202,4 +202,4 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         leq = self.viper_ast.LeCmp(self.viper_ast.IntLit(0), index)
         le = self.viper_ast.LtCmp(index, self.viper_ast.SeqLength(array))
         cond = self.viper_ast.Not(self.viper_ast.And(leq, le))
-        return self.fail_if(cond, ctx)
+        return self.fail_if(cond, [], ctx)
