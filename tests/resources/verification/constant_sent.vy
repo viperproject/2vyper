@@ -6,10 +6,11 @@
 #
 
 
+#:: Label(INV)
 #@ invariant: sum(sent()) == old(sum(sent()))
 
 
 @public
 def call_sender():
-    #:: ExpectedOutput(call.invariant:assertion.false)
+    #:: ExpectedOutput(call.invariant:assertion.false, INV)
     send(msg.sender, self.balance)
