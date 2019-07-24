@@ -12,9 +12,9 @@ from nagini_translation.ast import names
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context
 from nagini_translation.translation.context import quantified_var_scope, self_scope
-from nagini_translation.translation.builtins import map_sum
 
-from nagini_translation.translation import builtins
+from nagini_translation.translation import mangled
+from nagini_translation.translation import helpers
 
 from nagini_translation.exceptions import InvalidProgramException
 
@@ -97,7 +97,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 for var_name in node.args[0].keys:
                     name_pos = self.to_position(var_name, ctx)
                     type = self.type_translator.translate(var_name.type, ctx)
-                    qname = builtins.quantifier_var_name(var_name.id)
+                    qname = mangled.quantifier_var_name(var_name.id)
                     var_decl = self.viper_ast.LocalVarDecl(qname, type, name_pos)
                     quants.append(var_decl)
                     ctx.quantified_vars[var_name.id] = var_decl
@@ -134,11 +134,11 @@ class SpecificationTranslator(ExpressionTranslator):
                 return isinstance(operand, ast.Name) and operand.id == names.MSG_GAS
 
             if len(node.args) == 1 and is_msg_sender(node.args[0]):
-                msg_sender_call_failed = builtins.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
+                msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
                 not_msg_sender_call_failed = self.viper_ast.Not(msg_sender_call_failed, pos)
                 return [], self.viper_ast.Implies(not_msg_sender_call_failed, local_var, pos)
             elif len(node.args) == 1 and is_gas(node.args[0]):
-                out_of_gas = builtins.out_of_gas_var(self.viper_ast, pos).localVar()
+                out_of_gas = helpers.out_of_gas_var(self.viper_ast, pos).localVar()
                 not_out_of_gas = self.viper_ast.Not(out_of_gas, pos)
                 return [], self.viper_ast.Implies(not_out_of_gas, local_var, pos)
             else:
@@ -161,32 +161,32 @@ class SpecificationTranslator(ExpressionTranslator):
             expr = self._translate_spec(arg, ctx)
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
-            return [], map_sum(self.viper_ast, expr, key_type, pos)
+            return [], helpers.map_sum(self.viper_ast, expr, key_type, pos)
         elif name == names.SENT or name == names.RECEIVED:
             self_var = ctx.self_var.localVar()
 
             if name == names.SENT:
-                sent_type = ctx.field_types[builtins.SENT_FIELD]
-                sent = builtins.struct_get(self.viper_ast, self_var, builtins.SENT_FIELD, sent_type, ctx.self_type, pos)
+                sent_type = ctx.field_types[mangled.SENT_FIELD]
+                sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
                 if not node.args:
                     return [], sent
                 else:
                     arg = self._translate_spec(node.args[0], ctx)
-                    get_arg = builtins.map_get(self.viper_ast, sent, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
+                    get_arg = helpers.map_get(self.viper_ast, sent, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
                     return [], get_arg
             elif name == names.RECEIVED:
-                rec_type = ctx.field_types[builtins.RECEIVED_FIELD]
-                rec = builtins.struct_get(self.viper_ast, self_var, builtins.RECEIVED_FIELD, rec_type, ctx.self_type, pos)
+                rec_type = ctx.field_types[mangled.RECEIVED_FIELD]
+                rec = helpers.struct_get(self.viper_ast, self_var, mangled.RECEIVED_FIELD, rec_type, ctx.self_type, pos)
                 if not node.args:
                     return [], rec
                 else:
                     arg = self._translate_spec(node.args[0], ctx)
                     # TODO: handle type stuff better
-                    get_arg = builtins.map_get(self.viper_ast, rec, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
+                    get_arg = helpers.map_get(self.viper_ast, rec, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
                     return [], get_arg
         elif name == names.EVENT:
             event = node.args[0]
-            event_name = builtins.event_name(event.func.id)
+            event_name = mangled.event_name(event.func.id)
             args = [self._translate_spec(arg, ctx) for arg in event.args]
             full_perm = self.viper_ast.FullPerm(pos)
             one = self.viper_ast.IntLit(1, pos)

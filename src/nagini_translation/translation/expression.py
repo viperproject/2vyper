@@ -20,11 +20,8 @@ from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
 
-from nagini_translation.translation.builtins import (
-    map_get, array_get, array_contains, array_not_contains
-)
-
-from nagini_translation.translation import builtins
+from nagini_translation.translation import mangled
+from nagini_translation.translation import helpers
 
 from nagini_translation.exceptions import UnsupportedException
 
@@ -46,15 +43,15 @@ class ExpressionTranslator(NodeTranslator):
             ast.Mult: self.viper_ast.Mul,
             ast.Div: self.viper_ast.Div,  # Note that / in Vyper means floor division
             ast.Mod: self.viper_ast.Mod,
-            ast.Pow: lambda l, r, pos: builtins.pow(viper_ast, l, r, pos),
+            ast.Pow: lambda l, r, pos: helpers.pow(viper_ast, l, r, pos),
             ast.Eq: self.viper_ast.EqCmp,
             ast.NotEq: self.viper_ast.NeCmp,
             ast.Lt: self.viper_ast.LtCmp,
             ast.LtE: self.viper_ast.LeCmp,
             ast.Gt: self.viper_ast.GtCmp,
             ast.GtE: self.viper_ast.GeCmp,
-            ast.In: lambda l, r, pos: array_contains(viper_ast, l, r, pos),
-            ast.NotIn: lambda l, r, pos: array_not_contains(viper_ast, l, r, pos),
+            ast.In: lambda l, r, pos: helpers.array_contains(viper_ast, l, r, pos),
+            ast.NotIn: lambda l, r, pos: helpers.array_not_contains(viper_ast, l, r, pos),
             ast.And: self.viper_ast.And,
             ast.Or: self.viper_ast.Or,
             ast.Not: self.viper_ast.Not
@@ -169,7 +166,7 @@ class ExpressionTranslator(NodeTranslator):
         if isinstance(node.value.type, types.StructType):
             struct_type = node.value.type
             type = self.type_translator.translate(node.type, ctx)
-            get = builtins.struct_get(self.viper_ast, expr, node.attr, type, struct_type, pos)
+            get = helpers.struct_get(self.viper_ast, expr, node.attr, type, struct_type, pos)
             return stmts, get
         else:
             field = ctx.immutable_fields.get(node.attr)
@@ -186,11 +183,11 @@ class ExpressionTranslator(NodeTranslator):
         if isinstance(node_type, MapType):
             key_type = self.type_translator.translate(node_type.key_type, ctx)
             value_type = self.type_translator.translate(node_type.value_type, ctx)
-            call = map_get(self.viper_ast, value, index, key_type, value_type, pos)
+            call = helpers.map_get(self.viper_ast, value, index, key_type, value_type, pos)
         elif isinstance(node_type, ArrayType):
             stmts.append(self.type_translator.array_bounds_check(value, index, ctx))
             element_type = self.type_translator.translate(node_type.element_type, ctx)
-            call = array_get(self.viper_ast, value, index, element_type, pos)
+            call = helpers.array_get(self.viper_ast, value, index, element_type, pos)
 
         return value_stmts + index_stmts + stmts, call
 
@@ -252,7 +249,7 @@ class ExpressionTranslator(NodeTranslator):
                 return self.translate(node.args[0], ctx)
             elif name == names.LEN:
                 arr_stmts, arr = self.translate(node.args[0], ctx)
-                return arr_stmts, builtins.array_length(self.viper_ast, arr, pos)
+                return arr_stmts, helpers.array_length(self.viper_ast, arr, pos)
             elif name == names.CONCAT:
                 concat_stmts, concats = zip(*[self.translate(arg, ctx) for arg in node.args])
 
@@ -266,10 +263,10 @@ class ExpressionTranslator(NodeTranslator):
                 return flatten(concat_stmts), concat(concats)
             elif name == names.KECCAK256:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, builtins.array_keccak256(self.viper_ast, arg, pos)
+                return arg_stmts, helpers.array_keccak256(self.viper_ast, arg, pos)
             elif name == names.SHA256:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, builtins.array_sha256(self.viper_ast, arg, pos)
+                return arg_stmts, helpers.array_sha256(self.viper_ast, arg, pos)
             elif name == names.SEND or name == names.RAW_CALL:
                 # Sends are translated as follows:
                 #    - Evaluate arguments to and amount
@@ -298,21 +295,21 @@ class ExpressionTranslator(NodeTranslator):
 
                 self_var = ctx.self_var.localVar()
                 balance_type = ctx.field_types[names.SELF_BALANCE]
-                self_balance = builtins.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
+                self_balance = helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
                 check = self.fail_if(self.viper_ast.LtCmp(self_balance, amount), [], ctx)
 
-                sent_type = ctx.field_types[builtins.SENT_FIELD]
-                sent = builtins.struct_get(self.viper_ast, self_var, builtins.SENT_FIELD, sent_type, ctx.self_type, pos)
+                sent_type = ctx.field_types[mangled.SENT_FIELD]
+                sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
                 # TODO: improve this type stuff
-                sent_to = builtins.map_get(self.viper_ast, sent, to, self.viper_ast.Int, self.viper_ast.Int, pos)
+                sent_to = helpers.map_get(self.viper_ast, sent, to, self.viper_ast.Int, self.viper_ast.Int, pos)
                 sent_inc = self.viper_ast.Add(sent_to, amount, pos)
                 # TODO: improve this type stuff
-                sent_set = builtins.map_set(self.viper_ast, sent, to, sent_inc, self.viper_ast.Int, self.viper_ast.Int)
-                self_set = builtins.struct_set(self.viper_ast, self_var, sent_set, builtins.SENT_FIELD, ctx.self_type)
+                sent_set = helpers.map_set(self.viper_ast, sent, to, sent_inc, self.viper_ast.Int, self.viper_ast.Int)
+                self_set = helpers.struct_set(self.viper_ast, self_var, sent_set, mangled.SENT_FIELD, ctx.self_type)
                 sent_assign = self.viper_ast.LocalVarAssign(self_var, self_set)
 
                 diff = self.viper_ast.Sub(self_balance, amount)
-                sub = builtins.struct_set(self.viper_ast, self_var, diff, names.SELF_BALANCE, ctx.self_type)
+                sub = helpers.struct_set(self.viper_ast, self_var, diff, names.SELF_BALANCE, ctx.self_type)
                 sub_stmt = self.viper_ast.LocalVarAssign(self_var, sub)
 
                 stmts = [*to_stmts, *amount_stmts, check, sent_assign, sub_stmt]
@@ -333,7 +330,7 @@ class ExpressionTranslator(NodeTranslator):
                     call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
                     inv_assertions.append(self.viper_ast.Assert(cond, call_pos))
 
-                old_self = builtins.old_self_var(self.viper_ast, ctx.self_type, pos)
+                old_self = helpers.old_self_var(self.viper_ast, ctx.self_type, pos)
                 copy_old = self.viper_ast.LocalVarAssign(old_self.localVar(), self_var)
 
                 # Havov self
@@ -354,9 +351,9 @@ class ExpressionTranslator(NodeTranslator):
                 send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
                 ctx.new_local_vars.append(send_fail)
                 fail_cond = send_fail.localVar()
-                msg_sender = builtins.msg_sender_field_acc(self.viper_ast)
+                msg_sender = helpers.msg_sender_field_acc(self.viper_ast)
                 msg_sender_eq = self.viper_ast.EqCmp(to, msg_sender)
-                msg_sender_call_failed = builtins.msg_sender_call_fail_var(self.viper_ast).localVar()
+                msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast).localVar()
                 assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
                 fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
 
@@ -382,7 +379,7 @@ class ExpressionTranslator(NodeTranslator):
                     exprs[idx] = value_expr
 
                 init_args = [exprs[i] for i in range(len(exprs))]
-                init = builtins.struct_init(self.viper_ast, init_args, node.type, pos)
+                init = helpers.struct_init(self.viper_ast, init_args, node.type, pos)
                 return stmts, init
         else:
             name = node.func.attr
@@ -394,7 +391,7 @@ class ExpressionTranslator(NodeTranslator):
                 args.append(arg_expr)
 
             if node.func.value.id == names.LOG:
-                event_name = builtins.event_name(name)
+                event_name = mangled.event_name(name)
                 pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
                 one = self.viper_ast.FullPerm(pos)
                 pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, one, pos)

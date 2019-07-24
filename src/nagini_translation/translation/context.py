@@ -9,7 +9,7 @@ from itertools import chain
 from contextlib import contextmanager
 
 from nagini_translation.ast import names
-from nagini_translation.translation import builtins
+from nagini_translation.translation import mangled
 
 
 class Context:
@@ -63,15 +63,15 @@ class Context:
 
     @property
     def old_self_var(self):
-        return self.all_vars[builtins.OLD_SELF]
+        return self.all_vars[mangled.OLD_SELF]
 
     @property
     def pre_self_var(self):
-        return self.all_vars[builtins.PRE_SELF]
+        return self.all_vars[mangled.PRE_SELF]
 
     @property
     def issued_self_var(self):
-        return self.all_vars[builtins.ISSUED_SELF]
+        return self.all_vars[mangled.ISSUED_SELF]
 
     @property
     def msg_var(self):
@@ -238,8 +238,8 @@ def self_scope(self_var, old_self_var, ctx: Context):
     local_vars = ctx.locals.copy()
     ctx.all_vars[names.SELF] = self_var
     ctx.locals[names.SELF] = self_var
-    ctx.all_vars[builtins.OLD_SELF] = old_self_var
-    ctx.locals[builtins.OLD_SELF] = old_self_var
+    ctx.all_vars[mangled.OLD_SELF] = old_self_var
+    ctx.locals[mangled.OLD_SELF] = old_self_var
 
     yield
 

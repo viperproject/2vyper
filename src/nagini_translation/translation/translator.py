@@ -17,7 +17,8 @@ from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.context import Context, function_scope, self_scope
 
-from nagini_translation.translation import builtins
+from nagini_translation.translation import mangled
+from nagini_translation.translation import helpers
 
 from nagini_translation.viper.typedefs import Program
 from nagini_translation.viper.ast import ViperAST
@@ -35,7 +36,7 @@ class ProgramTranslator(PositionTranslator):
 
     def translate(self, vyper_program: VyperProgram, file: str) -> Program:
         if names.INIT not in vyper_program.functions:
-            vyper_program.functions[builtins.INIT] = builtins.init_function()
+            vyper_program.functions[mangled.INIT] = helpers.init_function()
 
         # Add built-in methods
         methods = seq_to_list(self.builtins.methods())
@@ -46,17 +47,17 @@ class ProgramTranslator(PositionTranslator):
 
         # Add self.$sent field
         sent_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
-        vyper_program.fields.type.add_member(builtins.SENT_FIELD, sent_type)
+        vyper_program.fields.type.add_member(mangled.SENT_FIELD, sent_type)
         # Add self.$received field
         received_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
-        vyper_program.fields.type.add_member(builtins.RECEIVED_FIELD, received_type)
+        vyper_program.fields.type.add_member(mangled.RECEIVED_FIELD, received_type)
 
         ctx = Context(file)
         ctx.program = vyper_program
         ctx.self_type = vyper_program.fields.type
-        ctx.all_vars[names.SELF] = builtins.self_var(self.viper_ast, ctx.self_type)
-        ctx.all_vars[names.MSG] = builtins.msg_var(self.viper_ast)
-        ctx.all_vars[names.BLOCK] = builtins.block_var(self.viper_ast)
+        ctx.all_vars[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
+        ctx.all_vars[names.MSG] = helpers.msg_var(self.viper_ast)
+        ctx.all_vars[names.BLOCK] = helpers.block_var(self.viper_ast)
 
         # Translate self
         self_domain = self._translate_struct(vyper_program.fields, ctx)
@@ -72,7 +73,7 @@ class ProgramTranslator(PositionTranslator):
         ctx.immutable_fields = {}
         ctx.immutable_permissions = []
         # Create msg.sender field
-        msg_sender = builtins.msg_sender_field(self.viper_ast)
+        msg_sender = helpers.msg_sender_field(self.viper_ast)
         ctx.immutable_fields[names.MSG_SENDER] = msg_sender
         # Pass around the permissions for msg.sender
         sender_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_sender)
@@ -83,7 +84,7 @@ class ProgramTranslator(PositionTranslator):
         ctx.local_unchecked_invariants.append(self.viper_ast.NeCmp(sender_acc, zero))
 
         # Create msg.value field
-        msg_value = builtins.msg_value_field(self.viper_ast)
+        msg_value = helpers.msg_value_field(self.viper_ast)
         ctx.immutable_fields[names.MSG_VALUE] = msg_value
         # Pass around the permissions for msg.value
         value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
@@ -93,7 +94,7 @@ class ProgramTranslator(PositionTranslator):
         ctx.local_unchecked_invariants.append(self.viper_ast.GeCmp(value_acc, zero))
 
         # Create block.timestamp field
-        block_timestamp = builtins.block_timestamp_field(self.viper_ast)
+        block_timestamp = helpers.block_timestamp_field(self.viper_ast)
         ctx.immutable_fields[names.BLOCK_TIMESTAMP] = block_timestamp
         # Pass around the permissions for block.timestamp
         timestamp_acc = self.viper_ast.FieldAccess(ctx.block_var.localVar(), block_timestamp)
@@ -119,13 +120,13 @@ class ProgramTranslator(PositionTranslator):
 
     def _translate_struct(self, struct: VyperStruct, ctx: Context):
         viper_int = self.viper_ast.Int
-        struct_name = builtins.struct_name(struct.name)
+        struct_name = mangled.struct_name(struct.name)
         struct_type = self.type_translator.translate(struct.type, ctx)
 
         struct_var = self.viper_ast.LocalVarDecl('$s', struct_type)
         field_var = self.viper_ast.LocalVarDecl('$f', viper_int)
 
-        fields_function_name = builtins.struct_field_name(struct.name)
+        fields_function_name = mangled.struct_field_name(struct.name)
         fields_function = self.viper_ast.DomainFunc(fields_function_name, [struct_var, field_var], viper_int, False, struct_name)
 
         functions = [fields_function]
@@ -135,30 +136,30 @@ class ProgramTranslator(PositionTranslator):
         for name, type in struct.type.member_types.items():
             member_type = self.type_translator.translate(type, ctx)
 
-            getter_name = builtins.struct_member_getter_name(struct.name, name)
+            getter_name = mangled.struct_member_getter_name(struct.name, name)
             functions.append(self.viper_ast.DomainFunc(getter_name, [field_var], member_type, False, struct_name))
 
-            setter_name = builtins.struct_member_setter_name(struct.name, name)
+            setter_name = mangled.struct_member_setter_name(struct.name, name)
             new_var = self.viper_ast.LocalVarDecl('$v', member_type)
             functions.append(self.viper_ast.DomainFunc(setter_name, [struct_var, new_var], struct_type, False, struct_name))
 
-            set_ax_name = builtins.axiom_name(f'{setter_name}_0')
+            set_ax_name = mangled.axiom_name(f'{setter_name}_0')
             local_s = struct_var.localVar()
             local_v = new_var.localVar()
-            set_m = builtins.struct_set(self.viper_ast, local_s, local_v, name, struct.type)
-            get_m = builtins.struct_get(self.viper_ast, set_m, name, member_type, struct.type)
+            set_m = helpers.struct_set(self.viper_ast, local_s, local_v, name, struct.type)
+            get_m = helpers.struct_get(self.viper_ast, set_m, name, member_type, struct.type)
             eq = self.viper_ast.EqCmp(get_m, local_v)
             trigger = self.viper_ast.Trigger([get_m])
             quant = self.viper_ast.Forall([struct_var, new_var], [trigger], eq)
             axioms.append(self.viper_ast.DomainAxiom(set_ax_name, quant, struct_name))
 
-            set_ax_name = builtins.axiom_name(f'{setter_name}_1')
+            set_ax_name = mangled.axiom_name(f'{setter_name}_1')
             local_f = field_var.localVar()
             idx = struct.type.member_indices[name]
             idx_lit = self.viper_ast.IntLit(idx)
             neq = self.viper_ast.NeCmp(local_f, idx_lit)
-            field_v_f = builtins.struct_field(self.viper_ast, local_s, local_f, struct.type)
-            field_set_f = builtins.struct_field(self.viper_ast, set_m, local_f, struct.type)
+            field_v_f = helpers.struct_field(self.viper_ast, local_s, local_f, struct.type)
+            field_set_f = helpers.struct_field(self.viper_ast, set_m, local_f, struct.type)
             impl = self.viper_ast.Implies(neq, self.viper_ast.EqCmp(field_v_f, field_set_f))
             trigger = self.viper_ast.Trigger([field_set_f])
             quant = self.viper_ast.Forall([struct_var, new_var, field_var], [trigger], impl)
@@ -167,15 +168,15 @@ class ProgramTranslator(PositionTranslator):
             init_args[idx] = self.viper_ast.LocalVarDecl(f'arg_{idx}', member_type)
 
             def ig(s, name=name, member_type=member_type):
-                return builtins.struct_get(self.viper_ast, s, name, member_type, struct.type)
+                return helpers.struct_get(self.viper_ast, s, name, member_type, struct.type)
             init_get[idx] = ig
 
         i_args = [init_args[i] for i in range(len(init_args))]
-        init_name = builtins.struct_init_name(struct.name)
+        init_name = mangled.struct_init_name(struct.name)
         init_f = self.viper_ast.DomainFunc(init_name, i_args, struct_type, False, struct_name)
         functions.append(init_f)
 
-        init = builtins.struct_init(self.viper_ast, [arg.localVar() for arg in i_args], struct.type)
+        init = helpers.struct_init(self.viper_ast, [arg.localVar() for arg in i_args], struct.type)
         expr = self.viper_ast.TrueLit()
         for i in range(len(init_args)):
             get = init_get[i](init)
@@ -184,13 +185,13 @@ class ProgramTranslator(PositionTranslator):
 
         trigger = self.viper_ast.Trigger([init])
         quant = self.viper_ast.Forall(i_args, [trigger], expr)
-        init_ax_name = builtins.axiom_name(init_name)
+        init_ax_name = mangled.axiom_name(init_name)
         axioms.append(self.viper_ast.DomainAxiom(init_ax_name, quant, struct_name))
 
         return self.viper_ast.Domain(struct_name, functions, axioms, [])
 
     def _translate_event(self, event: VyperEvent, ctx: Context):
-        name = builtins.event_name(event.name)
+        name = mangled.event_name(event.name)
         types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
         args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type) for idx, type in enumerate(types)]
         return self.viper_ast.Predicate(name, args, None)
@@ -199,7 +200,7 @@ class ProgramTranslator(PositionTranslator):
         if amount == 1:
             perm = self.viper_ast.FullPerm()
         else:
-            perm = builtins.read_perm(self.viper_ast)
+            perm = helpers.read_perm(self.viper_ast)
         return self.viper_ast.FieldAccessPredicate(field_access, perm)
 
     def _create_transitivity_check(self, ctx: Context):
@@ -213,7 +214,7 @@ class ProgramTranslator(PositionTranslator):
         # In the end we assert the invariants for state no 3 (with state no 1 being the old state)
 
         with function_scope(ctx):
-            name = builtins.TRANSITIVITY_CHECK
+            name = mangled.TRANSITIVITY_CHECK
 
             self_type = self.type_translator.translate(ctx.self_type, ctx)
             states = [self.viper_ast.LocalVarDecl(f'$s{i}', self_type) for i in range(3)]

@@ -13,9 +13,7 @@ from nagini_translation.ast.types import VyperType, PrimitiveType, MapType, Arra
 from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
 
-from nagini_translation.translation.builtins import (
-    array_type, array_init, array_get, map_type, map_init, map_get, map_sum, struct_type, struct_get, struct_init
-)
+from nagini_translation.translation import helpers
 
 from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import Expr, Stmt, StmtsAndExpr, Type
@@ -41,12 +39,12 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         elif isinstance(type, MapType):
             key_type = self.translate(type.key_type, ctx)
             value_type = self.translate(type.value_type, ctx)
-            return map_type(self.viper_ast, key_type, value_type)
+            return helpers.map_type(self.viper_ast, key_type, value_type)
         elif isinstance(type, ArrayType):
             element_type = self.translate(type.element_type, ctx)
-            return array_type(self.viper_ast, element_type)
+            return helpers.array_type(self.viper_ast, element_type)
         elif isinstance(type, StructType):
-            return struct_type(self.viper_ast, type)
+            return helpers.struct_type(self.viper_ast, type)
         else:
             assert False
 
@@ -71,12 +69,12 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             value_type = self.translate(type.value_type, ctx)
 
             stmts, value_default = self.default_value(node, type.value_type, ctx)
-            call = map_init(self.viper_ast, value_default, key_type, value_type, pos)
+            call = helpers.map_init(self.viper_ast, value_default, key_type, value_type, pos)
             return stmts, call
         elif isinstance(type, ArrayType):
             element_type = self.translate(type.element_type, ctx)
             stmts, element_default = self.default_value(node, type.element_type, ctx)
-            array = array_init(self.viper_ast, element_default, type.size, element_type, pos)
+            array = helpers.array_init(self.viper_ast, element_default, type.size, element_type, pos)
             return stmts, array
         elif isinstance(type, StructType):
             init_args = {}
@@ -87,7 +85,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                 init_args[idx] = val
                 stmts.extend(default_stmts)
             args = [init_args[i] for i in range(len(init_args))]
-            return stmts, struct_init(self.viper_ast, args, type, pos)
+            return stmts, helpers.struct_init(self.viper_ast, args, type, pos)
         else:
             assert False
 
@@ -142,7 +140,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                 quant_var_name = ctx.new_quantified_var_name()
                 quant_decl = self.viper_ast.LocalVarDecl(quant_var_name, key_type)
                 quant = quant_decl.localVar()
-                new_node = map_get(self.viper_ast, node, quant, key_type, value_type)
+                new_node = helpers.map_get(self.viper_ast, node, quant, key_type, value_type)
                 trigger = self.viper_ast.Trigger([new_node])
                 sub_ret = construct(type.value_type, new_node)
                 for r in sub_ret:
@@ -150,7 +148,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                     ret.append(quantifier)
 
                 if mode == 0 and types.is_unsigned(type.value_type):
-                    mp_sum = map_sum(self.viper_ast, node, key_type)
+                    mp_sum = helpers.map_sum(self.viper_ast, node, key_type)
                     r = self.viper_ast.LeCmp(new_node, mp_sum)
                     quantifier = self.viper_ast.Forall([quant_decl], [trigger], r)
                     ret.append(quantifier)
@@ -174,7 +172,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                 quant_var_name = ctx.new_quantified_var_name()
                 quant_decl = self.viper_ast.LocalVarDecl(quant_var_name, self.viper_ast.Int)
                 quant = quant_decl.localVar()
-                new_node = array_get(self.viper_ast, node, quant, type.element_type)
+                new_node = helpers.array_get(self.viper_ast, node, quant, type.element_type)
                 trigger = self.viper_ast.Trigger([new_node])
 
                 leq = self.viper_ast.LeCmp(self.viper_ast.IntLit(0), quant)
@@ -191,7 +189,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             elif isinstance(type, StructType):
                 for member_name, member_type in type.member_types.items():
                     viper_type = self.translate(member_type, ctx)
-                    get = struct_get(self.viper_ast, node, member_name, viper_type, type)
+                    get = helpers.struct_get(self.viper_ast, node, member_name, viper_type, type)
                     ret.extend(construct(member_type, get))
             return ret
 

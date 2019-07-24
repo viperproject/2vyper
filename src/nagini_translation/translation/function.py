@@ -18,7 +18,8 @@ from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.context import Context
 from nagini_translation.translation.context import function_scope, inline_scope
 
-from nagini_translation.translation import builtins
+from nagini_translation.translation import mangled
+from nagini_translation.translation import helpers
 
 from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
@@ -44,15 +45,15 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
-            locals[builtins.SELF] = builtins.self_var(self.viper_ast, ctx.self_type)
+            locals[mangled.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
             # The last publicly visible state of self
-            locals[builtins.OLD_SELF] = builtins.old_self_var(self.viper_ast, ctx.self_type)
+            locals[mangled.OLD_SELF] = helpers.old_self_var(self.viper_ast, ctx.self_type)
             # The state of self before the function call
-            locals[builtins.PRE_SELF] = builtins.pre_self_var(self.viper_ast, ctx.self_type)
+            locals[mangled.PRE_SELF] = helpers.pre_self_var(self.viper_ast, ctx.self_type)
             # The state of self when the transaction was issued
-            locals[builtins.ISSUED_SELF] = builtins.issued_self_var(self.viper_ast, ctx.self_type)
-            args[builtins.MSG] = builtins.msg_var(self.viper_ast)
-            args[builtins.BLOCK] = builtins.block_var(self.viper_ast)
+            locals[mangled.ISSUED_SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
+            args[mangled.MSG] = helpers.msg_var(self.viper_ast)
+            args[mangled.BLOCK] = helpers.block_var(self.viper_ast)
             ctx.args = args.copy()
             ctx.locals = locals.copy()
             ctx.all_vars = {**args, **locals}
@@ -62,20 +63,20 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             pre_self_var = ctx.pre_self_var.localVar()
             issued_self_var = ctx.issued_self_var.localVar()
 
-            success_var = builtins.success_var(self.viper_ast)
+            success_var = helpers.success_var(self.viper_ast)
             ctx.success_var = success_var
             rets = [success_var]
 
-            end_label = self.viper_ast.Label(builtins.END_LABEL)
-            return_label = self.viper_ast.Label(builtins.RETURN_LABEL)
-            revert_label = self.viper_ast.Label(builtins.REVERT_LABEL)
+            end_label = self.viper_ast.Label(mangled.END_LABEL)
+            return_label = self.viper_ast.Label(mangled.RETURN_LABEL)
+            revert_label = self.viper_ast.Label(mangled.REVERT_LABEL)
 
-            ctx.return_label = builtins.RETURN_LABEL
-            ctx.revert_label = builtins.REVERT_LABEL
+            ctx.return_label = mangled.RETURN_LABEL
+            ctx.revert_label = mangled.REVERT_LABEL
 
             if function.type.return_type:
                 ret_type = self.type_translator.translate(function.type.return_type, ctx)
-                ret_var = builtins.ret_var(self.viper_ast, ret_type, pos)
+                ret_var = helpers.ret_var(self.viper_ast, ret_type, pos)
                 rets.append(ret_var)
                 ctx.result_var = ret_var
 
@@ -146,7 +147,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 # in the beginning
                 body.extend(self._havoc_balance(ctx))
 
-            msg_value = builtins.msg_value_field(self.viper_ast)
+            msg_value = helpers.msg_value_field(self.viper_ast)
             value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
             # If a function is not payable and money is sent, revert
             if not function.is_payable():
@@ -161,23 +162,23 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             else:
                 # Increase balance by msg.value
                 balance_type = ctx.field_types[names.SELF_BALANCE]
-                get_balance = builtins.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
+                get_balance = helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
                 inc_sum = self.viper_ast.Add(get_balance, value_acc)
                 payable_info = self.to_info(["Fuction is payable"])
-                inc = builtins.struct_set(self.viper_ast, self_var, inc_sum, names.SELF_BALANCE, ctx.self_type)
+                inc = helpers.struct_set(self.viper_ast, self_var, inc_sum, names.SELF_BALANCE, ctx.self_type)
                 self_assign = self.viper_ast.LocalVarAssign(self_var, inc, info=payable_info)
                 body.append(self_assign)
 
                 # Increase received for msg.sender by msg.value
-                msg_sender = builtins.msg_sender_field_acc(self.viper_ast)
-                rec_type = ctx.field_types[builtins.RECEIVED_FIELD]
-                rec = builtins.struct_get(self.viper_ast, self_var, builtins.RECEIVED_FIELD, rec_type, ctx.self_type)
+                msg_sender = helpers.msg_sender_field_acc(self.viper_ast)
+                rec_type = ctx.field_types[mangled.RECEIVED_FIELD]
+                rec = helpers.struct_get(self.viper_ast, self_var, mangled.RECEIVED_FIELD, rec_type, ctx.self_type)
                 # TODO: improve this type stuff
-                rec_sender = builtins.map_get(self.viper_ast, rec, msg_sender, self.viper_ast.Int, self.viper_ast.Int)
+                rec_sender = helpers.map_get(self.viper_ast, rec, msg_sender, self.viper_ast.Int, self.viper_ast.Int)
                 rec_inc_sum = self.viper_ast.Add(rec_sender, value_acc)
                 # TODO: improve this type stuff
-                rec_set = builtins.map_set(self.viper_ast, rec, msg_sender, rec_inc_sum, self.viper_ast.Int, self.viper_ast.Int)
-                self_set = builtins.struct_set(self.viper_ast, self_var, rec_set, builtins.RECEIVED_FIELD, ctx.self_type)
+                rec_set = helpers.map_set(self.viper_ast, rec, msg_sender, rec_inc_sum, self.viper_ast.Int, self.viper_ast.Int)
+                self_set = helpers.struct_set(self.viper_ast, self_var, rec_set, mangled.RECEIVED_FIELD, ctx.self_type)
                 body.append(self.viper_ast.LocalVarAssign(self_var, self_set))
 
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
@@ -188,21 +189,21 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.append(return_label)
 
             # Add variable for success(-gas) that tracks whether the contract ran out of gas
-            out_of_gas_var = builtins.out_of_gas_var(self.viper_ast)
+            out_of_gas_var = helpers.out_of_gas_var(self.viper_ast)
             ctx.new_local_vars.append(out_of_gas_var)
             # Fail, if we ran out of gas
             # If the no_gas option is set, ignore it
             if not ctx.program.config.has_option(names.CONFIG_NO_GAS):
-                msg_sender_call_fail = builtins.msg_sender_call_fail_var(self.viper_ast).localVar()
+                msg_sender_call_fail = helpers.msg_sender_call_fail_var(self.viper_ast).localVar()
                 assume_msg_sender_call_fail = self.viper_ast.Inhale(msg_sender_call_fail)
                 body.append(self.fail_if(out_of_gas_var.localVar(), [assume_msg_sender_call_fail], ctx))
 
             # Add variable for success(-msg.sender) that tracks whether a call to
             # msg.sender failed
-            ctx.new_local_vars.append(builtins.msg_sender_call_fail_var(self.viper_ast))
+            ctx.new_local_vars.append(helpers.msg_sender_call_fail_var(self.viper_ast))
 
             # If we reach this point do not revert the state
-            body.append(self.viper_ast.Goto(builtins.END_LABEL))
+            body.append(self.viper_ast.Goto(mangled.END_LABEL))
             # Revert the state label
             body.append(revert_label)
             # Return False
@@ -317,7 +318,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             args_list = list(args.values())
             locals_list = [*locals.values(), *ctx.new_local_vars]
 
-            viper_name = builtins.method_name(function.name)
+            viper_name = mangled.method_name(function.name)
             method = self.viper_ast.Method(viper_name, args_list, rets, pres, [], locals_list, body, pos)
             return method
 
@@ -327,24 +328,24 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body = []
 
             # Define new msg variable
-            msg_name = ctx.inline_prefix + builtins.MSG
+            msg_name = ctx.inline_prefix + mangled.MSG
             msg_decl = self.viper_ast.LocalVarDecl(msg_name, self.viper_ast.Ref)
             ctx.all_vars[names.MSG] = msg_decl
             ctx.new_local_vars.append(msg_decl)
 
             # Add permissions for msg.sender and msg.value
-            msg_sender_field = builtins.msg_sender_field(self.viper_ast)
+            msg_sender_field = helpers.msg_sender_field(self.viper_ast)
             msg_sender = self.viper_ast.FieldAccess(msg_decl.localVar(), msg_sender_field)
             msg_sender_perm = self._create_field_access_predicate(msg_sender, 0, ctx)
             body.append(self.viper_ast.Inhale(msg_sender_perm))
 
             # msg.sender == self
-            self_address = builtins.self_address(self.viper_ast)
+            self_address = helpers.self_address(self.viper_ast)
             msg_sender_eq = self.viper_ast.EqCmp(msg_sender, self_address)
             body.append(self.viper_ast.Inhale(msg_sender_eq))
 
             # Add permissions for msg.value
-            msg_value_field = builtins.msg_value_field(self.viper_ast)
+            msg_value_field = helpers.msg_value_field(self.viper_ast)
             msg_value = self.viper_ast.FieldAccess(msg_decl.localVar(), msg_value_field)
             msg_value_perm = self._create_field_access_predicate(msg_value, 0, ctx)
             body.append(self.viper_ast.Inhale(msg_value_perm))
@@ -371,7 +372,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # Define return var
             if function.type.return_type:
                 ret_type = self.type_translator.translate(function.type.return_type, ctx)
-                ret_name = ctx.inline_prefix + builtins.RESULT_VAR
+                ret_name = ctx.inline_prefix + mangled.RESULT_VAR
                 ret_var_decl = self.viper_ast.LocalVarDecl(ret_name, ret_type, pos)
                 ctx.new_local_vars.append(ret_var_decl)
                 ctx.result_var = ret_var_decl
@@ -380,7 +381,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 ret_var = None
 
             # Define return label for inlined return statements
-            return_label_name = ctx.inline_prefix + builtins.RETURN_LABEL
+            return_label_name = ctx.inline_prefix + mangled.RETURN_LABEL
             return_label = self.viper_ast.Label(return_label_name)
             ctx.return_label = return_label_name
 
@@ -394,7 +395,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
         type = self.type_translator.translate(var.type, ctx)
-        name = ctx.inline_prefix + builtins.local_var_name(var.name)
+        name = ctx.inline_prefix + mangled.local_var_name(var.name)
         return self.viper_ast.LocalVarDecl(name, type, pos)
 
     def _non_negative(self, var, ctx: Context) -> Stmt:
@@ -418,9 +419,9 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         assume_pos = self._assume_non_negative(havoc.localVar(), ctx)
 
         balance_type = ctx.field_types[names.SELF_BALANCE]
-        get_balance = builtins.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
+        get_balance = helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
         inc_sum = self.viper_ast.Add(get_balance, havoc.localVar())
-        inc = builtins.struct_set(self.viper_ast, self_var, inc_sum, names.SELF_BALANCE, ctx.self_type)
+        inc = helpers.struct_set(self.viper_ast, self_var, inc_sum, names.SELF_BALANCE, ctx.self_type)
         self_assign = self.viper_ast.LocalVarAssign(self_var, inc)
 
         return [assume_pos, self_assign]
@@ -429,5 +430,5 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         if amount == 1:
             perm = self.viper_ast.FullPerm()
         else:
-            perm = builtins.read_perm(self.viper_ast)
+            perm = helpers.read_perm(self.viper_ast)
         return self.viper_ast.FieldAccessPredicate(field_access, perm)
