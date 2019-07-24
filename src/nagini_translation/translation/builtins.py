@@ -115,7 +115,7 @@ def field_name(vyper_name: str) -> str:
 
 
 def local_var_name(vyper_name: str) -> str:
-    if vyper_name in {SELF, MSG, BLOCK}:
+    if vyper_name in {names.SELF, names.MSG, names.BLOCK}:
         return vyper_name
     else:
         return f'l${vyper_name}'
