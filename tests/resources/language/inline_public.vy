@@ -5,6 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+
+#@ config: no_gas
+
+
 val: uint256
 const_val: uint256
 addr: address

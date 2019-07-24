@@ -67,7 +67,7 @@ def __init__(_name: string[64], _symbol: string[32], _decimals: uint256, _supply
     log.Transfer(ZERO_ADDRESS, msg.sender, init_supply)
 
 
-#@ ensures: result() == sum(self.balanceOf)
+#@ ensures: implies(success(), result() == sum(self.balanceOf))
 @public
 @constant
 def totalSupply() -> uint256:

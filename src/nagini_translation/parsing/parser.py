@@ -17,7 +17,7 @@ from nagini_translation.ast import names
 from nagini_translation.ast import types
 
 from nagini_translation.ast.nodes import (
-    VyperProgram, VyperFunction, VyperStruct, VyperEvent, VyperVar
+    VyperProgram, VyperFunction, VyperStruct, VyperEvent, VyperVar, VyperConfig
 )
 from nagini_translation.ast.types import FunctionType, EventType
 
@@ -47,6 +47,8 @@ class ProgramBuilder(ast.NodeVisitor):
     # definition.
 
     def __init__(self):
+        self.config = None
+
         self.field_types = {}
         self.functions = {}
         self.structs = {}
@@ -77,7 +79,10 @@ class ProgramBuilder(ast.NodeVisitor):
         self_type = StructType(names.SELF, self.field_types)
         self_struct = VyperStruct(names.SELF, self_type, None)
 
-        return VyperProgram(self_struct,
+        self.config = self.config or VyperConfig([])
+
+        return VyperProgram(self.config,
+                            self_struct,
                             self.functions,
                             self.structs,
                             self.events,
@@ -123,11 +128,19 @@ class ProgramBuilder(ast.NodeVisitor):
                 self.field_types[variable_name] = variable_type
 
     def visit_Assign(self, node):
-        # This is for invariants and pre/postconditions which get translated to
+        # This is for invariants and postconditions which get translated to
         # assignments during preprocessing.
         assert len(node.targets) == 1
         name = node.targets[0].id
-        if name == names.INVARIANT:
+
+        if name == names.CONFIG:
+            if isinstance(node.value, ast.Name):
+                options = [node.value.id]
+            elif isinstance(node.value, ast.Tuple):
+                options = [n.id for n in node.value.elts]
+            self.config = VyperConfig(options)
+            return
+        elif name == names.INVARIANT:
             # No preconditions and posconditions allowed before invariants
             self._check_no_local_spec()
 

@@ -12,6 +12,15 @@ from typing import Dict, List
 from nagini_translation.ast.types import VyperType, FunctionType, StructType, EventType
 
 
+class VyperConfig:
+
+    def __init__(self, options: List[str]):
+        self.options = options
+
+    def has_option(self, option: str) -> bool:
+        return option in self.options
+
+
 class VyperVar:
 
     def __init__(self, name: str, type: VyperType, node):
@@ -66,6 +75,7 @@ class VyperEvent:
 class VyperProgram:
 
     def __init__(self,
+                 config: VyperConfig,
                  fields: VyperStruct,
                  functions: Dict[str, VyperFunction],
                  structs: Dict[str, VyperStruct],
@@ -73,6 +83,7 @@ class VyperProgram:
                  invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr]):
+        self.config = config
         self.fields = fields
         self.functions = functions
         self.structs = structs

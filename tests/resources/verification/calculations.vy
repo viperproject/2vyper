@@ -5,7 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ requires: start > 0
+
+#@ config: no_gas
+
+
 #@ ensures: result() == (99 * 100) / 2 + 100 * start
 @public
 def sum_of_numbers(start: int128) -> int128:

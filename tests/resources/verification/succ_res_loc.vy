@@ -8,7 +8,13 @@
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: result()
 @public
-def func() -> bool:
+def func0() -> bool:
+    return False
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: implies(success(), result())
+@public
+def func1() -> bool:
     return False
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)

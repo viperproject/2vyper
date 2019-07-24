@@ -5,6 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+
+#@ config: no_gas
+
+
 mpp: map(int128, map(uint256, int128))
 mp: map(address, int128)
 

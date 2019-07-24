@@ -5,6 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+
+#@ config: no_gas
+
+
 array: int128[12]
 matrix: int128[12][12]
 tensor: int128[2][2][2]

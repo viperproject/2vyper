@@ -96,6 +96,9 @@ PRECONDITION = 'requires'
 POSTCONDITION = 'ensures'
 CHECK = 'check'
 
+CONFIG = 'config'
+CONFIG_NO_GAS = 'no_gas'
+
 IMPLIES = 'implies'
 FORALL = 'forall'
 SUCCESS = 'success'

@@ -129,10 +129,18 @@ class SpecificationTranslator(ExpressionTranslator):
                 is_msg_sender = lambda n: isinstance(n.operand.value, ast.Name) and n.operand.value.id == names.MSG
                 return is_attr(node) and is_sender(node) and is_msg_sender(node)
 
+            def is_gas(node) -> bool:
+                operand = node.operand
+                return isinstance(operand, ast.Name) and operand.id == names.MSG_GAS
+
             if len(node.args) == 1 and is_msg_sender(node.args[0]):
                 msg_sender_call_failed = builtins.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
                 not_msg_sender_call_failed = self.viper_ast.Not(msg_sender_call_failed, pos)
                 return [], self.viper_ast.Implies(not_msg_sender_call_failed, local_var, pos)
+            elif len(node.args) == 1 and is_gas(node.args[0]):
+                out_of_gas = builtins.out_of_gas_var(self.viper_ast, pos).localVar()
+                not_out_of_gas = self.viper_ast.Not(out_of_gas, pos)
+                return [], self.viper_ast.Implies(not_out_of_gas, local_var, pos)
             else:
                 return [], local_var
         elif name == names.OLD or name == names.ISSUED:

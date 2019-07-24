@@ -48,7 +48,7 @@ class Context:
         self.success_var = None
         self.revert_label = None
         self.result_var = None
-        self.end_label = None
+        self.return_label = None
 
         self._local_var_counter = -1
         self.new_local_vars = []
@@ -136,7 +136,7 @@ def function_scope(ctx: Context):
     success_var = ctx.success_var
     revert_label = ctx.revert_label
     result_var = ctx.result_var
-    end_label = ctx.end_label
+    return_label = ctx.return_label
 
     local_var_counter = ctx._local_var_counter
     new_local_vars = ctx.new_local_vars
@@ -160,7 +160,7 @@ def function_scope(ctx: Context):
     ctx.success_var = None
     ctx.revert_label = None
     ctx.result_var = None
-    ctx.end_label = None
+    ctx.return_label = None
 
     ctx._local_var_counter = -1
     ctx.new_local_vars = []
@@ -186,7 +186,7 @@ def function_scope(ctx: Context):
     ctx.success_var = success_var
     ctx.revert_label = revert_label
     ctx.result_var = result_var
-    ctx.end_label = end_label
+    ctx.return_label = return_label
 
     ctx._local_var_counter = local_var_counter
     ctx.new_local_vars = new_local_vars
@@ -215,8 +215,8 @@ def inline_scope(ctx: Context):
     result_var = ctx.result_var
     ctx.result_var = None
 
-    end_label = ctx.end_label
-    ctx.end_label = None
+    return_label = ctx.return_label
+    ctx.return_label = None
 
     all_vars = ctx.all_vars.copy()
     old_inline = ctx._current_inline
@@ -226,7 +226,7 @@ def inline_scope(ctx: Context):
     yield
 
     ctx.result_var = result_var
-    ctx.end_label = end_label
+    ctx.return_label = return_label
 
     ctx.all_vars = all_vars
     ctx._current_inline = old_inline

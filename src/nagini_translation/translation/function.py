@@ -64,12 +64,14 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             success_var = builtins.success_var(self.viper_ast)
             ctx.success_var = success_var
-            revert_label = builtins.revert_label(self.viper_ast)
-            ctx.revert_label = builtins.REVERT_LABEL
-
             rets = [success_var]
-            end_label = builtins.end_label(self.viper_ast)
-            ctx.end_label = builtins.END_LABEL
+
+            end_label = self.viper_ast.Label(builtins.END_LABEL)
+            return_label = self.viper_ast.Label(builtins.RETURN_LABEL)
+            revert_label = self.viper_ast.Label(builtins.REVERT_LABEL)
+
+            ctx.return_label = builtins.RETURN_LABEL
+            ctx.revert_label = builtins.REVERT_LABEL
 
             if function.type.return_type:
                 ret_type = self.type_translator.translate(function.type.return_type, ctx)
@@ -181,23 +183,35 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
             body.extend(self._seqn_with_info(body_stmts, "Function body"))
 
-            # # Fail, if we ran out of gas
-            # out_of_gas_var = builtins.out_of_gas_var(self.viper_ast)
-            # ctx.new_local_vars.append(out_of_gas_var)
-            # body.append(self.fail_if(out_of_gas_var.localVar(), ctx))
+            # If we reach this point we either jumped to it by returning or got threre directly
+            # because we didn't revert (yet)
+            body.append(return_label)
+
+            # Add variable for success(-gas) that tracks whether the contract ran out of gas
+            out_of_gas_var = builtins.out_of_gas_var(self.viper_ast)
+            ctx.new_local_vars.append(out_of_gas_var)
+            # Fail, if we ran out of gas
+            # If the no_gas option is set, ignore it
+            if not ctx.program.config.has_option(names.CONFIG_NO_GAS):
+                msg_sender_call_fail = builtins.msg_sender_call_fail_var(self.viper_ast).localVar()
+                assume_msg_sender_call_fail = self.viper_ast.Inhale(msg_sender_call_fail)
+                body.append(self.fail_if(out_of_gas_var.localVar(), [assume_msg_sender_call_fail], ctx))
 
             # Add variable for success(-msg.sender) that tracks whether a call to
             # msg.sender failed
             ctx.new_local_vars.append(builtins.msg_sender_call_fail_var(self.viper_ast))
 
             # If we reach this point do not revert the state
-            body.append(self.viper_ast.Goto(ctx.end_label))
-            # Revert the state
+            body.append(self.viper_ast.Goto(builtins.END_LABEL))
+            # Revert the state label
             body.append(revert_label)
             # Return False
             body.append(returnBool(False))
+            # Havoc the return value
+            if function.type.return_type:
+                havoc = self._havoc_var(ctx.result_var.typ(), ctx)
+                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.localVar(), havoc.localVar()))
             # Revert self and old_self to the state before the function
-            # The return value does not have to be havoced because it was never assigned to
             copy_self = self.viper_ast.LocalVarAssign(self_var, pre_self_var)
             copy_old = self.viper_ast.LocalVarAssign(old_self_var, pre_self_var)
             body.extend([copy_self, copy_old])
@@ -365,17 +379,17 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             else:
                 ret_var = None
 
-            # Define end label for inlined return statements
-            end_label_name = ctx.inline_prefix + builtins.END_LABEL
-            end_label = self.viper_ast.Label(end_label_name)
-            ctx.end_label = end_label_name
+            # Define return label for inlined return statements
+            return_label_name = ctx.inline_prefix + builtins.RETURN_LABEL
+            return_label = self.viper_ast.Label(return_label_name)
+            ctx.return_label = return_label_name
 
             # Translate body
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
             body.extend(body_stmts)
 
             seqn = self._seqn_with_info(body, f"Inlined call of {function.name}")
-            return seqn + [end_label], ret_var
+            return seqn + [return_label], ret_var
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
@@ -391,12 +405,16 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         gez = self._non_negative(var, ctx)
         return self.viper_ast.Inhale(gez)
 
+    def _havoc_var(self, type, ctx: Context):
+        havoc_name = ctx.new_local_var_name('havoc')
+        havoc = self.viper_ast.LocalVarDecl(havoc_name, type)
+        ctx.new_local_vars.append(havoc)
+        return havoc
+
     def _havoc_balance(self, ctx: Context):
         self_var = ctx.self_var.localVar()
 
-        havoc_name = ctx.new_local_var_name('havoc')
-        havoc = self.viper_ast.LocalVarDecl(havoc_name, self.viper_ast.Int)
-        ctx.new_local_vars.append(havoc)
+        havoc = self._havoc_var(self.viper_ast.Int, ctx)
         assume_pos = self._assume_non_negative(havoc.localVar(), ctx)
 
         balance_type = ctx.field_types[names.SELF_BALANCE]

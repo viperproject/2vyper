@@ -5,6 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+
+#@ config: no_gas
+
+
 Transfer: event({_from: indexed(address), _to: indexed(address), _value: uint256})
 
 

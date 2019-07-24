@@ -17,6 +17,7 @@ def preprocess(program: str) -> str:
     # Make preconditions valid python statements. We use assignments instead of variable
     # declarations because we could have contract variables called 'requires'.
     # The spaces are used to keep the column numbers correct in the preprocessed program.
+    program = program.replace('#@ config:', 'config   =')
     program = program.replace('#@ requires:', 'requires   =')
     program = program.replace('#@ ensures:', 'ensures   =')
     program = program.replace('#@ check:', 'check   =')

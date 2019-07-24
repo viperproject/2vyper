@@ -140,7 +140,10 @@ class TypeAnnotator:
 
     def annotate_Call(self, node: ast.Call):
         if isinstance(node.func, ast.Name):
-            if node.func.id == names.FORALL:
+            if node.func.id == names.SUCCESS:
+                node.type = types.VYPER_BOOL
+                return
+            elif node.func.id == names.FORALL:
                 self._annotate_forall(node)
                 return
             elif node.func.id == names.EVENT:
@@ -178,7 +181,7 @@ class TypeAnnotator:
                 node.type = ArrayType(node.args[0].type.element_type, size, False)
             elif name == names.KECCAK256 or name == names.SHA256:
                 node.type = types.VYPER_BYTES32
-            elif name == names.IMPLIES or name == names.SUCCESS:
+            elif name == names.IMPLIES:
                 node.type = types.VYPER_BOOL
             elif name == names.RESULT:
                 node.type = self.current_func.type.return_type

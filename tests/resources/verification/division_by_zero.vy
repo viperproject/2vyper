@@ -5,6 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+
+#@ config: no_gas
+
+
 #@ ensures: (b != 0) == success()
 @public
 def _div(a: int128, b: int128) -> int128:

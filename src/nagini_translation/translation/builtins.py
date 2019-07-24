@@ -37,9 +37,11 @@ RECEIVED_FIELD = '$received'
 RESULT_VAR = '$res'
 SUCCESS_VAR = '$succ'
 
+OUT_OF_GAS = '$out_of_gas'
 MSG_SENDER_CALL_FAIL = '$msg_sender_call_fail'
 
 END_LABEL = 'end'
+RETURN_LABEL = 'return'
 REVERT_LABEL = 'revert'
 
 CONTRACT_DOMAIN = '$Contract'
@@ -195,16 +197,12 @@ def success_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(SUCCESS_VAR, viper_ast.Bool, pos, info)
 
 
+def out_of_gas_var(viper_ast: ViperAST, pos=None, info=None):
+    return viper_ast.LocalVarDecl(OUT_OF_GAS, viper_ast.Bool, pos, info)
+
+
 def msg_sender_call_fail_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(MSG_SENDER_CALL_FAIL, viper_ast.Bool, pos, info)
-
-
-def end_label(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.Label(END_LABEL, pos, info)
-
-
-def revert_label(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.Label(REVERT_LABEL, pos, info)
 
 
 def self_address(viper_ast: ViperAST, pos=None, info=None):
