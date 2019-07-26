@@ -15,6 +15,7 @@ from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
+from nagini_translation.translation.balance import BalanceTranslator
 from nagini_translation.translation.context import Context
 from nagini_translation.translation.context import function_scope, inline_scope
 
@@ -35,6 +36,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         self.statement_translator = StatementTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
+        self.balance_translator = BalanceTranslator(viper_ast)
 
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
         with function_scope(ctx):
@@ -161,25 +163,13 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 body.append(assume)
             else:
                 # Increase balance by msg.value
-                balance_type = ctx.field_types[names.SELF_BALANCE]
-                get_balance = helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
-                inc_sum = self.viper_ast.Add(get_balance, value_acc)
                 payable_info = self.to_info(["Fuction is payable"])
-                inc = helpers.struct_set(self.viper_ast, self_var, inc_sum, names.SELF_BALANCE, ctx.self_type)
-                self_assign = self.viper_ast.LocalVarAssign(self_var, inc, info=payable_info)
-                body.append(self_assign)
+                binc = self.balance_translator.increase_balance(value_acc, ctx, info=payable_info)
+                body.append(binc)
 
                 # Increase received for msg.sender by msg.value
-                msg_sender = helpers.msg_sender_field_acc(self.viper_ast)
-                rec_type = ctx.field_types[mangled.RECEIVED_FIELD]
-                rec = helpers.struct_get(self.viper_ast, self_var, mangled.RECEIVED_FIELD, rec_type, ctx.self_type)
-                # TODO: improve this type stuff
-                rec_sender = helpers.map_get(self.viper_ast, rec, msg_sender, self.viper_ast.Int, self.viper_ast.Int)
-                rec_inc_sum = self.viper_ast.Add(rec_sender, value_acc)
-                # TODO: improve this type stuff
-                rec_set = helpers.map_set(self.viper_ast, rec, msg_sender, rec_inc_sum, self.viper_ast.Int, self.viper_ast.Int)
-                self_set = helpers.struct_set(self.viper_ast, self_var, rec_set, mangled.RECEIVED_FIELD, ctx.self_type)
-                body.append(self.viper_ast.LocalVarAssign(self_var, self_set))
+                rec_inc = self.balance_translator.increase_received(value_acc, ctx)
+                body.append(rec_inc)
 
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
             body.extend(self._seqn_with_info(body_stmts, "Function body"))

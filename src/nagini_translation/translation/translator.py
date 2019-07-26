@@ -54,7 +54,6 @@ class ProgramTranslator(PositionTranslator):
 
         ctx = Context(file)
         ctx.program = vyper_program
-        ctx.self_type = vyper_program.fields.type
         ctx.all_vars[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
         ctx.all_vars[names.MSG] = helpers.msg_var(self.viper_ast)
         ctx.all_vars[names.BLOCK] = helpers.block_var(self.viper_ast)

@@ -18,6 +18,7 @@ from nagini_translation.ast.types import MapType, ArrayType
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
+from nagini_translation.translation.balance import BalanceTranslator
 from nagini_translation.translation.context import Context
 
 from nagini_translation.translation import mangled
@@ -35,6 +36,7 @@ class ExpressionTranslator(NodeTranslator):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
+        self.balance_translator = BalanceTranslator(viper_ast)
 
         self._operations = {
             ast.USub: self.viper_ast.Minus,
@@ -294,25 +296,11 @@ class ExpressionTranslator(NodeTranslator):
                         amount_stmts, amount = [], self.viper_ast.IntLit(0, pos)
 
                 self_var = ctx.self_var.localVar()
-                balance_type = ctx.field_types[names.SELF_BALANCE]
-                self_balance = helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
-                check = self.fail_if(self.viper_ast.LtCmp(self_balance, amount), [], ctx)
+                check = self.balance_translator.check_balance(amount, ctx, pos)
+                sent = self.balance_translator.increase_sent(to, amount, ctx, pos)
+                sub = self.balance_translator.decrease_balance(amount, ctx, pos)
 
-                sent_type = ctx.field_types[mangled.SENT_FIELD]
-                sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
-                # TODO: improve this type stuff
-                sent_to = helpers.map_get(self.viper_ast, sent, to, self.viper_ast.Int, self.viper_ast.Int, pos)
-                sent_inc = self.viper_ast.Add(sent_to, amount, pos)
-                # TODO: improve this type stuff
-                sent_set = helpers.map_set(self.viper_ast, sent, to, sent_inc, self.viper_ast.Int, self.viper_ast.Int)
-                self_set = helpers.struct_set(self.viper_ast, self_var, sent_set, mangled.SENT_FIELD, ctx.self_type)
-                sent_assign = self.viper_ast.LocalVarAssign(self_var, self_set)
-
-                diff = self.viper_ast.Sub(self_balance, amount)
-                sub = helpers.struct_set(self.viper_ast, self_var, diff, names.SELF_BALANCE, ctx.self_type)
-                sub_stmt = self.viper_ast.LocalVarAssign(self_var, sub)
-
-                stmts = [*to_stmts, *amount_stmts, check, sent_assign, sub_stmt]
+                stmts = [*to_stmts, *amount_stmts, check, sent, sub]
 
                 check_assertions = []
                 for check in chain(ctx.function.checks, ctx.program.general_checks):

@@ -63,9 +63,9 @@ class PositionTranslator:
 
 class CommonTranslator:
 
-    def fail_if(self, cond, stmts, ctx: Context, pos=None) -> Stmt:
+    def fail_if(self, cond, stmts, ctx: Context, pos=None, info=None) -> Stmt:
         body = [*stmts, self.viper_ast.Goto(ctx.revert_label, pos)]
-        return self.viper_ast.If(cond, body, [], pos)
+        return self.viper_ast.If(cond, body, [], pos, info)
 
     def _seqn_with_info(self, stmts: [Stmt], comment: str) -> [Stmt]:
         if not stmts:

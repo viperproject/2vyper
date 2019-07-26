@@ -17,7 +17,6 @@ class Context:
     def __init__(self, file: str):
         self.file = file
         self.program = None
-        self.self_type = None
         # The translated types of all fields
         self.field_types = {}
         # Non-self fields like msg.sender which are immutable
@@ -58,6 +57,10 @@ class Context:
         self._current_inline = -1
 
     @property
+    def self_type(self):
+        return self.program.fields.type
+
+    @property
     def self_var(self):
         return self.all_vars[names.SELF]
 
@@ -80,10 +83,6 @@ class Context:
     @property
     def block_var(self):
         return self.all_vars[names.BLOCK]
-
-    @property
-    def balance_field(self):
-        return self.fields[names.SELF_BALANCE]
 
     @property
     def unchecked_invariants(self):
