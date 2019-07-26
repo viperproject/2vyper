@@ -56,7 +56,6 @@ class ProgramTranslator(PositionTranslator):
         ctx.program = vyper_program
         ctx.all_vars[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
         ctx.all_vars[names.MSG] = helpers.msg_var(self.viper_ast)
-        ctx.all_vars[names.BLOCK] = helpers.block_var(self.viper_ast)
 
         # Translate self
         self_domain = self._translate_struct(vyper_program.fields, ctx)
@@ -91,16 +90,6 @@ class ProgramTranslator(PositionTranslator):
         ctx.immutable_permissions.append(acc)
         # Assume msg.value >= 0
         ctx.local_unchecked_invariants.append(self.viper_ast.GeCmp(value_acc, zero))
-
-        # Create block.timestamp field
-        block_timestamp = helpers.block_timestamp_field(self.viper_ast)
-        ctx.immutable_fields[names.BLOCK_TIMESTAMP] = block_timestamp
-        # Pass around the permissions for block.timestamp
-        timestamp_acc = self.viper_ast.FieldAccess(ctx.block_var.localVar(), block_timestamp)
-        acc = self._create_field_access_predicate(timestamp_acc, 1, ctx)
-        ctx.immutable_permissions.append(acc)
-        # Assume block.timestamp >= 0
-        ctx.local_unchecked_invariants.append(self.viper_ast.GeCmp(timestamp_acc, zero))
 
         fields_list = ctx.immutable_fields.values()
 

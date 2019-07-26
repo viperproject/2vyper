@@ -1,0 +1,20 @@
+/*
+  Copyright (c) 2019 ETH Zurich
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+domain d$block {
+  
+    function d$block$field($s: d$block, $f: Int): Int
+
+    function d$block$get_timestamp($f: Int): Int
+
+    function d$block$init($t: Int): d$block
+
+    axiom d$block$init_ax {
+        forall $t: Int :: { d$block$init($t) }
+            d$block$get_timestamp(d$block$field(d$block$init($t), 0)) == $t
+    }
+}

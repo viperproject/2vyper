@@ -74,14 +74,6 @@ def msg_value_field_acc(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.FieldAccess(msg, field, pos, info)
 
 
-def block_var(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.LocalVarDecl(mangled.BLOCK, viper_ast.Ref, pos, info)
-
-
-def block_timestamp_field(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.Field(mangled.BLOCK_TIMESTAMP, viper_ast.Int, pos, info)
-
-
 def ret_var(viper_ast: ViperAST, ret_type, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.RESULT_VAR, ret_type, pos, info)
 

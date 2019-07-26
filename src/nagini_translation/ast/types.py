@@ -106,6 +106,17 @@ TYPES = {
     names.TIMEDELTA: VYPER_TIME
 }
 
+MSG_TYPE = StructType(names.MSG, {
+    names.MSG_SENDER: VYPER_ADDRESS,
+    names.MSG_VALUE: VYPER_WEI_VALUE,
+    names.MSG_GAS: VYPER_UINT256
+})
+
+
+BLOCK_TYPE = StructType(names.BLOCK, {
+    names.BLOCK_TIMESTAMP: VYPER_TIME
+})
+
 
 def is_unsigned(type: VyperType) -> bool:
     return type == VYPER_UINT256 or type == VYPER_WEI_VALUE or type == VYPER_TIME

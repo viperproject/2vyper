@@ -11,3 +11,4 @@ import "array.vpr"
 import "map.vpr"
 
 import "contract.vpr"
+import "block.vpr"

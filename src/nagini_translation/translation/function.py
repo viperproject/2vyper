@@ -9,6 +9,7 @@ from typing import List
 
 from nagini_translation.ast import names
 from nagini_translation.ast.nodes import VyperFunction, VyperVar
+from nagini_translation.ast import types
 
 from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
@@ -55,7 +56,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # The state of self when the transaction was issued
             locals[mangled.ISSUED_SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
             args[mangled.MSG] = helpers.msg_var(self.viper_ast)
-            args[mangled.BLOCK] = helpers.block_var(self.viper_ast)
+            # The block variable
+            block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
+            locals[mangled.BLOCK] = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
+            # We create copies of args and locals because ctx is allowed to modify them
             ctx.args = args.copy()
             ctx.locals = locals.copy()
             ctx.all_vars = {**args, **locals}
@@ -95,6 +99,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             issued_assumptions = [self.viper_ast.Inhale(a) for a in issued]
             body.extend(self._seqn_with_info(issued_assumptions, "Issued state assumptions"))
 
+            # Assume type assumptions for arguments
             argument_conds = []
             for var in function.args.values():
                 local_var = args[var.name].localVar()
@@ -102,8 +107,15 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 argument_conds.extend(assumptions)
 
             argument_cond_assumes = [self.viper_ast.Inhale(c) for c in argument_conds]
-            ui_info_msg = "Assume non-negativeness of uint256 and sizes of array args"
+            ui_info_msg = "Assume type assumptions for arguments"
             body.extend(self._seqn_with_info(argument_cond_assumes, ui_info_msg))
+
+            # Assume type assumptions for block
+            block_var = ctx.block_var.localVar()
+            block_conds = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
+            block_assumes = [self.viper_ast.Inhale(c) for c in block_conds]
+            block_info_msg = "Assume type assumptions for block"
+            body.extend(self._seqn_with_info(block_assumes, block_info_msg))
 
             # Assume user-specified invariants
             translate_inv = self.specification_translator.translate_invariant
