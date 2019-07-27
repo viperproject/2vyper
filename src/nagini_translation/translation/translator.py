@@ -64,7 +64,7 @@ class ProgramTranslator(PositionTranslator):
         for field, field_type in vyper_program.fields.type.member_types.items():
             ctx.field_types[field] = self.type_translator.translate(field_type, ctx)
 
-        ctx.global_unchecked_invariants = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
+        ctx.unchecked_invariants = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
 
         # Structs
         for struct in vyper_program.structs.values():

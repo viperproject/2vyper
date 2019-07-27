@@ -5,7 +5,6 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from itertools import chain
 from contextlib import contextmanager
 
 from nagini_translation.ast import names
@@ -19,18 +18,10 @@ class Context:
         self.program = None
         # The translated types of all fields
         self.field_types = {}
-        # Non-self fields like msg.sender which are immutable
-        self.immutable_fields = {}
-        # Permissions of immutable that have to be passed around
-        # Note: already translated, as they should never fail
-        self.immutable_permissions = []
         # Invariants that are not checked at the end of each function but just assumed, namely
         # conditions like non-negativeness for uint256
         # Note: already translated, as they are never checked and therfore cannot fail
-        # Global: About globally available fields, i.e. self fields
-        self.global_unchecked_invariants = []
-        # Local: About locally available fields, i.e. msg and block fields
-        self.local_unchecked_invariants = []
+        self.unchecked_invariants = []
 
         self.function = None
 
@@ -83,10 +74,6 @@ class Context:
     @property
     def block_var(self):
         return self.all_vars[names.BLOCK]
-
-    @property
-    def unchecked_invariants(self):
-        return chain(self.global_unchecked_invariants, self.local_unchecked_invariants)
 
     def new_local_var_name(self, name: str = 'local') -> str:
         self._local_var_counter += 1

@@ -274,7 +274,7 @@ class ExpressionTranslator(NodeTranslator):
                 #    - Exhale field permissions (forget all values)
                 #    - Inhale field permissions
                 #    - Assume invariants (where old refers to the state before send)
-                #    - Assume global unchecked invariants
+                #    - Assume unchecked invariants
 
                 to_stmts, to = self.translate(node.args[0], ctx)
 
@@ -323,7 +323,7 @@ class ExpressionTranslator(NodeTranslator):
                 ctx.new_local_vars.append(havoc)
                 havoc_self = self.viper_ast.LocalVarAssign(self_var, havoc.localVar(), pos)
 
-                uinvs = ctx.global_unchecked_invariants
+                uinvs = ctx.unchecked_invariants
                 assume_invs = []
                 for inv, expr in zip(ctx.program.invariants, invs):
                     ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)

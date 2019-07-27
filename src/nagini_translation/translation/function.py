@@ -49,7 +49,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
-            locals[mangled.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
+            locals[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
             # The last publicly visible state of self
             locals[mangled.OLD_SELF] = helpers.old_self_var(self.viper_ast, ctx.self_type)
             # The state of self before the function call
@@ -58,10 +58,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             locals[mangled.ISSUED_SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
             # The block variable
             block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
-            locals[mangled.BLOCK] = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
+            locals[names.BLOCK] = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
             # The msg variable
             msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
-            locals[mangled.MSG] = self.viper_ast.LocalVarDecl(mangled.MSG, msg_type)
+            locals[names.MSG] = self.viper_ast.LocalVarDecl(mangled.MSG, msg_type)
             # We create copies of args and locals because ctx is allowed to modify them
             ctx.args = args.copy()
             ctx.locals = locals.copy()
@@ -88,8 +88,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 ret_var = helpers.ret_var(self.viper_ast, ret_type, pos)
                 rets.append(ret_var)
                 ctx.result_var = ret_var
-
-            pres = ctx.immutable_permissions
 
             body = []
 
@@ -334,7 +332,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             locals_list = [*locals.values(), *ctx.new_local_vars]
 
             viper_name = mangled.method_name(function.name)
-            method = self.viper_ast.Method(viper_name, args_list, rets, pres, [], locals_list, body, pos)
+            method = self.viper_ast.Method(viper_name, args_list, rets, [], [], locals_list, body, pos)
             return method
 
     def inline(self, function: VyperFunction, args: List[Expr], ctx: Context) -> StmtsAndExpr:
