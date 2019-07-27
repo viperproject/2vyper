@@ -19,8 +19,6 @@ from nagini_translation.ast.types import TypeBuilder
 
 class TypeAnnotator:
 
-    # TODO: error handling
-
     def __init__(self, program: VyperProgram):
         type_map = {name: struct.type for name, struct in program.structs.items()}
         self.type_builder = TypeBuilder(type_map)
@@ -246,10 +244,8 @@ class TypeAnnotator:
         node.type = types.VYPER_INT128
 
     def annotate_NameConstant(self, node: ast.NameConstant):
-        if node.value is not None:
-            node.type = types.VYPER_BOOL
-        else:
-            assert False, "encountered None"  # TODO: handle
+        assert node.value is not None
+        node.type = types.VYPER_BOOL
 
     def annotate_Attribute(self, node: ast.Attribute):
         self.annotate(node.value)
@@ -264,7 +260,7 @@ class TypeAnnotator:
             self.annotate(node.slice.value)
             node.type = node.value.type.element_type
         else:
-            assert False  # TODO: handle
+            assert False
 
     def annotate_Name(self, node: ast.Name):
         # TODO: replace by type map

@@ -78,7 +78,7 @@ class ExpressionTranslator(NodeTranslator):
         elif isinstance(node.n, float):
             raise UnsupportedException(node, "Float not yet supported")
         else:
-            raise UnsupportedException(node, "Unsupported number literal")
+            assert False
 
     def translate_NameConstant(self, node: ast.NameConstant, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
@@ -88,7 +88,7 @@ class ExpressionTranslator(NodeTranslator):
         elif node.value is False:
             return [], self.viper_ast.FalseLit(pos)
         else:
-            raise UnsupportedException(node)
+            assert False
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
