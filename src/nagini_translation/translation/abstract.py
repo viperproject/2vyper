@@ -50,7 +50,6 @@ class PositionTranslator:
     def to_info(self, comments: List[str]) -> Info:
         """
         Wraps the given comments into an Info object.
-        If ctx.info is set to override the given info, returns that.
         """
         if comments:
             return self.viper_ast.SimpleInfo(comments)
