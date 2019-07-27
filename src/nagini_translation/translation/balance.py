@@ -48,7 +48,8 @@ class BalanceTranslator(CommonTranslator):
 
     def increase_received(self, amount: Expr, ctx: Context, pos=None, info=None):
         self_var = ctx.self_var.localVar()
-        msg_sender = helpers.msg_sender_field_acc(self.viper_ast, pos)
+        # TODO: pass this as an argument
+        msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
         rec_type = ctx.field_types[mangled.RECEIVED_FIELD]
         rec = helpers.struct_get(self.viper_ast, self_var, mangled.RECEIVED_FIELD, rec_type, ctx.self_type, pos)
         # TODO: improve this type stuff

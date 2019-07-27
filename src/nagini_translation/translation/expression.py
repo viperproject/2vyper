@@ -165,14 +165,10 @@ class ExpressionTranslator(NodeTranslator):
 
         stmts, expr = self.translate(node.value, ctx)
 
-        if isinstance(node.value.type, types.StructType):
-            struct_type = node.value.type
-            type = self.type_translator.translate(node.type, ctx)
-            get = helpers.struct_get(self.viper_ast, expr, node.attr, type, struct_type, pos)
-            return stmts, get
-        else:
-            field = ctx.immutable_fields.get(node.attr)
-            return stmts, self.viper_ast.FieldAccess(expr, field, pos)
+        struct_type = node.value.type
+        type = self.type_translator.translate(node.type, ctx)
+        get = helpers.struct_get(self.viper_ast, expr, node.attr, type, struct_type, pos)
+        return stmts, get
 
     def translate_Subscript(self, node: ast.Subscript, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
@@ -339,7 +335,7 @@ class ExpressionTranslator(NodeTranslator):
                 send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
                 ctx.new_local_vars.append(send_fail)
                 fail_cond = send_fail.localVar()
-                msg_sender = helpers.msg_sender_field_acc(self.viper_ast)
+                msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
                 msg_sender_eq = self.viper_ast.EqCmp(to, msg_sender)
                 msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast).localVar()
                 assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))

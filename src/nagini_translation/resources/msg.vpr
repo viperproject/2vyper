@@ -1,0 +1,27 @@
+/*
+  Copyright (c) 2019 ETH Zurich
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+domain d$msg {
+
+    function d$msg$field($s: d$msg, $f: Int): Int
+  
+    function d$msg$get_sender($f: Int): Int
+    
+    function d$msg$get_value($f: Int): Int
+    
+    function d$msg$get_gas($f: Int): Int
+    
+    function d$msg$init($s: Int, $v: Int, $g: Int): d$msg
+  
+    axiom d$msg$init_ax {
+        forall $s: Int, $v: Int, $g: Int :: { d$msg$init($s, $v, $g) } 
+            d$msg$get_sender(d$msg$field(d$msg$init($s, $v, $g), 0)) == $s &&
+            d$msg$get_value(d$msg$field(d$msg$init($s, $v, $g), 1)) == $v &&
+            d$msg$get_gas(d$msg$field(d$msg$init($s, $v, $g), 2)) == $g
+    }
+
+}

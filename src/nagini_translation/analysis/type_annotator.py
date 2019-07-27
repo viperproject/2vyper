@@ -11,7 +11,7 @@ from nagini_translation.utils import first_index
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.types import MapType, ArrayType, StructType
+from nagini_translation.ast.types import MapType, ArrayType
 from nagini_translation.ast.nodes import VyperProgram
 
 from nagini_translation.ast.types import TypeBuilder
@@ -253,15 +253,7 @@ class TypeAnnotator:
 
     def annotate_Attribute(self, node: ast.Attribute):
         self.annotate(node.value)
-        # TODO: improve
-        if isinstance(node.value.type, StructType):
-            node.type = node.value.type.member_types[node.attr]
-        elif node.attr == names.MSG_SENDER:
-            node.type = types.VYPER_ADDRESS
-        elif node.attr == names.MSG_VALUE or node.attr == names.SELF_BALANCE or node.attr == names.MSG_GAS:
-            node.type = types.VYPER_WEI_VALUE
-        else:
-            assert False  # TODO: handle
+        node.type = node.value.type.member_types[node.attr]
 
     def annotate_Subscript(self, node: ast.Subscript):
         self.annotate(node.value)
@@ -275,12 +267,13 @@ class TypeAnnotator:
             assert False  # TODO: handle
 
     def annotate_Name(self, node: ast.Name):
+        # TODO: replace by type map
         if node.id == names.SELF:
             node.type = self.program.fields.type
         elif node.id == names.BLOCK:
             node.type = types.BLOCK_TYPE
         elif node.id == names.MSG:
-            node.type = None
+            node.type = types.MSG_TYPE
         else:
             quant = self.quantified_vars.get(node.id)
             if quant:

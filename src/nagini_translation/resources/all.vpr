@@ -12,3 +12,4 @@ import "map.vpr"
 
 import "contract.vpr"
 import "block.vpr"
+import "msg.vpr"

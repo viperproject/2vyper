@@ -8,21 +8,17 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from nagini_translation.ast import names
+from nagini_translation.ast import types
 from nagini_translation.ast.types import FunctionType, StructType
 from nagini_translation.ast.nodes import VyperFunction
 
 from nagini_translation.viper.ast import ViperAST
 
 from nagini_translation.translation import mangled
+from nagini_translation.translation.context import Context
 
 
 # Helper functions
-
-def read_perm(viper_ast: ViperAST, pos=None, info=None):
-    one = viper_ast.IntLit(1, pos, info)
-    two = viper_ast.IntLit(2, pos, info)
-    return viper_ast.FractionalPerm(one, two, pos, info)
-
 
 def init_function() -> ast.FunctionDef:
     node = ast.FunctionDef(mangled.INIT, [], [], [], None)
@@ -54,24 +50,18 @@ def msg_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.MSG, viper_ast.Ref, pos, info)
 
 
-def msg_sender_field(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.Field(mangled.MSG_SENDER, viper_ast.Int, pos, info)
+def msg_sender(viper_ast: ViperAST, ctx: Context, pos=None, info=None):
+    msg_var = ctx.msg_var.localVar()
+    type = types.MSG_TYPE
+    # TODO: improve type stuff
+    return struct_get(viper_ast, msg_var, names.MSG_SENDER, viper_ast.Int, type, pos, info)
 
 
-def msg_sender_field_acc(viper_ast: ViperAST, pos=None, info=None):
-    msg = msg_var(viper_ast, pos, info).localVar()
-    field = msg_sender_field(viper_ast, pos, info)
-    return viper_ast.FieldAccess(msg, field, pos, info)
-
-
-def msg_value_field(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.Field(mangled.MSG_VALUE, viper_ast.Int, pos, info)
-
-
-def msg_value_field_acc(viper_ast: ViperAST, pos=None, info=None):
-    msg = msg_var(viper_ast, pos, info).localVar()
-    field = msg_value_field(viper_ast, pos, info)
-    return viper_ast.FieldAccess(msg, field, pos, info)
+def msg_value(viper_ast: ViperAST, ctx: Context, pos=None, info=None):
+    msg_var = ctx.msg_var.localVar()
+    type = types.MSG_TYPE
+    # TODO: improve type stuff
+    return struct_get(viper_ast, msg_var, names.MSG_VALUE, viper_ast.Int, type, pos, info)
 
 
 def ret_var(viper_ast: ViperAST, ret_type, pos=None, info=None):

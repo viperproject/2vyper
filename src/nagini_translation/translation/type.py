@@ -48,16 +48,6 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         else:
             assert False
 
-    def revert(self, type: VyperType, field, ctx: Context) -> [Stmt]:
-        self_var = ctx.self_var.localVar()
-
-        def old(ref, field):
-            field_acc = self.viper_ast.FieldAccess(ref, field)
-            old = self.viper_ast.Old(field_acc)
-            return self.viper_ast.FieldAssign(field_acc, old)
-
-        return [old(self_var, field)]
-
     def default_value(self, node: Optional, type: VyperType, ctx: Context) -> StmtsAndExpr:
         pos = self.no_position() if node is None else self.to_position(node, ctx)
         if type is types.VYPER_BOOL:

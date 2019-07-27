@@ -55,7 +55,6 @@ class ProgramTranslator(PositionTranslator):
         ctx = Context(file)
         ctx.program = vyper_program
         ctx.all_vars[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
-        ctx.all_vars[names.MSG] = helpers.msg_var(self.viper_ast)
 
         # Translate self
         self_domain = self._translate_struct(vyper_program.fields, ctx)
@@ -67,32 +66,6 @@ class ProgramTranslator(PositionTranslator):
 
         ctx.global_unchecked_invariants = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
 
-        ctx.local_unchecked_invariants = []
-        ctx.immutable_fields = {}
-        ctx.immutable_permissions = []
-        # Create msg.sender field
-        msg_sender = helpers.msg_sender_field(self.viper_ast)
-        ctx.immutable_fields[names.MSG_SENDER] = msg_sender
-        # Pass around the permissions for msg.sender
-        sender_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_sender)
-        acc = self._create_field_access_predicate(sender_acc, 0, ctx)
-        ctx.immutable_permissions.append(acc)
-        # Assume msg.sender != 0
-        zero = self.viper_ast.IntLit(0)
-        ctx.local_unchecked_invariants.append(self.viper_ast.NeCmp(sender_acc, zero))
-
-        # Create msg.value field
-        msg_value = helpers.msg_value_field(self.viper_ast)
-        ctx.immutable_fields[names.MSG_VALUE] = msg_value
-        # Pass around the permissions for msg.value
-        value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
-        acc = self._create_field_access_predicate(value_acc, 0, ctx)
-        ctx.immutable_permissions.append(acc)
-        # Assume msg.value >= 0
-        ctx.local_unchecked_invariants.append(self.viper_ast.GeCmp(value_acc, zero))
-
-        fields_list = ctx.immutable_fields.values()
-
         # Structs
         for struct in vyper_program.structs.values():
             domains.append(self._translate_struct(struct, ctx))
@@ -103,7 +76,7 @@ class ProgramTranslator(PositionTranslator):
         vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
         methods.append(self._create_transitivity_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
-        viper_program = self.viper_ast.Program(domains, fields_list, functions, predicates, methods)
+        viper_program = self.viper_ast.Program(domains, [], functions, predicates, methods)
         return viper_program
 
     def _translate_struct(self, struct: VyperStruct, ctx: Context):
@@ -183,13 +156,6 @@ class ProgramTranslator(PositionTranslator):
         types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
         args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type) for idx, type in enumerate(types)]
         return self.viper_ast.Predicate(name, args, None)
-
-    def _create_field_access_predicate(self, field_access, amount, ctx: Context):
-        if amount == 1:
-            perm = self.viper_ast.FullPerm()
-        else:
-            perm = helpers.read_perm(self.viper_ast)
-        return self.viper_ast.FieldAccessPredicate(field_access, perm)
 
     def _create_transitivity_check(self, ctx: Context):
         # Creates a check that all invariants are transitive. This is needed, because we

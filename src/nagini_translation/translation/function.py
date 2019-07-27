@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from itertools import chain
 from typing import List
 
 from nagini_translation.ast import names
@@ -55,10 +56,12 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             locals[mangled.PRE_SELF] = helpers.pre_self_var(self.viper_ast, ctx.self_type)
             # The state of self when the transaction was issued
             locals[mangled.ISSUED_SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
-            args[mangled.MSG] = helpers.msg_var(self.viper_ast)
             # The block variable
             block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
             locals[mangled.BLOCK] = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
+            # The msg variable
+            msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
+            locals[mangled.MSG] = self.viper_ast.LocalVarDecl(mangled.MSG, msg_type)
             # We create copies of args and locals because ctx is allowed to modify them
             ctx.args = args.copy()
             ctx.locals = locals.copy()
@@ -117,6 +120,17 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             block_info_msg = "Assume type assumptions for block"
             body.extend(self._seqn_with_info(block_assumes, block_info_msg))
 
+            # Assume type assumptions for msg
+            msg_var = ctx.msg_var.localVar()
+            msg_conds = self.type_translator.type_assumptions(msg_var, types.MSG_TYPE, ctx)
+            # We additionally know that msg.sender != 0
+            zero = self.viper_ast.IntLit(0)
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx)
+            neq0 = self.viper_ast.NeCmp(msg_sender, zero)
+            msg_assumes = [self.viper_ast.Inhale(c) for c in chain(msg_conds, [neq0])]
+            msg_info_msg = "Assume type assumptions for msg"
+            body.extend(self._seqn_with_info(msg_assumes, msg_info_msg))
+
             # Assume user-specified invariants
             translate_inv = self.specification_translator.translate_invariant
             inv_pres_issued = []
@@ -161,26 +175,25 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 # in the beginning
                 body.extend(self._havoc_balance(ctx))
 
-            msg_value = helpers.msg_value_field(self.viper_ast)
-            value_acc = self.viper_ast.FieldAccess(ctx.msg_var.localVar(), msg_value)
+            msg_value = helpers.msg_value(self.viper_ast, ctx)
             # If a function is not payable and money is sent, revert
             if not function.is_payable():
                 zero = self.viper_ast.IntLit(0)
                 # TODO: how to handle this case?
                 # is_not_zero = self.viper_ast.NeCmp(value_acc, zero)
                 # body.append(self.fail_if(is_not_zero, ctx))
-                is_zero = self.viper_ast.EqCmp(value_acc, zero)
+                is_zero = self.viper_ast.EqCmp(msg_value, zero)
                 payable_info = self.to_info(["Function is not payable"])
                 assume = self.viper_ast.Inhale(is_zero, info=payable_info)
                 body.append(assume)
             else:
                 # Increase balance by msg.value
                 payable_info = self.to_info(["Fuction is payable"])
-                binc = self.balance_translator.increase_balance(value_acc, ctx, info=payable_info)
+                binc = self.balance_translator.increase_balance(msg_value, ctx, info=payable_info)
                 body.append(binc)
 
                 # Increase received for msg.sender by msg.value
-                rec_inc = self.balance_translator.increase_received(value_acc, ctx)
+                rec_inc = self.balance_translator.increase_received(msg_value, ctx)
                 body.append(rec_inc)
 
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
@@ -330,30 +343,22 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body = []
 
             # Define new msg variable
+            msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
             msg_name = ctx.inline_prefix + mangled.MSG
-            msg_decl = self.viper_ast.LocalVarDecl(msg_name, self.viper_ast.Ref)
+            msg_decl = self.viper_ast.LocalVarDecl(msg_name, msg_type)
             ctx.all_vars[names.MSG] = msg_decl
+            ctx.locals[names.MSG] = msg_decl
             ctx.new_local_vars.append(msg_decl)
 
-            # Add permissions for msg.sender and msg.value
-            msg_sender_field = helpers.msg_sender_field(self.viper_ast)
-            msg_sender = self.viper_ast.FieldAccess(msg_decl.localVar(), msg_sender_field)
-            msg_sender_perm = self._create_field_access_predicate(msg_sender, 0, ctx)
-            body.append(self.viper_ast.Inhale(msg_sender_perm))
-
             # msg.sender == self
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx)
             self_address = helpers.self_address(self.viper_ast)
             msg_sender_eq = self.viper_ast.EqCmp(msg_sender, self_address)
             body.append(self.viper_ast.Inhale(msg_sender_eq))
 
-            # Add permissions for msg.value
-            msg_value_field = helpers.msg_value_field(self.viper_ast)
-            msg_value = self.viper_ast.FieldAccess(msg_decl.localVar(), msg_value_field)
-            msg_value_perm = self._create_field_access_predicate(msg_value, 0, ctx)
-            body.append(self.viper_ast.Inhale(msg_value_perm))
-
             # msg.value == 0
             # TODO: Support sending money
+            msg_value = helpers.msg_value(self.viper_ast, ctx)
             msg_value_eq = self.viper_ast.EqCmp(msg_value, self.viper_ast.IntLit(0))
             body.append(self.viper_ast.Inhale(msg_value_eq))
 
@@ -427,10 +432,3 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         self_assign = self.viper_ast.LocalVarAssign(self_var, inc)
 
         return [assume_pos, self_assign]
-
-    def _create_field_access_predicate(self, field_access, amount, ctx: Context):
-        if amount == 1:
-            perm = self.viper_ast.FullPerm()
-        else:
-            perm = helpers.read_perm(self.viper_ast)
-        return self.viper_ast.FieldAccessPredicate(field_access, perm)
