@@ -14,7 +14,7 @@ from nagini_translation.viper.typedefs import Stmt
 from nagini_translation.viper.typedefs import Position, Info
 
 from nagini_translation.verification import error_manager
-from nagini_translation.verification.error import ErrorInfo
+from nagini_translation.verification.error import ErrorInfo, Via
 from nagini_translation.verification.rules import Rules
 
 from nagini_translation.translation.context import Context
@@ -25,7 +25,12 @@ class PositionTranslator:
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
 
-    def _register_potential_error(self, node, ctx: Context, rules: Rules = None, vias=[], error_string: str = None) -> str:
+    def _register_potential_error(self,
+                                  node,
+                                  ctx: Context,
+                                  rules: Rules = None,
+                                  vias: List[Via] = [],
+                                  error_string: str = None) -> str:
         name = None if not ctx.function else ctx.function.name
         error_info = ErrorInfo(name, node, vias, error_string)
         id = error_manager.add_error_information(error_info, rules)
@@ -35,7 +40,7 @@ class PositionTranslator:
                     node: ast.AST,
                     ctx: Context,
                     rules: Rules = None,
-                    vias=[],
+                    vias: List[Via] = [],
                     error_string: str = None) -> Position:
         """
         Extracts the position from a node, assigns an ID to the node and stores

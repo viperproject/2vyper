@@ -28,6 +28,7 @@ from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
 
 from nagini_translation.verification import rules
+from nagini_translation.verification.error import Via
 
 
 class FunctionTranslator(PositionTranslator, CommonTranslator):
@@ -260,7 +261,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     cond = self.viper_ast.Implies(success_var.localVar(), cond, post_pos)
                     post_stmts.append(self.viper_ast.Assert(cond, init_pos))
                 else:
-                    via = [('general postcondition', post_pos)]
+                    via = [Via('general postcondition', post_pos)]
                     func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via)
                     post_stmts.append(self.viper_ast.Assert(cond, func_pos))
 
@@ -292,7 +293,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     check_pos = self.to_position(check, ctx, rules.CHECK_FAIL)
                 else:
                     check_pos = self.to_position(check, ctx)
-                    via = [('check', check_pos)]
+                    via = [Via('check', check_pos)]
                     check_pos = self.to_position(function.node, ctx, rules.CHECK_FAIL, via)
 
                 checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
@@ -321,7 +322,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     cond = self.viper_ast.Implies(success_var.localVar(), cond, inv_pos)
                     apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
                 else:
-                    via = [('invariant', inv_pos)]
+                    via = [Via('invariant', inv_pos)]
                     apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
 
                 invariant_stmts.append(self.viper_ast.Assert(cond, apos))

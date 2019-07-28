@@ -140,11 +140,11 @@ class VerificationError(Error):
         if reason_pos.node_id:
             vias = error_manager.get_vias(reason_pos.node_id)
             if vias:
-                return [via[1].line() for via in vias]
+                return [via.position.line() for via in vias]
         error_pos = self._error.position
         if error_pos.node_id:
             vias = error_manager.get_vias(error_pos.node_id)
-            return [via[1].line() for via in vias]
+            return [via.position.line() for via in vias]
         return []
 
 

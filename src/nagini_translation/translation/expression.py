@@ -29,6 +29,7 @@ from nagini_translation.exceptions import UnsupportedException
 from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import StmtsAndExpr
 from nagini_translation.verification import rules
+from nagini_translation.verification.error import Via
 
 
 class ExpressionTranslator(NodeTranslator):
@@ -301,7 +302,7 @@ class ExpressionTranslator(NodeTranslator):
                 check_assertions = []
                 for check in chain(ctx.function.checks, ctx.program.general_checks):
                     check_cond = self.spec_translator.translate_check(check, ctx)
-                    via = [('check', check_cond.pos())]
+                    via = [Via('check', check_cond.pos())]
                     check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via)
                     check_assertions.append(self.viper_ast.Assert(check_cond, check_pos))
 
@@ -310,7 +311,7 @@ class ExpressionTranslator(NodeTranslator):
                 for inv in ctx.program.invariants:
                     cond = self.spec_translator.translate_invariant(inv, ctx)
                     invs.append(cond)
-                    via = [('invariant', cond.pos())]
+                    via = [Via('invariant', cond.pos())]
                     call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
                     inv_assertions.append(self.viper_ast.Assert(cond, call_pos))
 

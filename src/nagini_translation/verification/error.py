@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from typing import List
+
 from nagini_translation.viper.typedefs import Node, AbstractSourcePosition
 from nagini_translation.viper.typedefs import AbstractVerificationError, AbstractErrorReason
 
@@ -46,9 +48,16 @@ class Position:
         return str(self._position)
 
 
+class Via:
+
+    def __init__(self, origin: str, position: AbstractSourcePosition):
+        self.origin = origin
+        self.position = position
+
+
 class ErrorInfo:
 
-    def __init__(self, function: str, node: ast.AST, vias, reason_string: str):
+    def __init__(self, function: str, node: ast.AST, vias: List[Via], reason_string: str):
         self.function = function
         self.node = node
         self.vias = vias
@@ -135,7 +144,7 @@ class Error:
     def position_string(self) -> str:
         """Full error position as a string."""
         vias = self.reason._reason_info.vias or self._error_info.vias or []
-        vias_string = "".join(f", via {reason} at {pos}" for reason, pos in vias)
+        vias_string = "".join(f", via {via.origin} at {via.position}" for via in vias)
         return f"{self.position}{vias_string}"
 
     @property
