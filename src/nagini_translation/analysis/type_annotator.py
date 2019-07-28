@@ -202,6 +202,8 @@ class TypeAnnotator:
             assert False  # TODO: handle
 
     def _annotate_forall(self, node: ast.Call):
+        node.type = types.VYPER_BOOL
+
         old_quants = self.quantified_vars.copy()
         var_decls = node.args[0]  # This is a dictionary of variable declarations
         vars_types = zip(var_decls.keys, var_decls.values)
