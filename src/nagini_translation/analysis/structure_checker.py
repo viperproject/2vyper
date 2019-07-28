@@ -7,8 +7,10 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from typing import List, Optional
+
 from nagini_translation.ast import names
-from nagini_translation.ast.nodes import VyperProgram
+from nagini_translation.ast.nodes import VyperProgram, VyperFunction
 from nagini_translation.exceptions import InvalidProgramException
 
 
@@ -28,6 +30,12 @@ class SpecStructureChecker(ast.NodeVisitor):
     def __init__(self, program: VyperProgram):
         self.program = program
         self.func = None
+
+    def _check(self, nodes: List[ast.AST], func: Optional[VyperFunction] = None):
+        self.func = func
+        for node in nodes:
+            self.visit(node)
+        self.func
 
     def visit_Call(self, node: ast.Call):
         _assert(isinstance(node.func, ast.Name), node, 'spec.call')
@@ -52,8 +60,7 @@ class SpecStructureChecker(ast.NodeVisitor):
 class InvariantChecker(SpecStructureChecker):
 
     def check(self):
-        for inv in self.program.invariants:
-            self.visit(inv)
+        self._check(self.program.invariants)
 
     def visit_Name(self, node: ast.Name):
         _assert(node.id != names.MSG, node, 'invariant.msg')
@@ -67,14 +74,10 @@ class InvariantChecker(SpecStructureChecker):
 class CheckChecker(SpecStructureChecker):
 
     def check(self):
-        for check in self.program.general_checks:
-            self.visit(check)
+        self._check(self.program.general_checks)
 
         for func in self.program.functions.values():
-            self.func = func
-            for check in func.checks:
-                self.visit(check)
-            self.func = None
+            self._check(func.checks, func)
 
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
@@ -84,14 +87,10 @@ class CheckChecker(SpecStructureChecker):
 class PostconditionChecker(SpecStructureChecker):
 
     def check(self):
-        for post in self.program.general_postconditions:
-            self.visit(post)
+        self._check(self.program.general_postconditions)
 
         for func in self.program.functions.values():
-            self.func = func
-            for post in func.postconditions:
-                self.visit(post)
-            self.func = None
+            self._check(func.postconditions, func)
 
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
