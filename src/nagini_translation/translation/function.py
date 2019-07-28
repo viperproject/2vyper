@@ -356,7 +356,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.append(self.viper_ast.Inhale(msg_sender_eq))
 
             # msg.value == 0
-            # TODO: Support sending money
             msg_value = helpers.msg_value(self.viper_ast, ctx)
             msg_value_eq = self.viper_ast.EqCmp(msg_value, self.viper_ast.IntLit(0))
             body.append(self.viper_ast.Inhale(msg_value_eq))
