@@ -120,24 +120,33 @@ class SpecificationTranslator(ExpressionTranslator):
             local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
             return [], local_var
         elif name == names.SUCCESS:
+            # The syntax for success is either
+            #   - success()
+            # or
+            #   - success(if_not=expr)
+            # where expr can be a disjunction of conditions
             var = ctx.success_var
             local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
 
-            def is_msg_sender(node) -> bool:
-                is_attr = lambda n: isinstance(n.operand, ast.Attribute)
-                is_sender = lambda n: n.operand.attr == names.MSG_SENDER
-                is_msg_sender = lambda n: isinstance(n.operand.value, ast.Name) and n.operand.value.id == names.MSG
-                return is_attr(node) and is_sender(node) and is_msg_sender(node)
+            conds = set()
 
-            def is_gas(node) -> bool:
-                operand = node.operand
-                return isinstance(operand, ast.Name) and operand.id == names.MSG_GAS
+            def collect_conds(node):
+                if isinstance(node, ast.Name):
+                    conds.add(node.id)
+                elif isinstance(node, ast.BoolOp):
+                    for val in node.values:
+                        collect_conds(val)
 
-            if len(node.args) == 1 and is_msg_sender(node.args[0]):
+            assert len(node.keywords) <= 1
+            if node.keywords:
+                args = node.keywords[0].value
+                collect_conds(args)
+
+            if names.SUCCESS_SENDER_FAILED in conds:
                 msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
                 not_msg_sender_call_failed = self.viper_ast.Not(msg_sender_call_failed, pos)
                 return [], self.viper_ast.Implies(not_msg_sender_call_failed, local_var, pos)
-            elif len(node.args) == 1 and is_gas(node.args[0]):
+            elif names.SUCCESS_OUT_OF_GAS in conds:
                 out_of_gas = helpers.out_of_gas_var(self.viper_ast, pos).localVar()
                 not_out_of_gas = self.viper_ast.Not(out_of_gas, pos)
                 return [], self.viper_ast.Implies(not_out_of_gas, local_var, pos)

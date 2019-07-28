@@ -101,7 +101,6 @@ CONFIG_NO_GAS = 'no_gas'
 
 IMPLIES = 'implies'
 FORALL = 'forall'
-SUCCESS = 'success'
 RESULT = 'result'
 OLD = 'old'
 ISSUED = 'issued'
@@ -109,6 +108,12 @@ SUM = 'sum'
 SENT = 'sent'
 RECEIVED = 'received'
 EVENT = 'event'
+
+SUCCESS = 'success'
+SUCCESS_IF_NOT = 'if_not'
+SUCCESS_OUT_OF_GAS = 'out_of_gas'
+SUCCESS_SENDER_FAILED = 'sender_failed'
+SUCCESS_CONDITIONS = [SUCCESS_OUT_OF_GAS, SUCCESS_SENDER_FAILED]
 
 NOT_ALLOWED_IN_SPEC = [CLEAR, SEND, RAW_CALL, RANGE]
 NOT_ALLOWED_IN_INVARIANT = [*NOT_ALLOWED_IN_SPEC, SUCCESS, RESULT, ISSUED, EVENT]

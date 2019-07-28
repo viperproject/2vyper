@@ -15,6 +15,11 @@ from nagini_translation.exceptions import InvalidProgramException
 from nagini_translation.utils import flatten
 
 
+def _assert(cond: bool, node: ast.AST, error_code: str):
+    if not cond:
+        raise InvalidProgramException(node, error_code)
+
+
 def check_structure(program: VyperProgram):
     inv_checker = InvariantChecker()
     for inv in program.invariants:
@@ -39,36 +44,45 @@ class SpecStructureChecker(ast.NodeVisitor):
         self.visit(node)
 
     def visit_Call(self, node: ast.Call):
-        if not isinstance(node.func, ast.Name):
-            raise InvalidProgramException(node, 'spec.call')
+        _assert(isinstance(node.func, ast.Name), node, 'spec.call')
+
+        if node.func.id == names.SUCCESS:
+
+            def check_success_args(node):
+                if isinstance(node, ast.Name):
+                    _assert(node.id in names.SUCCESS_CONDITIONS, node, 'spec.success')
+                elif isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
+                    for val in node.values:
+                        check_success_args(val)
+                else:
+                    raise InvalidProgramException(node, 'spec.success')
+
+            _assert(len(node.keywords) <= 1, node, 'spec.success')
+            if node.keywords:
+                _assert(node.keywords[0].arg == names.SUCCESS_IF_NOT, node, 'spec.success')
+                check_success_args(node.keywords[0].value)
 
 
 class InvariantChecker(SpecStructureChecker):
 
     def visit_Name(self, node: ast.Name):
-        if node.id == names.MSG:
-            raise InvalidProgramException(node, 'invariant.msg')
-        elif node.id == names.BLOCK:
-            raise InvalidProgramException(node, 'invariant.block')
+        _assert(node.id != names.MSG, node, 'invariant.msg')
+        _assert(node.id != names.BLOCK, node, 'invariant.block')
 
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
-
-        if node.func.id in names.NOT_ALLOWED_IN_INVARIANT:
-            raise InvalidProgramException(node, 'invariant.call')
+        _assert(node.func.id not in names.NOT_ALLOWED_IN_INVARIANT, node, 'invariant.call')
 
 
 class CheckChecker(SpecStructureChecker):
 
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
-        if node.func.id in names.NOT_ALLOWED_IN_CHECK:
-            raise InvalidProgramException(node, 'check.call')
+        _assert(node.func.id not in names.NOT_ALLOWED_IN_CHECK, node, 'check.call')
 
 
 class PostconditionChecker(SpecStructureChecker):
 
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
-        if node.func.id in names.NOT_ALLOWED_IN_POSTCONDITION:
-            raise InvalidProgramException(node, 'postcondition.call')
+        _assert(node.func.id not in names.NOT_ALLOWED_IN_POSTCONDITION, node, 'postcondition.call')

@@ -13,8 +13,8 @@ def out_of_gas_fail(i: int128) -> int128:
     return 2 * i + 1
 
 
-#@ ensures: success(-gas)
-#@ ensures: success(-msg.sender)
+#@ ensures: success(if_not=out_of_gas)
+#@ ensures: success(if_not=sender_failed)
 @public
 def out_of_gas(i: int128) -> int128:
     return 3 * i + 2

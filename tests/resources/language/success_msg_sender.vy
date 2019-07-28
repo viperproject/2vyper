@@ -6,23 +6,23 @@
 #
 
 
-#@ always ensures: implies(success(), success(-msg.sender))
+#@ always ensures: implies(success(), success(if_not=sender_failed))
 
 
-#@ ensures: success(-msg.sender)
+#@ ensures: success(if_not=sender_failed)
 @public
 def success_msg_sender():
     send(msg.sender, self.balance)
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: success(-msg.sender)
+#@ ensures: success(if_not=sender_failed)
 @public
 def success_msg_sender_fail():
     assert False
 
 
-#@ ensures: implies(self.balance >= as_wei_value(5, "ether"), success(-msg.sender))
+#@ ensures: implies(self.balance >= as_wei_value(5, "ether"), success(if_not=sender_failed))
 @public
 def cond_success_msg_sender():
     send(msg.sender, as_wei_value(5, "ether"))
@@ -35,7 +35,7 @@ def succ_is_succmsg(a: int128):
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: implies(success(-msg.sender), success())
+#@ ensures: implies(success(if_not=sender_failed), success())
 @public
 def succmsg_is_succ_fail(a: int128):
     send(msg.sender, self.balance)

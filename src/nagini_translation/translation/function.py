@@ -201,7 +201,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # because we didn't revert (yet)
             body.append(return_label)
 
-            # Add variable for success(-gas) that tracks whether the contract ran out of gas
+            # Add variable for success(if_not=out_of_gas) that tracks whether the contract ran out of gas
             out_of_gas_var = helpers.out_of_gas_var(self.viper_ast)
             ctx.new_local_vars.append(out_of_gas_var)
             # Fail, if we ran out of gas
@@ -211,7 +211,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 assume_msg_sender_call_fail = self.viper_ast.Inhale(msg_sender_call_fail)
                 body.append(self.fail_if(out_of_gas_var.localVar(), [assume_msg_sender_call_fail], ctx))
 
-            # Add variable for success(-msg.sender) that tracks whether a call to
+            # Add variable for success(if_not=sender_failed) that tracks whether a call to
             # msg.sender failed
             ctx.new_local_vars.append(helpers.msg_sender_call_fail_var(self.viper_ast))
 

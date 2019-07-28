@@ -88,7 +88,7 @@ def bid():
     self.highestBid = msg.value
 
 
-#@ ensures: success(-msg.sender)
+#@ ensures: success(if_not=sender_failed)
 @public
 def withdraw():
     pending_amount: wei_value = self.pendingReturns[msg.sender]
