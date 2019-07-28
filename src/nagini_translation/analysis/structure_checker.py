@@ -7,12 +7,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from itertools import chain
-
 from nagini_translation.ast import names
 from nagini_translation.ast.nodes import VyperProgram
 from nagini_translation.exceptions import InvalidProgramException
-from nagini_translation.utils import flatten
 
 
 def _assert(cond: bool, node: ast.AST, error_code: str):
@@ -21,27 +18,16 @@ def _assert(cond: bool, node: ast.AST, error_code: str):
 
 
 def check_structure(program: VyperProgram):
-    inv_checker = InvariantChecker()
-    for inv in program.invariants:
-        inv_checker.check(inv)
-
-    check_checker = CheckChecker()
-    general_checks = program.general_checks
-    local_checks = flatten([func.checks for func in program.functions.values()])
-    for check in chain(general_checks, local_checks):
-        check_checker.visit(check)
-
-    post_checker = PostconditionChecker()
-    general_posts = program.general_postconditions
-    local_posts = flatten([func.postconditions for func in program.functions.values()])
-    for post in chain(general_posts, local_posts):
-        post_checker.visit(post)
+    InvariantChecker(program).check()
+    CheckChecker(program).check()
+    PostconditionChecker(program).check()
 
 
 class SpecStructureChecker(ast.NodeVisitor):
 
-    def check(self, node: ast.AST):
-        self.visit(node)
+    def __init__(self, program: VyperProgram):
+        self.program = program
+        self.func = None
 
     def visit_Call(self, node: ast.Call):
         _assert(isinstance(node.func, ast.Name), node, 'spec.call')
@@ -65,6 +51,10 @@ class SpecStructureChecker(ast.NodeVisitor):
 
 class InvariantChecker(SpecStructureChecker):
 
+    def check(self):
+        for inv in self.program.invariants:
+            self.visit(inv)
+
     def visit_Name(self, node: ast.Name):
         _assert(node.id != names.MSG, node, 'invariant.msg')
         _assert(node.id != names.BLOCK, node, 'invariant.block')
@@ -76,6 +66,16 @@ class InvariantChecker(SpecStructureChecker):
 
 class CheckChecker(SpecStructureChecker):
 
+    def check(self):
+        for check in self.program.general_checks:
+            self.visit(check)
+
+        for func in self.program.functions.values():
+            self.func = func
+            for check in func.checks:
+                self.visit(check)
+            self.func = None
+
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
         _assert(node.func.id not in names.NOT_ALLOWED_IN_CHECK, node, 'check.call')
@@ -83,6 +83,19 @@ class CheckChecker(SpecStructureChecker):
 
 class PostconditionChecker(SpecStructureChecker):
 
+    def check(self):
+        for post in self.program.general_postconditions:
+            self.visit(post)
+
+        for func in self.program.functions.values():
+            self.func = func
+            for post in func.postconditions:
+                self.visit(post)
+            self.func = None
+
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
         _assert(node.func.id not in names.NOT_ALLOWED_IN_POSTCONDITION, node, 'postcondition.call')
+
+        if self.func and self.func.name == names.INIT:
+            _assert(node.func.id != names.OLD, node, 'postcondition.init.old')
