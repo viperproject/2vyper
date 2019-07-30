@@ -19,7 +19,7 @@ from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.balance import BalanceTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.context import function_scope, inline_scope
+from nagini_translation.translation.context import function_scope, inline_scope, self_scope
 
 from nagini_translation.translation import mangled
 from nagini_translation.translation import helpers
@@ -131,19 +131,22 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.extend(self._seqn_with_info(msg_assumes, msg_info_msg))
 
             # Assume user-specified invariants
-            translate_inv = self.specification_translator.translate_invariant
             inv_pres_issued = []
             inv_pres_self = []
 
-            for inv in ctx.program.invariants:
-                # We translate the invariants once for the issued state alone and once for
-                # the self state with the issued state as the old state
-                for b in [True, False]:
-                    expr = translate_inv(inv, ctx, b, is_init, True)
-                    inv_pres = inv_pres_issued if b else inv_pres_self
-                    if expr:
-                        ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                        inv_pres.append(self.viper_ast.Inhale(expr, ppos))
+            if not is_init:
+                for inv in ctx.program.invariants:
+                    # We translate the invariants once for the issued state alone and once for
+                    # the self state with the issued state as the old state
+                    ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+
+                    with self_scope(ctx.issued_self_var, ctx.issued_self_var, ctx):
+                        expr = self.specification_translator.translate_invariant(inv, ctx)
+                        inv_pres_issued.append(self.viper_ast.Inhale(expr, ppos))
+
+                    with self_scope(ctx.self_var, ctx.issued_self_var, ctx):
+                        expr = self.specification_translator.translate_invariant(inv, ctx)
+                        inv_pres_self.append(self.viper_ast.Inhale(expr, ppos))
 
             iv_info_msg = "Assume invariants for issued self"
             body.extend(self._seqn_with_info(inv_pres_issued, iv_info_msg))
@@ -310,22 +313,24 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             # Assert the invariants
             invariant_stmts = []
-            translate_inv = self.specification_translator.translate_invariant
-            for inv in ctx.program.invariants:
-                inv_pos = self.to_position(inv, ctx)
-                cond = translate_inv(inv, ctx, False, is_init)
+            # In init we chec the invariants with the current state as old state since there is
+            # no state before it
+            with self_scope(ctx.self_var, ctx.self_var if is_init else ctx.old_self_var, ctx):
+                for inv in ctx.program.invariants:
+                    inv_pos = self.to_position(inv, ctx)
+                    cond = self.specification_translator.translate_invariant(inv, ctx)
 
-                # If we have a synthesized __init__ we only create an
-                # error message on the invariant
-                if is_init:
-                    # Invariants do not have to hold if __init__ fails
-                    cond = self.viper_ast.Implies(success_var.localVar(), cond, inv_pos)
-                    apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
-                else:
-                    via = [Via('invariant', inv_pos)]
-                    apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
+                    # If we have a synthesized __init__ we only create an
+                    # error message on the invariant
+                    if is_init:
+                        # Invariants do not have to hold if __init__ fails
+                        cond = self.viper_ast.Implies(success_var.localVar(), cond, inv_pos)
+                        apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
+                    else:
+                        via = [Via('invariant', inv_pos)]
+                        apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
 
-                invariant_stmts.append(self.viper_ast.Assert(cond, apos))
+                    invariant_stmts.append(self.viper_ast.Assert(cond, apos))
 
             body.extend(self._seqn_with_info(invariant_stmts, "Assert Invariants"))
 
