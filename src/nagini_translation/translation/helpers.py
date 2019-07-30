@@ -23,7 +23,7 @@ from nagini_translation.translation.context import Context
 def init_function() -> ast.FunctionDef:
     node = ast.FunctionDef(mangled.INIT, [], [], [], None)
     type = FunctionType([], None)
-    return VyperFunction(mangled.INIT, {}, {}, type, [], [], [], [names.PUBLIC], node)
+    return VyperFunction(mangled.INIT, {}, {}, type, [], [], [names.PUBLIC], node)
 
 
 def self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):

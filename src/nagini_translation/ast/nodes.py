@@ -36,7 +36,6 @@ class VyperFunction:
                  args: Dict[str, VyperVar],
                  local_vars: Dict[str, VyperVar],
                  type: FunctionType,
-                 preconditions: List[ast.Expr],
                  postconditions: List[ast.Expr],
                  checks: List[ast.Expr],
                  decorators: List[str],
@@ -45,7 +44,6 @@ class VyperFunction:
         self.args = args
         self.local_vars = local_vars
         self.type = type
-        self.preconditions = preconditions
         self.postconditions = postconditions
         self.checks = checks
         self.decorators = decorators

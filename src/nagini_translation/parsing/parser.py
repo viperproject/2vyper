@@ -57,7 +57,6 @@ class ProgramBuilder(ast.NodeVisitor):
         self.general_postconditions = []
         self.general_checks = []
 
-        self.preconditions = []
         self.postconditions = []
         self.checks = []
 
@@ -95,10 +94,7 @@ class ProgramBuilder(ast.NodeVisitor):
         Checks that there are no specifications for functions pending, i.e. there
         are no local specifications followed by either global specifications or eof.
         """
-        if self.preconditions:
-            cond = "Precondition"
-            node = self.preconditions[0]
-        elif self.postconditions:
+        if self.postconditions:
             cond = "Postcondition"
             node = self.postconditions[0]
         elif self.checks:
@@ -141,22 +137,20 @@ class ProgramBuilder(ast.NodeVisitor):
             self.config = VyperConfig(options)
             return
         elif name == names.INVARIANT:
-            # No preconditions and posconditions allowed before invariants
+            # No local specifications allowed before invariants
             self._check_no_local_spec()
 
             self.invariants.append(node.value)
         elif name == names.GENERAL_POSTCONDITION:
-            # No preconditions and posconditions allowed before general postconditions
+            # No local specifications allowed before general postconditions
             self._check_no_local_spec()
 
             self.general_postconditions.append(node.value)
         elif name == names.GENERAL_CHECK:
-            # No preconditions and posconditions allowed before general check
+            # No local specifications allowed before general check
             self._check_no_local_spec()
 
             self.general_checks.append(node.value)
-        elif name == names.PRECONDITION:
-            self.preconditions.append(node.value)
         elif name == names.POSTCONDITION:
             self.postconditions.append(node.value)
         elif name == names.CHECK:
@@ -175,10 +169,9 @@ class ProgramBuilder(ast.NodeVisitor):
         type = FunctionType(arg_types, return_type)
         decs = self._decorators(node)
         function = VyperFunction(node.name, args, local_vars, type,
-                                 self.preconditions, self.postconditions, self.checks, decs, node)
+                                 self.postconditions, self.checks, decs, node)
         self.functions[node.name] = function
         # Reset local specs
-        self.preconditions = []
         self.postconditions = []
         self.checks = []
 

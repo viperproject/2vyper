@@ -27,9 +27,6 @@ class SpecificationTranslator(ExpressionTranslator):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
 
-    def translate_precondition(self, pre: ast.AST, ctx: Context):
-        return self._translate_spec(pre, ctx)
-
     def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False):
         # For postconditions the old state is the state before the function call, except for
         # __init__ where we use the self state instead (since there is no pre-state)

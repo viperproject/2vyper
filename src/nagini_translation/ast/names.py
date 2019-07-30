@@ -92,7 +92,6 @@ RAW_CALL_GAS = 'gas'
 INVARIANT = 'invariant'
 GENERAL_POSTCONDITION = 'always_ensures'
 GENERAL_CHECK = 'always_check'
-PRECONDITION = 'requires'
 POSTCONDITION = 'ensures'
 CHECK = 'check'
 

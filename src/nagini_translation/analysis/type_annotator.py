@@ -31,8 +31,6 @@ class TypeAnnotator:
         for function in self.program.functions.values():
             self.current_func = function
             self.annotate(function.node)
-            for pre in function.preconditions:
-                self.annotate(pre)
             for post in function.postconditions:
                 self.annotate(post)
             for check in function.checks:
