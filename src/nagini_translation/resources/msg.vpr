@@ -5,23 +5,23 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-domain d$msg {
+domain s$msg {
 
-    function d$msg$field($s: d$msg, $f: Int): Int
+    function s$msg$field($s: s$msg, $f: Int): Int
   
-    function d$msg$get_sender($f: Int): Int
+    function s$msg$get_sender($f: Int): Int
     
-    function d$msg$get_value($f: Int): Int
+    function s$msg$get_value($f: Int): Int
     
-    function d$msg$get_gas($f: Int): Int
+    function s$msg$get_gas($f: Int): Int
     
-    function d$msg$init($s: Int, $v: Int, $g: Int): d$msg
+    function s$msg$init($s: Int, $v: Int, $g: Int): s$msg
   
-    axiom d$msg$init_ax {
-        forall $s: Int, $v: Int, $g: Int :: { d$msg$init($s, $v, $g) } 
-            d$msg$get_sender(d$msg$field(d$msg$init($s, $v, $g), 0)) == $s &&
-            d$msg$get_value(d$msg$field(d$msg$init($s, $v, $g), 1)) == $v &&
-            d$msg$get_gas(d$msg$field(d$msg$init($s, $v, $g), 2)) == $g
+    axiom s$msg$init_ax {
+        forall $s: Int, $v: Int, $g: Int :: { s$msg$init($s, $v, $g) } 
+            s$msg$get_sender(s$msg$field(s$msg$init($s, $v, $g), 0)) == $s &&
+            s$msg$get_value(s$msg$field(s$msg$init($s, $v, $g), 1)) == $v &&
+            s$msg$get_gas(s$msg$field(s$msg$init($s, $v, $g), 2)) == $g
     }
 
 }

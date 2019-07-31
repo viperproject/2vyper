@@ -18,11 +18,7 @@ ISSUED_SELF = f'$issued_{names.SELF}'
 SELF_BALANCE = 's$balance'
 
 MSG = names.MSG
-MSG_SENDER = f's${names.MSG_SENDER}'
-MSG_VALUE = f's${names.MSG_VALUE}'
-
 BLOCK = names.BLOCK
-BLOCK_TIMESTAMP = f's${names.BLOCK_TIMESTAMP}'
 
 SENT_FIELD = '$sent'
 RECEIVED_FIELD = '$received'
@@ -69,27 +65,27 @@ def method_name(vyper_name: str) -> str:
 
 
 def struct_name(vyper_name: str) -> str:
-    return f'd${vyper_name}'
+    return f's${vyper_name}'
 
 
 def struct_member_name(vyper_struct_name: str, vyper_member_name: str) -> str:
-    return f'd${vyper_struct_name}${vyper_member_name}'
+    return f's${vyper_struct_name}${vyper_member_name}'
 
 
 def struct_member_getter_name(vyper_struct_name: str, vyper_member_name: str) -> str:
-    return f'd${vyper_struct_name}$get_{vyper_member_name}'
+    return f's${vyper_struct_name}$get_{vyper_member_name}'
 
 
 def struct_member_setter_name(vyper_struct_name: str, vyper_member_name: str) -> str:
-    return f'd${vyper_struct_name}$set_{vyper_member_name}'
+    return f's${vyper_struct_name}$set_{vyper_member_name}'
 
 
 def struct_field_name(vyper_struct_name: str) -> str:
-    return f'd${vyper_struct_name}$field'
+    return f's${vyper_struct_name}$field'
 
 
 def struct_init_name(vyper_struct_name: str) -> str:
-    return f'd${vyper_struct_name}$init'
+    return f's${vyper_struct_name}$init'
 
 
 def axiom_name(viper_name: str) -> str:
@@ -98,13 +94,6 @@ def axiom_name(viper_name: str) -> str:
 
 def event_name(vyper_name: str) -> str:
     return f'e${vyper_name}'
-
-
-def field_name(vyper_name: str) -> str:
-    if vyper_name in {SENT_FIELD, RECEIVED_FIELD}:
-        return vyper_name
-    else:
-        return f's${vyper_name}'
 
 
 def local_var_name(vyper_name: str) -> str:

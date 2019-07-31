@@ -5,16 +5,16 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-domain d$block {
+domain s$block {
   
-    function d$block$field($s: d$block, $f: Int): Int
+    function s$block$field($s: s$block, $f: Int): Int
 
-    function d$block$get_timestamp($f: Int): Int
+    function s$block$get_timestamp($f: Int): Int
 
-    function d$block$init($t: Int): d$block
+    function s$block$init($t: Int): s$block
 
-    axiom d$block$init_ax {
-        forall $t: Int :: { d$block$init($t) }
-            d$block$get_timestamp(d$block$field(d$block$init($t), 0)) == $t
+    axiom s$block$init_ax {
+        forall $t: Int :: { s$block$init($t) }
+            s$block$get_timestamp(s$block$field(s$block$init($t), 0)) == $t
     }
 }
