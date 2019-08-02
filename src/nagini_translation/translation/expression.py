@@ -320,6 +320,16 @@ class ExpressionTranslator(NodeTranslator):
                 old_self = helpers.old_self_var(self.viper_ast, ctx.self_type, pos)
                 copy_old = self.viper_ast.LocalVarAssign(old_self.localVar(), self_var)
 
+                send_fail_name = ctx.new_local_var_name('send_fail')
+                send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
+                ctx.new_local_vars.append(send_fail)
+                fail_cond = send_fail.localVar()
+                msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+                msg_sender_eq = self.viper_ast.EqCmp(to, msg_sender)
+                msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast).localVar()
+                assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
+                fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
+
                 # Havov self
                 havoc_name = ctx.new_local_var_name('havoc')
                 havoc = self.viper_ast.LocalVarDecl(havoc_name, ctx.self_var.typ())
@@ -334,17 +344,7 @@ class ExpressionTranslator(NodeTranslator):
                 assume_unchecked = [self.viper_ast.Inhale(inv) for inv in uinvs]
                 assumes = assume_invs + assume_unchecked
 
-                send_fail_name = ctx.new_local_var_name('send_fail')
-                send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
-                ctx.new_local_vars.append(send_fail)
-                fail_cond = send_fail.localVar()
-                msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-                msg_sender_eq = self.viper_ast.EqCmp(to, msg_sender)
-                msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast).localVar()
-                assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
-                fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
-
-                afters = [fail, copy_old]
+                afters = [copy_old]
 
                 if name == names.RAW_CALL:
                     ret_name = ctx.new_local_var_name('raw_ret')
@@ -355,7 +355,7 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     return_value = None
 
-                return stmts + check_assertions + inv_assertions + [copy_old, havoc_self] + assumes + afters, return_value
+                return stmts + check_assertions + inv_assertions + [copy_old, fail, havoc_self] + assumes + afters, return_value
             elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                 stmts = []
                 exprs = {}
