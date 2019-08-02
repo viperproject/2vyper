@@ -347,40 +347,52 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # We check accessibility by inhaling a predicate in the corresponding function
             # and checking in the end that if it has been inhaled (i.e. if we want to prove
             # that some amount is a accessible) the amount has been sent to msg.sender
-            # forall a: wei_value :: perm(accessible(msg.sender, a, <args>)) > 0 ==>
+            # forall a: wei_value :: perm(accessible(tag, msg.sender, a, <args>)) > 0 ==>
             #   success(if_not=sender_failed) and
             #   success() ==> sent(msg.sender) - old(sent(msg.sender)) >= a
-            wei_value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
-            amount_var = self.viper_ast.LocalVarDecl('$a', wei_value_type, pos)
-            acc_name = mangled.accessible_name(function.name)
-            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-            amount_local = self.viper_ast.LocalVar('$a', wei_value_type, pos)
+            # The tag is used to differentiate between the different invariants the accessible
+            # expressions occur in
+            accessibles = []
+            for tag in function.analysis.accessible_tags:
+                tag_inv = ctx.program.analysis.inv_tags[tag]
+                inv_pos = self.to_position(tag_inv, ctx)
+                vias = [Via('invariant', inv_pos)]
+                acc_pos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, vias)
 
-            arg_vars = [arg.localVar() for arg in args.values()]
-            acc_args = [msg_sender, amount_local, *arg_vars]
-            acc_pred = self.viper_ast.PredicateAccess(acc_args, acc_name, pos)
-            acc_perm = self.viper_ast.CurrentPerm(acc_pred, pos)
-            pos_perm = self.viper_ast.GtCmp(acc_perm, self.viper_ast.NoPerm(pos), pos)
+                wei_value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
+                amount_var = self.viper_ast.LocalVarDecl('$a', wei_value_type, inv_pos)
+                acc_name = mangled.accessible_name(function.name)
+                tag_lit = self.viper_ast.IntLit(tag, inv_pos)
+                msg_sender = helpers.msg_sender(self.viper_ast, ctx, inv_pos)
+                amount_local = self.viper_ast.LocalVar('$a', wei_value_type, inv_pos)
 
-            sender_failed = helpers.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
-            not_sender_failed = self.viper_ast.Not(sender_failed, pos)
-            succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var.localVar(), pos)
+                arg_vars = [arg.localVar() for arg in args.values()]
+                acc_args = [tag_lit, msg_sender, amount_local, *arg_vars]
+                acc_pred = self.viper_ast.PredicateAccess(acc_args, acc_name, inv_pos)
+                acc_perm = self.viper_ast.CurrentPerm(acc_pred, inv_pos)
+                pos_perm = self.viper_ast.GtCmp(acc_perm, self.viper_ast.NoPerm(inv_pos), inv_pos)
 
-            sent_type = ctx.field_types[mangled.SENT_FIELD]
-            sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
-            # TODO: improve this type stuff
-            sent_to = helpers.map_get(self.viper_ast, sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, pos)
-            pre_sent = helpers.struct_get(self.viper_ast, pre_self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
-            pre_sent_to = helpers.map_get(self.viper_ast, pre_sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, pos)
+                sender_failed = helpers.msg_sender_call_fail_var(self.viper_ast, inv_pos).localVar()
+                not_sender_failed = self.viper_ast.Not(sender_failed, inv_pos)
+                succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var.localVar(), inv_pos)
 
-            diff = self.viper_ast.Sub(sent_to, pre_sent_to, pos)
-            geqa = self.viper_ast.GeCmp(diff, amount_local, pos)
-            succ_impl = self.viper_ast.Implies(success_var.localVar(), geqa, pos)
-            conj = self.viper_ast.And(succ_if_not, succ_impl, pos)
-            impl = self.viper_ast.Implies(pos_perm, conj, pos)
-            forall = self.viper_ast.Forall([amount_var], [], impl, pos)
-            # TODO: Transform errors
-            body.append(self.viper_ast.Assert(forall, pos))
+                sent_type = ctx.field_types[mangled.SENT_FIELD]
+                sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, inv_pos)
+                # TODO: improve this type stuff
+                sent_to = helpers.map_get(self.viper_ast, sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, inv_pos)
+                pre_sent = helpers.struct_get(self.viper_ast, pre_self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, inv_pos)
+                pre_sent_to = helpers.map_get(self.viper_ast, pre_sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, inv_pos)
+
+                diff = self.viper_ast.Sub(sent_to, pre_sent_to, inv_pos)
+                geqa = self.viper_ast.GeCmp(diff, amount_local, inv_pos)
+                succ_impl = self.viper_ast.Implies(success_var.localVar(), geqa, inv_pos)
+                conj = self.viper_ast.And(succ_if_not, succ_impl, inv_pos)
+                impl = self.viper_ast.Implies(pos_perm, conj, inv_pos)
+                trigger = self.viper_ast.Trigger([acc_pred], inv_pos)
+                forall = self.viper_ast.Forall([amount_var], [trigger], impl, inv_pos)
+                accessibles.append(self.viper_ast.Assert(forall, acc_pos))
+
+            body.extend(self._seqn_with_info(accessibles, "Assert accessibles"))
 
             args_list = list(args.values())
             locals_list = [*locals.values(), *ctx.new_local_vars]

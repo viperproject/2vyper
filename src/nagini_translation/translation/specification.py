@@ -186,11 +186,12 @@ class SpecificationTranslator(ExpressionTranslator):
             if (self._ignore_accessible or is_wrong_func) and not ctx.inside_trigger:
                 return [], self.viper_ast.TrueLit(pos)
             else:
+                tag = self.viper_ast.IntLit(ctx.program.analysis.accessible_tags[node], pos)
                 to = self._translate_spec(node.args[0], ctx)
                 amount = self._translate_spec(node.args[1], ctx)
                 func_args = [self._translate_spec(arg, ctx) for arg in node.args[2].args]
                 acc_name = mangled.accessible_name(func_name)
-                acc_args = [to, amount, *func_args]
+                acc_args = [tag, to, amount, *func_args]
                 pred_acc = self.viper_ast.PredicateAccess(acc_args, acc_name, pos)
                 # Inside triggers we need to use the predicate access, not the permission amount
                 if ctx.inside_trigger:

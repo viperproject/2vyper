@@ -161,11 +161,12 @@ class ProgramTranslator(PositionTranslator):
 
     def _translate_accessible(self, function: VyperFunction, ctx: Context):
         name = mangled.accessible_name(function.name)
+        arg0 = self.viper_ast.LocalVarDecl('$tag', self.viper_ast.Int)
         address_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
-        arg0 = self.viper_ast.LocalVarDecl('$to', address_type)
+        arg1 = self.viper_ast.LocalVarDecl('$to', address_type)
         wei_value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
-        arg1 = self.viper_ast.LocalVarDecl('$amount', wei_value_type)
-        args = [arg0, arg1]
+        arg2 = self.viper_ast.LocalVarDecl('$amount', wei_value_type)
+        args = [arg0, arg1, arg2]
         for idx, arg in enumerate(function.args.values()):
             arg_name = f'$arg{idx}'
             arg_type = self.type_translator.translate(arg.type, ctx)

@@ -33,21 +33,29 @@ def analyze(program: VyperProgram):
 class ProgramAnalysis:
 
     def __init__(self):
-        pass
+        self.inv_tags = {}
+        self.accessible_tags = {}
 
 
 class FunctionAnalysis:
 
     def __init__(self):
         self.uses_issued = False
+        self.accessible_tags = set()
 
 
 class _ProgramAnalyzer(ast.NodeVisitor):
 
     def __init__(self, program: VyperProgram):
         self.program = program
+        self.tag = None
 
     def analyze(self):
+        for tag, inv in enumerate(self.program.invariants):
+            self.tag = tag
+            self.program.analysis.inv_tags[tag] = inv
+            self.visit(inv)
+
         for post in self.program.general_postconditions:
             self.visit(post)
 
@@ -55,9 +63,14 @@ class _ProgramAnalyzer(ast.NodeVisitor):
             self.visit(check)
 
     def visit_Call(self, node: ast.Call):
-        if isinstance(node.func, ast.Name) and node.func.id == names.ISSUED:
-            for function in self.program.functions:
-                function.analysis.uses_issued = True
+        if isinstance(node.func, ast.Name):
+            if node.func.id == names.ISSUED:
+                for function in self.program.functions:
+                    function.analysis.uses_issued = True
+            elif node.func.id == names.ACCESSIBLE:
+                self.program.analysis.accessible_tags[node] = self.tag
+                function_name = node.args[2].func.attr
+                self.program.functions[function_name].analysis.accessible_tags.add(self.tag)
 
         self.generic_visit(node)
 
