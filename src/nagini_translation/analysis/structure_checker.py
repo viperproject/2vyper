@@ -69,6 +69,7 @@ class SpecStructureChecker(ast.NodeVisitor):
             _assert(isinstance(call.func.value, ast.Name), node, 'spec.accessible')
             _assert(call.func.value.id == names.SELF, node, 'spec.accessible')
             _assert(call.func.attr in self.program.functions, node, 'spec.accessible')
+            _assert(call.func.attr != names.INIT, node, 'spec.accessible')
 
             self.visit(node.args[0])
             self.visit(node.args[1])
