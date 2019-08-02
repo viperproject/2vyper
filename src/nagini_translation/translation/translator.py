@@ -9,7 +9,7 @@ from nagini_translation.utils import seq_to_list
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.nodes import VyperProgram, VyperEvent, VyperStruct
+from nagini_translation.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction
 
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.function import FunctionTranslator
@@ -71,7 +71,9 @@ class ProgramTranslator(PositionTranslator):
             domains.append(self._translate_struct(struct, ctx))
 
         # Events
-        predicates = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
+        events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
+        accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
+        predicates = [*events, *accs]
 
         vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
         methods.append(self._create_transitivity_check(ctx))
@@ -155,6 +157,19 @@ class ProgramTranslator(PositionTranslator):
         name = mangled.event_name(event.name)
         types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
         args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type) for idx, type in enumerate(types)]
+        return self.viper_ast.Predicate(name, args, None)
+
+    def _translate_accessible(self, function: VyperFunction, ctx: Context):
+        name = mangled.accessible_name(function.name)
+        address_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
+        arg0 = self.viper_ast.LocalVarDecl('$to', address_type)
+        wei_value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
+        arg1 = self.viper_ast.LocalVarDecl('$amount', wei_value_type)
+        args = [arg0, arg1]
+        for idx, arg in enumerate(function.args.values()):
+            arg_name = f'$arg{idx}'
+            arg_type = self.type_translator.translate(arg.type, ctx)
+            args.append(self.viper_ast.LocalVarDecl(arg_name, arg_type))
         return self.viper_ast.Predicate(name, args, None)
 
     def _create_transitivity_check(self, ctx: Context):

@@ -31,6 +31,8 @@ class SpecStructureChecker(ast.NodeVisitor):
         self.program = program
         self.func = None
 
+        self._inside_old = False
+
     def _check(self, nodes: List[ast.AST], func: Optional[VyperFunction] = None):
         self.func = func
         for node in nodes:
@@ -40,7 +42,9 @@ class SpecStructureChecker(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call):
         _assert(isinstance(node.func, ast.Name), node, 'spec.call')
 
-        if node.func.id == names.SUCCESS:
+        name = node.func.id
+        # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
+        if name == names.SUCCESS:
 
             def check_success_args(node):
                 if isinstance(node, ast.Name):
@@ -55,6 +59,25 @@ class SpecStructureChecker(ast.NodeVisitor):
             if node.keywords:
                 _assert(node.keywords[0].arg == names.SUCCESS_IF_NOT, node, 'spec.success')
                 check_success_args(node.keywords[0].value)
+        # Accessible is of the form accessible(to, amount, self.some_func(args...))
+        elif name == names.ACCESSIBLE:
+            _assert(not self._inside_old, node, 'spec.old.accessible')
+            _assert(len(node.args) == 3, node, 'spec.accessible')
+            call = node.args[2]
+            _assert(isinstance(call, ast.Call), node, 'spec.accessible')
+            _assert(isinstance(call.func, ast.Attribute), node, 'spec.accessible')
+            _assert(isinstance(call.func.value, ast.Name), node, 'spec.accessible')
+            _assert(call.func.value.id == names.SELF, node, 'spec.accessible')
+            _assert(call.func.attr in self.program.functions, node, 'spec.accessible')
+
+            self.visit(node.args[0])
+            self.visit(node.args[1])
+            self.generic_visit(call)
+        elif name == names.OLD:
+            inside_old = self._inside_old
+            self._inside_old = True
+            self.generic_visit(node)
+            self._inside_old = inside_old
 
 
 class InvariantChecker(SpecStructureChecker):

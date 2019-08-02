@@ -73,7 +73,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             pre_self_var = ctx.pre_self_var.localVar()
             issued_self_var = ctx.issued_self_var.localVar()
 
-            success_var = helpers.success_var(self.viper_ast)
+            success_var = helpers.success_var(self.viper_ast, pos)
             ctx.success_var = success_var
             rets = [success_var]
 
@@ -141,7 +141,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
 
                     with self_scope(ctx.issued_self_var, ctx.issued_self_var, ctx):
-                        expr = self.specification_translator.translate_invariant(inv, ctx)
+                        # For the issued state we ignore accessible
+                        expr = self.specification_translator.translate_invariant(inv, ctx, True)
                         inv_pres_issued.append(self.viper_ast.Inhale(expr, ppos))
 
                     with self_scope(ctx.self_var, ctx.issued_self_var, ctx):
@@ -244,6 +245,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             #   - Assert the checks
             #   - Havoc self.balance
             #   - Assert invariants
+            #   - Check accessible
             # This is necessary because a contract may receive additional money through
             # seldestruct or mining
 
@@ -313,12 +315,13 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             # Assert the invariants
             invariant_stmts = []
-            # In init we chec the invariants with the current state as old state since there is
+            # In init we check the invariants with the current state as old state since there is
             # no state before it
             with self_scope(ctx.self_var, ctx.self_var if is_init else ctx.old_self_var, ctx):
                 for inv in ctx.program.invariants:
                     inv_pos = self.to_position(inv, ctx)
-                    cond = self.specification_translator.translate_invariant(inv, ctx)
+                    # We ignore accessible here because we use a separate check
+                    cond = self.specification_translator.translate_invariant(inv, ctx, True)
 
                     # If we have a synthesized __init__ we only create an
                     # error message on the invariant
@@ -333,6 +336,44 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     invariant_stmts.append(self.viper_ast.Assert(cond, apos))
 
             body.extend(self._seqn_with_info(invariant_stmts, "Assert Invariants"))
+
+            # We check accessibility by inhaling a predicate in the corresponding function
+            # and checking in the end that if it has been inhaled (i.e. if we want to prove
+            # that some amount is a accessible) the amount has been sent to msg.sender
+            # forall a: wei_value :: perm(accessible(msg.sender, a, <args>)) > 0 ==>
+            #   success(if_not=sender_failed) and
+            #   success() ==> sent(msg.sender) - old(sent(msg.sender)) >= a
+            wei_value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
+            amount_var = self.viper_ast.LocalVarDecl('$a', wei_value_type, pos)
+            acc_name = mangled.accessible_name(function.name)
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            amount_local = self.viper_ast.LocalVar('$a', wei_value_type, pos)
+
+            arg_vars = [arg.localVar() for arg in args.values()]
+            acc_args = [msg_sender, amount_local, *arg_vars]
+            acc_pred = self.viper_ast.PredicateAccess(acc_args, acc_name, pos)
+            acc_perm = self.viper_ast.CurrentPerm(acc_pred, pos)
+            pos_perm = self.viper_ast.GtCmp(acc_perm, self.viper_ast.NoPerm(pos), pos)
+
+            sender_failed = helpers.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
+            not_sender_failed = self.viper_ast.Not(sender_failed, pos)
+            succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var.localVar(), pos)
+
+            sent_type = ctx.field_types[mangled.SENT_FIELD]
+            sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
+            # TODO: improve this type stuff
+            sent_to = helpers.map_get(self.viper_ast, sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, pos)
+            pre_sent = helpers.struct_get(self.viper_ast, pre_self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
+            pre_sent_to = helpers.map_get(self.viper_ast, pre_sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, pos)
+
+            diff = self.viper_ast.Sub(sent_to, pre_sent_to, pos)
+            geqa = self.viper_ast.GeCmp(diff, amount_local, pos)
+            succ_impl = self.viper_ast.Implies(success_var.localVar(), geqa, pos)
+            conj = self.viper_ast.And(succ_if_not, succ_impl, pos)
+            impl = self.viper_ast.Implies(pos_perm, conj, pos)
+            forall = self.viper_ast.Forall([amount_var], [], impl, pos)
+            # TODO: Transform errors
+            body.append(self.viper_ast.Assert(forall, pos))
 
             args_list = list(args.values())
             locals_list = [*locals.values(), *ctx.new_local_vars]

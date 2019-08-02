@@ -11,7 +11,7 @@ from nagini_translation.ast import names
 
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.context import Context
-from nagini_translation.translation.context import quantified_var_scope, self_scope
+from nagini_translation.translation.context import quantified_var_scope, self_scope, inside_trigger_scope
 
 from nagini_translation.translation import mangled
 from nagini_translation.translation import helpers
@@ -48,8 +48,11 @@ class SpecificationTranslator(ExpressionTranslator):
         else:
             return expr
 
-    def translate_invariant(self, inv: ast.AST, ctx: Context):
-        return self._translate_spec(inv, ctx)
+    def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_accessible=False):
+        self._ignore_accessible = ignore_accessible
+        expr = self._translate_spec(inv, ctx)
+        del self._ignore_accessible
+        return expr
 
     def _translate_spec(self, node, ctx: Context):
         _, expr = self.translate(node, ctx)
@@ -87,11 +90,12 @@ class SpecificationTranslator(ExpressionTranslator):
 
                 # The arguments in the middle are the triggers
                 triggers = []
-                for arg in node.args[1: num_args - 1]:
-                    trigger_pos = self.to_position(arg, ctx)
-                    trigger_exprs = [self._translate_spec(t, ctx) for t in arg.elts]
-                    trigger = self.viper_ast.Trigger(trigger_exprs, trigger_pos)
-                    triggers.append(trigger)
+                with inside_trigger_scope(ctx):
+                    for arg in node.args[1: num_args - 1]:
+                        trigger_pos = self.to_position(arg, ctx)
+                        trigger_exprs = [self._translate_spec(t, ctx) for t in arg.elts]
+                        trigger = self.viper_ast.Trigger(trigger_exprs, trigger_pos)
+                        triggers.append(trigger)
 
                 return [], self.viper_ast.Forall(quants, triggers, expr, pos)
         elif name == names.RESULT:
@@ -172,6 +176,27 @@ class SpecificationTranslator(ExpressionTranslator):
                     # TODO: handle type stuff better
                     get_arg = helpers.map_get(self.viper_ast, rec, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
                     return [], get_arg
+        elif name == names.ACCESSIBLE:
+            func_name = node.args[2].func.attr
+            is_wrong_func = ctx.function and func_name != ctx.function.name
+            # If we ignore accessibles or if we are in a function not mentioned in the accessible
+            # expression we just use True as the body
+            # Triggers, however, always have to be translated correctly, because every trigger
+            # needs to mention all quantified variables
+            if (self._ignore_accessible or is_wrong_func) and not ctx.inside_trigger:
+                return [], self.viper_ast.TrueLit(pos)
+            else:
+                to = self._translate_spec(node.args[0], ctx)
+                amount = self._translate_spec(node.args[1], ctx)
+                func_args = [self._translate_spec(arg, ctx) for arg in node.args[2].args]
+                acc_name = mangled.accessible_name(func_name)
+                acc_args = [to, amount, *func_args]
+                pred_acc = self.viper_ast.PredicateAccess(acc_args, acc_name, pos)
+                # Inside triggers we need to use the predicate access, not the permission amount
+                if ctx.inside_trigger:
+                    return [], pred_acc
+                full_perm = self.viper_ast.FullPerm(pos)
+                return [], self.viper_ast.PredicateAccessPredicate(pred_acc, full_perm, pos)
         elif name == names.EVENT:
             event = node.args[0]
             event_name = mangled.event_name(event.func.id)

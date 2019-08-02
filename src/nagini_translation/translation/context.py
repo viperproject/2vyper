@@ -40,6 +40,8 @@ class Context:
         self.result_var = None
         self.return_label = None
 
+        self.inside_trigger = False
+
         self._local_var_counter = -1
         self.new_local_vars = []
 
@@ -124,6 +126,8 @@ def function_scope(ctx: Context):
     result_var = ctx.result_var
     return_label = ctx.return_label
 
+    inside_trigger = ctx.inside_trigger
+
     local_var_counter = ctx._local_var_counter
     new_local_vars = ctx.new_local_vars
 
@@ -147,6 +151,8 @@ def function_scope(ctx: Context):
     ctx.revert_label = None
     ctx.result_var = None
     ctx.return_label = None
+
+    ctx.inside_trigger = False
 
     ctx._local_var_counter = -1
     ctx.new_local_vars = []
@@ -174,6 +180,8 @@ def function_scope(ctx: Context):
     ctx.result_var = result_var
     ctx.return_label = return_label
 
+    ctx.inside_trigger = inside_trigger
+
     ctx._local_var_counter = local_var_counter
     ctx.new_local_vars = new_local_vars
 
@@ -194,6 +202,16 @@ def quantified_var_scope(ctx: Context):
     ctx.all_vars = all_vars
     ctx.quantified_vars = quantified_vars
     ctx._quantified_var_counter = quantified_var_counter
+
+
+@contextmanager
+def inside_trigger_scope(ctx: Context):
+    inside_trigger = ctx.inside_trigger
+    ctx.inside_trigger = True
+
+    yield
+
+    ctx.inside_trigger = inside_trigger
 
 
 @contextmanager

@@ -142,6 +142,9 @@ class TypeAnnotator:
             elif node.func.id == names.FORALL:
                 self._annotate_forall(node)
                 return
+            elif node.func.id == names.ACCESSIBLE:
+                self._annotate_accessible(node)
+                return
             elif node.func.id == names.EVENT:
                 self._annotate_event(node)
                 return
@@ -214,6 +217,12 @@ class TypeAnnotator:
             self.annotate(arg)
 
         self.quantified_vars = old_quants
+
+    def _annotate_accessible(self, node: ast.Call):
+        self.annotate(node.args[0])
+        self.annotate(node.args[1])
+        for arg in node.args[2].args:
+            self.annotate(arg)
 
     def _annotate_event(self, node: ast.Call):
         for arg in node.args[0].args:

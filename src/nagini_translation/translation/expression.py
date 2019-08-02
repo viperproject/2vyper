@@ -309,7 +309,9 @@ class ExpressionTranslator(NodeTranslator):
                 invs = []
                 inv_assertions = []
                 for inv in ctx.program.invariants:
-                    cond = self.spec_translator.translate_invariant(inv, ctx)
+                    # We ignore accessible because it only has to be checked in the end of
+                    # the function
+                    cond = self.spec_translator.translate_invariant(inv, ctx, True)
                     invs.append(cond)
                     via = [Via('invariant', cond.pos())]
                     call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
