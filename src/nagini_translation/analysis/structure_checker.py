@@ -78,6 +78,8 @@ class SpecStructureChecker(ast.NodeVisitor):
             self._inside_old = True
             self.generic_visit(node)
             self._inside_old = inside_old
+        else:
+            self.generic_visit(node)
 
 
 class InvariantChecker(SpecStructureChecker):
