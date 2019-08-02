@@ -48,6 +48,8 @@ class VyperFunction:
         self.checks = checks
         self.decorators = decorators
         self.node = node
+        # Gets set in the analyzer
+        self.analysis = None
 
     def is_public(self) -> bool:
         return 'public' in self.decorators
@@ -89,3 +91,5 @@ class VyperProgram:
         self.invariants = invariants
         self.general_postconditions = general_postconditions
         self.general_checks = general_checks
+        # Gets set in the analyzer
+        self.analysis = None

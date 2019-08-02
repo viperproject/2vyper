@@ -14,6 +14,8 @@ from nagini_translation.ast.nodes import VyperFunction
 
 from nagini_translation.viper.ast import ViperAST
 
+from nagini_translation.analysis.analyzer import FunctionAnalysis
+
 from nagini_translation.translation import mangled
 from nagini_translation.translation.context import Context
 
@@ -23,7 +25,9 @@ from nagini_translation.translation.context import Context
 def init_function() -> ast.FunctionDef:
     node = ast.FunctionDef(mangled.INIT, [], [], [], None)
     type = FunctionType([], None)
-    return VyperFunction(mangled.INIT, {}, {}, type, [], [], [names.PUBLIC], node)
+    function = VyperFunction(mangled.INIT, {}, {}, type, [], [], [names.PUBLIC], node)
+    function.analysis = FunctionAnalysis()
+    return function
 
 
 def self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
