@@ -132,28 +132,33 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             msg_info_msg = "Assume type assumptions for msg"
             body.extend(self._seqn_with_info(msg_assumes, msg_info_msg))
 
-            # Assume user-specified invariants
+            # Assume unchecked and user-specified invariants
             inv_pres_issued = []
             inv_pres_self = []
 
+            # Translate the invariants for the issued state. Since we don't know anything about
+            # the state before then, we use the issued state itself as the old state
+            if not is_init and function.analysis.uses_issued:
+                with self_scope(ctx.issued_self_var, ctx.issued_self_var, ctx):
+                    for inv in ctx.unchecked_invariants():
+                        inv_pres_issued.append(self.viper_ast.Inhale(inv))
+
+                    for inv in ctx.program.invariants:
+                        ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        expr = self.specification_translator.translate_invariant(inv, ctx, True)
+                        inv_pres_issued.append(self.viper_ast.Inhale(expr, ppos))
+
+            # If we use issued, we translate the invariants for the current state with the
+            # issued state as the old state, else we just use the self state as the old state
+            # which results in fewer assumptions passed to the prover
             if not is_init:
-                for inv in ctx.program.invariants:
-                    # We translate the invariants once for the issued state alone and once for
-                    # the self state with the issued state as the old state
-                    # If issued is not used at all in this function we simply assume the
-                    # invariants for the self state with itself being the old state
-                    # This reduces the amount of assumptions passed to the prover
-                    ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                last_state = ctx.issued_self_var if function.analysis.uses_issued else ctx.self_var
+                with self_scope(ctx.self_var, last_state, ctx):
+                    for inv in ctx.unchecked_invariants():
+                        inv_pres_self.append(self.viper_ast.Inhale(inv))
 
-                    if function.analysis.uses_issued:
-                        with self_scope(ctx.issued_self_var, ctx.issued_self_var, ctx):
-                            # For the issued state we ignore accessible
-                            expr = self.specification_translator.translate_invariant(inv, ctx, True)
-                            inv_pres_issued.append(self.viper_ast.Inhale(expr, ppos))
-
-                    last_state = ctx.issued_self_var if function.analysis.uses_issued else ctx.self_var
-
-                    with self_scope(ctx.self_var, last_state, ctx):
+                    for inv in ctx.program.invariants:
+                        ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                         expr = self.specification_translator.translate_invariant(inv, ctx)
                         inv_pres_self.append(self.viper_ast.Inhale(expr, ppos))
 

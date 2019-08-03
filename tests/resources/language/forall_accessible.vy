@@ -10,7 +10,6 @@ balance_of: map(address, wei_value)
 
 
 #@ invariant: sum(self.balance_of) <= self.balance
-#@ invariant: forall({a: address}, {sent(a)}, sent(a) >= old(sent(a)))
 #@ invariant: forall({a: address, v: wei_value}, {accessible(a, v, self.withdraw(v))}, implies(v == self.balance_of[a], accessible(a, v, self.withdraw(v))))
 #@ invariant: forall({a: address, v: wei_value}, {accessible(a, v, self.withdraw(v))}, implies(v <= self.balance_of[a], accessible(a, v, self.withdraw(v))))
 

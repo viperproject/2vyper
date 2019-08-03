@@ -46,6 +46,18 @@ class BalanceTranslator(CommonTranslator):
         sub = helpers.struct_set(self.viper_ast, self_var, diff, names.SELF_BALANCE, ctx.self_type)
         return self.viper_ast.LocalVarAssign(self_var, sub)
 
+    def get_received(self, self_var: Expr, address: Expr, ctx: Context, pos=None, info=None):
+        received_type = ctx.field_types[mangled.RECEIVED_FIELD]
+        received = helpers.struct_get(self.viper_ast, self_var, mangled.RECEIVED_FIELD, received_type, ctx.self_type, pos)
+        # TODO: improve this type stuff
+        return helpers.map_get(self.viper_ast, received, address, self.viper_ast.Int, self.viper_ast.Int, pos)
+
+    def get_sent(self, self_var: Expr, address: Expr, ctx: Context, pos=None, info=None):
+        sent_type = ctx.field_types[mangled.SENT_FIELD]
+        sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
+        # TODO: improve this type stuff
+        return helpers.map_get(self.viper_ast, sent, address, self.viper_ast.Int, self.viper_ast.Int, pos)
+
     def increase_received(self, amount: Expr, ctx: Context, pos=None, info=None):
         self_var = ctx.self_var.localVar()
         # TODO: pass this as an argument

@@ -15,6 +15,7 @@ from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.function import FunctionTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
+from nagini_translation.translation.balance import BalanceTranslator
 from nagini_translation.translation.context import Context, function_scope, self_scope
 
 from nagini_translation.translation import mangled
@@ -33,6 +34,7 @@ class ProgramTranslator(PositionTranslator):
         self.function_translator = FunctionTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
+        self.balance_translator = BalanceTranslator(viper_ast)
 
     def translate(self, vyper_program: VyperProgram, file: str) -> Program:
         if names.INIT not in vyper_program.functions:
@@ -62,7 +64,19 @@ class ProgramTranslator(PositionTranslator):
         for field, field_type in vyper_program.fields.type.member_types.items():
             ctx.field_types[field] = self.type_translator.translate(field_type, ctx)
 
-        ctx.unchecked_invariants = []
+        def unchecked_invariants():
+            self_var = ctx.self_var.localVar()
+            old_self_var = ctx.old_self_var.localVar()
+            address_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
+            q_var = self.viper_ast.LocalVarDecl('$a', address_type)
+            q_local = q_var.localVar()
+            sent = self.balance_translator.get_sent(self_var, q_local, ctx)
+            old_sent = self.balance_translator.get_sent(old_self_var, q_local, ctx)
+            expr = self.viper_ast.GeCmp(sent, old_sent)
+            trigger = self.viper_ast.Trigger([sent])
+            return [self.viper_ast.Forall([q_var], [trigger], expr)]
+
+        ctx.unchecked_invariants = unchecked_invariants
 
         # Structs
         for struct in vyper_program.structs.values():
@@ -196,6 +210,8 @@ class ProgramTranslator(PositionTranslator):
 
             def assume_invariants(self_state, old_state):
                 with self_scope(self_state, old_state, ctx):
+                    for inv in ctx.unchecked_invariants():
+                        body.append(self.viper_ast.Inhale(inv))
                     for inv in ctx.program.invariants:
                         pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                         inv_expr = self.specification_translator.translate_invariant(inv, ctx)

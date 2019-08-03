@@ -9,7 +9,6 @@
 owner: address
 
 
-#@ invariant: forall({a: address}, {sent(a)}, sent(a) >= old(sent(a)))
 #@ invariant: accessible(self.owner, self.balance, self.withdraw())
 #@ always check: implies(msg.sender != self.owner, self.balance >= old(self.balance))
 
