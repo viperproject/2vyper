@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := test
 
 env:
-	virtualenv --always-copy env
+	virtualenv -p python3 --always-copy env
 
 init:
 	env/bin/pip install -r requirements.txt
