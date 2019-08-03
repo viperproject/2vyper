@@ -116,40 +116,46 @@ class Error:
         self.position = Position(error.pos())
 
     def pos(self) -> AbstractSourcePosition:
-        """Get position.
-
-        .. TODO:: Marco
-
-            This method is only for compatibility with current testing
-            infrastructure and should be removed.
+        """
+        Get position.
         """
         return self._error.pos()
 
     @property
     def full_id(self) -> str:
-        """Full error identifier."""
+        """
+        Full error identifier.
+        """
         return f"{self.identifier}:{self.reason.identifier}"
 
     @property
     def offending_node(self) -> Node:
-        """AST node where the error occurred."""
+        """
+        AST node where the error occurred.
+        """
         return self._error.offendingNode()
 
     @property
     def readable_message(self) -> str:
-        """Readable error message."""
+        """
+        Readable error message.
+        """
         return self._error.readableMessage()
 
     @property
     def position_string(self) -> str:
-        """Full error position as a string."""
+        """
+        Full error position as a string.
+        """
         vias = self.reason._reason_info.vias or self._error_info.vias or []
         vias_string = "".join(f", via {via.origin} at {via.position}" for via in vias)
         return f"{self.position}{vias_string}"
 
     @property
     def message(self) -> str:
-        """Human readable error message."""
+        """
+        Human readable error message.
+        """
         return ERRORS[self.identifier](self._error_info)
 
     def __str__(self) -> str:
