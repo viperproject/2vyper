@@ -73,9 +73,9 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             pre_self_var = ctx.pre_self_var.localVar()
             issued_self_var = ctx.issued_self_var.localVar()
 
-            success_var = helpers.success_var(self.viper_ast, pos)
-            ctx.success_var = success_var
-            rets = [success_var]
+            ctx.success_var = helpers.success_var(self.viper_ast)
+            rets = [ctx.success_var]
+            success_var = ctx.success_var.localVar()
 
             end_label = self.viper_ast.Label(mangled.END_LABEL)
             return_label = self.viper_ast.Label(mangled.RETURN_LABEL)
@@ -167,9 +167,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.extend([copy_old, copy_pre])
 
             def returnBool(value: bool) -> Stmt:
-                local_var = success_var.localVar()
                 lit = self.viper_ast.TrueLit if value else self.viper_ast.FalseLit
-                return self.viper_ast.LocalVarAssign(local_var, lit())
+                return self.viper_ast.LocalVarAssign(success_var, lit())
 
             # If we do not encounter an exception we will return success
             body.append(returnBool(True))
@@ -270,7 +269,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 if is_init:
                     init_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
                     # General postconditions only have to hold for init if it succeeds
-                    cond = self.viper_ast.Implies(success_var.localVar(), cond, post_pos)
+                    cond = self.viper_ast.Implies(success_var, cond, post_pos)
                     post_stmts.append(self.viper_ast.Assert(cond, init_pos))
                 else:
                     via = [Via('general postcondition', post_pos)]
@@ -314,7 +313,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
             check_info = self.to_info(["Assert checks"])
-            if_stmt = self.viper_ast.If(success_var.localVar(), checks_succ, checks_fail, info=check_info)
+            if_stmt = self.viper_ast.If(success_var, checks_succ, checks_fail, info=check_info)
             body.append(if_stmt)
 
             # Havoc self.balance
@@ -334,7 +333,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     # error message on the invariant
                     if is_init:
                         # Invariants do not have to hold if __init__ fails
-                        cond = self.viper_ast.Implies(success_var.localVar(), cond, inv_pos)
+                        cond = self.viper_ast.Implies(success_var, cond, inv_pos)
                         apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
                     else:
                         via = [Via('invariant', inv_pos)]
@@ -374,7 +373,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
                 sender_failed = helpers.msg_sender_call_fail_var(self.viper_ast, inv_pos).localVar()
                 not_sender_failed = self.viper_ast.Not(sender_failed, inv_pos)
-                succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var.localVar(), inv_pos)
+                succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var, inv_pos)
 
                 sent_type = ctx.field_types[mangled.SENT_FIELD]
                 sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, inv_pos)
@@ -385,7 +384,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
                 diff = self.viper_ast.Sub(sent_to, pre_sent_to, inv_pos)
                 geqa = self.viper_ast.GeCmp(diff, amount_local, inv_pos)
-                succ_impl = self.viper_ast.Implies(success_var.localVar(), geqa, inv_pos)
+                succ_impl = self.viper_ast.Implies(success_var, geqa, inv_pos)
                 conj = self.viper_ast.And(succ_if_not, succ_impl, inv_pos)
                 impl = self.viper_ast.Implies(pos_perm, conj, inv_pos)
                 trigger = self.viper_ast.Trigger([acc_pred], inv_pos)
