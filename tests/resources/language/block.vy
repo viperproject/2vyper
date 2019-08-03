@@ -7,9 +7,11 @@
 
 
 time: timestamp
+no: uint256
 
 
 #@ invariant: self.time >= 0
+#@ invariant: self.no >= 0
 
 
 @public
@@ -20,3 +22,8 @@ def __init__():
 @public
 def update_time():
     self.time = block.timestamp
+
+
+@public
+def update_number():
+    self.no = block.number

@@ -37,6 +37,7 @@ MSG_SENDER = 'sender'
 MSG_VALUE = 'value'
 MSG_GAS = 'gas'
 BLOCK = 'block'
+BLOCK_NUMBER = 'number'
 BLOCK_TIMESTAMP = 'timestamp'
 LOG = 'log'
 

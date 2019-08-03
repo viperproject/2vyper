@@ -9,12 +9,15 @@ domain s$block {
   
     function s$block$field($s: s$block, $f: Int): Int
 
+    function s$block$get_number($f: Int): Int
+
     function s$block$get_timestamp($f: Int): Int
 
-    function s$block$init($t: Int): s$block
+    function s$block$init($n: Int, $t: Int): s$block
 
     axiom s$block$init_ax {
-        forall $t: Int :: { s$block$init($t) }
-            s$block$get_timestamp(s$block$field(s$block$init($t), 0)) == $t
+        forall $n: Int, $t: Int :: { s$block$init($n, $t) }
+            s$block$get_number(s$block$field(s$block$init($n, $t), 0)) == $n &&
+            s$block$get_timestamp(s$block$field(s$block$init($n, $t), 1)) == $t
     }
 }

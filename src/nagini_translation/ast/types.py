@@ -114,6 +114,7 @@ MSG_TYPE = StructType(names.MSG, {
 
 
 BLOCK_TYPE = StructType(names.BLOCK, {
+    names.BLOCK_NUMBER: VYPER_UINT256,
     names.BLOCK_TIMESTAMP: VYPER_TIME
 })
 
