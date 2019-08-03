@@ -1,4 +1,3 @@
--e git+https://github.com/robinsierra/2vyper.git@31e620ca881479e93e81591d010b92dc1bfb7bad#egg=2vyper
 astunparse==1.6.2
 atomicwrites==1.3.0
 attrs==19.1.0
