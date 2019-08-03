@@ -270,12 +270,15 @@ class ExpressionTranslator(NodeTranslator):
                 # Sends are translated as follows:
                 #    - Evaluate arguments to and amount
                 #    - Check that balance is sufficient (self.balance >= amount) else revert
+                #    - Increment sent by amount
                 #    - Subtract amount from self.balance (self.balance -= amount)
-                #    - Check invariants
-                #    - Exhale field permissions (forget all values)
-                #    - Inhale field permissions
+                #    - Assert checks and invariants
+                #    - Create new old state which old in the invariants after the call refers to
+                #    - Fail based on an unkown value (i.e. the call could fail)
+                #    - Havoc self
+                #    - Assume type assumptions for self
                 #    - Assume invariants (where old refers to the state before send)
-                #    - Assume unchecked invariants
+                #    - Create new old state which subsequent old expressions refer to
 
                 to_stmts, to = self.translate(node.args[0], ctx)
 
