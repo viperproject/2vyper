@@ -18,9 +18,7 @@ class Context:
         self.program = None
         # The translated types of all fields
         self.field_types = {}
-        # Invariants that are not checked at the end of each function but just assumed, namely
-        # conditions like non-negativeness for uint256
-        # Note: already translated, as they are never checked and therfore cannot fail
+        # Invariants that are known to be true and therefore don't need to be checked
         self.unchecked_invariants = []
 
         self.function = None

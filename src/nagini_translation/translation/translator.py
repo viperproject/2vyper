@@ -54,17 +54,15 @@ class ProgramTranslator(PositionTranslator):
 
         ctx = Context(file)
         ctx.program = vyper_program
-        ctx.all_vars[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
 
         # Translate self
         self_domain = self._translate_struct(vyper_program.fields, ctx)
         domains.append(self_domain)
-        self_var = ctx.self_var.localVar()
 
         for field, field_type in vyper_program.fields.type.member_types.items():
             ctx.field_types[field] = self.type_translator.translate(field_type, ctx)
 
-        ctx.unchecked_invariants = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
+        ctx.unchecked_invariants = []
 
         # Structs
         for struct in vyper_program.structs.values():

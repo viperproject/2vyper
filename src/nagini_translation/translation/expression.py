@@ -317,6 +317,8 @@ class ExpressionTranslator(NodeTranslator):
                     call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
                     inv_assertions.append(self.viper_ast.Assert(cond, call_pos))
 
+                assertions = [*check_assertions, *inv_assertions]
+
                 old_self = helpers.old_self_var(self.viper_ast, ctx.self_type, pos)
                 copy_old = self.viper_ast.LocalVarAssign(old_self.localVar(), self_var)
 
@@ -336,15 +338,17 @@ class ExpressionTranslator(NodeTranslator):
                 ctx.new_local_vars.append(havoc)
                 havoc_self = self.viper_ast.LocalVarAssign(self_var, havoc.localVar(), pos)
 
-                uinvs = ctx.unchecked_invariants
+                call = [copy_old, fail, havoc_self]
+
+                type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
+                assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
+
                 assume_invs = []
                 for inv, expr in zip(ctx.program.invariants, invs):
                     ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                     assume_invs.append(self.viper_ast.Inhale(expr, ipos))
-                assume_unchecked = [self.viper_ast.Inhale(inv) for inv in uinvs]
-                assumes = assume_invs + assume_unchecked
 
-                afters = [copy_old]
+                new_state = [*assume_invs, *assume_type_ass, copy_old]
 
                 if name == names.RAW_CALL:
                     ret_name = ctx.new_local_var_name('raw_ret')
@@ -355,7 +359,7 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     return_value = None
 
-                return stmts + check_assertions + inv_assertions + [copy_old, fail, havoc_self] + assumes + afters, return_value
+                return stmts + assertions + call + new_state, return_value
             elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                 stmts = []
                 exprs = {}

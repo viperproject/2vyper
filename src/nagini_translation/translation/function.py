@@ -92,9 +92,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             body = []
 
-            # Assume all unchecked invariants
-            unchecked_invs = [self.viper_ast.Inhale(inv) for inv in ctx.unchecked_invariants]
-            body.extend(self._seqn_with_info(unchecked_invs, "Self state assumptions"))
+            # Assume type assumptions for self state
+            self_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
+            self_assumptions = [self.viper_ast.Inhale(inv) for inv in self_ass]
+            body.extend(self._seqn_with_info(self_assumptions, "Self state assumptions"))
 
             # Assume type assumptions for issued self state
             if function.analysis.uses_issued:
