@@ -28,3 +28,10 @@ def times4(b: bytes[1]):
 @public
 def times5(b: bytes[1]) -> bytes[5]:
     return concat(b, b, b, b, b)
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: len(result()) == len(b)
+@public
+def double_fail(b: bytes[512]) -> bytes[1024]:
+    return concat(b, b)
