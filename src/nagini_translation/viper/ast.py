@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import types
+from jpype import JImplements, JOverride
 
 
 FUNCTION_DOMAIN_NAME = 'Function'
@@ -13,11 +13,6 @@ FUNCTION_DOMAIN_NAME = 'Function'
 
 def getobject(package, name):
     return getattr(getattr(package, name + '$'), 'MODULE$')
-
-
-class Function0:
-    def apply(self):
-        pass
 
 
 class ViperAST:
@@ -220,10 +215,7 @@ class ViperAST:
         position = position or self.NoPosition
         info = info or self.NoInfo
 
-        def type_passed_apply(slf):
-            return type_passed
-
-        type_passed_func = self.to_function0(type_passed_apply)
+        type_passed_func = self.to_function0(type_passed)
         result = self.ast.DomainFuncApp(func_name, self.to_seq(args),
                                         self.to_map(type_var_map), position,
                                         info, type_passed_func,
@@ -646,11 +638,15 @@ class ViperAST:
         else:
             return option.get()
 
-    def to_function0(self, func):
-        func0 = Function0()
-        func0.apply = types.MethodType(func, func0)
-        result = self.jvm.get_proxy('scala.Function0', func0)
-        return result
+    def to_function0(self, value):
+
+        @JImplements(self.jvm.scala.Function0)
+        class Function0:
+            @JOverride
+            def apply(self):
+                return value
+
+        return Function0()
 
     def SimpleInfo(self, comments):
         return self.ast.SimpleInfo(self.to_seq(comments))

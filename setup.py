@@ -19,7 +19,7 @@ setup(
             'distribute',
             ],
         install_requires=[
-            'jpype1==0.6.3',
+            'jpype1==0.7.0',
             'astunparse==1.6.2',
             'z3-solver',
             'vyper'

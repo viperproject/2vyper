@@ -13,7 +13,8 @@ import traceback
 
 from typing import Set
 from time import time
-from jpype import JavaException
+
+from jpype import JException
 
 from nagini_translation import vyper
 from nagini_translation import config
@@ -177,7 +178,7 @@ def verify(prog: Program, path: str,
             verifier = Carbon(jvm, path)
         vresult = verifier.verify(prog)
         return vresult
-    except JavaException as je:
+    except JException as je:
         print(je.stacktrace())
         traceback.print_exc()
 
@@ -353,7 +354,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
         print(e.message + ': Translated AST contains inconsistencies.')
     except InvalidVyperException as e:
         print(e.message)
-    except JavaException as e:
+    except JException as e:
         print(e.stacktrace())
         raise e
 

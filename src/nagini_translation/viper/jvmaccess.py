@@ -14,14 +14,13 @@ class JVM:
     """
 
     def __init__(self, classpath: str):
-        jpype.startJVM(jpype.getDefaultJVMPath(), f'-Djava.class.path={classpath}', '-Xss32m')
+        jvm_path = jpype.getDefaultJVMPath()
+        path_arg = f'-Djava.class.path={classpath}'
+        jpype.startJVM(jvm_path, path_arg, '-Xss32m', convertStrings=False)
         self.java = jpype.JPackage('java')
         self.scala = jpype.JPackage('scala')
         self.viper = jpype.JPackage('viper')
         self.fastparse = jpype.JPackage('fastparse')
-
-    def get_proxy(self, supertype, instance):
-        return jpype.JProxy(supertype, inst=instance)
 
     def is_known_class(self, class_object) -> bool:
         return not isinstance(class_object, jpype.JPackage)
