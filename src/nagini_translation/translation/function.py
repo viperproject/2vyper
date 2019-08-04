@@ -241,7 +241,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # Havoc the return value
             if function.type.return_type:
                 havoc = self._havoc_var(ctx.result_var.typ(), ctx)
-                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.localVar(), havoc.localVar()))
+                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.localVar(), havoc))
             # Revert self and old_self to the state before the function
             copy_self = self.viper_ast.LocalVarAssign(self_var, pre_self_var)
             copy_old = self.viper_ast.LocalVarAssign(old_self_var, pre_self_var)
@@ -473,30 +473,20 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         name = ctx.inline_prefix + mangled.local_var_name(var.name)
         return self.viper_ast.LocalVarDecl(name, type, pos)
 
-    def _non_negative(self, var, ctx: Context) -> Stmt:
-        zero = self.viper_ast.IntLit(0)
-        return self.viper_ast.GeCmp(var, zero)
-
     def _assume_non_negative(self, var, ctx: Context) -> Stmt:
-        gez = self._non_negative(var, ctx)
+        zero = self.viper_ast.IntLit(0)
+        gez = self.viper_ast.GeCmp(var, zero)
         return self.viper_ast.Inhale(gez)
 
     def _havoc_var(self, type, ctx: Context):
         havoc_name = ctx.new_local_var_name('havoc')
         havoc = self.viper_ast.LocalVarDecl(havoc_name, type)
         ctx.new_local_vars.append(havoc)
-        return havoc
+        return havoc.localVar()
 
     def _havoc_balance(self, ctx: Context):
-        self_var = ctx.self_var.localVar()
-
-        havoc = self._havoc_var(self.viper_ast.Int, ctx)
-        assume_pos = self._assume_non_negative(havoc.localVar(), ctx)
-
         balance_type = ctx.field_types[names.SELF_BALANCE]
-        get_balance = helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type)
-        inc_sum = self.viper_ast.Add(get_balance, havoc.localVar())
-        inc = helpers.struct_set(self.viper_ast, self_var, inc_sum, names.SELF_BALANCE, ctx.self_type)
-        self_assign = self.viper_ast.LocalVarAssign(self_var, inc)
-
-        return [assume_pos, self_assign]
+        havoc = self._havoc_var(balance_type, ctx)
+        assume_pos = self._assume_non_negative(havoc, ctx)
+        inc = self.balance_translator.increase_balance(havoc, ctx)
+        return [assume_pos, inc]

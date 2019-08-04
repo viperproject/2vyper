@@ -68,6 +68,8 @@ REASONS = {
         lambda i: f"Index {pprint(i.node)} might exceed array length.",
     'seq.index.negative':
         lambda i: f"Index {pprint(i.node)} might be negative.",
+    'receiver.not.injective':
+        lambda i: f"Receiver of {pprint(i.node)} might not be injective.",
     'receiver.null':
         lambda i: f"Receiver of {pprint(i.node)} might be null.",
     'negative.permission':

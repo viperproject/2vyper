@@ -24,27 +24,31 @@ class BalanceTranslator(CommonTranslator):
 
         self.type_translator = TypeTranslator(viper_ast)
 
+    def get_balance(self, self_var: Expr, ctx: Context, pos=None, info=None) -> Expr:
+        balance_type = ctx.field_types[names.SELF_BALANCE]
+        return helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type, pos, info)
+
+    def set_balance(self, self_var: Expr, value: Expr, ctx: Context, pos=None, info=None) -> Expr:
+        return helpers.struct_set(self.viper_ast, self_var, value, names.SELF_BALANCE, ctx.self_type, pos, info)
+
     def check_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
         self_var = ctx.self_var.localVar()
-        balance_type = ctx.field_types[names.SELF_BALANCE]
-        get_balance = helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type, pos)
+        get_balance = self.get_balance(self_var, ctx, pos)
         return self.fail_if(self.viper_ast.LtCmp(get_balance, amount), [], ctx, pos, info)
 
     def increase_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
         self_var = ctx.self_var.localVar()
-        balance_type = ctx.field_types[names.SELF_BALANCE]
-        get_balance = helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type, pos)
+        get_balance = self.get_balance(self_var, ctx, pos)
         inc_sum = self.viper_ast.Add(get_balance, amount, pos)
-        inc = helpers.struct_set(self.viper_ast, self_var, inc_sum, names.SELF_BALANCE, ctx.self_type, pos)
+        inc = self.set_balance(self_var, inc_sum, ctx, pos)
         return self.viper_ast.LocalVarAssign(self_var, inc, pos, info)
 
     def decrease_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
         self_var = ctx.self_var.localVar()
-        balance_type = ctx.field_types[names.SELF_BALANCE]
-        get_balance = helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type, pos)
+        get_balance = self.get_balance(self_var, ctx, pos)
         diff = self.viper_ast.Sub(get_balance, amount)
-        sub = helpers.struct_set(self.viper_ast, self_var, diff, names.SELF_BALANCE, ctx.self_type)
-        return self.viper_ast.LocalVarAssign(self_var, sub)
+        sub = self.set_balance(self_var, diff, ctx, pos)
+        return self.viper_ast.LocalVarAssign(self_var, sub, pos, info)
 
     def get_received(self, self_var: Expr, address: Expr, ctx: Context, pos=None, info=None):
         received_type = ctx.field_types[mangled.RECEIVED_FIELD]
