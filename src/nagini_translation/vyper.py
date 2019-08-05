@@ -10,11 +10,11 @@ from subprocess import Popen, PIPE
 from nagini_translation.exceptions import InvalidVyperException
 
 
-def check(file: str):
+def check(file: str, root=None):
     """
     Checks that the file is a valid Vyper contract. If not, throws an `InvalidVyperException`.
     """
-    pipes = Popen(['vyper', file], stdout=PIPE, stderr=PIPE)
+    pipes = Popen(['vyper', file], stdout=PIPE, stderr=PIPE, cwd=root)
     _, stderr = pipes.communicate()
 
     if pipes.returncode != 0:

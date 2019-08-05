@@ -52,6 +52,7 @@ CONSTANT_VALUES = {
 
 # Special
 UNITS = 'units'
+IMPLEMENTS = 'implements'
 INDEXED = 'indexed'
 UNREACHABLE = 'UNREACHABLE'
 

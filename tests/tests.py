@@ -53,6 +53,8 @@ from nagini_translation.verification.verifier import ViperVerifier
 from nagini_translation.verification.result import VerificationResult
 
 
+VYPER_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)))
+
 _JVM = None
 VERIFIER = ViperVerifier.silicon
 
@@ -569,7 +571,7 @@ class VerificationTest(AnnotatedTest):
             pytest.skip('Ignored')
         path = os.path.abspath(path)
         try:
-            prog = translate(path, jvm, sif=sif)
+            prog = translate(path, jvm, sif=sif, vyper_root=VYPER_ROOT)
         except InvalidProgramException as e:
             actual_errors = [InvalidProgramError(e)]
             annotation_manager.check_errors(actual_errors)

@@ -114,8 +114,8 @@ class ProgramBuilder(ast.NodeVisitor):
         self._check_no_local_spec()
 
         variable_name = node.target.id
-        # We ignore the units declaration
-        if variable_name != names.UNITS:
+        # We ignore the units and implements declarations
+        if variable_name != names.UNITS and variable_name != names.IMPLEMENTS:
             variable_type = self.type_builder.build(node.annotation)
             if isinstance(variable_type, EventType):
                 event = VyperEvent(variable_name, variable_type)
