@@ -17,7 +17,12 @@ def _backend_path(verifier: str):
     return os.path.join(backends, f'{verifier}.jar')
 
 
-def _executable_path(cmd: str) -> str:
+def _executable_path(cmd: str, env: str = None) -> str:
+    if env:
+        env_var = os.environ.get(env)
+        if env_var:
+            return env_var
+
     return shutil.which(cmd, os.X_OK)
 
 
@@ -48,35 +53,22 @@ def _get_boogie_path():
     """ Tries to detect path to Boogie executable.
 
     First tries the environment variable ``BOOGIE_EXE``. If it is not
-    defined, then checks the OS specific directory.
+    defined, it uses the system default.
     """
 
-    boogie_exe = os.environ.get('BOOGIE_EXE')
-    if boogie_exe:
-        return boogie_exe
-
     cmd = 'Boogie.exe' if sys.platform.startswith('win') else 'boogie'
-    return _executable_path(cmd)
+    return _executable_path(cmd, 'BOOGIE_EXE')
 
 
 def _get_z3_path():
     """ Tries to detect path to Z3 executable.
 
     First tries the environment variable ``Z3_EXE``. If it is not defined,
-    then checks the z3 dependency. Otherwise, the system default is used.
+    it uses the system default (which is probably the one installed by the dependency).
     """
 
-    z3_exe = os.environ.get('Z3_EXE')
-    if z3_exe:
-        return z3_exe
-
     cmd = 'z3.exe' if sys.platform.startswith('win') else 'z3'
-    ex_path = os.path.dirname(sys.executable)
-    path = os.path.join(ex_path, cmd)
-    if os.path.isfile(path) and os.access(path, os.X_OK):
-        return path
-
-    return _executable_path(cmd)
+    return _executable_path(cmd, 'Z3_EXE')
 
 
 def set_classpath(v: str):
