@@ -560,12 +560,12 @@ class AnnotatedTest:
         return manager
 
 
-class VerificationTest(AnnotatedTest):
-    """Test for testing verification of successfully translated programs."""
+class TwoVyperTest(AnnotatedTest):
+    """Test for testing correct behavior of 2vyper for annotated programs."""
 
     def test_file(
             self, path: str, jvm: jvmaccess.JVM, verifier: ViperVerifier, sif: bool):
-        """Test specific Python file."""
+        """Test specific Vyper file."""
         annotation_manager = self.get_annotation_manager(path, verifier.name)
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
@@ -612,36 +612,9 @@ class VerificationTest(AnnotatedTest):
             pytest.skip('Unexpected or missing output')
 
 
-_VERIFICATION_TESTER = VerificationTest()
+_TESTER = TwoVyperTest()
 
 
-def _test_verification(path, sif=False):
+def _test(path, sif=False):
     """Execute provided verification test."""
-    _VERIFICATION_TESTER.test_file(path, _JVM, VERIFIER, sif)
-
-
-class TranslationTest(AnnotatedTest):
-    """Test for testing translation errors."""
-
-    def test_file(self, path: str, jvm: jvmaccess.JVM, sif: bool):
-        """Test specific Python file."""
-        annotation_manager = self.get_annotation_manager(path, _BACKEND_ANY)
-        if annotation_manager.ignore_file():
-            pytest.skip('Ignored')
-        path = os.path.abspath(path)
-        try:
-            translate(path, jvm, sif=sif)
-            actual_errors = []
-        except InvalidProgramException as exp1:
-            actual_errors = [InvalidProgramError(exp1)]
-        annotation_manager.check_errors(actual_errors)
-        if annotation_manager.has_unexpected_missing():
-            pytest.skip('Unexpected or missing output')
-
-
-_TRANSLATION_TESTER = TranslationTest()
-
-
-def _test_translation(path, sif):
-    """Execute provided translation test."""
-    _TRANSLATION_TESTER.test_file(path, _JVM, sif)
+    _TESTER.test_file(path, _JVM, VERIFIER, sif)
