@@ -74,7 +74,7 @@ def load_sil_files(jvm: JVM, sif: bool = False):
 
 
 def translate(path: str, jvm: JVM, selected: Set[str] = set(),
-              sif: bool = False, ignore_global: bool = False,
+              sif: bool = False,
               verbose: bool = False) -> Program:
     """
     Translates the Python module at the given path to a Viper program
@@ -204,68 +204,75 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'vyper_file',
-        help='Python file to verify')
+        help='Python file to verify'
+    )
+    parser.add_argument(
+        '--verifier',
+        help='verifier to be used (carbon or silicon)',
+        default='silicon'
+    )
     parser.add_argument(
         '--viper-jar-path',
         help='Java CLASSPATH that includes Viper class files',
-        default=None)
+        default=None
+    )
     parser.add_argument(
         '--boogie',
         help='path to Boogie executable',
-        default=config.boogie_path)
+        default=config.boogie_path
+    )
     parser.add_argument(
         '--z3',
         help='path to Z3 executable',
-        default=config.z3_path)
+        default=config.z3_path
+    )
     parser.add_argument(
         '--print-silver',
         action='store_true',
-        help='print generated Silver program')
+        help='print generated Silver program'
+    )
     parser.add_argument(
         '--write-silver-to-file',
         default=None,
-        help='write generated Silver program to specified file')
+        help='write generated Silver program to specified file'
+    )
     parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
-        help="increase output verbosity")
-    parser.add_argument(
-        '--verifier',
-        help='verifier to be used (carbon or silicon)',
-        default='silicon')
+        help="increase output verbosity"
+    )
     parser.add_argument(
         '--sif',
         action='store_true',
-        help='verify secure information flow')
+        help='verify secure information flow'
+    )
     parser.add_argument(
         '--show-viper-errors',
         action='store_true',
-        help='show Viper-level error messages if no Python errors are available')
+        help='show Viper-level error messages if no Python errors are available'
+    )
     parser.add_argument(
         '--log',
         type=_parse_log_level,
         help='log level',
-        default='WARNING')
+        default='WARNING'
+    )
     parser.add_argument(
         '--benchmark',
         type=int,
-        help=('run verification the given number of times to benchmark '
-              'performance'),
-        default=-1)
+        help='run verification the given number of times to benchmark performance',
+        default=-1
+    )
     parser.add_argument(
         '--ide-mode',
         action='store_true',
-        help='Output errors in IDE format')
+        help='Output errors in IDE format'
+    )
     parser.add_argument(
         '--select',
         default=None,
         help='select specific methods or classes to verify, separated by commas'
-    )
-    parser.add_argument(
-        '--ignore-global',
-        action='store_true',
-        help='do not verify the the top level program (global statements)'
     )
     parser.add_argument(
         '--server',
@@ -317,8 +324,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
     try:
         start = time()
         selected = set(args.select.split(',')) if args.select else set()
-        prog = translate(vyper_file, jvm, selected, args.sif,
-                         ignore_global=args.ignore_global, verbose=args.verbose)
+        prog = translate(vyper_file, jvm, selected, args.sif, verbose=args.verbose)
         if args.print_silver:
             if args.verbose:
                 print('Result:')
