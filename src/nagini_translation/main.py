@@ -74,7 +74,7 @@ def load_sil_files(jvm: JVM, sif: bool = False):
 
 
 def translate(path: str, jvm: JVM, selected: Set[str] = set(),
-              sif: bool = False, vyper_root=None,
+              sif: bool = False, vyper_root=None, skip_vyper: bool = False,
               verbose: bool = False) -> Program:
     """
     Translates the Python module at the given path to a Viper program
@@ -85,7 +85,8 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     # resources_path = os.path.join(current_path, 'resources')
 
     # Check that the file is a valid Vyper contract
-    vyper.check(path, vyper_root)
+    if not skip_vyper:
+        vyper.check(path, vyper_root)
 
     if sif:
         # viper_ast = ViperASTExtended(jvm, jvm.java, jvm.scala, jvm.viper, path)
@@ -232,6 +233,11 @@ def main() -> None:
         default=None
     )
     parser.add_argument(
+        '--skip-vyper',
+        action='store_true',
+        help='skip validity check of contract with the Vyper compiler'
+    )
+    parser.add_argument(
         '--print-silver',
         action='store_true',
         help='print generated Silver program'
@@ -329,7 +335,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
     try:
         start = time()
         selected = set(args.select.split(',')) if args.select else set()
-        prog = translate(vyper_file, jvm, selected, args.sif, args.vyper_root, args.verbose)
+        prog = translate(vyper_file, jvm, selected, args.sif, args.vyper_root, args.skip_vyper, args.verbose)
         if args.print_silver:
             if args.verbose:
                 print('Result:')
