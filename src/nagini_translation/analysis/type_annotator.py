@@ -250,7 +250,12 @@ class TypeAnnotator:
             self.annotate(elem)
 
     def annotate_Num(self, node: ast.Num):
-        node.type = types.VYPER_INT128
+        if isinstance(node.n, int):
+            node.type = types.VYPER_INT128
+        elif isinstance(node.n, float):
+            node.type = types.VYPER_DECIMAL
+        else:
+            assert False
 
     def annotate_NameConstant(self, node: ast.NameConstant):
         assert node.value is not None

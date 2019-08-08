@@ -77,7 +77,16 @@ class ExpressionTranslator(NodeTranslator):
             lit = self.viper_ast.IntLit(node.n, pos)
             return [], lit
         elif isinstance(node.n, float):
-            raise UnsupportedException(node, "Float not yet supported")
+            # We only allow decimal literals that are small integers so we know that there
+            # has not been a rounding error in the float
+            # TODO: changes this with python 3.8
+            if node.n.is_integer() and -1000 <= node.n <= 1000:
+                value = int(node.n)
+                scaling_factor = node.type.scaling_factor
+                lit = self.viper_ast.IntLit(value * scaling_factor, pos)
+                return [], lit
+            else:
+                raise UnsupportedException(node, "Float not yet supported")
         else:
             assert False
 
@@ -103,6 +112,23 @@ class ExpressionTranslator(NodeTranslator):
         right_stmts, right = self.translate(node.right, ctx)
         stmts = left_stmts + right_stmts
 
+        scaling_factor = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+
+        def is_decimal(n):
+            return n.type == types.VYPER_DECIMAL
+
+        # Decimals are scaled integers, i.e. the decimal 2.3 is represented as the integer
+        # 2.3 * 10^10 = 23000000000. For addition, subtraction, and modulo the same operations
+        # as with integers can be used. For multiplication we need to divide out one of the
+        # scaling factors while in division we need to multiply one in.
+        if is_decimal(node.left) or is_decimal(node.right):
+            # TODO: add proper type checking
+            assert is_decimal(node.left) and is_decimal(node.right)
+
+            # In decimal division we first multiply the lhs by the scaling factor
+            if isinstance(node.op, ast.Div):
+                left = self.viper_ast.Mul(left, scaling_factor, pos)
+
         op = self.translate_operator(node.op)
 
         # If the divisor is 0 revert the transaction
@@ -115,7 +141,12 @@ class ExpressionTranslator(NodeTranslator):
             cond = self.viper_ast.GtCmp(right, left, pos)
             stmts.append(self.fail_if(cond, [], ctx, pos))
 
-        return stmts, op(left, right, pos)
+        res = op(left, right, pos)
+        if is_decimal(node.left) and isinstance(node.op, ast.Mult):
+            # In decimal multiplication we divide the end result by the scaling factor
+            res = self.viper_ast.Div(res, scaling_factor, pos)
+
+        return stmts, res
 
     def translate_BoolOp(self, node: ast.BoolOp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
@@ -152,9 +183,21 @@ class ExpressionTranslator(NodeTranslator):
     def translate_Compare(self, node: ast.Compare, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
-        lhs_stmts, lhs = self.translate(node.left, ctx)
-        op = self.translate_operator(node.ops[0])
-        rhs_stmts, rhs = self.translate(node.comparators[0], ctx)
+        assert len(node.ops) == 1
+
+        left = node.left
+        op = node.ops[0]
+        right = node.comparators[0]
+
+        def is_decimal(n):
+            return n.type == types.VYPER_DECIMAL
+
+        if is_decimal(left) or is_decimal(right):
+            assert is_decimal(left) and is_decimal(right)
+
+        lhs_stmts, lhs = self.translate(left, ctx)
+        op = self.translate_operator(op)
+        rhs_stmts, rhs = self.translate(right, ctx)
 
         return lhs_stmts + rhs_stmts, op(lhs, rhs, pos)
 

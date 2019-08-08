@@ -65,6 +65,7 @@ class StatementTranslator(NodeTranslator):
         return assign_stmts + rhs_stmts + [assign]
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
+        # TODO: merge with expression translator
         pos = self.to_position(node, ctx)
 
         left = node.target
@@ -74,6 +75,23 @@ class StatementTranslator(NodeTranslator):
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 
         stmts = lhs_stmts + rhs_stmts
+
+        scaling_factor = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+
+        def is_decimal(n):
+            return n.type == types.VYPER_DECIMAL
+
+        # Decimals are scaled integers, i.e. the decimal 2.3 is represented as the integer
+        # 2.3 * 10^10 = 23000000000. For addition, subtraction, and modulo the same operations
+        # as with integers can be used. For multiplication we need to divide out one of the
+        # scaling factors while in division we need to multiply one in.
+        if is_decimal(node.target) or is_decimal(node.value):
+            # TODO: add proper type checking
+            assert is_decimal(node.target) and is_decimal(node.value)
+
+            # In decimal division we first multiply the lhs by the scaling factor
+            if isinstance(node.op, ast.Div):
+                lhs = self.viper_ast.Mul(left, scaling_factor, pos)
 
         # If the divisor is 0 revert the transaction
         if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
@@ -86,6 +104,9 @@ class StatementTranslator(NodeTranslator):
             stmts.append(self.fail_if(cond, [], ctx, pos))
 
         value = op(lhs, rhs, pos)
+        if is_decimal(node.target) and isinstance(node.op, ast.Mult):
+            # In decimal multiplication we divide the end result by the scaling factor
+            value = self.viper_ast.Div(value, scaling_factor, pos)
 
         assign_stmts, assign = self.assignment_translator.assign_to(node.target, value, ctx)
         return stmts + assign_stmts + [assign]
