@@ -11,6 +11,10 @@ import astunparse
 from typing import Iterable
 
 
+def first(iterable: Iterable):
+    return next(iter(iterable), None)
+
+
 def first_index(statisfying, l):
     return next((i for i, v in enumerate(l) if statisfying(v)), -1)
 

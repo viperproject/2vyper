@@ -62,18 +62,21 @@ class SpecStructureChecker(ast.NodeVisitor):
         # Accessible is of the form accessible(to, amount, self.some_func(args...))
         elif name == names.ACCESSIBLE:
             _assert(not self._inside_old, node, 'spec.old.accessible')
-            _assert(len(node.args) == 3, node, 'spec.accessible')
-            call = node.args[2]
-            _assert(isinstance(call, ast.Call), node, 'spec.accessible')
-            _assert(isinstance(call.func, ast.Attribute), node, 'spec.accessible')
-            _assert(isinstance(call.func.value, ast.Name), node, 'spec.accessible')
-            _assert(call.func.value.id == names.SELF, node, 'spec.accessible')
-            _assert(call.func.attr in self.program.functions, node, 'spec.accessible')
-            _assert(call.func.attr != names.INIT, node, 'spec.accessible')
+            _assert(len(node.args) == 2 or len(node.args) == 3, node, 'spec.accessible')
 
             self.visit(node.args[0])
             self.visit(node.args[1])
-            self.generic_visit(call)
+
+            if len(node.args) == 3:
+                call = node.args[2]
+                _assert(isinstance(call, ast.Call), node, 'spec.accessible')
+                _assert(isinstance(call.func, ast.Attribute), node, 'spec.accessible')
+                _assert(isinstance(call.func.value, ast.Name), node, 'spec.accessible')
+                _assert(call.func.value.id == names.SELF, node, 'spec.accessible')
+                _assert(call.func.attr in self.program.functions, node, 'spec.accessible')
+                _assert(call.func.attr != names.INIT, node, 'spec.accessible')
+
+                self.generic_visit(call)
         elif name == names.OLD:
             inside_old = self._inside_old
             self._inside_old = True

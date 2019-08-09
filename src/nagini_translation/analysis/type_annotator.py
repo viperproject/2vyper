@@ -221,8 +221,9 @@ class TypeAnnotator:
     def _annotate_accessible(self, node: ast.Call):
         self.annotate(node.args[0])
         self.annotate(node.args[1])
-        for arg in node.args[2].args:
-            self.annotate(arg)
+        if len(node.args) == 3:
+            for arg in node.args[2].args:
+                self.annotate(arg)
 
     def _annotate_event(self, node: ast.Call):
         for arg in node.args[0].args:

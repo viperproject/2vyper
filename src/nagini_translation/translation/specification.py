@@ -177,7 +177,13 @@ class SpecificationTranslator(ExpressionTranslator):
                     get_arg = helpers.map_get(self.viper_ast, rec, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
                     return [], get_arg
         elif name == names.ACCESSIBLE:
-            func_name = node.args[2].func.attr
+            # The function ment in accessible is either the one used as the third argument
+            # or the one the heuristics determined
+            if len(node.args) == 2:
+                func_name = ctx.program.analysis.accessible_function.name
+            else:
+                func_name = node.args[2].func.attr
+
             is_wrong_func = ctx.function and func_name != ctx.function.name
             # If we ignore accessibles or if we are in a function not mentioned in the accessible
             # expression we just use True as the body
@@ -189,7 +195,10 @@ class SpecificationTranslator(ExpressionTranslator):
                 tag = self.viper_ast.IntLit(ctx.program.analysis.accessible_tags[node], pos)
                 to = self._translate_spec(node.args[0], ctx)
                 amount = self._translate_spec(node.args[1], ctx)
-                func_args = [self._translate_spec(arg, ctx) for arg in node.args[2].args]
+                if len(node.args) == 2:
+                    func_args = [amount] if ctx.program.analysis.accessible_function.args else []
+                else:
+                    func_args = [self._translate_spec(arg, ctx) for arg in node.args[2].args]
                 acc_name = mangled.accessible_name(func_name)
                 acc_args = [tag, to, amount, *func_args]
                 pred_acc = self.viper_ast.PredicateAccess(acc_args, acc_name, pos)

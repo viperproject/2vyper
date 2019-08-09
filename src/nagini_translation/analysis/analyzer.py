@@ -10,8 +10,11 @@ import ast
 from nagini_translation.ast import names
 from nagini_translation.ast.nodes import VyperProgram, VyperFunction
 
+from nagini_translation.analysis import heuristics
 from nagini_translation.analysis.structure_checker import check_structure
 from nagini_translation.analysis.type_annotator import TypeAnnotator
+
+from nagini_translation.exceptions import UnsupportedException
 
 
 def analyze(program: VyperProgram):
@@ -27,20 +30,32 @@ def analyze(program: VyperProgram):
         _FunctionAnalyzer(function).analyze()
 
     program.analysis = ProgramAnalysis()
+    # The heuristics are need for analysis, therefore do them first
+    heuristics.compute(program)
     _ProgramAnalyzer(program).analyze()
 
 
 class ProgramAnalysis:
 
     def __init__(self):
+        # The function that is used to prove accessibility if none is given
+        # Is set in the heuristics computation
+        # May be 'None' if the heuristics is not able to determine a suitable function
+        self.accessible_function = None
+        # The invariant a tag belongs to
+        # Each invariant has a tag that is used in accessible so we know which invariant fails
+        # if we cannot prove the accessibility
         self.inv_tags = {}
+        # Maps accessible ast.Call nodes to their tag
         self.accessible_tags = {}
 
 
 class FunctionAnalysis:
 
     def __init__(self):
+        # True if and only if issued state is accessed in the function specification
         self.uses_issued = False
+        # The set of tags for which accessibility needs to be proven in the function
         self.accessible_tags = set()
 
 
@@ -69,7 +84,13 @@ class _ProgramAnalyzer(ast.NodeVisitor):
                     function.analysis.uses_issued = True
             elif node.func.id == names.ACCESSIBLE:
                 self.program.analysis.accessible_tags[node] = self.tag
-                function_name = node.args[2].func.attr
+                if len(node.args) == 3:
+                    function_name = node.args[2].func.attr
+                else:
+                    if not self.program.analysis.accessible_function:
+                        msg = "No matching function for acccessible could be determined."
+                        raise UnsupportedException(node, msg)
+                    function_name = self.program.analysis.accessible_function.name
                 self.program.functions[function_name].analysis.accessible_tags.add(self.tag)
 
         self.generic_visit(node)
