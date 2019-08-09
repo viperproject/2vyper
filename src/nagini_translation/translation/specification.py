@@ -68,18 +68,34 @@ class SpecificationTranslator(ExpressionTranslator):
             with quantified_var_scope(ctx):
                 num_args = len(node.args)
                 quants = []
+                type_assumptions = []
                 # The first argument to forall is the variable declaration dict
                 for var_name in node.args[0].keys:
                     name_pos = self.to_position(var_name, ctx)
                     type = self.type_translator.translate(var_name.type, ctx)
                     qname = mangled.quantifier_var_name(var_name.id)
                     var_decl = self.viper_ast.LocalVarDecl(qname, type, name_pos)
+                    var = var_decl.localVar()
+                    tassps = self.type_translator.type_assumptions(var, var_name.type, ctx)
+                    type_assumptions.extend(tassps)
                     quants.append(var_decl)
                     ctx.quantified_vars[var_name.id] = var_decl
                     ctx.all_vars[var_name.id] = var_decl
 
                 # The last argument to forall is the quantified expression
                 expr = self._translate_spec(node.args[num_args - 1], ctx)
+
+                # We need to assume the type assumptions for the quantified variables
+                def chain(assumptions):
+                    assumption, *rest = assumptions
+                    if rest:
+                        return self.viper_ast.And(assumption, chain(rest), pos)
+                    else:
+                        return assumption
+
+                if type_assumptions:
+                    assumption_exprs = chain(type_assumptions)
+                    expr = self.viper_ast.Implies(assumption_exprs, expr, pos)
 
                 # The arguments in the middle are the triggers
                 triggers = []
