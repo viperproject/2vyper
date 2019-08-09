@@ -34,3 +34,13 @@ def call_with_result(func: bytes[4]):
 @public
 def raw_call_no_val(func: bytes[4]):
     res: bytes[128] = raw_call(msg.sender, func, outsize=128, gas=msg.gas)
+
+
+@private
+def with_bytes(b: bytes[12]) -> int128:
+    return 5
+
+
+@public
+def raw_call_inline(func: bytes[4]) -> int128:
+    return self.with_bytes(raw_call(msg.sender, func, outsize=12, value=self.reward, gas=msg.gas))
