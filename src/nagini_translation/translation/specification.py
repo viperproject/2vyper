@@ -16,8 +16,6 @@ from nagini_translation.translation.context import quantified_var_scope, self_sc
 from nagini_translation.translation import mangled
 from nagini_translation.translation import helpers
 
-from nagini_translation.exceptions import InvalidProgramException
-
 from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import StmtsAndExpr
 
@@ -63,13 +61,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
         name = node.func.id
         if name == names.IMPLIES:
-            # TODO: handle in different place
-            if len(node.args) != 2:
-                raise InvalidProgramException(node, "Implication requires 2 arguments.")
-
             lhs = self._translate_spec(node.args[0], ctx)
             rhs = self._translate_spec(node.args[1], ctx)
-
             return [], self.viper_ast.Implies(lhs, rhs, pos)
         elif name == names.FORALL:
             with quantified_var_scope(ctx):
@@ -136,19 +129,11 @@ class SpecificationTranslator(ExpressionTranslator):
             else:
                 return [], local_var
         elif name == names.OLD or name == names.ISSUED:
-            if len(node.args) != 1:
-                # TODO: remove this
-                raise InvalidProgramException(node, "Old expression requires a single argument.")
-
             self_var = ctx.old_self_var if name == names.OLD else ctx.issued_self_var
             with self_scope(self_var, self_var, ctx):
                 arg = node.args[0]
                 return [], self._translate_spec(arg, ctx)
         elif name == names.SUM:
-            # TODO: remove this
-            if len(node.args) != 1:
-                raise InvalidProgramException(node, "Sum expression requires a single argument.")
-
             arg = node.args[0]
             expr = self._translate_spec(arg, ctx)
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
@@ -221,5 +206,4 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name not in names.NOT_ALLOWED_IN_SPEC:
             return super().translate_Call(node, ctx)
         else:
-            # TODO: remove this
-            raise InvalidProgramException(node, f"Call to function {name} not allowed in specification.")
+            assert False
