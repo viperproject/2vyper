@@ -1,17 +1,44 @@
-env
-bin
-deps/JPype1
-__pycache__
-.virtualenv
-.cache
-.installed.cfg
-.mr.developer.cfg
-*.egg-info
-*.egg-link
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
 eggs/
-tmp
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# env
+env/
+
+# Unit test / coverage reports
+.cache
+.pytest_cache/
+
+# Documentation
 docs/build
+
+# IDEs
 .idea
-*.pyc
-.DS_Store
 .vscode/settings.json
+
+# MacOS
+.DS_Store
+
+# Viper temporary files
+tmp/
