@@ -8,6 +8,8 @@ init:
 	env/bin/pip install -r requirements.txt
 	env/bin/pip install -e .
 
+intstall: env init
+
 run:
 	2vyper $(file)
 
@@ -26,4 +28,4 @@ clean-egg:
 clean-env: clean clean-egg
 	rm -r env
 
-.PHONY: env init run test test-carbon clean clean-egg clean-env
+.PHONY: env init install run test test-carbon clean clean-egg clean-env
