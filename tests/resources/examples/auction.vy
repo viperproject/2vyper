@@ -64,6 +64,8 @@ pendingReturns: public(map(address, wei_value))
 #@ invariant: forall({a: address}, {self.pendingReturns[a]}, implies(self.pendingReturns[a] != 0, received(a) != 0))
 #@ invariant: forall({a: address}, {received(a)}, implies(a != self.beneficiary and received(a) == 0, sent(a) == 0))
 
+#@ invariant: forall({a: address, v: wei_value}, {accessible(a, v)}, implies(v == self.pendingReturns[a], accessible(a, v)))
+
 
 @public
 def __init__(_beneficiary: address, _bidding_time: timedelta):
