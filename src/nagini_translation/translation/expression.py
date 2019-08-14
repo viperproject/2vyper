@@ -44,8 +44,9 @@ class ExpressionTranslator(NodeTranslator):
             ast.Add: self.viper_ast.Add,
             ast.Sub: self.viper_ast.Sub,
             ast.Mult: self.viper_ast.Mul,
-            ast.Div: self.viper_ast.Div,  # Note that / in Vyper means floor division
-            ast.Mod: self.viper_ast.Mod,
+            # Note that / and % in Vyper means truncating division
+            ast.Div: lambda l, r, pos: helpers.div(viper_ast, l, r, pos),
+            ast.Mod: lambda l, r, pos: helpers.mod(viper_ast, l, r, pos),
             ast.Pow: lambda l, r, pos: helpers.pow(viper_ast, l, r, pos),
             ast.Eq: self.viper_ast.EqCmp,
             ast.NotEq: self.viper_ast.NeCmp,
@@ -144,7 +145,7 @@ class ExpressionTranslator(NodeTranslator):
         res = op(left, right, pos)
         if is_decimal(node.left) and isinstance(node.op, ast.Mult):
             # In decimal multiplication we divide the end result by the scaling factor
-            res = self.viper_ast.Div(res, scaling_factor, pos)
+            res = helpers.div(self.viper_ast, res, scaling_factor, pos)
 
         return stmts, res
 
@@ -282,21 +283,24 @@ class ExpressionTranslator(NodeTranslator):
                 stmts = lhs_stmts + rhs_stmts
                 return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
             elif name == names.FLOOR or name == names.CEIL:
+                # Let s be the scaling factor, then
+                #    floor(d) == d < 0 ? (d - (s - 1)) / s : d / s
+                #    ceil(d)  == d < 0 ? d / s : (d + s - 1) / s
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 scaling_factor = node.args[0].type.scaling_factor
                 scaling_factor_lit = self.viper_ast.IntLit(scaling_factor, pos)
                 scaling_factor_minus1 = self.viper_ast.IntLit(scaling_factor - 1, pos)
                 zero = self.viper_ast.IntLit(0, pos)
                 ltzero = self.viper_ast.LtCmp(arg, zero, pos)
-                div_scaling = self.viper_ast.Div(arg, scaling_factor_lit, pos)
+                div_scaling = helpers.div(self.viper_ast, arg, scaling_factor_lit, pos)
                 if name == names.FLOOR:
                     sub = self.viper_ast.Sub(arg, scaling_factor_minus1, pos)
-                    fst = self.viper_ast.Div(sub, scaling_factor_lit, pos)
+                    fst = helpers.div(self.viper_ast, sub, scaling_factor_lit, pos)
                     snd = div_scaling
                 elif name == names.CEIL:
                     add = self.viper_ast.Add(arg, scaling_factor_minus1, pos)
-                    fst = scaling_factor_lit
-                    snd = self.viper_ast.Div(add, scaling_factor_lit, pos)
+                    fst = div_scaling
+                    snd = helpers.div(self.viper_ast, add, scaling_factor_lit, pos)
                 return arg_stmts, self.viper_ast.CondExp(ltzero, fst, snd, pos)
             elif name == names.AS_WEI_VALUE:
                 arg_stmts, arg = self.translate(node.args[0], ctx)

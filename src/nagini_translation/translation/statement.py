@@ -106,7 +106,7 @@ class StatementTranslator(NodeTranslator):
         value = op(lhs, rhs, pos)
         if is_decimal(node.target) and isinstance(node.op, ast.Mult):
             # In decimal multiplication we divide the end result by the scaling factor
-            value = self.viper_ast.Div(value, scaling_factor, pos)
+            value = helpers.div(self.viper_ast, value, scaling_factor, pos)
 
         assign_stmts, assign = self.assignment_translator.assign_to(node.target, value, ctx)
         return stmts + assign_stmts + [assign]

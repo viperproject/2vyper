@@ -7,7 +7,29 @@
 
 domain $Math {
 
+    function $sign($a: Int): Int
+
+    function $div($a: Int, $b: Int, $r: Int): Int
+
+    function $mod($a: Int, $b: Int, $r: Int): Int
+
     function $pow($a: Int, $b: Int): Int
+
+    axiom $sign_ax {
+        $sign(0) == 0 && 
+        forall $a: Int :: { $sign($a) } 
+            ($a > 0 ==> $sign($a) == 1) && ($a < 0 ==> $sign($a) == -1)
+    }
+
+    axiom $div_ax {
+        forall $a: Int, $b: Int, $r: Int :: { $div($a, $b, $r) }
+            $div($a, $b, $r) == $a / $b + ($a >= 0 || $a % $b == 0 ? 0 : $sign($b))
+    }
+
+    axiom $mod_ax {
+        forall $a: Int, $b: Int, $r: Int :: { $mod($a, $b, $r) }
+            $mod($a, $b, $r) == $a - $div($a, $b, $r) * $b
+    }
 
     axiom $pow0N_ax {
         forall $a: Int :: { $pow(0, $a) } $a != 0 ==> $pow(0, $a) == 0
@@ -17,7 +39,7 @@ domain $Math {
         forall $a: Int :: { $pow($a, 0) } $a != 0 ==> $pow($a, 0) == 1
     }
     
-    axiom $pow_pos_ax {
+    axiom $pow_non_negative_ax {
         forall $a: Int, $b: Int :: { $pow($a, $b) } $a >= 0 && $b >= 0 ==> $pow($a, $b) >= 0
     }
 

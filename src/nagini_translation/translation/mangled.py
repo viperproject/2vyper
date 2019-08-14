@@ -37,6 +37,9 @@ CONTRACT_DOMAIN = '$Contract'
 SELF_ADDRESS = '$self_address'
 
 MATH_DOMAIN = '$Math'
+MATH_SIGN = '$sign'
+MATH_DIV = '$div'
+MATH_MOD = '$mod'
 MATH_POW = '$pow'
 
 ARRAY_DOMAIN = '$Array'

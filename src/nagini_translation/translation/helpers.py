@@ -90,6 +90,28 @@ def self_address(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.DomainFuncApp(address, [], viper_ast.Int, pos, info, domain)
 
 
+def div(viper_ast: ViperAST, dividend, divisor, pos=None, info=None):
+    # We need a special division function because Vyper uses truncating division
+    # instead of Viper's floor division
+    mdiv = mangled.MATH_DIV
+    domain = mangled.MATH_DOMAIN
+    # We pass the Viper floor division as a third argument to trigger a correct
+    # division by 0 error instead of an assertion failure if divisor == 0
+    args = [dividend, divisor, viper_ast.Div(dividend, divisor, pos)]
+    return viper_ast.DomainFuncApp(mdiv, args, viper_ast.Int, pos, info, domain)
+
+
+def mod(viper_ast: ViperAST, dividend, divisor, pos=None, info=None):
+    # We need a special mod function because Vyper uses truncating division
+    # instead of Viper's floor division
+    mmod = mangled.MATH_MOD
+    domain = mangled.MATH_DOMAIN
+    # We pass the Viper floor division as a third argument to trigger a correct
+    # division by 0 error instead of an assertion failure if divisor == 0
+    args = [dividend, divisor, viper_ast.Mod(dividend, divisor, pos)]
+    return viper_ast.DomainFuncApp(mmod, args, viper_ast.Int, pos, info, domain)
+
+
 def pow(viper_ast: ViperAST, base, exp, pos=None, info=None):
     mpow = mangled.MATH_POW
     domain = mangled.MATH_DOMAIN

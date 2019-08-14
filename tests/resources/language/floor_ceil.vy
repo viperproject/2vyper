@@ -21,6 +21,11 @@ def c(d: decimal) -> int128:
 #@ ensures: floor(2.0) == 2
 #@ ensures: floor(5.0 / 3.0) == 1
 #@ ensures: floor(0.0) == 0
+#@ ensures: floor(-0.0) == 0
+#@ ensures: floor(-2.0) == -2
+#@ ensures: floor(-5.0 / 3.0) == -2
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: floor(-5.0 / 3.0) == -1
 @public
 def checkf(d: decimal):
     pass
@@ -29,6 +34,11 @@ def checkf(d: decimal):
 #@ ensures: ceil(2.0) == 2
 #@ ensures: ceil(5.0 / 3.0) == 2
 #@ ensures: ceil(0.0) == 0
+#@ ensures: ceil(-0.0) == 0
+#@ ensures: ceil(-2.0) == -2
+#@ ensures: ceil(-5.0 / 3.0) == -1
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: ceil(-5.0 / 3.0) == -2
 @public
 def checkc(d: decimal):
     pass
