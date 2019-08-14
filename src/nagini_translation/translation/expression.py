@@ -281,6 +281,23 @@ class ExpressionTranslator(NodeTranslator):
                 comp = op(lhs, rhs, pos)
                 stmts = lhs_stmts + rhs_stmts
                 return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
+            elif name == names.FLOOR or name == names.CEIL:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                scaling_factor = node.args[0].type.scaling_factor
+                scaling_factor_lit = self.viper_ast.IntLit(scaling_factor, pos)
+                scaling_factor_minus1 = self.viper_ast.IntLit(scaling_factor - 1, pos)
+                zero = self.viper_ast.IntLit(0, pos)
+                ltzero = self.viper_ast.LtCmp(arg, zero, pos)
+                div_scaling = self.viper_ast.Div(arg, scaling_factor_lit, pos)
+                if name == names.FLOOR:
+                    sub = self.viper_ast.Sub(arg, scaling_factor_minus1, pos)
+                    fst = self.viper_ast.Div(sub, scaling_factor_lit, pos)
+                    snd = div_scaling
+                elif name == names.CEIL:
+                    add = self.viper_ast.Add(arg, scaling_factor_minus1, pos)
+                    fst = scaling_factor_lit
+                    snd = self.viper_ast.Div(add, scaling_factor_lit, pos)
+                return arg_stmts, self.viper_ast.CondExp(ltzero, fst, snd, pos)
             elif name == names.AS_WEI_VALUE:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 unit = node.args[1].s

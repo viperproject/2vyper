@@ -162,7 +162,7 @@ class TypeAnnotator:
             name = node.func.id
             if name == names.MIN or name == names.MAX or name == names.OLD or name == names.ISSUED:
                 node.type = node.args[0].type
-            elif name == names.RANGE or name == names.LEN:
+            elif name == names.FLOOR or name == names.CEIL or name == names.RANGE or name == names.LEN:
                 node.type = types.VYPER_INT128
             elif name == names.CLEAR or name == names.SEND:
                 node.type = None

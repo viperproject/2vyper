@@ -78,9 +78,9 @@ class PrimitiveType(VyperType):
 
 class DecimalType(PrimitiveType):
 
-    def __init__(self, name: str, scaling_factor: int):
+    def __init__(self, name: str, digits: int):
         super().__init__(name)
-        self.scaling_factor = scaling_factor
+        self.scaling_factor = pow(10, digits)
 
 
 class EventType(VyperType):
@@ -96,7 +96,7 @@ VYPER_WEI_VALUE = PrimitiveType(names.WEI_VALUE)
 VYPER_TIME = PrimitiveType(names.TIMESTAMP)
 VYPER_INT128 = PrimitiveType(names.INT128)
 VYPER_UINT256 = PrimitiveType(names.UINT256)
-VYPER_DECIMAL = DecimalType(names.DECIMAL, pow(10, 10))
+VYPER_DECIMAL = DecimalType(names.DECIMAL, 10)
 VYPER_ADDRESS = PrimitiveType(names.ADDRESS)
 VYPER_BYTE = PrimitiveType(names.BYTE)
 VYPER_BYTES32 = ArrayType(VYPER_BYTE, 32, True)
