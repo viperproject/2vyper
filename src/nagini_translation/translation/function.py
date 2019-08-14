@@ -381,9 +381,9 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 not_sender_failed = self.viper_ast.Not(sender_failed, inv_pos)
                 succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var, inv_pos)
 
+                # TODO: balance??
                 sent_type = ctx.field_types[mangled.SENT_FIELD]
                 sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, inv_pos)
-                # TODO: improve this type stuff
                 sent_to = helpers.map_get(self.viper_ast, sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, inv_pos)
                 pre_sent = helpers.struct_get(self.viper_ast, pre_self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, inv_pos)
                 pre_sent_to = helpers.map_get(self.viper_ast, pre_sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, inv_pos)

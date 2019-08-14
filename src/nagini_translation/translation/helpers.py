@@ -57,14 +57,12 @@ def msg_var(viper_ast: ViperAST, pos=None, info=None):
 def msg_sender(viper_ast: ViperAST, ctx: Context, pos=None, info=None):
     msg_var = ctx.msg_var.localVar()
     type = types.MSG_TYPE
-    # TODO: improve type stuff
     return struct_get(viper_ast, msg_var, names.MSG_SENDER, viper_ast.Int, type, pos, info)
 
 
 def msg_value(viper_ast: ViperAST, ctx: Context, pos=None, info=None):
     msg_var = ctx.msg_var.localVar()
     type = types.MSG_TYPE
-    # TODO: improve type stuff
     return struct_get(viper_ast, msg_var, names.MSG_VALUE, viper_ast.Int, type, pos, info)
 
 

@@ -174,7 +174,6 @@ class SpecificationTranslator(ExpressionTranslator):
                     return [], rec
                 else:
                     arg = self._translate_spec(node.args[0], ctx)
-                    # TODO: handle type stuff better
                     get_arg = helpers.map_get(self.viper_ast, rec, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
                     return [], get_arg
         elif name == names.ACCESSIBLE:
