@@ -381,12 +381,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 not_sender_failed = self.viper_ast.Not(sender_failed, inv_pos)
                 succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var, inv_pos)
 
-                # TODO: balance??
-                sent_type = ctx.field_types[mangled.SENT_FIELD]
-                sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, inv_pos)
-                sent_to = helpers.map_get(self.viper_ast, sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, inv_pos)
-                pre_sent = helpers.struct_get(self.viper_ast, pre_self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, inv_pos)
-                pre_sent_to = helpers.map_get(self.viper_ast, pre_sent, msg_sender, self.viper_ast.Int, self.viper_ast.Int, inv_pos)
+                sent_to = self.balance_translator.get_sent(self_var, msg_sender, ctx, inv_pos)
+                pre_sent_to = self.balance_translator.get_sent(pre_self_var, msg_sender, ctx, inv_pos)
 
                 diff = self.viper_ast.Sub(sent_to, pre_sent_to, inv_pos)
                 geqa = self.viper_ast.GeCmp(diff, amount_local, inv_pos)

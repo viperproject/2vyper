@@ -155,27 +155,20 @@ class SpecificationTranslator(ExpressionTranslator):
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
             return [], helpers.map_sum(self.viper_ast, expr, key_type, pos)
-        elif name == names.SENT or name == names.RECEIVED:
+        elif name == names.RECEIVED:
             self_var = ctx.self_var.localVar()
-
-            if name == names.SENT:
-                sent_type = ctx.field_types[mangled.SENT_FIELD]
-                sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
-                if not node.args:
-                    return [], sent
-                else:
-                    arg = self._translate_spec(node.args[0], ctx)
-                    get_arg = helpers.map_get(self.viper_ast, sent, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
-                    return [], get_arg
-            elif name == names.RECEIVED:
-                rec_type = ctx.field_types[mangled.RECEIVED_FIELD]
-                rec = helpers.struct_get(self.viper_ast, self_var, mangled.RECEIVED_FIELD, rec_type, ctx.self_type, pos)
-                if not node.args:
-                    return [], rec
-                else:
-                    arg = self._translate_spec(node.args[0], ctx)
-                    get_arg = helpers.map_get(self.viper_ast, rec, arg, self.viper_ast.Int, self.viper_ast.Int, pos)
-                    return [], get_arg
+            if node.args:
+                arg = self._translate_spec(node.args[0], ctx)
+                return [], self.balance_translator.get_received(self_var, arg, ctx, pos)
+            else:
+                return [], self.balance_translator.received(self_var, ctx, pos)
+        elif name == names.SENT:
+            self_var = ctx.self_var.localVar()
+            if node.args:
+                arg = self._translate_spec(node.args[0], ctx)
+                return [], self.balance_translator.get_sent(self_var, arg, ctx, pos)
+            else:
+                return [], self.balance_translator.sent(self_var, ctx, pos)
         elif name == names.ACCESSIBLE:
             # The function ment in accessible is either the one used as the third argument
             # or the one the heuristics determined

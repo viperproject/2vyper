@@ -50,17 +50,23 @@ class BalanceTranslator(CommonTranslator):
         sub = self.set_balance(self_var, diff, ctx, pos)
         return self.viper_ast.LocalVarAssign(self_var, sub, pos, info)
 
-    def get_received(self, self_var: Expr, address: Expr, ctx: Context, pos=None, info=None):
+    def received(self, self_var: Expr, ctx: Context, pos=None, info=None) -> Expr:
         received_type = ctx.field_types[mangled.RECEIVED_FIELD]
-        received = helpers.struct_get(self.viper_ast, self_var, mangled.RECEIVED_FIELD, received_type, ctx.self_type, pos)
+        return helpers.struct_get(self.viper_ast, self_var, mangled.RECEIVED_FIELD, received_type, ctx.self_type, pos, info)
+
+    def sent(self, self_var: Expr, ctx: Context, pos=None, info=None) -> Expr:
+        sent_type = ctx.field_types[mangled.SENT_FIELD]
+        return helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos, info)
+
+    def get_received(self, self_var: Expr, address: Expr, ctx: Context, pos=None, info=None) -> Expr:
+        received = self.received(self_var, ctx, pos)
         return helpers.map_get(self.viper_ast, received, address, self.viper_ast.Int, self.viper_ast.Int, pos)
 
-    def get_sent(self, self_var: Expr, address: Expr, ctx: Context, pos=None, info=None):
-        sent_type = ctx.field_types[mangled.SENT_FIELD]
-        sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
+    def get_sent(self, self_var: Expr, address: Expr, ctx: Context, pos=None, info=None) -> Expr:
+        sent = self.sent(self_var, ctx, pos)
         return helpers.map_get(self.viper_ast, sent, address, self.viper_ast.Int, self.viper_ast.Int, pos)
 
-    def increase_received(self, amount: Expr, ctx: Context, pos=None, info=None):
+    def increase_received(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
         self_var = ctx.self_var.localVar()
         # TODO: pass this as an argument
         msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
@@ -72,7 +78,7 @@ class BalanceTranslator(CommonTranslator):
         self_set = helpers.struct_set(self.viper_ast, self_var, rec_set, mangled.RECEIVED_FIELD, ctx.self_type, pos)
         return self.viper_ast.LocalVarAssign(self_var, self_set, pos, info)
 
-    def increase_sent(self, to: Expr, amount: Expr, ctx: Context, pos=None, info=None):
+    def increase_sent(self, to: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
         self_var = ctx.self_var.localVar()
         sent_type = ctx.field_types[mangled.SENT_FIELD]
         sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
