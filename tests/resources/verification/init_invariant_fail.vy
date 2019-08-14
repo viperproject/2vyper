@@ -7,8 +7,17 @@
 
 val: int128
 
+
+#:: Label(POS) | ExpectedOutput(invariant.violated:assertion.false)
 #@ invariant: self.val > 0
+
 
 @public
 def __init__():
-    assert False
+    pass
+
+
+#:: ExpectedOutput(invariant.violated:assertion.false, POS)
+@public
+def fail():
+    self.val = -1

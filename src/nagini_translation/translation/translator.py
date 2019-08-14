@@ -54,7 +54,8 @@ class ProgramTranslator(PositionTranslator):
         received_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
         vyper_program.fields.type.add_member(mangled.RECEIVED_FIELD, received_type)
 
-        ctx = Context(file)
+        ctx = Context()
+        ctx.file = file
         ctx.program = vyper_program
 
         # Translate self

@@ -8,13 +8,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from jpype import JImplements, JOverride
 
 
-FUNCTION_DOMAIN_NAME = 'Function'
-
-
-def getobject(package, name):
-    return getattr(getattr(package, name + '$'), 'MODULE$')
-
-
 class ViperAST:
     """
     Provides convenient access to the classes which constitute the Viper AST.
@@ -22,11 +15,14 @@ class ViperAST:
     to Scala BigInts, and wrap Scala Option types where necessary.
     """
 
-    def __init__(self, jvm, sourcefile):
+    def __init__(self, jvm):
         self.ast = jvm.viper.silver.ast
         self.java = jvm.java
         self.scala = jvm.scala
         self.jvm = jvm
+
+        def getobject(package, name):
+            return getattr(getattr(package, name + '$'), 'MODULE$')
 
         def getconst(name):
             return getobject(self.ast, name)
@@ -57,7 +53,8 @@ class ViperAST:
         self.Bool = getconst('Bool')
         self.Ref = getconst('Ref')
         self.Perm = getconst('Perm')
-        self.sourcefile = sourcefile
+        self.MethodWithLabelsInScope = getobject(self.ast, 'MethodWithLabelsInScope')
+        self.BigInt = getobject(self.scala.math, 'BigInt')
         self.None_ = getobject(self.scala, 'None')
 
     def is_available(self) -> bool:
@@ -65,9 +62,6 @@ class ViperAST:
         Checks if the Viper AST is available, i.e., silver is on the Java classpath.
         """
         return self.jvm.is_known_class(self.ast.Program)
-
-    def function_domain_type(self):
-        return self.DomainType(FUNCTION_DOMAIN_NAME, {}, [])
 
     def empty_seq(self):
         return self.scala.collection.mutable.ListBuffer()
@@ -104,8 +98,7 @@ class ViperAST:
     def to_big_int(self, num: int):
         # Python ints might not fit into a C int, therefore we use a String
         num_str = str(num)
-        big_int = getobject(self.scala.math, 'BigInt')
-        return big_int.apply(num_str)
+        return self.BigInt.apply(num_str)
 
     def Program(self, domains, fields, functions, predicates, methods, position=None, info=None):
         position = position or self.NoPosition
@@ -132,7 +125,7 @@ class ViperAST:
             body_with_locals = self.None_
         else:
             body_with_locals = self.scala.Some(self.Seqn(body, position, info, locals))
-        method = getobject(self.ast, "MethodWithLabelsInScope")
+        method = self.MethodWithLabelsInScope
         return method.apply(name, self.to_seq(args), self.to_seq(returns),
                             self.to_seq(pres), self.to_seq(posts),
                             body_with_locals, position, info,
@@ -654,22 +647,11 @@ class ViperAST:
     def ConsInfo(self, head, tail):
         return self.ast.ConsInfo(head, tail)
 
-    def to_position(self, expr, id, file: str = None):
-        if expr is None:
-            return self.NoPosition
-        if not hasattr(expr, 'lineno'):
-            # TODO: this should never happen (because all nodes that the parser
-            # creates have this field), but it does, because in the SIF code we
-            # create artificial ast.Name objects which don't have it. That
-            # should probably be changed.
-            return self.NoPosition
-        if not file:
-            file = str(self.sourcefile)
+    def to_position(self, expr, id: str, file: str):
         path = self.java.nio.file.Paths.get(file, [])
         start = self.ast.LineColumnPosition(expr.lineno, expr.col_offset)
         if hasattr(expr, 'end_lineno') and hasattr(expr, 'end_col_offset'):
-            end = self.ast.LineColumnPosition(expr.end_lineno,
-                                              expr.end_col_offset)
+            end = self.ast.LineColumnPosition(expr.end_lineno, expr.end_col_offset)
             end = self.scala.Some(end)
         else:
             end = self.None_

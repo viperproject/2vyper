@@ -23,9 +23,8 @@ from nagini_translation.translation.context import Context
 # Helper functions
 
 def init_function() -> ast.FunctionDef:
-    node = ast.FunctionDef(mangled.INIT, [], [], [], None)
     type = FunctionType([], None)
-    function = VyperFunction(mangled.INIT, {}, {}, type, [], [], [names.PUBLIC], node)
+    function = VyperFunction(mangled.INIT, {}, {}, type, [], [], [names.PUBLIC], None)
     function.analysis = FunctionAnalysis()
     return function
 

@@ -43,7 +43,11 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
         with function_scope(ctx):
-            pos = self.to_position(function.node, ctx)
+            # A synthesized __init__ does not have a position in the file
+            if function.node:
+                pos = self.to_position(function.node, ctx)
+            else:
+                pos = self.no_position()
 
             ctx.function = function
             is_init = (function.name == names.INIT)
@@ -211,8 +215,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 rec_inc = self.balance_translator.increase_received(msg_value, ctx)
                 body.append(rec_inc)
 
-            body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
-            body.extend(self._seqn_with_info(body_stmts, "Function body"))
+            # If we are in a synthesized init, we don't have a function body
+            if function.node:
+                body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
+                body.extend(self._seqn_with_info(body_stmts, "Function body"))
 
             # If we reach this point we either jumped to it by returning or got threre directly
             # because we didn't revert (yet)
@@ -359,6 +365,9 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # expressions occur in
             accessibles = []
             for tag in function.analysis.accessible_tags:
+                # It shouldn't be possible to write accessible for __init__
+                assert function.node
+
                 tag_inv = ctx.program.analysis.inv_tags[tag]
                 inv_pos = self.to_position(tag_inv, ctx)
                 vias = [Via('invariant', inv_pos)]
@@ -404,6 +413,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
     def inline(self, function: VyperFunction, args: List[Expr], ctx: Context) -> StmtsAndExpr:
         with inline_scope(ctx):
+            assert function.node
             pos = self.to_position(function.node, ctx)
             body = []
 
