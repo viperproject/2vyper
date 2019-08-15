@@ -60,3 +60,10 @@ def _div(a: int128, b: int128) -> int128:
 @public
 def _mod(a: int128, b: int128) -> int128:
     return a % b
+
+
+#@ ensures: forall({a: int128, b: int128}, implies(b != 0 and a % b == 0, a / b * b == a))
+#@ ensures: forall({a: int128, b: int128}, implies(b != 0, a / b * b + a % b == a))
+@public
+def check():
+    pass
