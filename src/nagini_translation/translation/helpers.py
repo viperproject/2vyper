@@ -115,6 +115,22 @@ def pow(viper_ast: ViperAST, base, exp, pos=None, info=None):
     return viper_ast.DomainFuncApp(mpow, [base, exp], viper_ast.Int, pos, info, domain)
 
 
+def floor(viper_ast: ViperAST, dec, scaling_factor: int, pos=None, info=None):
+    mfloor = mangled.MATH_FLOOR
+    domain = mangled.MATH_DOMAIN
+    scaling_factor_lit = viper_ast.IntLit(scaling_factor, pos)
+    args = [dec, scaling_factor_lit]
+    return viper_ast.DomainFuncApp(mfloor, args, viper_ast.Int, pos, info, domain)
+
+
+def ceil(viper_ast: ViperAST, dec, scaling_factor: int, pos=None, info=None):
+    mceil = mangled.MATH_CEIL
+    domain = mangled.MATH_DOMAIN
+    scaling_factor_lit = viper_ast.IntLit(scaling_factor, pos)
+    args = [dec, scaling_factor_lit]
+    return viper_ast.DomainFuncApp(mceil, args, viper_ast.Int, pos, info, domain)
+
+
 def array_type(viper_ast: ViperAST, element_type):
     return viper_ast.SeqType(element_type)
 

@@ -41,6 +41,8 @@ MATH_SIGN = '$sign'
 MATH_DIV = '$div'
 MATH_MOD = '$mod'
 MATH_POW = '$pow'
+MATH_FLOOR = '$floor'
+MATH_CEIL = '$ceil'
 
 ARRAY_DOMAIN = '$Array'
 ARRAY_INT_DOMAIN = '$ArrayInt'

@@ -288,20 +288,13 @@ class ExpressionTranslator(NodeTranslator):
                 #    ceil(d)  == d < 0 ? d / s : (d + s - 1) / s
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 scaling_factor = node.args[0].type.scaling_factor
-                scaling_factor_lit = self.viper_ast.IntLit(scaling_factor, pos)
-                scaling_factor_minus1 = self.viper_ast.IntLit(scaling_factor - 1, pos)
-                zero = self.viper_ast.IntLit(0, pos)
-                ltzero = self.viper_ast.LtCmp(arg, zero, pos)
-                div_scaling = helpers.div(self.viper_ast, arg, scaling_factor_lit, pos)
+
                 if name == names.FLOOR:
-                    sub = self.viper_ast.Sub(arg, scaling_factor_minus1, pos)
-                    fst = helpers.div(self.viper_ast, sub, scaling_factor_lit, pos)
-                    snd = div_scaling
+                    expr = helpers.floor(self.viper_ast, arg, scaling_factor, pos)
                 elif name == names.CEIL:
-                    add = self.viper_ast.Add(arg, scaling_factor_minus1, pos)
-                    fst = div_scaling
-                    snd = helpers.div(self.viper_ast, add, scaling_factor_lit, pos)
-                return arg_stmts, self.viper_ast.CondExp(ltzero, fst, snd, pos)
+                    expr = helpers.ceil(self.viper_ast, arg, scaling_factor, pos)
+
+                return arg_stmts, expr
             elif name == names.AS_WEI_VALUE:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 unit = node.args[1].s

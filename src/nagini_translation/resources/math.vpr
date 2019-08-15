@@ -15,6 +15,10 @@ domain $Math {
 
     function $pow($a: Int, $b: Int): Int
 
+    function $floor($a: Int, $s: Int): Int
+
+    function $ceil($a: Int, $s: Int): Int
+
     axiom $sign_ax {
         $sign(0) == 0 && 
         forall $a: Int :: { $sign($a) } 
@@ -41,6 +45,16 @@ domain $Math {
     
     axiom $pow_non_negative_ax {
         forall $a: Int, $b: Int :: { $pow($a, $b) } $a >= 0 && $b >= 0 ==> $pow($a, $b) >= 0
+    }
+
+    axiom $floor_ax {
+        forall $a: Int, $s: Int :: { $floor($a, $s) }
+            $s > 0 ==> $floor($a, $s) == $div($a < 0 ? $a - ($s - 1) : $a, $s, 0)
+    }
+
+    axiom $ceil_ax {
+        forall $a: Int, $s: Int :: { $ceil($a, $s) }
+            $s > 0 ==> $ceil($a, $s) == $div($a < 0 ? $a : $a + $s - 1, $s, 0)
     }
 
 }
