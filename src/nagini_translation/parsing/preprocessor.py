@@ -7,8 +7,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import re
 
-from nagini_translation.exceptions import InvalidProgramException
-
 
 def preprocess(program: str) -> str:
     # Change structs to classes
@@ -23,8 +21,5 @@ def preprocess(program: str) -> str:
     program = program.replace('#@ invariant:', 'invariant   =')
     program = program.replace('#@ always ensures:', 'always_ensures   =')
     program = program.replace('#@ always check:', 'always_check   =')
-
-    if '#@' in program:
-        raise InvalidProgramException(None, "Invalid specification: #@ not allowed here.")
-
+    program = program.replace('#@', '  ')
     return program
