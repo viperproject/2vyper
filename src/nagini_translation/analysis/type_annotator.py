@@ -136,7 +136,11 @@ class TypeAnnotator:
 
     def annotate_Call(self, node: ast.Call):
         if isinstance(node.func, ast.Name):
-            if node.func.id == names.SUCCESS:
+            if node.func.id == names.CONVERT:
+                self.annotate(node.args[0])
+                node.type = self.type_builder.build(node.args[1])
+                return
+            elif node.func.id == names.SUCCESS:
                 node.type = types.VYPER_BOOL
                 return
             elif node.func.id == names.FORALL:

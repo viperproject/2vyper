@@ -9,7 +9,7 @@ import ast
 
 from itertools import chain
 
-from nagini_translation.utils import flatten, first_index
+from nagini_translation.utils import switch, flatten, first_index
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
@@ -317,6 +317,67 @@ class ExpressionTranslator(NodeTranslator):
                         return self.viper_ast.SeqAppend(arg, concat(tail), pos)
 
                 return flatten(concat_stmts), concat(concats)
+            elif name == names.CONVERT:
+                from_type = node.args[0].type
+                to_type = node.type
+
+                supported_types = [
+                    types.VYPER_BOOL,
+                    types.VYPER_INT128,
+                    types.VYPER_UINT256,
+                    types.VYPER_DECIMAL
+                ]
+                if from_type not in supported_types or to_type not in supported_types:
+                    raise UnsupportedException(node, "Unsupported conversion type")
+
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+
+                stmts = arg_stmts
+                zero = self.viper_ast.IntLit(0, pos)
+                one = self.viper_ast.IntLit(1, pos)
+
+                with switch(from_type, to_type) as case:
+                    from nagini_translation.utils import _
+                    # If both types are equal (e.g. if we convert a literal) we simply
+                    # return the argument
+                    if case(_, _, where=from_type == to_type):
+                        return stmts, arg
+                    # If we convert from a bool we translate True as 1 and False as 0
+                    elif case(types.VYPER_BOOL, types.VYPER_DECIMAL):
+                        d_one = 1 * types.VYPER_DECIMAL.scaling_factor
+                        d_one_lit = self.viper_ast.IntLit(d_one, pos)
+                        return stmts, self.viper_ast.CondExp(arg, d_one_lit, zero, pos)
+                    elif case(types.VYPER_BOOL, _):
+                        return stmts, self.viper_ast.CondExp(arg, one, zero, pos)
+                    # If we convert to a bool we check for zero
+                    elif case(_, types.VYPER_BOOL):
+                        return stmts, self.viper_ast.NeCmp(arg, zero, pos)
+                    elif case(types.VYPER_DECIMAL, types.VYPER_INT128):
+                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+                        return stmts, helpers.div(self.viper_ast, arg, s, pos)
+                    elif case(types.VYPER_DECIMAL, types.VYPER_UINT256):
+                        is_negative = self.viper_ast.LtCmp(arg, zero, pos)
+                        fail = self.fail_if(is_negative, [], ctx, pos)
+                        stmts.append(fail)
+                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+                        return stmts, helpers.div(self.viper_ast, arg, s, pos)
+                    elif case(_, types.VYPER_DECIMAL):
+                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+                        return stmts, self.viper_ast.Mul(arg, s, pos)
+                    # When converting a signed number to an unsigned number we revert if
+                    # the argument is negative
+                    elif case(types.VYPER_INT128, types.VYPER_UINT256):
+                        is_negative = self.viper_ast.LtCmp(arg, zero, pos)
+                        fail = self.fail_if(is_negative, [], ctx, pos)
+                        stmts.append(fail)
+                        return stmts, arg
+                    # If we convert an unsigned to a signed value we simply return
+                    # the argument
+                    elif case(types.VYPER_UINT256, types.VYPER_INT128):
+                        return stmts, arg
+                    else:
+                        print(from_type.name, to_type.name)
+                        assert False
             elif name == names.KECCAK256:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, helpers.array_keccak256(self.viper_ast, arg, pos)

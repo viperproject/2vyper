@@ -9,6 +9,21 @@ import ast
 import astunparse
 
 from typing import Iterable
+from contextlib import contextmanager
+
+
+_ = object()
+
+
+@contextmanager
+def switch(*values):
+    def match(*v, where=True):
+        if not where or len(values) != len(v):
+            return False
+
+        return all([actual == case or case is _ for actual, case in zip(values, v)])
+
+    yield match
 
 
 def first(iterable: Iterable):
