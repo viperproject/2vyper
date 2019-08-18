@@ -8,7 +8,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from typing import Optional, List
 
 from nagini_translation.ast import types
-from nagini_translation.ast.types import VyperType, PrimitiveType, MapType, ArrayType, StructType
+from nagini_translation.ast.types import (
+    VyperType, PrimitiveType, MapType, ArrayType, StructType, ContractType
+)
 
 from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
@@ -46,6 +48,8 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             return helpers.array_type(self.viper_ast, element_type)
         elif isinstance(type, StructType):
             return helpers.struct_type(self.viper_ast, type)
+        elif isinstance(type, ContractType):
+            return self.type_dict[types.VYPER_ADDRESS]
         else:
             assert False
 
@@ -77,6 +81,8 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                 stmts.extend(default_stmts)
             args = [init_args[i] for i in range(len(init_args))]
             return stmts, helpers.struct_init(self.viper_ast, args, type, pos)
+        elif isinstance(type, ContractType):
+            return self.default_value(node, types.VYPER_ADDRESS, ctx)
         else:
             assert False
 

@@ -9,7 +9,9 @@ import ast
 
 from typing import Dict, List, Optional
 
-from nagini_translation.ast.types import VyperType, FunctionType, StructType, EventType
+from nagini_translation.ast.types import (
+    VyperType, FunctionType, StructType, ContractType, EventType
+)
 
 
 class VyperConfig:
@@ -66,6 +68,14 @@ class VyperStruct:
         self.node = node
 
 
+class VyperContract:
+
+    def __init__(self, name: str, type: ContractType, node: ast.ClassDef):
+        self.name = name
+        self.type = type
+        self.node = node
+
+
 class VyperEvent:
 
     def __init__(self, name: str, type: EventType):
@@ -80,6 +90,7 @@ class VyperProgram:
                  fields: VyperStruct,
                  functions: Dict[str, VyperFunction],
                  structs: Dict[str, VyperStruct],
+                 contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
                  invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
@@ -88,6 +99,7 @@ class VyperProgram:
         self.fields = fields
         self.functions = functions
         self.structs = structs
+        self.contracts = contracts
         self.events = events
         self.invariants = invariants
         self.general_postconditions = general_postconditions

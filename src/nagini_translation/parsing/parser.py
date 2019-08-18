@@ -11,15 +11,18 @@ from typing import List
 
 from nagini_translation.parsing.preprocessor import preprocess
 from nagini_translation.parsing.transformer import transform
-from nagini_translation.ast.types import TypeBuilder, StructType
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 
 from nagini_translation.ast.nodes import (
-    VyperProgram, VyperFunction, VyperStruct, VyperEvent, VyperVar, VyperConfig
+    VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
+    VyperConfig
 )
-from nagini_translation.ast.types import FunctionType, EventType
+
+from nagini_translation.ast.types import (
+    TypeBuilder, FunctionType, EventType, StructType, ContractType
+)
 
 from nagini_translation.exceptions import InvalidProgramException
 
@@ -52,6 +55,7 @@ class ProgramBuilder(ast.NodeVisitor):
         self.field_types = {}
         self.functions = {}
         self.structs = {}
+        self.contracts = {}
         self.events = {}
         self.invariants = []
         self.general_postconditions = []
@@ -62,7 +66,12 @@ class ProgramBuilder(ast.NodeVisitor):
 
     @property
     def type_builder(self):
-        self.type_map = type_map = {name: struct.type for name, struct in self.structs.items()}
+        type_map = {}
+        for name, struct in self.structs.items():
+            type_map[name] = struct.type
+        for name, contract in self.contracts.items():
+            type_map[name] = contract.type
+
         return TypeBuilder(type_map)
 
     def build(self, node) -> VyperProgram:
@@ -84,6 +93,7 @@ class ProgramBuilder(ast.NodeVisitor):
                             self_struct,
                             self.functions,
                             self.structs,
+                            self.contracts,
                             self.events,
                             self.invariants,
                             self.general_postconditions,
@@ -105,9 +115,15 @@ class ProgramBuilder(ast.NodeVisitor):
         raise InvalidProgramException(node, 'local.spec', f"{cond} only allowed before function")
 
     def visit_ClassDef(self, node: ast.ClassDef):
-        struct_type = self.type_builder.build(node)
-        struct = VyperStruct(node.name, struct_type, node)
-        self.structs[struct.name] = struct
+        type = self.type_builder.build(node)
+        if isinstance(type, StructType):
+            struct = VyperStruct(node.name, type, node)
+            self.structs[struct.name] = struct
+        elif isinstance(type, ContractType):
+            contract = VyperContract(node.name, type, node)
+            self.contracts[contract.name] = contract
+        else:
+            assert False
 
     def visit_AnnAssign(self, node):
         # No local specs are allowed before contract state variables

@@ -11,16 +11,21 @@ from nagini_translation.utils import first_index
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.types import MapType, ArrayType
+from nagini_translation.ast.types import TypeBuilder, MapType, ArrayType
 from nagini_translation.ast.nodes import VyperProgram
 
-from nagini_translation.ast.types import TypeBuilder
+from nagini_translation.exceptions import UnsupportedException
 
 
 class TypeAnnotator:
 
     def __init__(self, program: VyperProgram):
-        type_map = {name: struct.type for name, struct in program.structs.items()}
+        type_map = {}
+        for name, struct in program.structs.items():
+            type_map[name] = struct.type
+        for name, contract in program.contracts.items():
+            type_map[name] = contract.type
+
         self.type_builder = TypeBuilder(type_map)
 
         self.program = program
@@ -152,6 +157,8 @@ class TypeAnnotator:
             elif node.func.id == names.EVENT:
                 self._annotate_event(node)
                 return
+            # struct initializers have a single argument that is a map from members
+            # to values
             elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                 self._annotate_struct_init(node)
                 return
@@ -195,16 +202,28 @@ class TypeAnnotator:
                     node.type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
                 else:
                     node.type = types.VYPER_WEI_VALUE
+            elif name in self.program.contracts:
+                # This is a contract initializer
+                node.type = self.program.contracts[name].type
             else:
-                assert False, f"encountered function {node.func.id}"
-        elif node.func.value.id == names.LOG:
-            node.type = None
-        elif node.func.value.id == names.SELF:
-            name = node.func.attr
-            function = self.program.functions[name]
-            node.type = function.type.return_type
+                raise UnsupportedException(node, "Unsupported function call")
+        elif isinstance(node.func, ast.Attribute):
+            self.annotate(node.func.value)
+            receiver_type = node.func.value.type
+            # A logging call
+            if not receiver_type:
+                node.type = None
+            # A self call
+            elif isinstance(receiver_type, types.StructType):
+                name = node.func.attr
+                function = self.program.functions[name]
+                node.type = function.type.return_type
+            # A contract call
+            elif isinstance(receiver_type, types.ContractType):
+                name = node.func.attr
+                node.type = receiver_type.function_types[name].return_type
         else:
-            assert False  # TODO: handle
+            assert False
 
     def _annotate_forall(self, node: ast.Call):
         node.type = types.VYPER_BOOL
@@ -289,6 +308,8 @@ class TypeAnnotator:
             node.type = types.BLOCK_TYPE
         elif node.id == names.MSG:
             node.type = types.MSG_TYPE
+        elif node.id == names.LOG:
+            node.type = None
         else:
             quant = self.quantified_vars.get(node.id)
             if quant:

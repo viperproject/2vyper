@@ -63,6 +63,13 @@ class StructType(VyperType):
         self.member_indices[name] = len(self.member_indices)
 
 
+class ContractType(VyperType):
+
+    def __init__(self, name: str, function_types: Dict[str, FunctionType]):
+        self.name = name
+        self.function_types = function_types
+
+
 class StringType(ArrayType):
 
     def __init__(self, size: int):
@@ -150,8 +157,23 @@ class TypeBuilder(ast.NodeVisitor):
         return self.type_map.get(node.id) or TYPES[node.id]
 
     def visit_ClassDef(self, node: ast.ClassDef) -> VyperType:
-        members = {n.target.id: self.visit(n.annotation) for n in node.body}
-        return StructType(node.name, members)
+        assert node.body
+
+        # This is a struct
+        if isinstance(node.body[0], ast.AnnAssign):
+            members = {n.target.id: self.visit(n.annotation) for n in node.body}
+            return StructType(node.name, members)
+        # This is a contract
+        elif isinstance(node.body[0], ast.FunctionDef):
+            functions = {}
+            for f in node.body:
+                name = f.name
+                arg_types = [self.visit(arg.annotation) for arg in f.args.args]
+                return_type = None if f.returns is None else self.visit(f.returns)
+                functions[name] = FunctionType(arg_types, return_type)
+            return ContractType(node.name, functions)
+        else:
+            assert False
 
     def visit_Call(self, node: ast.Call) -> VyperType:
         # We allow
