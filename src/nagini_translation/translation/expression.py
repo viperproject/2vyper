@@ -540,13 +540,15 @@ class ExpressionTranslator(NodeTranslator):
         new_state = [*assume_invs, *assume_type_ass, copy_old]
 
         if node.type:
-            # TODO: assume type assumptions
             ret_name = ctx.new_local_var_name('raw_ret')
             ret_type = self.type_translator.translate(node.type, ctx)
             ret_var = self.viper_ast.LocalVarDecl(ret_name, ret_type, pos)
             ctx.new_local_vars.append(ret_var)
             return_value = ret_var.localVar()
+            type_ass = self.type_translator.type_assumptions(return_value, node.type, ctx)
+            return_stmts = [self.viper_ast.Inhale(ass) for ass in type_ass]
         else:
             return_value = None
+            return_stmts = []
 
-        return stmts + assertions + call + new_state, return_value
+        return stmts + assertions + call + new_state + return_stmts, return_value
