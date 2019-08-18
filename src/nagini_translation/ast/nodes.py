@@ -63,6 +63,7 @@ class VyperStruct:
     def __init__(self, name: str, type: StructType, node: ast.ClassDef):
         self.name = name
         self.type = type
+        self.node = node
 
 
 class VyperEvent:
