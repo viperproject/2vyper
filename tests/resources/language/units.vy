@@ -28,3 +28,16 @@ def test(a: int128(u), b: uint256(u)) -> int128(u):
     d: int128(u**2) = c * a
     c = 12
     return a
+
+
+#@ ensures: result() == a
+@public
+def remove_unit(a: int128(u)) -> int128:
+    return as_unitless_number(a)
+
+
+#@ ensures: implies(v >= 0, success())
+#@ ensures: implies(success(), result() == v)
+@public
+def convert_unit(v: int128(u)) -> uint256(u):
+    return convert(v, uint256)

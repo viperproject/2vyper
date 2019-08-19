@@ -99,11 +99,10 @@ class EventType(VyperType):
 
 
 VYPER_BOOL = PrimitiveType(names.BOOL)
-VYPER_WEI_VALUE = PrimitiveType(names.WEI_VALUE)
-VYPER_TIME = PrimitiveType(names.TIMESTAMP)
 VYPER_INT128 = PrimitiveType(names.INT128)
 VYPER_UINT256 = PrimitiveType(names.UINT256)
 VYPER_DECIMAL = DecimalType(names.DECIMAL, 10)
+VYPER_WEI_VALUE = VYPER_UINT256
 VYPER_ADDRESS = PrimitiveType(names.ADDRESS)
 VYPER_BYTE = PrimitiveType(names.BYTE)
 VYPER_BYTES32 = ArrayType(VYPER_BYTE, 32, True)
@@ -114,12 +113,13 @@ TYPES = {
     VYPER_INT128.name: VYPER_INT128,
     VYPER_UINT256.name: VYPER_UINT256,
     VYPER_DECIMAL.name: VYPER_DECIMAL,
+    names.WEI_VALUE: VYPER_WEI_VALUE,
     VYPER_ADDRESS.name: VYPER_ADDRESS,
     VYPER_BYTE.name: VYPER_BYTE,
     names.BYTES32: VYPER_BYTES32,
     names.STRING: VYPER_BYTE,
-    names.TIMESTAMP: VYPER_TIME,
-    names.TIMEDELTA: VYPER_TIME
+    names.TIMESTAMP: VYPER_UINT256,
+    names.TIMEDELTA: VYPER_UINT256
 }
 
 MSG_TYPE = StructType(names.MSG, {
@@ -130,12 +130,12 @@ MSG_TYPE = StructType(names.MSG, {
 
 BLOCK_TYPE = StructType(names.BLOCK, {
     names.BLOCK_NUMBER: VYPER_UINT256,
-    names.BLOCK_TIMESTAMP: VYPER_TIME
+    names.BLOCK_TIMESTAMP: VYPER_UINT256
 })
 
 
 def is_unsigned(type: VyperType) -> bool:
-    return type == VYPER_UINT256 or type == VYPER_WEI_VALUE or type == VYPER_TIME
+    return type == VYPER_UINT256
 
 
 def has_strict_array_size(element_type: VyperType) -> bool:
