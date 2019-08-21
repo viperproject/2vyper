@@ -42,7 +42,6 @@ pendingReturns: public(map(address, wei_value))
 
 #@ invariant: implies(old(self.ended), self.ended)
 
-# always ensures: implies(block.timestamp < self.auctionEnd, not self.ended)
 #@ invariant: implies(not self.ended, sum(self.pendingReturns) + self.highestBid <= self.balance)
 #@ invariant: implies(not self.ended, sum(self.pendingReturns) + self.highestBid == sum(received()) - sum(sent()))
 #@ invariant: implies(self.ended, sum(self.pendingReturns) <= self.balance)
