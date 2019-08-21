@@ -9,15 +9,16 @@ import ast
 
 from nagini_translation.ast import names
 
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import StmtsAndExpr
+
 from nagini_translation.translation.expression import ExpressionTranslator
-from nagini_translation.translation.context import Context
-from nagini_translation.translation.context import quantified_var_scope, self_scope, inside_trigger_scope
+from nagini_translation.translation.context import (
+    Context, quantified_var_scope, self_scope, inside_trigger_scope
+)
 
 from nagini_translation.translation import mangled
 from nagini_translation.translation import helpers
-
-from nagini_translation.viper.ast import ViperAST
-from nagini_translation.viper.typedefs import StmtsAndExpr
 
 
 class SpecificationTranslator(ExpressionTranslator):

@@ -11,6 +11,9 @@ from nagini_translation.ast import names
 from nagini_translation.ast import types
 from nagini_translation.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction
 
+from nagini_translation.viper.typedefs import Program
+from nagini_translation.viper.ast import ViperAST
+
 from nagini_translation.translation.abstract import PositionTranslator
 from nagini_translation.translation.function import FunctionTranslator
 from nagini_translation.translation.type import TypeTranslator
@@ -21,8 +24,6 @@ from nagini_translation.translation.context import Context, function_scope, self
 from nagini_translation.translation import mangled
 from nagini_translation.translation import helpers
 
-from nagini_translation.viper.typedefs import Program
-from nagini_translation.viper.ast import ViperAST
 from nagini_translation.verification import rules
 
 

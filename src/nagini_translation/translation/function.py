@@ -9,8 +9,11 @@ from itertools import chain
 from typing import List
 
 from nagini_translation.ast import names
-from nagini_translation.ast.nodes import VyperFunction, VyperVar
 from nagini_translation.ast import types
+from nagini_translation.ast.nodes import VyperFunction, VyperVar
+
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
 
 from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
@@ -18,14 +21,12 @@ from nagini_translation.translation.statement import StatementTranslator
 from nagini_translation.translation.specification import SpecificationTranslator
 from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.balance import BalanceTranslator
-from nagini_translation.translation.context import Context
-from nagini_translation.translation.context import function_scope, inline_scope, self_scope
+from nagini_translation.translation.context import (
+    Context, function_scope, inline_scope, self_scope
+)
 
 from nagini_translation.translation import mangled
 from nagini_translation.translation import helpers
-
-from nagini_translation.viper.ast import ViperAST
-from nagini_translation.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
 
 from nagini_translation.verification import rules
 from nagini_translation.verification.error import Via

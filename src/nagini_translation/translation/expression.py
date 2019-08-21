@@ -10,11 +10,15 @@ import ast
 from itertools import chain
 
 from nagini_translation.utils import switch, flatten, first_index
+from nagini_translation.exceptions import UnsupportedException
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 
 from nagini_translation.ast.types import MapType, ArrayType
+
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import Expr, StmtsAndExpr
 
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.type import TypeTranslator
@@ -24,10 +28,6 @@ from nagini_translation.translation.context import Context
 from nagini_translation.translation import mangled
 from nagini_translation.translation import helpers
 
-from nagini_translation.exceptions import UnsupportedException
-
-from nagini_translation.viper.ast import ViperAST
-from nagini_translation.viper.typedefs import Expr, StmtsAndExpr
 from nagini_translation.verification import rules
 from nagini_translation.verification.error import Via
 

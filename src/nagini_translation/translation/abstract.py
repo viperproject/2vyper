@@ -13,11 +13,11 @@ from nagini_translation.viper.ast import ViperAST
 from nagini_translation.viper.typedefs import Stmt
 from nagini_translation.viper.typedefs import Position, Info
 
+from nagini_translation.translation.context import Context
+
 from nagini_translation.verification import error_manager
 from nagini_translation.verification.error import ErrorInfo, Via
 from nagini_translation.verification.rules import Rules
-
-from nagini_translation.translation.context import Context
 
 
 class PositionTranslator:

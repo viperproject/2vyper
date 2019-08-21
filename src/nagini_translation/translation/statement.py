@@ -10,11 +10,15 @@ import ast
 from typing import List
 
 from nagini_translation.utils import flatten
+from nagini_translation.exceptions import UnsupportedException
 
 from nagini_translation.ast import types
 from nagini_translation.ast import names
 
 from nagini_translation.ast.types import MapType, ArrayType, StructType
+
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import Stmt
 
 from nagini_translation.translation.context import Context, break_scope, continue_scope
 from nagini_translation.translation.abstract import NodeTranslator
@@ -23,11 +27,6 @@ from nagini_translation.translation.type import TypeTranslator
 from nagini_translation.translation.special import SpecialTranslator
 
 from nagini_translation.translation import helpers
-
-from nagini_translation.viper.ast import ViperAST
-from nagini_translation.viper.typedefs import Stmt
-
-from nagini_translation.exceptions import UnsupportedException
 
 
 class StatementTranslator(NodeTranslator):

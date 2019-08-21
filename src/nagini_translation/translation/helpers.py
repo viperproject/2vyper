@@ -12,9 +12,9 @@ from nagini_translation.ast import types
 from nagini_translation.ast.types import FunctionType, StructType
 from nagini_translation.ast.nodes import VyperFunction
 
-from nagini_translation.viper.ast import ViperAST
-
 from nagini_translation.analysis.analyzer import FunctionAnalysis
+
+from nagini_translation.viper.ast import ViperAST
 
 from nagini_translation.translation import mangled
 from nagini_translation.translation.context import Context

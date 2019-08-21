@@ -12,13 +12,13 @@ from nagini_translation.ast.types import (
     VyperType, PrimitiveType, MapType, ArrayType, StructType, ContractType
 )
 
+from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper.typedefs import Expr, Stmt, StmtsAndExpr, Type
+
 from nagini_translation.translation.abstract import PositionTranslator, CommonTranslator
 from nagini_translation.translation.context import Context, quantified_var_scope
 
 from nagini_translation.translation import helpers
-
-from nagini_translation.viper.ast import ViperAST
-from nagini_translation.viper.typedefs import Expr, Stmt, StmtsAndExpr, Type
 
 
 class TypeTranslator(PositionTranslator, CommonTranslator):
