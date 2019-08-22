@@ -276,7 +276,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 post_assert = self.viper_ast.Assert(cond, post_pos)
                 post_stmts.append(post_assert)
 
-            for post in ctx.program.general_postconditions:
+            for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
                 post_pos = self.to_position(post, ctx)
                 cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
                 if is_init:

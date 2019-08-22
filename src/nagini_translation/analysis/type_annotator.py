@@ -48,6 +48,9 @@ class TypeAnnotator:
         for post in self.program.general_postconditions:
             self.annotate(post)
 
+        for post in self.program.transitive_postconditions:
+            self.annotate(post)
+
         for check in self.program.general_checks:
             self.annotate(check)
 

@@ -528,6 +528,17 @@ class ExpressionTranslator(NodeTranslator):
 
         type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
         assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
+        type_seq = self._seqn_with_info(assume_type_ass, "Assume type assumptions")
+
+        assume_posts = []
+        for post in ctx.program.transitive_postconditions:
+            # We translate the transitive postcondition like an invariant since we want
+            # old to refer to the state before the call, not the pre state
+            post_expr = self.spec_translator.translate_invariant(post, ctx)
+            ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
+            assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
+
+        post_seq = self._seqn_with_info(assume_posts, "Assume transitive postconditions")
 
         assume_invs = []
         for inv in ctx.unchecked_invariants():
@@ -537,7 +548,9 @@ class ExpressionTranslator(NodeTranslator):
             ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
             assume_invs.append(self.viper_ast.Inhale(expr, ipos))
 
-        new_state = [*assume_invs, *assume_type_ass, copy_old]
+        inv_seq = self._seqn_with_info(assume_invs, "Assume invariants")
+
+        new_state = [*type_seq, *post_seq, *inv_seq, copy_old]
 
         if node.type:
             ret_name = ctx.new_local_var_name('raw_ret')

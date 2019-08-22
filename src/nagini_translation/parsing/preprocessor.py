@@ -23,5 +23,6 @@ def preprocess(program: str) -> str:
     program = program.replace('#@ invariant:', 'invariant   =')
     program = program.replace('#@ always ensures:', 'always_ensures   =')
     program = program.replace('#@ always check:', 'always_check   =')
+    program = program.replace('#@ transitive:', 'if False:     ')
     program = program.replace('#@', '  ')
     return program

@@ -59,10 +59,13 @@ class ProgramBuilder(ast.NodeVisitor):
         self.events = {}
         self.invariants = []
         self.general_postconditions = []
+        self.transitive_postconditions = []
         self.general_checks = []
 
         self.postconditions = []
         self.checks = []
+
+        self.is_transitive = False
 
     @property
     def type_builder(self):
@@ -97,6 +100,7 @@ class ProgramBuilder(ast.NodeVisitor):
                             self.events,
                             self.invariants,
                             self.general_postconditions,
+                            self.transitive_postconditions,
                             self.general_checks)
 
     def _check_no_local_spec(self):
@@ -161,7 +165,10 @@ class ProgramBuilder(ast.NodeVisitor):
             # No local specifications allowed before general postconditions
             self._check_no_local_spec()
 
-            self.general_postconditions.append(node.value)
+            if self.is_transitive:
+                self.transitive_postconditions.append(node.value)
+            else:
+                self.general_postconditions.append(node.value)
         elif name == names.GENERAL_CHECK:
             # No local specifications allowed before general check
             self._check_no_local_spec()
@@ -173,6 +180,17 @@ class ProgramBuilder(ast.NodeVisitor):
             self.checks.append(node.value)
         else:
             assert False
+
+    def visit_If(self, node: ast.If):
+        # This is a transitive clause, since we replace all transitive clauses with if statements
+        # when preprocessing
+        if self.is_transitive:
+            raise InvalidProgramException(node, 'transitive.in.transitive')
+
+        self.is_transitive = True
+        for stmt in node.body:
+            self.visit(stmt)
+        self.is_transitive = False
 
     def _decorators(self, node: ast.FunctionDef) -> List[str]:
         return [dec.id for dec in node.decorator_list if isinstance(dec, ast.Name)]

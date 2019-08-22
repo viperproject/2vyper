@@ -94,6 +94,7 @@ class VyperProgram:
                  events: Dict[str, VyperEvent],
                  invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
+                 transitive_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr]):
         self.config = config
         self.fields = fields
@@ -103,6 +104,7 @@ class VyperProgram:
         self.events = events
         self.invariants = invariants
         self.general_postconditions = general_postconditions
+        self.transitive_postconditions = transitive_postconditions
         self.general_checks = general_checks
         # Gets set in the analyzer
         self.analysis = None

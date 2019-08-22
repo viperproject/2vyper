@@ -204,13 +204,19 @@ class ProgramTranslator(PositionTranslator):
             states = [self.viper_ast.LocalVarDecl(f'$s{i}', self_type) for i in range(3)]
             body = []
 
+            block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
+            block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
+            ctx.all_vars[names.BLOCK] = block
+            is_post = self.viper_ast.LocalVarDecl(f'$post', self.viper_ast.Bool)
+            local_vars = [*states, block, is_post]
+
             # Assume type assumptions for all self-states
             for state in states:
                 var = state.localVar()
                 type_assumptions = self.type_translator.type_assumptions(var, ctx.self_type, ctx)
                 body.extend([self.viper_ast.Inhale(a) for a in type_assumptions])
 
-            def assume_invariants(self_state, old_state):
+            def assume_assertions(self_state, old_state):
                 with self_scope(self_state, old_state, ctx):
                     for inv in ctx.unchecked_invariants():
                         body.append(self.viper_ast.Inhale(inv))
@@ -218,22 +224,39 @@ class ProgramTranslator(PositionTranslator):
                         pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                         inv_expr = self.specification_translator.translate_invariant(inv, ctx)
                         body.append(self.viper_ast.Inhale(inv_expr, pos))
+                    for post in ctx.program.transitive_postconditions:
+                        pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
+                        # We translate the postcondition like an invariant because we don't
+                        # want old to refer to the pre state
+                        post_expr = self.specification_translator.translate_invariant(post, ctx)
+                        is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
+                        post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
+                        body.append(self.viper_ast.Inhale(post_expr, pos))
 
-            # Assume invariants for current state 0 and old state 0
-            assume_invariants(states[0], states[0])
+            # Assume assertions for current state 0 and old state 0
+            assume_assertions(states[0], states[0])
 
-            # Assume invariants for current state 1 and old state 0
-            assume_invariants(states[1], states[0])
+            # Assume assertions for current state 1 and old state 0
+            assume_assertions(states[1], states[0])
 
-            # Assume invariants for current state 2 and old state 1
-            assume_invariants(states[2], states[1])
+            # Assume assertions for current state 2 and old state 1
+            assume_assertions(states[2], states[1])
 
             # Check invariants for current state 2 and old state 0
             with self_scope(states[2], states[0], ctx):
                 for inv in ctx.program.invariants:
-                    rule = rules.TRANSITIVITY_VIOLATED
+                    rule = rules.INVARIANT_TRANSITIVITY_VIOLATED
                     apos = self.to_position(inv, ctx, rule)
                     inv_expr = self.specification_translator.translate_invariant(inv, ctx)
                     body.append(self.viper_ast.Assert(inv_expr, apos))
 
-            return self.viper_ast.Method(name, [], [], [], [], states, body)
+                for post in ctx.program.transitive_postconditions:
+                    rule = rules.POSTCONDITION_TRANSITIVITY_VIOLATED
+                    apos = self.to_position(post, ctx, rule)
+                    post_expr = self.specification_translator.translate_invariant(post, ctx)
+                    pos = self.to_position(post, ctx)
+                    is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
+                    post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
+                    body.append(self.viper_ast.Assert(post_expr, apos))
+
+            return self.viper_ast.Method(name, [], [], [], [], local_vars, body)

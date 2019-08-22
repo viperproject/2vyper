@@ -43,6 +43,8 @@ ERRORS = {
         lambda i: f"A check might not hold after the body of {i.function}.",
     'invariant.not.wellformed':
         lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
+    'postcondition.not.wellformed':
+        lambda i: f"General postcondition {pprint(i.node)} might not be well-formed.",
     'fold.failed':
         lambda i: "Fold might fail.",
     'unfold.failed':
@@ -61,7 +63,7 @@ REASONS = {
     'assertion.false':
         lambda i: f"Assertion {pprint(i.node)} might not hold.",
     'transitivity.violated':
-        lambda i: "Invariant might not be transitive.",
+        lambda i: f"It might not be transitive.",
     'division.by.zero':
         lambda i: f"Divisor {pprint(i.node)} might be zero.",
     'seq.index.length':

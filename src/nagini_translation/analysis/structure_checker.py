@@ -115,15 +115,32 @@ class CheckChecker(SpecStructureChecker):
 
 class PostconditionChecker(SpecStructureChecker):
 
+    def __init__(self, program: VyperProgram):
+        super().__init__(program)
+        self._is_transitive = False
+
     def check(self):
         self._check(self.program.general_postconditions)
+        self._is_transitive = True
+        self._check(self.program.transitive_postconditions)
+        self._is_transitive = False
 
         for func in self.program.functions.values():
             self._check(func.postconditions, func)
 
+    def visit_Name(self, node: ast.Name):
+        if self._is_transitive:
+            _assert(node.id != names.MSG, node, 'postcondition.msg')
+
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
-        _assert(node.func.id not in names.NOT_ALLOWED_IN_POSTCONDITION, node, 'postcondition.call')
+
+        if self._is_transitive:
+            not_allowed = names.NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION
+        else:
+            not_allowed = names.NOT_ALLOWED_IN_POSTCONDITION
+
+        _assert(node.func.id not in not_allowed, node, 'postcondition.call')
 
         if self.func and self.func.name == names.INIT:
             _assert(node.func.id != names.OLD, node, 'postcondition.init.old')
