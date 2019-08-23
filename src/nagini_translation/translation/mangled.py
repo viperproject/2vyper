@@ -62,31 +62,21 @@ MAP_GET = '$map_get'
 MAP_SET = '$map_set'
 MAP_SUM = '$map_sum'
 
+STRUCT_DOMAIN = '$Struct'
+STRUCT_OPS_DOMAIN = '$StructOps'
+STRUCT_OPS_VALUE_VAR = '$T'
+
+STRUCT_LOC = '$struct_loc'
+STRUCT_GET = '$struct_get'
+STRUCT_SET = '$struct_set'
+
+STRUCT_INIT_DOMAIN = '$StructInit'
+
 TRANSITIVITY_CHECK = '$transitivity_check'
 
 
 def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
-
-
-def struct_name(vyper_name: str) -> str:
-    return f's${vyper_name}'
-
-
-def struct_member_name(vyper_struct_name: str, vyper_member_name: str) -> str:
-    return f's${vyper_struct_name}${vyper_member_name}'
-
-
-def struct_member_getter_name(vyper_struct_name: str, vyper_member_name: str) -> str:
-    return f's${vyper_struct_name}$get_{vyper_member_name}'
-
-
-def struct_member_setter_name(vyper_struct_name: str, vyper_member_name: str) -> str:
-    return f's${vyper_struct_name}$set_{vyper_member_name}'
-
-
-def struct_field_name(vyper_struct_name: str) -> str:
-    return f's${vyper_struct_name}$field'
 
 
 def struct_init_name(vyper_struct_name: str) -> str:

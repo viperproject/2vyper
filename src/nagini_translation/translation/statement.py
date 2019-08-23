@@ -232,7 +232,8 @@ class _AssignmentTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
         if isinstance(node.value.type, StructType):
             receiver_stmts, rec = self.expression_translator.translate(node.value, ctx)
-            new_value = helpers.struct_set(self.viper_ast, rec, value, node.attr, node.value.type, pos)
+            type = self.type_translator.translate(node.type, ctx)
+            new_value = helpers.struct_set(self.viper_ast, rec, value, node.attr, type, node.value.type, pos)
             assign_stmts, assign = self.assign_to(node.value, new_value, ctx)
             return receiver_stmts + assign_stmts, assign
         else:

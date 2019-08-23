@@ -29,7 +29,8 @@ class BalanceTranslator(CommonTranslator):
         return helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type, pos, info)
 
     def set_balance(self, self_var: Expr, value: Expr, ctx: Context, pos=None, info=None) -> Expr:
-        return helpers.struct_set(self.viper_ast, self_var, value, names.SELF_BALANCE, ctx.self_type, pos, info)
+        balance_type = ctx.field_types[names.SELF_BALANCE]
+        return helpers.struct_set(self.viper_ast, self_var, value, names.SELF_BALANCE, balance_type, ctx.self_type, pos, info)
 
     def check_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
         self_var = ctx.self_var.localVar()
@@ -75,7 +76,7 @@ class BalanceTranslator(CommonTranslator):
         rec_sender = helpers.map_get(self.viper_ast, rec, msg_sender, self.viper_ast.Int, self.viper_ast.Int, pos)
         rec_inc_sum = self.viper_ast.Add(rec_sender, amount, pos)
         rec_set = helpers.map_set(self.viper_ast, rec, msg_sender, rec_inc_sum, self.viper_ast.Int, self.viper_ast.Int, pos)
-        self_set = helpers.struct_set(self.viper_ast, self_var, rec_set, mangled.RECEIVED_FIELD, ctx.self_type, pos)
+        self_set = helpers.struct_set(self.viper_ast, self_var, rec_set, mangled.RECEIVED_FIELD, rec_type, ctx.self_type, pos)
         return self.viper_ast.LocalVarAssign(self_var, self_set, pos, info)
 
     def increase_sent(self, to: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
@@ -85,5 +86,5 @@ class BalanceTranslator(CommonTranslator):
         sent_to = helpers.map_get(self.viper_ast, sent, to, self.viper_ast.Int, self.viper_ast.Int, pos)
         sent_inc = self.viper_ast.Add(sent_to, amount, pos)
         sent_set = helpers.map_set(self.viper_ast, sent, to, sent_inc, self.viper_ast.Int, self.viper_ast.Int, pos)
-        self_set = helpers.struct_set(self.viper_ast, self_var, sent_set, mangled.SENT_FIELD, ctx.self_type, pos)
+        self_set = helpers.struct_set(self.viper_ast, self_var, sent_set, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
         return self.viper_ast.LocalVarAssign(self_var, self_set, pos, info)

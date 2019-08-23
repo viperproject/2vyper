@@ -30,22 +30,22 @@ def init_function() -> ast.FunctionDef:
 
 
 def self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
-    type = struct_type(viper_ast, self_type)
+    type = struct_type(viper_ast)
     return viper_ast.LocalVarDecl(mangled.SELF, type, pos, info)
 
 
 def old_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
-    type = struct_type(viper_ast, self_type)
+    type = struct_type(viper_ast)
     return viper_ast.LocalVarDecl(mangled.OLD_SELF, type, pos, info)
 
 
 def pre_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
-    type = struct_type(viper_ast, self_type)
+    type = struct_type(viper_ast)
     return viper_ast.LocalVarDecl(mangled.PRE_SELF, type, pos, info)
 
 
 def issued_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
-    type = struct_type(viper_ast, self_type)
+    type = struct_type(viper_ast)
     return viper_ast.LocalVarDecl(mangled.ISSUED_SELF, type, pos, info)
 
 
@@ -220,33 +220,42 @@ def map_sum(viper_ast: ViperAST, ref, key_type, pos=None, info=None):
     return viper_ast.DomainFuncApp(msum, [ref], type, pos, info, domain, type_vars)
 
 
-def struct_type(viper_ast: ViperAST, struct_type: StructType):
-    return viper_ast.DomainType(mangled.struct_name(struct_type.name), {}, [])
+def struct_type(viper_ast: ViperAST):
+    return viper_ast.DomainType(mangled.STRUCT_DOMAIN, {}, [])
 
 
-def struct_field(viper_ast: ViperAST, ref, idx, struct_type: StructType, pos=None, info=None):
-    struct = mangled.struct_name(struct_type.name)
-    field_name = mangled.struct_field_name(struct_type.name)
+def struct_loc(viper_ast: ViperAST, ref, idx, pos=None, info=None):
+    struct = mangled.STRUCT_DOMAIN
+    field_name = mangled.STRUCT_LOC
     int = viper_ast.Int
     return viper_ast.DomainFuncApp(field_name, [ref, idx], int, pos, info, struct)
 
 
 def struct_init(viper_ast: ViperAST, args, struct: StructType, pos=None, info=None):
-    domain = mangled.struct_name(struct.name)
+    domain = mangled.STRUCT_INIT_DOMAIN
     init_name = mangled.struct_init_name(struct.name)
-    return viper_ast.DomainFuncApp(init_name, args, struct_type(viper_ast, struct), pos, info, domain)
+    type = struct_type(viper_ast)
+    return viper_ast.DomainFuncApp(init_name, args, type, pos, info, domain)
+
+
+def _struct_type_var_map(viper_ast: ViperAST, member_type):
+    member = viper_ast.TypeVar(mangled.STRUCT_OPS_VALUE_VAR)
+    return {member: member_type}
 
 
 def struct_get(viper_ast: ViperAST, ref, member: str, member_type, struct_type: StructType, pos=None, info=None):
-    struct = mangled.struct_name(struct_type.name)
+    domain = mangled.STRUCT_OPS_DOMAIN
     idx = viper_ast.IntLit(struct_type.member_indices[member])
-    field = struct_field(viper_ast, ref, idx, struct_type, pos, info)
-    getter = mangled.struct_member_getter_name(struct_type.name, member)
-    return viper_ast.DomainFuncApp(getter, [field], member_type, pos, info, struct)
+    field = struct_loc(viper_ast, ref, idx, pos, info)
+    getter = mangled.STRUCT_GET
+    type_map = _struct_type_var_map(viper_ast, member_type)
+    return viper_ast.DomainFuncApp(getter, [field], member_type, pos, info, domain, type_map)
 
 
-def struct_set(viper_ast: ViperAST, ref, val, member: str, type: StructType, pos=None, info=None):
-    setter = mangled.struct_member_setter_name(type.name, member)
-    s_type = struct_type(viper_ast, type)
-    s_name = mangled.struct_name(type.name)
-    return viper_ast.DomainFuncApp(setter, [ref, val], s_type, pos, info, s_name)
+def struct_set(viper_ast: ViperAST, ref, val, member: str, member_type, type: StructType, pos=None, info=None):
+    setter = mangled.STRUCT_SET
+    s_type = struct_type(viper_ast)
+    domain = mangled.STRUCT_OPS_DOMAIN
+    idx = viper_ast.IntLit(type.member_indices[member])
+    type_map = _struct_type_var_map(viper_ast, member_type)
+    return viper_ast.DomainFuncApp(setter, [ref, idx, val], s_type, pos, info, domain, type_map)

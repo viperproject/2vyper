@@ -45,7 +45,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             element_type = self.translate(type.element_type, ctx)
             return helpers.array_type(self.viper_ast, element_type)
         elif isinstance(type, StructType):
-            return helpers.struct_type(self.viper_ast, type)
+            return helpers.struct_type(self.viper_ast)
         elif isinstance(type, ContractType):
             return self.type_dict[types.VYPER_ADDRESS]
         else:

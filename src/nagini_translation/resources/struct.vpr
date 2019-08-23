@@ -1,0 +1,32 @@
+/*
+  Copyright (c) 2019 ETH Zurich
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+domain $Struct {
+
+    function $struct_loc($s: $Struct, $m: Int): Int
+
+}
+
+domain $StructOps[$T] {
+
+    function $struct_get($l: Int): $T
+
+    function $struct_set($s: $Struct, $m: Int, $t: $T): $Struct
+
+    axiom $get_set_0_ax {
+        forall $s: $Struct, $m: Int, $t: $T ::
+            { $struct_loc($struct_set($s, $m, $t), $m) }
+                $struct_get($struct_loc($struct_set($s, $m, $t), $m)) == $t
+    }
+
+    axiom $get_set_1_ax {
+        forall $s: $Struct, $m: Int, $n: Int, $t: $T ::
+            { $struct_loc($struct_set($s, $n, $t), $m) }
+                $m != $n ==> $struct_loc($s, $m) == $struct_loc($struct_set($s, $n, $t), $m)
+    }
+
+}
