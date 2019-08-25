@@ -17,6 +17,11 @@ def _backend_path(verifier: str):
     return os.path.join(backends, f'{verifier}.jar')
 
 
+def _sif_path():
+    backends = os.path.dirname(nagini_translation.backends.__file__)
+    return os.path.join(backends, 'silver-sif-extension.jar')
+
+
 def _executable_path(cmd: str, env: str = None) -> str:
     if env:
         env_var = os.environ.get(env)
@@ -36,17 +41,21 @@ def _construct_classpath(verifier: str = 'silicon'):
     viper_java_path = os.environ.get('VIPERJAVAPATH')
     silicon_jar = os.environ.get('SILICONJAR')
     carbon_jar = os.environ.get('CARBONJAR')
+    sif_jar = os.environ.get('SIFJAR')
 
     if viper_java_path:
         return viper_java_path
 
-    if carbon_jar and verifier == 'carbon':
-        return carbon_jar
-
     if silicon_jar and verifier == 'silicon':
-        return silicon_jar
+        verifier_path = silicon_jar
+    elif carbon_jar and verifier == 'carbon':
+        verifier_path = carbon_jar
+    else:
+        verifier_path = _backend_path(verifier)
 
-    return _backend_path(verifier)
+    sif_path = sif_jar or _sif_path()
+
+    return os.pathsep.join([verifier_path, sif_path])
 
 
 def _get_boogie_path():

@@ -18,9 +18,15 @@ from jpype import JException
 
 from nagini_translation import vyper
 from nagini_translation import config
+
+from nagini_translation.parsing import parser
+from nagini_translation.analysis import analyzer
+from nagini_translation.translation.translator import ProgramTranslator
+
 from nagini_translation.viper.jvmaccess import JVM
 from nagini_translation.viper.typedefs import Program
 from nagini_translation.viper.ast import ViperAST
+from nagini_translation.viper import sif
 
 from nagini_translation.verification import error_manager
 
@@ -30,10 +36,6 @@ from nagini_translation.verification.verifier import (
     VerificationResult,
     ViperVerifier
 )
-
-from nagini_translation.parsing import parser
-from nagini_translation.analysis import analyzer
-from nagini_translation.translation.translator import ProgramTranslator
 
 from nagini_translation.exceptions import (
     InvalidVyperException, UnsupportedException, InvalidProgramException, ConsistencyException
@@ -64,17 +66,15 @@ def parse_sil_file(sil_path: str, jvm):
     return program.get()
 
 
-def load_sil_files(jvm: JVM, sif: bool = False):
+# TODO: move this to a better place
+def load_sil_files(jvm: JVM):
     current_path = os.path.dirname(inspect.stack()[0][1])
-    if sif:
-        resources_path = os.path.join(current_path, 'sif', 'resources')
-    else:
-        resources_path = os.path.join(current_path, 'resources')
+    resources_path = os.path.join(current_path, 'resources')
     return parse_sil_file(os.path.join(resources_path, 'all.vpr'), jvm)
 
 
 def translate(path: str, jvm: JVM, selected: Set[str] = set(),
-              sif: bool = False, vyper_root=None, skip_vyper: bool = False,
+              vyper_root=None, skip_vyper: bool = False,
               verbose: bool = False) -> Program:
     """
     Translates the Python module at the given path to a Viper program
@@ -88,14 +88,10 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     if not skip_vyper:
         vyper.check(path, vyper_root)
 
-    if sif:
-        # viper_ast = ViperASTExtended(jvm, jvm.java, jvm.scala, jvm.viper, path)
-        pass
-    else:
-        viper_ast = ViperAST(jvm)
+    viper_ast = ViperAST(jvm)
     if not viper_ast.is_available():
         raise Exception('Viper not found on classpath.')
-    if sif and not viper_ast.is_extension_available():
+    if not viper_ast.is_extension_available():
         raise Exception('Viper AST SIF extension not found on classpath.')
 
     with open(path) as file:
@@ -105,7 +101,6 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     builtins = load_sil_files(jvm)
     translator = ProgramTranslator(viper_ast, builtins)
     viper_program = translator.translate(vyper_program, path)
-    print(viper_program)
 
     consistency_errors = viper_ast.to_list(viper_program.checkTransitively())
     for error in consistency_errors:
@@ -115,56 +110,10 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
         # print(viper_program)
         raise ConsistencyException('consistency.error')
 
+    sif.configure_mpp_transformation(jvm)
+    viper_program = sif.transform(jvm, viper_program)
+    print(viper_program)
     return viper_program
-
-    # type_correct = types.check(path)
-    # if not type_correct:
-    #     return None
-
-    # analyzer = Analyzer(types, path, selected)
-    # main_module = analyzer.module
-    # with open(os.path.join(resources_path, 'preamble.index'), 'r') as file:
-    #     analyzer.add_native_silver_builtins(json.loads(file.read()))
-
-    # main_module.add_builtin_vars()
-    # collect_modules(analyzer, path)
-    # if sif:
-    #     translator = SIFTranslator(jvm, path, types, viper_ast)
-    # else:
-    #     translator = Translator(jvm, path, types, viper_ast)
-    # analyzer.process(translator)
-    # if 'sil_programs' not in globals() or reload_resources:
-    #     global sil_programs
-    #     sil_programs = load_sil_files(jvm, sif)
-    # modules = [main_module.global_module] + list(analyzer.modules.values())
-    # prog = translator.translate_program(modules, sil_programs, selected,
-    #                                     arp=arp, ignore_global=ignore_global)
-    # if sif:
-    #     set_all_low_methods(jvm, viper_ast.all_low_methods)
-    #     set_preserves_low_methods(jvm, viper_ast.preserves_low_methods)
-    # if verbose:
-    #     print('Translation successful.')
-    # if sif:
-    #     configure_mpp_transformation(jvm,
-    #                                  ctrl_opt=True,
-    #                                  seq_opt=True,
-    #                                  act_opt=True,
-    #                                  func_opt=True)
-    #     prog = jvm.viper.silver.sif.SIFExtendedTransformer.transform(prog, False)
-    #     if verbose:
-    #         print('Transformation to MPP successful.')
-    # if arp:
-    #     prog = get_arp_plugin(jvm).before_verify(prog)
-    #     if verbose:
-    #         print('ARP transformation successful.')
-    # # Run consistency check in translated AST
-    # consistency_errors = viper_ast.to_list(prog.checkTransitively())
-    # for error in consistency_errors:
-    #     print(error.toString())
-    # if consistency_errors:
-    #     print(prog)
-    #     raise ConsistencyException('consistency.error')
-    # return prog
 
 
 def verify(prog: Program, path: str,
@@ -254,11 +203,6 @@ def main() -> None:
         help="increase output verbosity"
     )
     parser.add_argument(
-        '--sif',
-        action='store_true',
-        help='verify secure information flow'
-    )
-    parser.add_argument(
         '--show-viper-errors',
         action='store_true',
         help='show Viper-level error messages if no Python errors are available'
@@ -335,7 +279,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
     try:
         start = time()
         selected = set(args.select.split(',')) if args.select else set()
-        prog = translate(vyper_file, jvm, selected, args.sif, args.vyper_root, args.skip_vyper, args.verbose)
+        prog = translate(vyper_file, jvm, selected, args.vyper_root, args.skip_vyper, args.verbose)
         if args.print_silver:
             if args.verbose:
                 print('Result:')
@@ -353,7 +297,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
             print("Run, Total, Start, End, Time")
             for i in range(args.benchmark):
                 start = time()
-                prog = translate(vyper_file, jvm, selected, args.sif)
+                prog = translate(vyper_file, jvm, selected)
                 vresult = verify(prog, vyper_file, jvm, backend=backend)
                 end = time()
                 print(f"{i}, {args.benchmark}, {start}, {end}, {end - start}")

@@ -16,10 +16,11 @@ class ViperAST:
     """
 
     def __init__(self, jvm):
-        self.ast = jvm.viper.silver.ast
+        self.jvm = jvm
         self.java = jvm.java
         self.scala = jvm.scala
-        self.jvm = jvm
+        self.ast = jvm.viper.silver.ast
+        self.ast_extensions = jvm.viper.silver.sif
 
         def getobject(package, name):
             return getattr(getattr(package, name + '$'), 'MODULE$')
@@ -62,6 +63,13 @@ class ViperAST:
         Checks if the Viper AST is available, i.e., silver is on the Java classpath.
         """
         return self.jvm.is_known_class(self.ast.Program)
+
+    def is_extension_available(self) -> bool:
+        """
+        Checks if the extended AST is available, i.e., the SIF AST extension is on the
+        Java classpath.
+        """
+        return self.jvm.is_known_class(self.ast_extensions.SIFReturnStmt)
 
     def empty_seq(self):
         return self.scala.collection.mutable.ListBuffer()
@@ -666,3 +674,10 @@ class ViperAST:
             if isinstance(n, self.ast.LocationAccess):
                 return True
         return False
+
+    # SIF extension AST nodes
+
+    def Low(self, expr, position=None, info=None):
+        position = position or self.NoPosition
+        info = info or self.NoInfo
+        return self.ast_extensions.SIFLowExp(expr, self.None_, position, info, self.NoTrafos)
