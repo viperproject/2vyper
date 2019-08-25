@@ -66,9 +66,12 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             return stmts, call
         elif isinstance(type, ArrayType):
             element_type = self.translate(type.element_type, ctx)
-            stmts, element_default = self.default_value(node, type.element_type, ctx)
-            array = helpers.array_init(self.viper_ast, element_default, type.size, element_type, pos)
-            return stmts, array
+            if type.is_strict:
+                stmts, element_default = self.default_value(node, type.element_type, ctx)
+                array = helpers.array_init(self.viper_ast, element_default, type.size, element_type, pos)
+                return stmts, array
+            else:
+                return [], helpers.empty_array(self.viper_ast, element_type, pos)
         elif isinstance(type, StructType):
             init_args = {}
             stmts = []

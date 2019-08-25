@@ -135,6 +135,10 @@ def array_type(viper_ast: ViperAST, element_type):
     return viper_ast.SeqType(element_type)
 
 
+def empty_array(viper_ast: ViperAST, element_type, pos=None, info=None):
+    return viper_ast.EmptySeq(element_type, pos, info)
+
+
 def array_init(viper_ast: ViperAST, arg, size: int, element_type, pos=None, info=None):
     arr_type = array_type(viper_ast, element_type)
     type_vars = {viper_ast.TypeVar(mangled.ARRAY_ELEMENT_VAR): element_type}

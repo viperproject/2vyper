@@ -16,6 +16,11 @@ ss: string[5]
 
 
 @public
+def __init__():
+    self.ss = "abcde"
+
+
+@public
 def set_ss(new_ss: string[5]):
     self.ss = new_ss
     self.ss = "asdfg"
