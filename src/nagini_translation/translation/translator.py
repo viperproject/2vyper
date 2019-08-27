@@ -60,7 +60,7 @@ class ProgramTranslator(PositionTranslator):
         ctx.program = vyper_program
 
         # Translate self
-        self_init, self_ax = self._translate_struct(vyper_program.fields, ctx)
+        domains.append(self._translate_struct(vyper_program.fields, ctx))
 
         for field, field_type in vyper_program.fields.type.member_types.items():
             ctx.field_types[field] = self.type_translator.translate(field_type, ctx)
@@ -80,15 +80,8 @@ class ProgramTranslator(PositionTranslator):
         ctx.unchecked_invariants = unchecked_invariants
 
         # Structs
-        inits = [self_init]
-        axioms = [self_ax]
-        for struct in vyper_program.structs.values():
-            init, axiom = self._translate_struct(struct, ctx)
-            inits.append(init)
-            axioms.append(axiom)
-
-        init_domain = self.viper_ast.Domain(mangled.STRUCT_INIT_DOMAIN, inits, axioms, [])
-        domains.append(init_domain)
+        structs = vyper_program.structs.values()
+        domains.extend(self._translate_struct(struct, ctx) for struct in structs)
 
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
@@ -102,39 +95,63 @@ class ProgramTranslator(PositionTranslator):
         return viper_program
 
     def _translate_struct(self, struct: VyperStruct, ctx: Context):
-        # For structs we need to synthesize an initializer domain function and
-        # its corresponding axiom
-        domain = mangled.STRUCT_INIT_DOMAIN
+        # For structs we need to synthesize an initializer and and equality domain function and
+        # their corresponding axioms
+        domain = mangled.struct_name(struct.name)
         struct_type = self.type_translator.translate(struct.type, ctx)
 
-        init_args = {}
-        init_get = {}
+        members = [None] * len(struct.type.member_types)
         for name, type in struct.type.member_types.items():
-            member_type = self.type_translator.translate(type, ctx)
             idx = struct.type.member_indices[name]
-            init_args[idx] = self.viper_ast.LocalVarDecl(f'arg_{idx}', member_type)
+            member_type = self.type_translator.translate(type, ctx)
+            var_decl = self.viper_ast.LocalVarDecl(f'$arg_{idx}', member_type)
+            members[idx] = (name, var_decl)
 
-            def ig(s, name=name, member_type=member_type):
-                return helpers.struct_get(self.viper_ast, s, name, member_type, struct.type)
-            init_get[idx] = ig
-
-        i_args = [init_args[i] for i in range(len(init_args))]
         init_name = mangled.struct_init_name(struct.name)
-        init_f = self.viper_ast.DomainFunc(init_name, i_args, struct_type, False, domain)
+        init_parms = [var for _, var in members]
+        init_f = self.viper_ast.DomainFunc(init_name, init_parms, struct_type, False, domain)
 
-        init = helpers.struct_init(self.viper_ast, [arg.localVar() for arg in i_args], struct.type)
-        expr = self.viper_ast.TrueLit()
-        for i in range(len(init_args)):
-            get = init_get[i](init)
-            eq = self.viper_ast.EqCmp(get, init_args[i].localVar())
-            expr = self.viper_ast.And(expr, eq)
+        eq_name = mangled.struct_eq_name(struct.name)
+        eq_left_decl = self.viper_ast.LocalVarDecl('$l', struct_type)
+        eq_right_decl = self.viper_ast.LocalVarDecl('$r', struct_type)
+        eq_parms = [eq_left_decl, eq_right_decl]
+        eq_f = self.viper_ast.DomainFunc(eq_name, eq_parms, self.viper_ast.Bool, False, domain)
 
-        trigger = self.viper_ast.Trigger([init])
-        quant = self.viper_ast.Forall(i_args, [trigger], expr)
+        init_args = [param.localVar() for param in init_parms]
+        init = helpers.struct_init(self.viper_ast, init_args, struct.type)
+        init_expr = self.viper_ast.TrueLit()
+
+        eq_left = eq_left_decl.localVar()
+        eq_right = eq_right_decl.localVar()
+        eq = helpers.struct_eq(self.viper_ast, eq_left, eq_right, struct.type)
+        eq_expr = self.viper_ast.TrueLit()
+
+        for name, var in members:
+            init_get = helpers.struct_get(self.viper_ast, init, name, var.typ(), struct.type)
+            init_eq = self.viper_ast.EqCmp(init_get, var.localVar())
+            init_expr = self.viper_ast.And(init_expr, init_eq)
+
+            eq_get_l = helpers.struct_get(self.viper_ast, eq_left, name, var.typ(), struct.type)
+            eq_get_r = helpers.struct_get(self.viper_ast, eq_right, name, var.typ(), struct.type)
+            member_type = struct.type.member_types[name]
+            eq_eq = helpers.eq(self.viper_ast, eq_get_l, eq_get_r, member_type)
+            eq_expr = self.viper_ast.And(eq_expr, eq_eq)
+
+        init_trigger = self.viper_ast.Trigger([init])
+        init_quant = self.viper_ast.Forall(init_parms, [init_trigger], init_expr)
         init_ax_name = mangled.axiom_name(init_name)
-        axiom = self.viper_ast.DomainAxiom(init_ax_name, quant, domain)
+        init_axiom = self.viper_ast.DomainAxiom(init_ax_name, init_quant, domain)
 
-        return init_f, axiom
+        eq_trigger = self.viper_ast.Trigger([eq])
+        eq_lr_eq = self.viper_ast.EqCmp(eq_left, eq_right)
+        eq_equals = self.viper_ast.EqCmp(eq, eq_lr_eq)
+        eq_definition = self.viper_ast.EqCmp(eq, eq_expr)
+        eq_expr = self.viper_ast.And(eq_equals, eq_definition)
+        eq_quant = self.viper_ast.Forall(eq_parms, [eq_trigger], eq_expr)
+        eq_axiom_name = mangled.axiom_name(eq_name)
+        eq_axiom = self.viper_ast.DomainAxiom(eq_axiom_name, eq_quant, domain)
+
+        return self.viper_ast.Domain(domain, [init_f, eq_f], [init_axiom, eq_axiom], [])
 
     def _translate_event(self, event: VyperEvent, ctx: Context):
         name = mangled.event_name(event.name)

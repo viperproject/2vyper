@@ -79,8 +79,16 @@ def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
 
 
+def struct_name(vyper_struct_name: str) -> str:
+    return f's${vyper_struct_name}'
+
+
 def struct_init_name(vyper_struct_name: str) -> str:
-    return f's${vyper_struct_name}$init'
+    return f'{struct_name(vyper_struct_name)}$init'
+
+
+def struct_eq_name(vyper_struct_name: str) -> str:
+    return f'{struct_name(vyper_struct_name)}$eq'
 
 
 def axiom_name(viper_name: str) -> str:

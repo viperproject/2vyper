@@ -9,7 +9,7 @@ import ast
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.types import FunctionType, StructType
+from nagini_translation.ast.types import VyperType, FunctionType, StructType
 from nagini_translation.ast.nodes import VyperFunction
 
 from nagini_translation.analysis.analyzer import FunctionAnalysis
@@ -85,6 +85,20 @@ def self_address(viper_ast: ViperAST, pos=None, info=None):
     address = mangled.SELF_ADDRESS
     domain = mangled.CONTRACT_DOMAIN
     return viper_ast.DomainFuncApp(address, [], viper_ast.Int, pos, info, domain)
+
+
+def eq(viper_ast: ViperAST, left, right, type: VyperType, pos=None, info=None):
+    if isinstance(type, StructType):
+        return struct_eq(viper_ast, left, right, type, pos, info)
+    else:
+        return viper_ast.EqCmp(left, right, pos, info)
+
+
+def neq(viper_ast: ViperAST, left, right, type: VyperType, pos=None, info=None):
+    if isinstance(type, StructType):
+        return viper_ast.Not(struct_eq(left, right, type, pos), pos, info)
+    else:
+        return viper_ast.NeCmp(left, right, pos, info)
 
 
 def div(viper_ast: ViperAST, dividend, divisor, pos=None, info=None):
@@ -229,17 +243,22 @@ def struct_type(viper_ast: ViperAST):
 
 
 def struct_loc(viper_ast: ViperAST, ref, idx, pos=None, info=None):
-    struct = mangled.STRUCT_DOMAIN
-    field_name = mangled.STRUCT_LOC
-    int = viper_ast.Int
-    return viper_ast.DomainFuncApp(field_name, [ref, idx], int, pos, info, struct)
+    domain = mangled.STRUCT_DOMAIN
+    loc = mangled.STRUCT_LOC
+    return viper_ast.DomainFuncApp(loc, [ref, idx], viper_ast.Int, pos, info, domain)
 
 
 def struct_init(viper_ast: ViperAST, args, struct: StructType, pos=None, info=None):
-    domain = mangled.STRUCT_INIT_DOMAIN
+    domain = mangled.struct_name(struct.name)
     init_name = mangled.struct_init_name(struct.name)
     type = struct_type(viper_ast)
     return viper_ast.DomainFuncApp(init_name, args, type, pos, info, domain)
+
+
+def struct_eq(viper_ast: ViperAST, left, right, struct: StructType, pos=None, info=None):
+    domain = mangled.struct_name(struct.name)
+    eq = mangled.struct_eq_name(struct.name)
+    return viper_ast.DomainFuncApp(eq, [left, right], viper_ast.Bool, pos, info, domain)
 
 
 def _struct_type_var_map(viper_ast: ViperAST, member_type):
