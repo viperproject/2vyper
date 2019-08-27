@@ -49,7 +49,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         elif isinstance(type, StructType):
             return helpers.struct_type(self.viper_ast)
         elif isinstance(type, ContractType):
-            return self.type_dict[types.VYPER_ADDRESS]
+            return self.translate(types.VYPER_ADDRESS, ctx)
         else:
             assert False
 
