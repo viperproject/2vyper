@@ -5,6 +5,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+import ast
+
 from typing import Optional, List
 
 from nagini_translation.ast import types
@@ -51,7 +53,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         else:
             assert False
 
-    def default_value(self, node: Optional, type: VyperType, ctx: Context) -> StmtsAndExpr:
+    def default_value(self, node: Optional[ast.AST], type: VyperType, ctx: Context) -> StmtsAndExpr:
         pos = self.no_position() if node is None else self.to_position(node, ctx)
         if type is types.VYPER_BOOL:
             return [], self.viper_ast.FalseLit(pos)
@@ -199,3 +201,26 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         le = self.viper_ast.LtCmp(index, self.viper_ast.SeqLength(array))
         cond = self.viper_ast.Not(self.viper_ast.And(leq, le))
         return self.fail_if(cond, [], ctx)
+
+    def eq(self, node: Optional[ast.AST], left, right, type: VyperType, ctx: Context) -> Expr:
+        pos = self.no_position() if node is None else self.to_position(node, ctx)
+        if isinstance(type, StructType):
+            return helpers.struct_eq(self.viper_ast, left, right, type, pos)
+        elif isinstance(type, MapType):
+            key_type = self.translate(type.key_type, ctx)
+            value_type = self.translate(type.value_type, ctx)
+            return helpers.map_eq(self.viper_ast, left, right, key_type, value_type, pos)
+        else:
+            return self.viper_ast.EqCmp(left, right, pos)
+
+    def neq(self, node: Optional[ast.AST], left, right, type: VyperType, ctx: Context) -> Expr:
+        pos = self.no_position() if node is None else self.to_position(node, ctx)
+        if isinstance(type, StructType):
+            return self.viper_ast.Not(helpers.struct_eq(self.viper_ast, left, right, type, pos), pos)
+        elif isinstance(type, MapType):
+            key_type = self.translate(type.key_type, ctx)
+            value_type = self.translate(type.value_type, ctx)
+            map_eq = helpers.map_eq(self.viper_ast, left, right, key_type, value_type, pos)
+            return self.viper_ast.Not(map_eq)
+        else:
+            return self.viper_ast.NeCmp(left, right, pos)

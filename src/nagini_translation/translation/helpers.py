@@ -9,7 +9,7 @@ import ast
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
-from nagini_translation.ast.types import VyperType, FunctionType, StructType
+from nagini_translation.ast.types import FunctionType, StructType
 from nagini_translation.ast.nodes import VyperFunction
 
 from nagini_translation.analysis.analyzer import FunctionAnalysis
@@ -85,20 +85,6 @@ def self_address(viper_ast: ViperAST, pos=None, info=None):
     address = mangled.SELF_ADDRESS
     domain = mangled.CONTRACT_DOMAIN
     return viper_ast.DomainFuncApp(address, [], viper_ast.Int, pos, info, domain)
-
-
-def eq(viper_ast: ViperAST, left, right, type: VyperType, pos=None, info=None):
-    if isinstance(type, StructType):
-        return struct_eq(viper_ast, left, right, type, pos, info)
-    else:
-        return viper_ast.EqCmp(left, right, pos, info)
-
-
-def neq(viper_ast: ViperAST, left, right, type: VyperType, pos=None, info=None):
-    if isinstance(type, StructType):
-        return viper_ast.Not(struct_eq(left, right, type, pos), pos, info)
-    else:
-        return viper_ast.NeCmp(left, right, pos, info)
 
 
 def div(viper_ast: ViperAST, dividend, divisor, pos=None, info=None):
@@ -213,6 +199,13 @@ def map_init(viper_ast: ViperAST, arg, key_type, value_type, pos=None, info=None
     init = mangled.MAP_INIT
     domain = mangled.MAP_DOMAIN
     return viper_ast.DomainFuncApp(init, [arg], mp_type, pos, info, domain, type_vars)
+
+
+def map_eq(viper_ast: ViperAST, left, right, key_type, value_type, pos=None, info=None):
+    type_vars = _map_type_var_map(viper_ast, key_type, value_type)
+    eq = mangled.MAP_EQ
+    domain = mangled.MAP_DOMAIN
+    return viper_ast.DomainFuncApp(eq, [left, right], viper_ast.Bool, pos, info, domain, type_vars)
 
 
 def map_get(viper_ast: ViperAST, ref, idx, key_type, value_type, pos=None, info=None):

@@ -9,12 +9,21 @@ domain $Map[$K, $V] {
 
     function $map_init($v: $V): $Map[$K, $V]
 
+    function $map_eq($m: $Map[$K, $V], $n: $Map[$K, $V]): Bool
+
     function $map_get($m: $Map[$K, $V], $k: $K): $V
 
     function $map_set($m: $Map[$K, $V], $k: $K, $v: $V): $Map[$K, $V]
 
     axiom $map_init_ax {
         forall $v: $V, $k: $K :: { $map_get($map_init($v), $k) } $map_get($map_init($v), $k) == $v
+    }
+
+    axiom $map_eq_ax {
+        forall $m: $Map[$K, $V], $n: $Map[$K, $V] :: { $map_eq($m, $n) }
+            ($map_eq($m, $n) <==> $m == $n) &&
+            ($map_eq($m, $n) <==> forall $k: $K :: { $map_get($m, $k), $map_get($n, $k) }
+                $map_get($m, $k) == $map_get($n, $k))
     }
 
     axiom $map_set_ax {

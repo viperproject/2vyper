@@ -202,9 +202,9 @@ class ExpressionTranslator(NodeTranslator):
         stmts = lhs_stmts + rhs_stmts
 
         if isinstance(operator, ast.Eq):
-            return stmts, helpers.eq(self.viper_ast, lhs, rhs, left.type, pos)
+            return stmts, self.type_translator.eq(node, lhs, rhs, left.type, ctx)
         elif isinstance(operator, ast.NotEq):
-            return stmts, helpers.neq(self.viper_ast, lhs, rhs, left.type, pos)
+            return stmts, self.type_translator.neq(node, lhs, rhs, left.type, ctx)
         else:
             return stmts, op(lhs, rhs, pos)
 

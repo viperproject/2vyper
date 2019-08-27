@@ -134,7 +134,7 @@ class ProgramTranslator(PositionTranslator):
             eq_get_l = helpers.struct_get(self.viper_ast, eq_left, name, var.typ(), struct.type)
             eq_get_r = helpers.struct_get(self.viper_ast, eq_right, name, var.typ(), struct.type)
             member_type = struct.type.member_types[name]
-            eq_eq = helpers.eq(self.viper_ast, eq_get_l, eq_get_r, member_type)
+            eq_eq = self.type_translator.eq(None, eq_get_l, eq_get_r, member_type, ctx)
             eq_expr = self.viper_ast.And(eq_expr, eq_eq)
 
         init_trigger = self.viper_ast.Trigger([init])
