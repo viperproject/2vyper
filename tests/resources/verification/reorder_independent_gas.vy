@@ -5,26 +5,18 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ config: no_gas
 
 val: int128
+work: public(int128)
 
 
-#@ ensures: reorder_independent(self.val)
-@public
-def set_val(new_val: int128):
-    self.val = new_val
-
-
-#@ ensures: reorder_independent(self.val)
-@public
-@payable
-def set_val_msg():
-    self.val = convert(as_unitless_number(msg.value), int128)
-
-
+# Not reorder independent because of different uses of gas in the different branches
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: reorder_independent(self.val)
 @public
-def inc_val():
-    self.val += 1
+def set_val(new_val: int128):
+    if self.work == 0:
+        self.work = new_val ** 2
+        self.val = new_val
+    else:
+        self.val = new_val
