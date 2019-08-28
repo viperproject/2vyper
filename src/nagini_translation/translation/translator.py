@@ -5,13 +5,15 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from typing import List
+
 from nagini_translation.utils import seq_to_list
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 from nagini_translation.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction
 
-from nagini_translation.viper.typedefs import Program
+from nagini_translation.viper.typedefs import Program, Stmt, Expr
 from nagini_translation.viper.ast import ViperAST
 
 from nagini_translation.translation.abstract import PositionTranslator
@@ -90,6 +92,7 @@ class ProgramTranslator(PositionTranslator):
 
         vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
         methods.append(self._create_transitivity_check(ctx))
+        methods.append(self._create_forced_ether_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
         viper_program = self.viper_ast.Program(domains, [], functions, predicates, methods)
         return viper_program
@@ -173,51 +176,64 @@ class ProgramTranslator(PositionTranslator):
             args.append(self.viper_ast.LocalVarDecl(arg_name, arg_type))
         return self.viper_ast.Predicate(name, args, None)
 
+    def _assume_assertions(self, self_state: Expr, old_state: Expr, ctx: Context) -> List[Stmt]:
+        body = []
+        with self_scope(self_state, old_state, ctx):
+            for inv in ctx.unchecked_invariants():
+                body.append(self.viper_ast.Inhale(inv))
+            for inv in ctx.program.invariants:
+                pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                inv_expr = self.specification_translator.translate_invariant(inv, ctx)
+                body.append(self.viper_ast.Inhale(inv_expr, pos))
+            for post in ctx.program.transitive_postconditions:
+                pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
+                # We translate the postcondition like an invariant because we don't
+                # want old to refer to the pre state
+                post_expr = self.specification_translator.translate_invariant(post, ctx)
+                is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
+                post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
+                body.append(self.viper_ast.Inhale(post_expr, pos))
+        return body
+
     def _create_transitivity_check(self, ctx: Context):
-        # Creates a check that all invariants are transitive. This is needed, because we
-        # want to assume the invariant after a call, which could have reentered multiple
-        # times.
+        # Creates a check that all invariants and transitive postconditions are transitive.
+        # This is needed, because we want to assume them after a call, which could have
+        # reentered multiple times.
         # To check transitivity, we create 3 states, assume the global unchecked invariants
         # for all of them, assume the invariants for state no 1 (with state no 1 being the
         # old state), for state no 2 (with state no 1 being the old state), and again for
         # state no 3 (with state no 2 being the old state).
         # In the end we assert the invariants for state no 3 (with state no 1 being the old state)
+        # The transitive postconditions are checked similarly, but conditioned under an unkown
+        # boolean variable so we can't assume them for checking the invariants
 
         with function_scope(ctx):
             name = mangled.TRANSITIVITY_CHECK
 
             self_type = self.type_translator.translate(ctx.self_type, ctx)
             states = [self.viper_ast.LocalVarDecl(f'$s{i}', self_type) for i in range(3)]
-            body = []
 
             block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
             block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
             ctx.all_vars[names.BLOCK] = block
-            is_post = self.viper_ast.LocalVarDecl(f'$post', self.viper_ast.Bool)
+            is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
             local_vars = [*states, block, is_post]
+
+            body = []
+
+            def assume_assertions(s1, s2):
+                body.extend(self._assume_assertions(s1, s2, ctx))
 
             # Assume type assumptions for all self-states
             for state in states:
                 var = state.localVar()
                 type_assumptions = self.type_translator.type_assumptions(var, ctx.self_type, ctx)
-                body.extend([self.viper_ast.Inhale(a) for a in type_assumptions])
+                body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
 
-            def assume_assertions(self_state, old_state):
-                with self_scope(self_state, old_state, ctx):
-                    for inv in ctx.unchecked_invariants():
-                        body.append(self.viper_ast.Inhale(inv))
-                    for inv in ctx.program.invariants:
-                        pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                        inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                        body.append(self.viper_ast.Inhale(inv_expr, pos))
-                    for post in ctx.program.transitive_postconditions:
-                        pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                        # We translate the postcondition like an invariant because we don't
-                        # want old to refer to the pre state
-                        post_expr = self.specification_translator.translate_invariant(post, ctx)
-                        is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
-                        post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
-                        body.append(self.viper_ast.Inhale(post_expr, pos))
+            # Assume type assumptions for block
+            block_var = block.localVar()
+            block_assumptions = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
+            body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
 
             # Assume assertions for current state 0 and old state 0
             assume_assertions(states[0], states[0])
@@ -238,6 +254,64 @@ class ProgramTranslator(PositionTranslator):
 
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_TRANSITIVITY_VIOLATED
+                    apos = self.to_position(post, ctx, rule)
+                    post_expr = self.specification_translator.translate_invariant(post, ctx)
+                    pos = self.to_position(post, ctx)
+                    is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
+                    post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
+                    body.append(self.viper_ast.Assert(post_expr, apos))
+
+            return self.viper_ast.Method(name, [], [], [], [], local_vars, body)
+
+    def _create_forced_ether_check(self, ctx: Context):
+        # Creates a check that all transitive postconditions still hold after
+        # forcibly receiving ether through selfdestruct or coinbase transactions
+
+        with function_scope(ctx):
+            name = mangled.FORCED_ETHER_CHECK
+
+            self_type = self.type_translator.translate(ctx.self_type, ctx)
+            self_var = helpers.self_var(self.viper_ast, self_type)
+            self_local = self_var.localVar()
+            pre_self_var = helpers.pre_self_var(self.viper_ast, self_type)
+            pre_self_local = pre_self_var.localVar()
+
+            block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
+            block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
+            ctx.all_vars[names.BLOCK] = block
+            is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
+            havoc = self.viper_ast.LocalVarDecl('$havoc', self.viper_ast.Int)
+            local_vars = [self_var, pre_self_var, block, is_post, havoc]
+
+            body = []
+
+            def assume_assertions(s1, s2):
+                body.extend(self._assume_assertions(s1, s2, ctx))
+
+            # Assume type assumptions for self
+            type_assumptions = self.type_translator.type_assumptions(self_local, ctx.self_type, ctx)
+            body.extend([self.viper_ast.Inhale(a) for a in type_assumptions])
+
+            # Assume type assumptions for block
+            block_var = block.localVar()
+            block_assumptions = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
+            body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
+
+            # Assume balance increase to be non-negative
+            zero = self.viper_ast.IntLit(0)
+            assume_non_negative = self.viper_ast.Inhale(self.viper_ast.GeCmp(havoc.localVar(), zero))
+            body.append(assume_non_negative)
+
+            assume_assertions(self_var, self_var)
+
+            body.append(self.viper_ast.LocalVarAssign(pre_self_local, self_local))
+
+            with self_scope(self_var, self_var, ctx):
+                body.append(self.balance_translator.increase_balance(havoc.localVar(), ctx))
+
+            with self_scope(self_var, pre_self_var, ctx):
+                for post in ctx.program.transitive_postconditions:
+                    rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)
                     post_expr = self.specification_translator.translate_invariant(post, ctx)
                     pos = self.to_position(post, ctx)

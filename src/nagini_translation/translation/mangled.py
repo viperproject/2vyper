@@ -74,6 +74,7 @@ STRUCT_SET = '$struct_set'
 STRUCT_INIT_DOMAIN = '$StructInit'
 
 TRANSITIVITY_CHECK = '$transitivity_check'
+FORCED_ETHER_CHECK = '$forced_ether_check'
 
 
 def method_name(vyper_name: str) -> str:
