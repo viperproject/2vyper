@@ -7,8 +7,8 @@
 
 
 struct Person:
-    name: string[100]
     age: uint256
+    height: uint256
 
 
 people: map(address, Person)
@@ -24,8 +24,8 @@ def set_self(p: Person):
 
 
 @public
-def set_name(n: string[100]):
-    self.people[msg.sender].name = n
+def set_height(h: uint256):
+    self.people[msg.sender].height = h
 
 
 @public
