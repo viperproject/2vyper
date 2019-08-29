@@ -221,6 +221,6 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             key_type = self.translate(type.key_type, ctx)
             value_type = self.translate(type.value_type, ctx)
             map_eq = helpers.map_eq(self.viper_ast, left, right, key_type, value_type, pos)
-            return self.viper_ast.Not(map_eq)
+            return self.viper_ast.Not(map_eq, pos)
         else:
             return self.viper_ast.NeCmp(left, right, pos)
