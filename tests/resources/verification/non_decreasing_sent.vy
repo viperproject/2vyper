@@ -13,6 +13,7 @@ def __default__():
 
 
 #@ ensures: sent(msg.sender) >= old(sent(msg.sender))
+#@ ensures: implies(success(), sent(msg.sender) >= old(sent(msg.sender)) + as_wei_value(1, "wei"))
 @public
 def pay():
     send(msg.sender, as_wei_value(1, "wei"))
