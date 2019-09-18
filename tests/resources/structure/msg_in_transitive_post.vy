@@ -7,6 +7,6 @@
 
 i: public(int128)
 
-#@ transitive:
+#@ preserves:
     #:: ExpectedOutput(invalid.program:postcondition.msg)
     #@ always ensures: msg.sender == old(msg.sender)

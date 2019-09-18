@@ -12,7 +12,7 @@ contract Foo:
     def bar(): modifying
 
 
-#@ transitive:
+#@ preserves:
     #@ always ensures: self.balance == old(self.balance)
 
 

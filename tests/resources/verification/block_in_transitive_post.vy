@@ -13,7 +13,7 @@ contract C:
 time_map: map(timestamp, int128)
 
 
-#@ transitive:
+#@ preserves:
     #:: Label(TS)
     #@ always ensures: self.time_map[block.timestamp] >= old(self.time_map[block.timestamp])
 

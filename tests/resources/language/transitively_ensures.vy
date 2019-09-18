@@ -15,7 +15,7 @@ val: int128
 owner: Owner
 
 
-#@ transitive:
+#@ preserves:
     #:: Label(LOCK)
     #@ always ensures: implies(old(self.lock), self.lock and self.val == old(self.val))
 

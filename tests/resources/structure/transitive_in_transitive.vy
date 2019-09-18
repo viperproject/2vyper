@@ -7,7 +7,7 @@
 
 i: public(int128)
 
-#@ transitive:
-    #:: ExpectedOutput(invalid.program:transitive.in.transitive)
-    #@ transitive:
+#@ preserves:
+    #:: ExpectedOutput(invalid.program:preserves.in.preserves)
+    #@ preserves:
         #@ always ensures: result() == 45

@@ -9,7 +9,7 @@ counter: int128
 nt_counter: int128
 
 
-#@ transitive:
+#@ preserves:
     #@ always ensures: self.counter <= old(self.counter)
     #:: ExpectedOutput(postcondition.not.wellformed:transitivity.violated)
     #@ always ensures: self.nt_counter == old(self.nt_counter) or self.nt_counter == old(self.nt_counter) + 1
