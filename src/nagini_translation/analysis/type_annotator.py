@@ -174,7 +174,8 @@ class TypeAnnotator:
 
         if isinstance(node.func, ast.Name):
             name = node.func.id
-            if name == names.MIN or name == names.MAX or name == names.OLD or name == names.ISSUED:
+            same_type = [names.MIN, names.MAX, names.OLD, names.ISSUED, names.REORDER_INDEPENDENT]
+            if name in same_type:
                 node.type = node.args[0].type
             elif name == names.FLOOR or name == names.CEIL or name == names.RANGE or name == names.LEN:
                 node.type = types.VYPER_INT128

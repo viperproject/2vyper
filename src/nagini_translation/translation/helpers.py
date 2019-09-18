@@ -201,6 +201,13 @@ def map_init(viper_ast: ViperAST, arg, key_type, value_type, pos=None, info=None
     return viper_ast.DomainFuncApp(init, [arg], mp_type, pos, info, domain, type_vars)
 
 
+def map_eq(viper_ast: ViperAST, left, right, key_type, value_type, pos=None, info=None):
+    type_vars = _map_type_var_map(viper_ast, key_type, value_type)
+    eq = mangled.MAP_EQ
+    domain = mangled.MAP_DOMAIN
+    return viper_ast.DomainFuncApp(eq, [left, right], viper_ast.Bool, pos, info, domain, type_vars)
+
+
 def map_get(viper_ast: ViperAST, ref, idx, key_type, value_type, pos=None, info=None):
     type_vars = _map_type_var_map(viper_ast, key_type, value_type)
     get = mangled.MAP_GET
@@ -229,17 +236,22 @@ def struct_type(viper_ast: ViperAST):
 
 
 def struct_loc(viper_ast: ViperAST, ref, idx, pos=None, info=None):
-    struct = mangled.STRUCT_DOMAIN
-    field_name = mangled.STRUCT_LOC
-    int = viper_ast.Int
-    return viper_ast.DomainFuncApp(field_name, [ref, idx], int, pos, info, struct)
+    domain = mangled.STRUCT_DOMAIN
+    loc = mangled.STRUCT_LOC
+    return viper_ast.DomainFuncApp(loc, [ref, idx], viper_ast.Int, pos, info, domain)
 
 
 def struct_init(viper_ast: ViperAST, args, struct: StructType, pos=None, info=None):
-    domain = mangled.STRUCT_INIT_DOMAIN
+    domain = mangled.struct_name(struct.name)
     init_name = mangled.struct_init_name(struct.name)
     type = struct_type(viper_ast)
     return viper_ast.DomainFuncApp(init_name, args, type, pos, info, domain)
+
+
+def struct_eq(viper_ast: ViperAST, left, right, struct: StructType, pos=None, info=None):
+    domain = mangled.struct_name(struct.name)
+    eq = mangled.struct_eq_name(struct.name)
+    return viper_ast.DomainFuncApp(eq, [left, right], viper_ast.Bool, pos, info, domain)
 
 
 def _struct_type_var_map(viper_ast: ViperAST, member_type):

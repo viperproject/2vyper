@@ -187,7 +187,7 @@ class ExpressionTranslator(NodeTranslator):
         assert len(node.ops) == 1
 
         left = node.left
-        op = node.ops[0]
+        operator = node.ops[0]
         right = node.comparators[0]
 
         def is_decimal(n):
@@ -197,10 +197,16 @@ class ExpressionTranslator(NodeTranslator):
             assert is_decimal(left) and is_decimal(right)
 
         lhs_stmts, lhs = self.translate(left, ctx)
-        op = self.translate_operator(op)
+        op = self.translate_operator(operator)
         rhs_stmts, rhs = self.translate(right, ctx)
+        stmts = lhs_stmts + rhs_stmts
 
-        return lhs_stmts + rhs_stmts, op(lhs, rhs, pos)
+        if isinstance(operator, ast.Eq):
+            return stmts, self.type_translator.eq(node, lhs, rhs, left.type, ctx)
+        elif isinstance(operator, ast.NotEq):
+            return stmts, self.type_translator.neq(node, lhs, rhs, left.type, ctx)
+        else:
+            return stmts, op(lhs, rhs, pos)
 
     def translate_operator(self, operator):
         return self._operations[type(operator)]

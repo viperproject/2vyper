@@ -1,5 +1,3 @@
-#:: IgnoreFile(0)
-
 #
 # Copyright (c) 2019 ETH Zurich
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -13,6 +11,7 @@ contract Foo:
 
 
 #@ preserves:
+    #:: ExpectedOutput(postcondition.not.wellformed:constant.balance)
     #@ always ensures: self.balance == old(self.balance)
 
 

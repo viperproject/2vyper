@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from functools import reduce
+
 from nagini_translation.ast import names
 
 from nagini_translation.viper.ast import ViperAST
@@ -201,6 +203,14 @@ class SpecificationTranslator(ExpressionTranslator):
                     return [], pred_acc
                 full_perm = self.viper_ast.FullPerm(pos)
                 return [], self.viper_ast.PredicateAccessPredicate(pred_acc, full_perm, pos)
+        elif name == names.REORDER_INDEPENDENT:
+            arg = self._translate_spec(node.args[0], ctx)
+            # Using the current msg_var is only ok if we don't support gas, i.e. if msg is constant
+            variables = [ctx.issued_self_var, ctx.msg_var, *ctx.args.values()]
+            low_variables = [self.viper_ast.Low(var.localVar()) for var in variables]
+            cond = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_variables)
+            implies = self.viper_ast.Implies(cond, self.viper_ast.Low(arg, pos), pos)
+            return [], implies
         elif name == names.EVENT:
             event = node.args[0]
             event_name = mangled.event_name(event.func.id)

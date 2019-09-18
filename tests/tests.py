@@ -564,14 +564,14 @@ class TwoVyperTest(AnnotatedTest):
     """Test for testing correct behavior of 2vyper for annotated programs."""
 
     def test_file(
-            self, path: str, jvm: jvmaccess.JVM, verifier: ViperVerifier, sif: bool):
+            self, path: str, jvm: jvmaccess.JVM, verifier: ViperVerifier):
         """Test specific Vyper file."""
         annotation_manager = self.get_annotation_manager(path, verifier.name)
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         path = os.path.abspath(path)
         try:
-            prog = translate(path, jvm, sif=sif, vyper_root=VYPER_ROOT)
+            prog = translate(path, jvm, vyper_root=VYPER_ROOT)
         except InvalidProgramException as e:
             actual_errors = [InvalidProgramError(e)]
             annotation_manager.check_errors(actual_errors)
@@ -579,11 +579,11 @@ class TwoVyperTest(AnnotatedTest):
                 pytest.skip('Unexpected or missing output')
         else:
             vresult = verify(prog, path, jvm, verifier)
-            self._evaluate_result(vresult, annotation_manager, jvm, sif)
+            self._evaluate_result(vresult, annotation_manager, jvm)
 
     def _evaluate_result(
             self, vresult: VerificationResult,
-            annotation_manager: AnnotationManager, jvm: jvmaccess.JVM, sif: bool = False):
+            annotation_manager: AnnotationManager, jvm: jvmaccess.JVM):
         """Evaluate verification result with regard to test annotations."""
         if vresult:
             actual_errors = []
@@ -593,7 +593,7 @@ class TwoVyperTest(AnnotatedTest):
                 for error in vresult.errors)
             actual_errors = [
                 VerificationError(error) for error in vresult.errors]
-            if sif:
+            if False:  # sif
                 # carbon will report all functional errors twice, as we model two
                 # executions, therefore we filter duplicated errors here.
                 # (Note: we don't make errors unique, just remove one duplicate)
@@ -615,6 +615,6 @@ class TwoVyperTest(AnnotatedTest):
 _TESTER = TwoVyperTest()
 
 
-def _test(path, sif=False):
+def _test(path):
     """Execute provided verification test."""
-    _TESTER.test_file(path, _JVM, VERIFIER, sif)
+    _TESTER.test_file(path, _JVM, VERIFIER)

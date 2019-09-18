@@ -58,6 +58,7 @@ MAP_KEY_VAR = '$K'
 MAP_VALUE_VAR = '$V'
 
 MAP_INIT = '$map_init'
+MAP_EQ = '$map_eq'
 MAP_GET = '$map_get'
 MAP_SET = '$map_set'
 MAP_SUM = '$map_sum'
@@ -73,14 +74,23 @@ STRUCT_SET = '$struct_set'
 STRUCT_INIT_DOMAIN = '$StructInit'
 
 TRANSITIVITY_CHECK = '$transitivity_check'
+FORCED_ETHER_CHECK = '$forced_ether_check'
 
 
 def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
 
 
+def struct_name(vyper_struct_name: str) -> str:
+    return f's${vyper_struct_name}'
+
+
 def struct_init_name(vyper_struct_name: str) -> str:
-    return f's${vyper_struct_name}$init'
+    return f'{struct_name(vyper_struct_name)}$init'
+
+
+def struct_eq_name(vyper_struct_name: str) -> str:
+    return f'{struct_name(vyper_struct_name)}$eq'
 
 
 def axiom_name(viper_name: str) -> str:

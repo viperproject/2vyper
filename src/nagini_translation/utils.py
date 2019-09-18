@@ -21,7 +21,7 @@ def switch(*values):
         if not where or len(values) != len(v):
             return False
 
-        return all([actual == case or case is _ for actual, case in zip(values, v)])
+        return all(actual == case or case is _ for actual, case in zip(values, v))
 
     yield match
 

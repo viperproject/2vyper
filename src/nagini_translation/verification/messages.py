@@ -63,7 +63,9 @@ REASONS = {
     'assertion.false':
         lambda i: f"Assertion {pprint(i.node)} might not hold.",
     'transitivity.violated':
-        lambda i: f"It might not be transitive.",
+        lambda i: "It might not be transitive.",
+    'constant.balance':
+        lambda i: "It might assume constant balance.",
     'division.by.zero':
         lambda i: f"Divisor {pprint(i.node)} might be zero.",
     'seq.index.length':

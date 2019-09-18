@@ -82,3 +82,8 @@ POSTCONDITION_TRANSITIVITY_VIOLATED = {
     ('assert.failed', 'assertion.false'):
         ('postcondition.not.wellformed', 'transitivity.violated')
 }
+
+POSTCONDITION_CONSTANT_BALANCE = {
+    ('assert.failed', 'assertion.false'):
+        ('postcondition.not.wellformed', 'constant.balance')
+}
