@@ -112,7 +112,6 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
 
     sif.configure_mpp_transformation(jvm)
     viper_program = sif.transform(jvm, viper_program)
-    print(viper_program)
     return viper_program
 
 
