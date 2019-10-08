@@ -9,6 +9,7 @@ import ast
 
 from typing import Optional, List, Dict
 
+from nagini_translation.utils import NodeVisitor
 from nagini_translation.ast import names
 from nagini_translation.exceptions import UnsupportedException
 
@@ -149,7 +150,7 @@ def has_strict_array_size(element_type: VyperType) -> bool:
     return element_type != VYPER_BYTE
 
 
-class TypeBuilder(ast.NodeVisitor):
+class TypeBuilder(NodeVisitor):
 
     def __init__(self, type_map: Dict[str, VyperType]):
         self.type_map = type_map
@@ -157,13 +158,17 @@ class TypeBuilder(ast.NodeVisitor):
     def build(self, node) -> VyperType:
         return self.visit(node)
 
+    @property
+    def method_name(self):
+        return '_visit'
+
     def generic_visit(self, node):
         raise UnsupportedException(node)
 
-    def visit_Name(self, node: ast.Name) -> VyperType:
+    def _visit_Name(self, node: ast.Name) -> VyperType:
         return self.type_map.get(node.id) or TYPES[node.id]
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> VyperType:
+    def _visit_ClassDef(self, node: ast.ClassDef) -> VyperType:
         assert node.body
 
         # This is a struct
@@ -182,7 +187,7 @@ class TypeBuilder(ast.NodeVisitor):
         else:
             assert False
 
-    def visit_Call(self, node: ast.Call) -> VyperType:
+    def _visit_Call(self, node: ast.Call) -> VyperType:
         # We allow
         #   - public, indexed: not important for verification
         #   - map: map type
@@ -203,7 +208,7 @@ class TypeBuilder(ast.NodeVisitor):
         else:
             return TYPES[node.func.id]
 
-    def visit_Subscript(self, node: ast.Subscript) -> VyperType:
+    def _visit_Subscript(self, node: ast.Subscript) -> VyperType:
         element_type = self.visit(node.value)
         # Array size has to be an int or a constant
         # (which has already been replaced by an int)

@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+import abc
 import ast
 import astunparse
 
@@ -62,3 +63,24 @@ def pprint(node: ast.AST) -> str:
     res = astunparse.unparse(node)
     res = res.replace('\n', '')
     return res
+
+
+class NodeVisitor(abc.ABC):
+
+    @abc.abstractproperty
+    def method_name(self) -> str:
+        return None
+
+    def visit(self, node, *args):
+        method = f'{self.method_name}_' + node.__class__.__name__
+        visitor = getattr(self, method, self.generic_visit)
+        return visitor(node)
+
+    def generic_visit(self, node, *args):
+        for field, value in ast.iter_fields(node):
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, ast.AST):
+                        self.visit(item, *args)
+            elif isinstance(value, ast.AST):
+                self.visit(value, *args)

@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from nagini_translation.utils import first_index
+from nagini_translation.utils import first_index, NodeVisitor
 
 from nagini_translation.ast import names
 from nagini_translation.ast import types
@@ -17,7 +17,7 @@ from nagini_translation.ast.nodes import VyperProgram
 from nagini_translation.exceptions import UnsupportedException
 
 
-class TypeAnnotator:
+class TypeAnnotator(NodeVisitor):
 
     def __init__(self, program: VyperProgram):
         type_map = {}
@@ -31,6 +31,10 @@ class TypeAnnotator:
         self.program = program
         self.current_func = None
         self.quantified_vars = {}
+
+    @property
+    def method_name(self):
+        return 'annotate'
 
     def annotate_program(self):
         for function in self.program.functions.values():
@@ -55,12 +59,9 @@ class TypeAnnotator:
             self.annotate(check)
 
     def annotate(self, node: ast.AST):
-        """Annotate a node."""
-        method = 'annotate_' + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_annotate)
-        return visitor(node)
+        self.visit(node)
 
-    def generic_annotate(self, node: ast.AST):
+    def generic_visit(self, node: ast.AST):
         assert False
 
     def annotate_FunctionDef(self, node: ast.FunctionDef):
