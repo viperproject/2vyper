@@ -37,3 +37,7 @@ def zero_add() -> address:
 @public
 def empty_bytes() -> bytes32:
     return EMPTY_BYTES32
+
+@public
+def zero_wei() -> wei_value:
+    return ZERO_WEI
