@@ -129,8 +129,15 @@ MSG_TYPE = StructType(names.MSG, {
 })
 
 BLOCK_TYPE = StructType(names.BLOCK, {
+    names.BLOCK_COINBASE: VYPER_ADDRESS,
+    names.BLOCK_DIFFICULTY: VYPER_UINT256,
     names.BLOCK_NUMBER: VYPER_UINT256,
+    names.BLOCK_PREVHASH: VYPER_BYTES32,
     names.BLOCK_TIMESTAMP: VYPER_UINT256
+})
+
+TX_TYPE = StructType(names.TX, {
+    names.TX_ORIGIN: VYPER_ADDRESS
 })
 
 

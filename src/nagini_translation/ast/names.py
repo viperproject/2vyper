@@ -38,8 +38,13 @@ MSG_SENDER = 'sender'
 MSG_VALUE = 'value'
 MSG_GAS = 'gas'
 BLOCK = 'block'
+BLOCK_COINBASE = 'coinbase'
+BLOCK_DIFFICULTY = 'difficulty'
 BLOCK_NUMBER = 'number'
+BLOCK_PREVHASH = 'prevhash'
 BLOCK_TIMESTAMP = 'timestamp'
+TX = 'tx'
+TX_ORIGIN = 'origin'
 LOG = 'log'
 
 # Constants

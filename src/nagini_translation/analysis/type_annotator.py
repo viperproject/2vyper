@@ -312,6 +312,8 @@ class TypeAnnotator:
             node.type = types.BLOCK_TYPE
         elif node.id == names.MSG:
             node.type = types.MSG_TYPE
+        elif node.id == names.TX:
+            node.type = types.TX_TYPE
         elif node.id == names.LOG:
             node.type = None
         else:

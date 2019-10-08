@@ -75,6 +75,10 @@ class Context:
     def block_var(self):
         return self.all_vars[names.BLOCK]
 
+    @property
+    def tx_var(self):
+        return self.all_vars[names.TX]
+
     def new_local_var_name(self, name: str = 'local') -> str:
         self._local_var_counter += 1
         return f'${name}_{self._local_var_counter}'

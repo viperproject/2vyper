@@ -68,6 +68,9 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # The msg variable
             msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
             locals[names.MSG] = self.viper_ast.LocalVarDecl(mangled.MSG, msg_type)
+            # The tx variable
+            tx_type = self.type_translator.translate(types.TX_TYPE, ctx)
+            locals[names.TX] = self.viper_ast.LocalVarDecl(mangled.TX, tx_type)
             # We create copies of args and locals because ctx is allowed to modify them
             ctx.args = args.copy()
             ctx.locals = locals.copy()

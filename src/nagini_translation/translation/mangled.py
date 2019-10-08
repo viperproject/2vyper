@@ -19,6 +19,7 @@ SELF_BALANCE = 's$balance'
 
 MSG = names.MSG
 BLOCK = names.BLOCK
+TX = names.TX
 
 SENT_FIELD = '$sent'
 RECEIVED_FIELD = '$received'
