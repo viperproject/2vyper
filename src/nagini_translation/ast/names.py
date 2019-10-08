@@ -53,7 +53,7 @@ EMPTY_BYTES32 = 'EMPTY_BYTES32'
 
 CONSTANT_VALUES = {
     ZERO_ADDRESS: '0',
-    EMPTY_BYTES32: '"\\x00"' * 32
+    EMPTY_BYTES32: 'b"' + '\\x00' * 32 + '"'
 }
 
 # Special
