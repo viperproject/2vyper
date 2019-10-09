@@ -22,7 +22,7 @@ def switch(*values):
         if not where or len(values) != len(v):
             return False
 
-        return all(actual == case or case is _ for actual, case in zip(values, v))
+        return all(case is _ or actual == case for actual, case in zip(values, v))
 
     yield match
 
@@ -84,3 +84,4 @@ class NodeVisitor(abc.ABC):
                         self.visit(item, *args)
             elif isinstance(value, ast.AST):
                 self.visit(value, *args)
+        return None
