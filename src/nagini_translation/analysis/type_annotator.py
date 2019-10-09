@@ -427,7 +427,8 @@ class TypeAnnotator(NodeVisitor):
             if node.n >= 0:
                 tps = [types.VYPER_INT128,
                        types.VYPER_UINT256,
-                       types.VYPER_ADDRESS]
+                       types.VYPER_ADDRESS,
+                       types.VYPER_BYTES32]
             else:
                 tps = [types.VYPER_INT128]
             nodes = [node]

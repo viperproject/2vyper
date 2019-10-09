@@ -75,8 +75,13 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         if isinstance(node.n, int):
-            lit = self.viper_ast.IntLit(node.n, pos)
-            return [], lit
+            if node.type == types.VYPER_BYTES32:
+                bts = node.n.to_bytes(32, byteorder='big')
+                elems = [self.viper_ast.IntLit(b, pos) for b in bts]
+                return [], self.viper_ast.ExplicitSeq(elems, pos)
+            else:
+                lit = self.viper_ast.IntLit(node.n, pos)
+                return [], lit
         elif isinstance(node.n, float):
             # We only allow decimal literals that are small integers so we know that there
             # has not been a rounding error in the float
