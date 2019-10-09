@@ -103,6 +103,10 @@ class ExpressionTranslator(NodeTranslator):
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
+
+        if node.id == names.SELF and node.type == types.VYPER_ADDRESS:
+            return [], helpers.self_address(self.viper_ast, pos)
+
         var_decl = ctx.all_vars[node.id]
         return [], self.viper_ast.LocalVar(var_decl.name(), var_decl.typ(), pos)
 

@@ -463,7 +463,7 @@ class TypeAnnotator(NodeVisitor):
     def visit_Name(self, node: ast.Name):
         # TODO: replace by type map
         if node.id == names.SELF:
-            ntype = self.program.fields.type
+            return [self.program.fields.type, types.VYPER_ADDRESS], [node]
         elif node.id == names.BLOCK:
             ntype = types.BLOCK_TYPE
         elif node.id == names.MSG:
