@@ -22,6 +22,15 @@ class VyperType:
     def __str__(self) -> str:
         return self.name
 
+    def __eq__(self, other) -> bool:
+        if isinstance(other, VyperType):
+            return self.name == other.name
+
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
 
 class FunctionType(VyperType):
 
@@ -142,12 +151,42 @@ TX_TYPE = StructType(names.TX, {
 })
 
 
+def is_numeric(type: VyperType) -> bool:
+    return type == VYPER_INT128 or type == VYPER_UINT256 or type == VYPER_DECIMAL
+
+
+def is_integer(type: VyperType) -> bool:
+    return type == VYPER_INT128 or type == VYPER_UINT256
+
+
 def is_unsigned(type: VyperType) -> bool:
     return type == VYPER_UINT256
 
 
 def has_strict_array_size(element_type: VyperType) -> bool:
     return element_type != VYPER_BYTE
+
+
+def matches(t, m):
+    """
+    Determines whether a type t matches a required type m in the
+    specifications.
+    Usually the types have to be the same, except non-strict arrays
+    which may be shorter than the expected length, and contract types
+    which can be used as addresses. Also, all integer types are treated
+    as mathematical integers.
+    """
+
+    a1 = isinstance(t, ArrayType) and not t.is_strict
+    a2 = isinstance(m, ArrayType) and not m.is_strict
+    if a1 and a2 and t.element_type == m.element_type:
+        return t.size <= m.size
+    elif is_integer(t) and is_integer(m):
+        return True
+    elif isinstance(t, ContractType) and m == VYPER_ADDRESS:
+        return True
+    else:
+        return t == m
 
 
 class TypeBuilder(NodeVisitor):

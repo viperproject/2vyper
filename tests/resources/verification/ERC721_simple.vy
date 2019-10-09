@@ -40,9 +40,9 @@ supportedInterfaces: map(bytes[4], bool)
 @public
 def __init__(_recipients: address[NUM_TOKENS], _tokenIds: uint256[NUM_TOKENS]):
   # ERC721 interface ID:
-  self.supportedInterfaces['\x80\xac\x58\xcd'] = True
+  self.supportedInterfaces[b'\x80\xac\x58\xcd'] = True
   # ERC721-metadata interface ID not yet implemented
-  self.supportedInterfaces['\x5b\x5e\x13\x9f'] = False
+  self.supportedInterfaces[b'\x5b\x5e\x13\x9f'] = False
   for i in range(NUM_TOKENS):
     # stop as soon as there is a non-specified recipient
     assert _recipients[i] != ZERO_ADDRESS
