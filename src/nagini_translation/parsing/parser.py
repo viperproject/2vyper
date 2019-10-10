@@ -235,8 +235,5 @@ class LocalProgramBuilder(ast.NodeVisitor):
         self.local_vars[variable_name] = var
 
     def visit_For(self, node):
-        variable_name = node.target.id
-        variable_type = types.VYPER_INT128
-        var = VyperVar(variable_name, variable_type, node)
-        self.local_vars[variable_name] = var
+        # We ignore these variables as they are added in the type annotator
         self.generic_visit(node)

@@ -5,57 +5,85 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-cc: constant(int128) = 12
-reward: wei_value
+CONST: constant(int128) = 12
 
-
+#@ ensures: implies(success(), result() == 5)
 @public
-def claim_reward(amount: wei_value):
-	num: uint256 = 12
-	did_pay: bool = True
-	did_pay = not False
-	did_pay = False and False and False and False and True
-	did_pay = True and False or False and True
-	did_pay = True or False
-	val: wei_value = amount + amount
-
-@public
-def ccc(amount: wei_value) -> bool:
-	num: uint256 = 12
-	if num == 12 or num < 13 or 45 > num:
-		num = 14
-	did_pay: bool = True
-	did_pay = False
-	did_pay = False and False and False and False and True
-	did_pay = True and False or False and True
-	did_pay = True or False
-	val: wei_value = amount + amount + (-amount)
-	return did_pay
-
-@public
-def ffi(amount: wei_value, bb: bool) -> wei_value:
-	if bb and not True:
-		return amount
-	else:
-		return amount + amount
-
-@public
-def loop() -> int128:
+def simple_loop() -> int128:
 	res: int128 = 0
 	for i in range(5):
-		res = res + i
+		res = res + 1
 	return res
 
+#@ ensures: implies(success(), result() == 50 * 49 / 2)
 @public
-def range2() -> int128:
-	res: int128
-	p: int128 = 20
-	for i in range(p, p + 5):
+def sum_of_numbers() -> int128:
+	res: int128 = 0
+	for i in range(0, 0 + 50):
 		res += i
 	return res
 
+#@ ensures: implies(success(), result() == 50 * at + 50 * 49 / 2)
 @public
-def nested_loop() -> int128:
+def sum_of_numbers_starting(at: int128) -> int128:
+	res: int128 = 0
+	for i in range(at, at + 50):
+		res += i
+	return res
+
+#@ ensures: implies(success(), result() == 10)
+@public
+def pairs() -> int128:
+	res: int128 = 0
+	for i in range(10):
+		for j in range(10):
+			if i == j:
+				res += 1
+	return res
+
+#@ ensures: implies(success(), result() == (start < 20))
+@public
+def loop_with_break(start: int128) -> bool:
+	assert start >= 0
+	res: bool = False
+	for i in range(start, start + 20):
+		if i == 2 * start:
+			res = True
+			break
+		res = False
+	return res
+
+#@ ensures: implies(success(), result() == (4 if start % 2 == 0 else 5))
+@public
+def loop_with_continue(start: int128) -> int128:
+	res: int128 = 0
+	for i in range(start, start + 9):
+		if i % 2 == 0:
+			continue
+		else:
+			res += 1
+	return res
+
+#@ ensures: implies(success(), res == 12)
+@public
+def for_in_loop(array: int128[12]) -> int128:
+	res: int128 = 0
+	for i in array:
+		res += 1
+	return res
+
+@public
+def for_in_loop_element():
+	array: int128[12] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+	idx: int128 = 0
+	for i in array:
+		idx += 1
+		assert i == idx, UNREACHABLE
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: implies(success(), result() == 5)
+@public
+def nested_loop_fail() -> int128:
 	res: int128 = 0
 	for i in range(5):
 		if i == 2:

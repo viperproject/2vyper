@@ -14,7 +14,7 @@ from nagini_translation.utils import first_index, NodeVisitor, switch
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 from nagini_translation.ast.types import TypeBuilder, MapType, ArrayType
-from nagini_translation.ast.nodes import VyperProgram, VyperFunction
+from nagini_translation.ast.nodes import VyperProgram, VyperFunction, VyperVar
 
 from nagini_translation.exceptions import InvalidProgramException, UnsupportedException
 
@@ -197,8 +197,12 @@ class TypeAnnotator(NodeVisitor):
             self.annotate(node.target)
 
     def visit_For(self, node: ast.For):
-        self.annotate(node.iter)
-        self.annotate(node.target)
+        self.annotate_expected(node.iter, pred=lambda t: isinstance(t, ArrayType))
+
+        var_name = node.target.id
+        var_type = node.iter.type.element_type
+        self.current_func.local_vars[var_name] = VyperVar(var_name, var_type, node.target)
+        self.variables[var_name] = [var_type]
         for stmt in node.body + node.orelse:
             self.visit(stmt)
 

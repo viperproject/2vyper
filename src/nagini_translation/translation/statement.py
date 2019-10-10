@@ -10,7 +10,6 @@ import ast
 from typing import List
 
 from nagini_translation.utils import flatten
-from nagini_translation.exceptions import UnsupportedException
 
 from nagini_translation.ast import types
 from nagini_translation.ast import names
@@ -166,9 +165,6 @@ class StatementTranslator(NodeTranslator):
 
     def translate_For(self, node: ast.For, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
-
-        if not (isinstance(node.iter, ast.Call) and isinstance(node.iter.func, ast.Name) and node.iter.func.id == names.RANGE):
-            raise UnsupportedException(node.iter, "Only ranges are supported at the moment.")
 
         with break_scope(ctx):
             loop_var = ctx.all_vars[node.target.id].localVar()
