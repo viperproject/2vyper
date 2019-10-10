@@ -14,7 +14,7 @@ from nagini_translation.utils import first_index, NodeVisitor, switch
 from nagini_translation.ast import names
 from nagini_translation.ast import types
 from nagini_translation.ast.types import TypeBuilder, MapType, ArrayType
-from nagini_translation.ast.nodes import VyperProgram
+from nagini_translation.ast.nodes import VyperProgram, VyperFunction
 
 from nagini_translation.exceptions import InvalidProgramException, UnsupportedException
 
@@ -55,24 +55,35 @@ class TypeAnnotator(NodeVisitor):
 
         self.program = program
         self.current_func = None
-        self.quantified_vars = {}
+        # Contains the possible types a variable can have
+        self.variables = {
+            names.BLOCK: [types.BLOCK_TYPE],
+            names.TX: [types.TX_TYPE],
+            names.MSG: [types.MSG_TYPE],
+            names.SELF: [self.program.fields.type, types.VYPER_ADDRESS],
+            names.LOG: [None]
+        }
 
     @contextmanager
-    def _function_scope(self, func):
+    def _function_scope(self, func: VyperFunction):
         old_func = self.current_func
         self.current_func = func
+        old_variables = self.variables.copy()
+        self.variables.update({k: [v.type] for k, v in func.args.items()})
+        self.variables.update({k: [v.type] for k, v in func.local_vars.items()})
 
         yield
 
         self.current_func = old_func
+        self.variables = old_variables
 
     @contextmanager
     def _quantified_vars_scope(self):
-        old_quantified_vars = self.quantified_vars.copy()
+        old_variables = self.variables.copy()
 
         yield
 
-        self.quantified_vars = old_quantified_vars
+        self.variables = old_variables
 
     @property
     def method_name(self):
@@ -376,7 +387,7 @@ class TypeAnnotator(NodeVisitor):
             vars_types = zip(var_decls.keys, var_decls.values)
             for name, type_ann in vars_types:
                 type = self.type_builder.build(type_ann)
-                self.quantified_vars[name.id] = type
+                self.variables[name.id] = [type]
                 name.type = type
 
             for arg in node.args[1:len(node.args) - 1]:
@@ -473,26 +484,7 @@ class TypeAnnotator(NodeVisitor):
         return [ntype], [node]
 
     def visit_Name(self, node: ast.Name):
-        # TODO: replace by type map
-        if node.id == names.SELF:
-            return [self.program.fields.type, types.VYPER_ADDRESS], [node]
-        elif node.id == names.BLOCK:
-            ntype = types.BLOCK_TYPE
-        elif node.id == names.MSG:
-            ntype = types.MSG_TYPE
-        elif node.id == names.TX:
-            ntype = types.TX_TYPE
-        elif node.id == names.LOG:
-            ntype = None
-        else:
-            quant = self.quantified_vars.get(node.id)
-            if quant:
-                ntype = quant
-            else:
-                local = self.current_func.local_vars.get(node.id)
-                arg = self.current_func.args.get(node.id)
-                ntype = (arg or local).type
-        return [ntype], [node]
+        return self.variables[node.id], [node]
 
     def visit_List(self, node: ast.List):
         # Vyper guarantees that size > 0
