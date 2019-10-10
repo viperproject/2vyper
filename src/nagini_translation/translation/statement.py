@@ -125,6 +125,8 @@ class StatementTranslator(NodeTranslator):
     def translate_Raise(self, node: ast.Raise, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
 
+        # If UNREACHABLE is used, we assert that the exception is unreachable,
+        # i.e., that it never happens; else, we revert
         if isinstance(node.exc, ast.Name) and node.exc.id == names.UNREACHABLE:
             return [self.viper_ast.Assert(self.viper_ast.FalseLit(pos), pos)]
         else:
@@ -135,6 +137,9 @@ class StatementTranslator(NodeTranslator):
 
         stmts, expr = self.expression_translator.translate(node.test, ctx)
 
+        # If UNREACHABLE is used, we try to prove that the assertion holds by
+        # translating it directly as an assert; else, revert if the condition
+        # is false.
         if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
             return stmts + [self.viper_ast.Assert(expr, pos)]
         else:
