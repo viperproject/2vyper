@@ -264,6 +264,8 @@ class TypeAnnotator(NodeVisitor):
                     return self._visit_accessible(node)
                 elif case(names.EVENT):
                     return self._visit_event(node)
+                elif case(names.RANGE):
+                    return self._visit_range(node)
                 elif case(names.MIN) or case(names.MAX):
                     self.annotate_expected(node.args[0], pred=types.is_numeric)
                     self.annotate_expected(node.args[1], pred=types.is_numeric)
@@ -276,9 +278,6 @@ class TypeAnnotator(NodeVisitor):
                 elif case(names.FLOOR) or case(names.CEIL):
                     self.annotate_expected(node.args[0], types.VYPER_DECIMAL)
                     return [types.VYPER_INT128], [node]
-                elif case(names.RANGE):
-                    self.annotate_expected(node.args[0], pred=types.is_integer)
-                    return [None], [node]
                 elif case(names.LEN):
                     self.annotate_expected(node.args[0], pred=lambda t: isinstance(t, types.ArrayType))
                     return [types.VYPER_INT128], [node]
@@ -427,6 +426,21 @@ class TypeAnnotator(NodeVisitor):
             self.annotate_expected(value, type)
 
         return [ntype], [node]
+
+    def _visit_range(self, node: ast.Call):
+        self.annotate_expected(node.args[0], types.VYPER_INT128)
+
+        if len(node.args) == 1:
+            # A range expression of the form 'range(n)' where 'n' is a constant
+            size = node.args[0].n
+        elif len(node.args) == 2:
+            # A range expression of the form 'range(x, x + n)' where 'n' is a constant
+            self.annotate_expected(node.args[1], types.VYPER_INT128)
+            size = node.args[1].right.n
+        else:
+            raise InvalidProgramException(node, 'invalid.range')
+
+        return [ArrayType(types.VYPER_INT128, size, True)], [node]
 
     def visit_Bytes(self, node: ast.Bytes):
         ntype = types.ArrayType(types.VYPER_BYTE, len(node.s), False)

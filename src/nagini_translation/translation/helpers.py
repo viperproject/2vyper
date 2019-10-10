@@ -275,3 +275,10 @@ def struct_set(viper_ast: ViperAST, ref, val, member: str, member_type, type: St
     idx = viper_ast.IntLit(type.member_indices[member])
     type_map = _struct_type_var_map(viper_ast, member_type)
     return viper_ast.DomainFuncApp(setter, [ref, idx, val], s_type, pos, info, domain, type_map)
+
+
+def range(viper_ast: ViperAST, start, end, pos=None, info=None):
+    range_func = mangled.RANGE_RANGE
+    range_type = viper_ast.SeqType(viper_ast.Int)
+    domain = mangled.RANGE_DOMAIN
+    return viper_ast.DomainFuncApp(range_func, [start, end], range_type, pos, info, domain)

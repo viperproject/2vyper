@@ -24,7 +24,6 @@ from nagini_translation.translation.context import Context, break_scope, continu
 from nagini_translation.translation.abstract import NodeTranslator
 from nagini_translation.translation.expression import ExpressionTranslator
 from nagini_translation.translation.type import TypeTranslator
-from nagini_translation.translation.special import SpecialTranslator
 
 from nagini_translation.translation import helpers
 
@@ -36,7 +35,6 @@ class StatementTranslator(NodeTranslator):
         self.expression_translator = ExpressionTranslator(viper_ast)
         self.assignment_translator = _AssignmentTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
-        self.special_translator = SpecialTranslator(viper_ast)
 
     def translate_stmts(self, stmts: List[Stmt], ctx: Context) -> List[Stmt]:
         return flatten([self.translate(s, ctx) for s in stmts])
@@ -169,28 +167,30 @@ class StatementTranslator(NodeTranslator):
     def translate_For(self, node: ast.For, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
 
-        if not self.special_translator.is_range(node.iter):
+        if not (isinstance(node.iter, ast.Call) and isinstance(node.iter.func, ast.Name) and node.iter.func.id == names.RANGE):
             raise UnsupportedException(node.iter, "Only ranges are supported at the moment.")
 
         with break_scope(ctx):
             loop_var = ctx.all_vars[node.target.id].localVar()
             lpos = self.to_position(node.target, ctx)
-            stmts, start, times = self.special_translator.translate_range(node.iter, ctx)
-            init_info = self.to_info(["Loop variable initialization.\n"])
-            var_init = self.viper_ast.LocalVarAssign(loop_var, start, lpos, init_info)
-            stmts.append(var_init)
-            plus = self.viper_ast.Add(loop_var, self.viper_ast.IntLit(1), lpos)
-            var_inc = self.viper_ast.LocalVarAssign(loop_var, plus, lpos)
+            rpos = self.to_position(node.iter, ctx)
+
+            times = node.iter.type.size
+            stmts, array = self.expression_translator.translate(node.iter, ctx)
 
             for i in range(times):
                 with continue_scope(ctx):
-                    stmts += self.translate_stmts(node.body, ctx)
-                    continue_info = self.to_info(["End of loop iteration.\n"])
+                    loop_info = self.to_info(["Start of loop iteration."])
+                    idx = self.viper_ast.IntLit(i, lpos)
+                    array_at = self.viper_ast.SeqIndex(array, idx, rpos)
+                    var_set = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos, loop_info)
+                    stmts.append(var_set)
+                    stmts.extend(self.translate_stmts(node.body, ctx))
+                    continue_info = self.to_info(["End of loop iteration."])
                     stmts.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
-                    stmts.append(var_inc)
 
             stmts += self.translate_stmts(node.orelse, ctx)
-            break_info = self.to_info(["End of loop.\n"])
+            break_info = self.to_info(["End of loop."])
             stmts.append(self.viper_ast.Label(ctx.break_label, pos, break_info))
             return stmts
 

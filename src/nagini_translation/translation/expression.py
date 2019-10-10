@@ -321,6 +321,16 @@ class ExpressionTranslator(NodeTranslator):
             elif name == names.LEN:
                 arr_stmts, arr = self.translate(node.args[0], ctx)
                 return arr_stmts, helpers.array_length(self.viper_ast, arr, pos)
+            elif name == names.RANGE:
+                if len(node.args) == 1:
+                    start_stmts, start = [], self.viper_ast.IntLit(0, pos)
+                    end_stmts, end = self.translate(node.args[0], ctx)
+                else:
+                    start_stmts, start = self.translate(node.args[0], ctx)
+                    end_stmts, end = self.translate(node.args[1], ctx)
+
+                range_func = helpers.range(self.viper_ast, start, end, pos)
+                return [*start_stmts, *end_stmts], range_func
             elif name == names.CONCAT:
                 concat_stmts, concats = zip(*[self.translate(arg, ctx) for arg in node.args])
 
