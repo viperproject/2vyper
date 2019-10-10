@@ -19,6 +19,15 @@ from nagini_translation.ast.nodes import VyperProgram
 from nagini_translation.exceptions import InvalidProgramException, UnsupportedException
 
 
+def _check(condition: bool, node: ast.AST, reason_code: str):
+    if not condition:
+        raise InvalidProgramException(node, reason_code)
+
+
+def _check_number_of_arguments(node: ast.Call, *expected: int):
+    _check(len(node.args) in expected, node, 'invalid.no.args')
+
+
 class TypeAnnotator(NodeVisitor):
 
     # The type annotator annotates all expression nodes with type information.
@@ -282,7 +291,8 @@ class TypeAnnotator(NodeVisitor):
                     return [ArrayType(types.VYPER_BYTE, size, False)], [node]
                 elif case(names.AS_WEI_VALUE):
                     self.annotate_expected(node.args[0], pred=types.is_integer)
-                    # TODO: second part is string literal
+                    unit = node.args[1]
+                    _check(isinstance(unit, ast.Str) and unit.s in names.ETHER_UNITS, node, 'invalid.unit')
                     return [types.VYPER_WEI_VALUE], [node]
                 elif case(names.AS_UNITLESS_NUMBER):
                     # We ignore units completely, therefore the type stays the same
