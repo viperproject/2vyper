@@ -429,6 +429,7 @@ class TypeAnnotator(NodeVisitor):
     # Sets occur in trigger expressions
     def visit_Set(self, node: ast.Set):
         for elem in node.elts:
+            # Triggers can have any type
             self.annotate(elem)
         return [None], [node]
 
