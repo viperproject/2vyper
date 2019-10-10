@@ -81,6 +81,20 @@ def msg_sender_call_fail_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.MSG_SENDER_CALL_FAIL, viper_ast.Bool, pos, info)
 
 
+def first_public_state_var(viper_ast: ViperAST, pos=None, info=None):
+    return viper_ast.LocalVarDecl(mangled.FIRST_PUBLIC_STATE, viper_ast.Bool, pos, info)
+
+
+def check_first_public_state(viper_ast: ViperAST, ctx: Context, set_false: bool, pos=None, info=None):
+    self_var = ctx.self_var.localVar()
+    old_self_var = ctx.old_self_var.localVar()
+    first_public_state = first_public_state_var(viper_ast, pos).localVar()
+    old_assign = viper_ast.LocalVarAssign(old_self_var, self_var)
+    var_assign = viper_ast.LocalVarAssign(first_public_state, viper_ast.FalseLit(pos), pos)
+    stmts = [old_assign, var_assign] if set_false else [old_assign]
+    return viper_ast.If(first_public_state, stmts, [], pos, info)
+
+
 def self_address(viper_ast: ViperAST, pos=None, info=None):
     address = mangled.SELF_ADDRESS
     domain = mangled.CONTRACT_DOMAIN

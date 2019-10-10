@@ -35,12 +35,8 @@ class SpecificationTranslator(ExpressionTranslator):
         with self_scope(ctx.self_var, old_var, ctx):
             return self._translate_spec(post, ctx)
 
-    def translate_check(self, check: ast.AST, ctx: Context, is_init=False, is_fail=False):
-        # In a check we use the last publicly seen state as the old state except for __init__
-        # where we use the normal self state instead
-        old_var = ctx.self_var if is_init else ctx.old_self_var
-        with self_scope(ctx.self_var, old_var, ctx):
-            expr = self._translate_spec(check, ctx)
+    def translate_check(self, check: ast.AST, ctx: Context, is_fail=False):
+        expr = self._translate_spec(check, ctx)
         if is_fail:
             # We evaluate the check on failure in the old heap because events didn't
             # happen there

@@ -30,6 +30,8 @@ SUCCESS_VAR = '$succ'
 OUT_OF_GAS = '$out_of_gas'
 MSG_SENDER_CALL_FAIL = '$msg_sender_call_fail'
 
+FIRST_PUBLIC_STATE = '$first_public_state'
+
 END_LABEL = 'end'
 RETURN_LABEL = 'return'
 REVERT_LABEL = 'revert'

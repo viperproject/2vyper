@@ -493,6 +493,7 @@ class ExpressionTranslator(NodeTranslator):
         #    - Check that balance is sufficient (self.balance >= amount) else revert
         #    - Increment sent by amount
         #    - Subtract amount from self.balance (self.balance -= amount)
+        #    - If in init, set old_self to self if this is the first public state
         #    - Assert checks and invariants
         #    - Create new old state which old in the invariants after the call refers to
         #    - Fail based on an unkown value (i.e. the call could fail)
@@ -509,6 +510,11 @@ class ExpressionTranslator(NodeTranslator):
         sub = self.balance_translator.decrease_balance(amount, ctx, pos)
 
         stmts = [check, sent, sub]
+
+        # In init set the old self state to the current self state, if this is the
+        # first public state.
+        if ctx.function.name == names.INIT:
+            stmts.append(helpers.check_first_public_state(self.viper_ast, ctx, True))
 
         check_assertions = []
         for check in chain(ctx.function.checks, ctx.program.general_checks):

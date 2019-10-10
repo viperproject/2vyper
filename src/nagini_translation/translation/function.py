@@ -187,8 +187,17 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # If we do not encounter an exception we will return success
             body.append(returnBool(True))
 
+            # Add variable for whether we need to set old_self to current self
+            # In the beginning, it is True as the first public state needs to
+            # be checked against itself
+            if is_init:
+                ctx.new_local_vars.append(helpers.first_public_state_var(self.viper_ast))
+                fps = helpers.first_public_state_var(self.viper_ast, pos).localVar()
+                var_assign = self.viper_ast.LocalVarAssign(fps, self.viper_ast.TrueLit())
+                body.append(var_assign)
+
             # In the initializer initialize all fields to their default values
-            if function.name == names.INIT:
+            if is_init:
                 stmts, default_self = self.type_translator.default_value(None, ctx.self_type, ctx)
                 self_assign = self.viper_ast.LocalVarAssign(self_var, default_self)
                 body.extend(stmts)
@@ -271,6 +280,12 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # This is necessary because a contract may receive additional money through
             # seldestruct or mining
 
+            # In init set old to current self, if this is the first public state
+            # However, the state has to be set again after havocing the balance, therefore
+            # we don't update the flag
+            if is_init:
+                body.append(helpers.check_first_public_state(self.viper_ast, ctx, False))
+
             # Assert postconditions
             post_stmts = []
             for post in function.postconditions:
@@ -302,16 +317,16 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             checks_fail = []
             for check in function.checks:
                 check_pos = self.to_position(check, ctx, rules.CHECK_FAIL)
-                cond_succ = self.specification_translator.translate_check(check, ctx, is_fail=False)
+                cond_succ = self.specification_translator.translate_check(check, ctx, False)
                 checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
-                cond_fail = self.specification_translator.translate_check(check, ctx, is_fail=True)
+                cond_fail = self.specification_translator.translate_check(check, ctx, True)
                 # Checks do not have to hold if init fails
                 if not is_init:
                     checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
             for check in ctx.program.general_checks:
-                cond_succ = self.specification_translator.translate_check(check, ctx, is_init, False)
-                cond_fail = self.specification_translator.translate_check(check, ctx, is_init, True)
+                cond_succ = self.specification_translator.translate_check(check, ctx, False)
+                cond_fail = self.specification_translator.translate_check(check, ctx, True)
 
                 # If we are in the initializer we might have a synthesized __init__, therefore
                 # just use always check as position, else use function as position and create
@@ -335,27 +350,28 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # Havoc self.balance
             body.extend(self._havoc_balance(ctx))
 
+            # In init set old to current self, if this is the first public state
+            if is_init:
+                body.append(helpers.check_first_public_state(self.viper_ast, ctx, False))
+
             # Assert the invariants
             invariant_stmts = []
-            # In init we check the invariants with the current state as old state since there is
-            # no state before it
-            with self_scope(ctx.self_var, ctx.self_var if is_init else ctx.old_self_var, ctx):
-                for inv in ctx.program.invariants:
-                    inv_pos = self.to_position(inv, ctx)
-                    # We ignore accessible here because we use a separate check
-                    cond = self.specification_translator.translate_invariant(inv, ctx, True)
+            for inv in ctx.program.invariants:
+                inv_pos = self.to_position(inv, ctx)
+                # We ignore accessible here because we use a separate check
+                cond = self.specification_translator.translate_invariant(inv, ctx, True)
 
-                    # If we have a synthesized __init__ we only create an
-                    # error message on the invariant
-                    if is_init:
-                        # Invariants do not have to hold if __init__ fails
-                        cond = self.viper_ast.Implies(success_var, cond, inv_pos)
-                        apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
-                    else:
-                        via = [Via('invariant', inv_pos)]
-                        apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
+                # If we have a synthesized __init__ we only create an
+                # error message on the invariant
+                if is_init:
+                    # Invariants do not have to hold if __init__ fails
+                    cond = self.viper_ast.Implies(success_var, cond, inv_pos)
+                    apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
+                else:
+                    via = [Via('invariant', inv_pos)]
+                    apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
 
-                    invariant_stmts.append(self.viper_ast.Assert(cond, apos))
+                invariant_stmts.append(self.viper_ast.Assert(cond, apos))
 
             body.extend(self._seqn_with_info(invariant_stmts, "Assert Invariants"))
 
