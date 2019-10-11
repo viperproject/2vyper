@@ -82,7 +82,6 @@ class StatementTranslator(NodeTranslator):
         # as with integers can be used. For multiplication we need to divide out one of the
         # scaling factors while in division we need to multiply one in.
         if is_decimal(node.target) or is_decimal(node.value):
-            # TODO: add proper type checking
             assert is_decimal(node.target) and is_decimal(node.value)
 
             # In decimal division we first multiply the lhs by the scaling factor

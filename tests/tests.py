@@ -171,30 +171,6 @@ class InvalidProgramError(Error):
         return []
 
 
-class TypeCheckError(Error):
-    """Type error reported by Mypy."""
-
-    def __init__(self, msg: str) -> None:
-        self._msg = msg
-        match = False  # TODO: handle
-        self._groups = match.groupdict()
-
-    def __repr__(self) -> str:
-        return 'TypeCheckError({}, line={}, vias={})'.format(
-            self.full_id, self.line, self.get_vias())
-
-    @property
-    def full_id(self) -> str:
-        return 'type.error:' + self._groups['msg']
-
-    @property
-    def line(self) -> int:
-        return int(self._groups['line'])
-
-    def get_vias(self) -> List[int]:
-        return []
-
-
 class Annotation:
     """Base class for all test annotations."""
 

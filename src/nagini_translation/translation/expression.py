@@ -132,7 +132,6 @@ class ExpressionTranslator(NodeTranslator):
         # as with integers can be used. For multiplication we need to divide out one of the
         # scaling factors while in division we need to multiply one in.
         if is_decimal(node.left) or is_decimal(node.right):
-            # TODO: add proper type checking
             assert is_decimal(node.left) and is_decimal(node.right)
 
             # In decimal division we first multiply the lhs by the scaling factor
@@ -401,8 +400,7 @@ class ExpressionTranslator(NodeTranslator):
                     elif case(types.VYPER_UINT256, types.VYPER_INT128):
                         return stmts, arg
                     else:
-                        print(from_type.name, to_type.name)
-                        assert False
+                        raise UnsupportedException(node, 'Unsupported type converison.')
             elif name == names.KECCAK256:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, helpers.array_keccak256(self.viper_ast, arg, pos)
@@ -415,20 +413,21 @@ class ExpressionTranslator(NodeTranslator):
                 call_stmts, expr = self._translate_contract_call(node, to, amount, ctx)
                 return [*to_stmts, *amount_stmts, *call_stmts], expr
             elif name == names.RAW_CALL:
-                # Translate the function expression (bytes)
+                # Translate the callee address
                 to_stmts, to = self.translate(node.args[0], ctx)
+                # Translate the data expression (bytes)
                 function_stmts, _ = self.translate(node.args[1], ctx)
-                # Get the index of the value expression
-                val_idx = first_index(lambda n: n.arg == names.RAW_CALL_VALUE, node.keywords)
-                if val_idx >= 0:
-                    amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
-                else:
-                    amount_stmts, amount = [], self.viper_ast.IntLit(0, pos)
 
-                call_stmts, expr = self._translate_contract_call(node, to, amount, ctx)
-                # TODO: order this correctly
-                stmts = [*to_stmts, *function_stmts, *amount_stmts, *call_stmts]
-                return stmts, expr
+                args_stmts = [*to_stmts, *function_stmts]
+                amount = self.viper_ast.IntLit(0, pos)
+                for kw in node.keywords:
+                    arg_stmts, arg = self.translate(kw.value, ctx)
+                    if kw.arg == names.RAW_CALL_VALUE:
+                        amount = arg
+                    args_stmts.extend(arg_stmts)
+
+                call_stmts, call = self._translate_contract_call(node, to, amount, ctx)
+                return [*args_stmts, *call_stmts], call
             # This is a struct initializer
             elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                 stmts = []
