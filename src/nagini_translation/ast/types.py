@@ -16,20 +16,20 @@ from nagini_translation.exceptions import UnsupportedException
 
 class VyperType:
 
-    def __init__(self, name: str):
-        self.name = name
+    def __init__(self, id: str):
+        self.id = id
 
     def __str__(self) -> str:
-        return self.name
+        return self.id
 
     def __eq__(self, other) -> bool:
         if isinstance(other, VyperType):
-            return self.name == other.name
+            return self.id == other.id
 
         return NotImplemented
 
     def __hash__(self) -> int:
-        return hash(self.name)
+        return hash(self.id)
 
 
 class FunctionType(VyperType):
@@ -38,8 +38,8 @@ class FunctionType(VyperType):
         self.arg_types = arg_types
         self.return_type = return_type
         arg_type_names = [str(arg) for arg in arg_types]
-        name = f'({", ".join(arg_type_names)}) -> {return_type}'
-        super().__init__(name)
+        id = f'({", ".join(arg_type_names)}) -> {return_type}'
+        super().__init__(id)
 
 
 class MapType(VyperType):
@@ -47,8 +47,8 @@ class MapType(VyperType):
     def __init__(self, key_type: VyperType, value_type: VyperType):
         self.key_type = key_type
         self.value_type = value_type
-        name = f'{names.MAP}({key_type}, {value_type})'
-        super().__init__(name)
+        id = f'{names.MAP}({key_type}, {value_type})'
+        super().__init__(id)
 
 
 class ArrayType(VyperType):
@@ -57,16 +57,18 @@ class ArrayType(VyperType):
         self.element_type = element_type
         self.size = size
         self.is_strict = is_strict
-        name = f'{element_type}[{size}]'
-        super().__init__(name)
+        id = f'{element_type}[{"" if is_strict else "<="}{size}]'
+        super().__init__(id)
 
 
 class StructType(VyperType):
 
     def __init__(self, name: str, member_types: Dict[str, VyperType]):
+        id = f'struct {name}'
+        super().__init__(id)
+        self.name = name
         self.member_types = member_types
         self.member_indices = {k: i for i, k in enumerate(member_types)}
-        super().__init__(name)
 
     def add_member(self, name: str, type: VyperType):
         self.member_types[name] = type
@@ -76,6 +78,8 @@ class StructType(VyperType):
 class ContractType(VyperType):
 
     def __init__(self, name: str, function_types: Dict[str, FunctionType]):
+        id = f'contract {name}'
+        super().__init__(id)
         self.name = name
         self.function_types = function_types
 
@@ -84,13 +88,14 @@ class StringType(ArrayType):
 
     def __init__(self, size: int):
         super().__init__(VYPER_BYTE, size, False)
-        self.name = f'{names.STRING}[{size}]'
+        self.id = f'{names.STRING}[{size}]'
 
 
 class PrimitiveType(VyperType):
 
     def __init__(self, name: str):
         super().__init__(name)
+        self.name = name
 
 
 class DecimalType(PrimitiveType):
@@ -103,9 +108,10 @@ class DecimalType(PrimitiveType):
 class EventType(VyperType):
 
     def __init__(self, arg_types: List[VyperType]):
-        self.arg_types = arg_types
         arg_type_names = [str(arg) for arg in arg_types]
-        super().__init__(f'event({", ".join(arg_type_names)})')
+        id = f'event({", ".join(arg_type_names)})'
+        super().__init__(id)
+        self.arg_types = arg_types
 
 
 VYPER_BOOL = PrimitiveType(names.BOOL)

@@ -449,8 +449,12 @@ class TypeAnnotator(NodeVisitor):
         return [ArrayType(types.VYPER_INT128, size, True)], [node]
 
     def visit_Bytes(self, node: ast.Bytes):
-        ntype = types.ArrayType(types.VYPER_BYTE, len(node.s), False)
-        return [ntype], [node]
+        # Bytes could either be non-strict or (if it has length 32) strict
+        non_strict = types.ArrayType(types.VYPER_BYTE, len(node.s), False)
+        if len(node.s) == 32:
+            return [non_strict, types.VYPER_BYTES32], [node]
+        else:
+            return [non_strict], [node]
 
     def visit_Str(self, node: ast.Str):
         string_bytes = bytes(node.s, 'utf-8')
