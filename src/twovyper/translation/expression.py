@@ -222,6 +222,18 @@ class ExpressionTranslator(NodeTranslator):
     def translate_Attribute(self, node: ast.Attribute, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
+        # We don't support precise gas calculations, so we just return an unknown
+        # non-negative value
+        if node.attr == names.MSG_GAS and node.value.type == types.MSG_TYPE:
+            gas_name = ctx.new_local_var_name('gas')
+            gas_type = self.type_translator.translate(types.VYPER_UINT256, ctx)
+            gas = self.viper_ast.LocalVarDecl(gas_name, gas_type, pos)
+            ctx.new_local_vars.append(gas)
+
+            zero = self.viper_ast.IntLit(0, pos)
+            geq = self.viper_ast.GeCmp(gas.localVar(), zero, pos)
+            return [self.viper_ast.Inhale(geq, pos)], gas.localVar()
+
         stmts, expr = self.translate(node.value, ctx)
 
         struct_type = node.value.type
