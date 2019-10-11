@@ -44,7 +44,16 @@ def fail(a: wei_value, b: wei_value) -> wei_value:
     self.ui = b - a
     return a
 
-#@ ensures: result() == as_wei_value(i, "lovelace")
+#@ ensures: implies(success(), result() == as_wei_value(i, "lovelace"))
+#@ ensures: implies(success(), result() == i * 1_000_000)
 @public
 def transform(i: int128) -> wei_value:
     return as_wei_value(i, "lovelace")
+
+#@ ensures: not success()
+@public
+def transform_negative(i: int128) -> wei_value:
+    if i < 0:
+        return as_wei_value(i, "lovelace")
+    else:
+        return as_wei_value(-i - 1, "lovelace")
