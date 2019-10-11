@@ -186,14 +186,14 @@ def main() -> None:
         help='skip validity check of contract with the Vyper compiler'
     )
     parser.add_argument(
-        '--print-silver',
+        '--print-viper',
         action='store_true',
-        help='print generated Silver program'
+        help='print generated Viper program'
     )
     parser.add_argument(
-        '--write-silver-to-file',
+        '--write-viper-to-file',
         default=None,
-        help='write generated Silver program to specified file'
+        help='write generated Viper program to specified file'
     )
     parser.add_argument(
         "-v",
@@ -279,12 +279,12 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
         start = time()
         selected = set(args.select.split(',')) if args.select else set()
         prog = translate(vyper_file, jvm, selected, args.vyper_root, args.skip_vyper, args.verbose)
-        if args.print_silver:
+        if args.print_viper:
             if args.verbose:
                 print('Result:')
             print(str(prog))
-        if args.write_silver_to_file:
-            with open(args.write_silver_to_file, 'w') as fp:
+        if args.write_viper_to_file:
+            with open(args.write_viper_to_file, 'w') as fp:
                 fp.write(str(prog))
         if args.verifier == 'silicon':
             backend = ViperVerifier.silicon
