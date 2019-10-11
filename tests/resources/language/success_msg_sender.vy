@@ -28,10 +28,11 @@ def cond_success_msg_sender():
     send(msg.sender, as_wei_value(5, "ether"))
 
 
+#@ ensures: implies(success(), success(if_not=sender_failed))
 @public
-def succ_is_succmsg(a: int128):
-    assert a > 0
-    send(msg.sender, self.balance)
+def succ_is_succmsg(a: address):
+    assert a != ZERO_ADDRESS
+    send(a, self.balance)
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
