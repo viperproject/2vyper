@@ -14,7 +14,7 @@ struct Pair:
 val: int128
 
 
-@public
+@private
 def set_and_ret(i: int128) -> int128:
     self.val = i
     return i

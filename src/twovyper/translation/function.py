@@ -434,27 +434,21 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
     def inline(self, function: VyperFunction, args: List[Expr], ctx: Context) -> StmtsAndExpr:
         with inline_scope(ctx):
             assert function.node
+            # Only private self-calls are allowed in Vyper
+            assert not function.is_public()
+
             pos = self.to_position(function.node, ctx)
             body = []
 
             # Define new msg variable
+            # This is only necessary for msg.gas, as msg.sender and msg.value are not
+            # allowed in private functions
             msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
             msg_name = ctx.inline_prefix + mangled.MSG
             msg_decl = self.viper_ast.LocalVarDecl(msg_name, msg_type)
             ctx.all_vars[names.MSG] = msg_decl
             ctx.locals[names.MSG] = msg_decl
             ctx.new_local_vars.append(msg_decl)
-
-            # msg.sender == self
-            msg_sender = helpers.msg_sender(self.viper_ast, ctx)
-            self_address = helpers.self_address(self.viper_ast)
-            msg_sender_eq = self.viper_ast.EqCmp(msg_sender, self_address)
-            body.append(self.viper_ast.Inhale(msg_sender_eq))
-
-            # msg.value == 0
-            msg_value = helpers.msg_value(self.viper_ast, ctx)
-            msg_value_eq = self.viper_ast.EqCmp(msg_value, self.viper_ast.IntLit(0))
-            body.append(self.viper_ast.Inhale(msg_value_eq))
 
             # Add arguments to local vars, assign passed args
             for (name, var), arg in zip(function.args.items(), args):
