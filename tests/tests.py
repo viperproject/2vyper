@@ -6,13 +6,13 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 
-# Nagini tests based on pytest framework.
+# 2vyper tests based on pytest framework.
 
-# Nagini tests are based on ideas taken from ``Silver``. Each test is a
-# Python source file with annotations that specify the expected behaviour.
+# 2vyper tests are based on ideas taken from ``Silver``. Each test is a
+# Vyper source file with annotations that specify the expected behaviour.
 # The goal of the test suite is to catch changes in the behaviour,
 # therefore, annotations must be always up-to-date. Annotations are
-# written in Python comments that start with ``::``. Multiple annotations
+# written in Vyper comments that start with ``::``. Multiple annotations
 # on the same line are separated by ``|``.
 
 # Supported annotation types are:
@@ -23,7 +23,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # 2.  ``UnexpectedOutput(<backend>)(<error_id>, <issue>, <via1>, <via2>,…)``
 #     – indicates that the following line should not produce the
 #     specified error, but it currently does. The problem is currently
-#     tracked in ``backend`` (if missing, then Nagini) issue tracker's
+#     tracked in ``backend`` (if missing, then 2vyper) issue tracker's
 #     issue ``issue``.
 # 3.  ``MissingOutput(<backend>)(<error_id>, <issue>, <via1>, <via2>,…)`` –
 #     indicates that the error mentioned in the matching
@@ -97,12 +97,11 @@ def _consume_list(key: str, dictionary: Dict[str, Any]) -> Any:
 class Error(abc.ABC):
     """Base class for reported errors.
 
-    Subclasses of this class are wrappers that unify interfaces of three
-    error types currently produced by Nagini:
+    Subclasses of this class are wrappers that unify interfaces of two
+    error types currently produced by 2vyper:
 
-    1.  Type errors produced by Mypy.
-    2.  Invalid program errors produced by translators.
-    3.  Verification errors produced by back-end verifiers.
+    1.  Invalid program errors produced by translators.
+    2.  Verification errors produced by back-end verifiers.
     """
 
     @property
@@ -290,7 +289,7 @@ class UnexpectedOutputAnnotation(
         Supported info:
 
         +   id – mandatory.
-        +   backend – optional, ``None`` means ``nagini``.
+        +   backend – optional, ``None`` means ``2vyper``.
         +   issue_id – mandatory.
         +   labels – optional.
         """
@@ -319,7 +318,7 @@ class MissingOutputAnnotation(
         Supported info:
 
         +   id – mandatory.
-        +   backend – optional, ``None`` means ``nagini``.
+        +   backend – optional, ``None`` means ``2vyper``.
         +   issue_id – mandatory.
         +   labels – optional.
         """
@@ -387,7 +386,7 @@ class IgnoreFileAnnotation(
         Supported info:
 
         +   id – mandatory, used as issue_id.
-        +   backend – optional, ``None`` means ``nagini``.
+        +   backend – optional, ``None`` means ``2vyper``.
         """
         self._issue_id = _consume('id', group_dict, True)
         assert self._issue_id.isnumeric(), "Issue id must be a number."
