@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from twovyper.ast import names
 from twovyper.ast.nodes import VyperProgram, VyperFunction
-from twovyper.exceptions import InvalidProgramException
+from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
 
 def _assert(cond: bool, node: ast.AST, error_code: str):
@@ -20,9 +20,30 @@ def _assert(cond: bool, node: ast.AST, error_code: str):
 
 
 def check_structure(program: VyperProgram):
+    ProgramChecker(program).check()
     InvariantChecker(program).check()
     CheckChecker(program).check()
     PostconditionChecker(program).check()
+
+
+class ProgramChecker(ast.NodeVisitor):
+
+    def __init__(self, program: VyperProgram):
+        self.program = program
+
+    def check(self):
+        for func in self.program.functions.values():
+            self.visit(func.node)
+
+    def visit_Call(self, node: ast.Call):
+        if isinstance(node.func, ast.Name):
+            name = node.func.id
+
+            if name == names.RAW_CALL:
+                if names.RAW_CALL_DELEGATE_CALL in [kw.arg for kw in node.keywords]:
+                    raise UnsupportedException(node, 'Delegate calls are not supported.')
+
+        self.generic_visit(node)
 
 
 class SpecStructureChecker(ast.NodeVisitor):

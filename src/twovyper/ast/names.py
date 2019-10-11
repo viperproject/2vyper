@@ -98,6 +98,7 @@ RAW_CALL = 'raw_call'
 RAW_CALL_OUTSIZE = 'outsize'
 RAW_CALL_VALUE = 'value'
 RAW_CALL_GAS = 'gas'
+RAW_CALL_DELEGATE_CALL = 'delegate_call'
 
 # Verification
 INVARIANT = 'invariant'
