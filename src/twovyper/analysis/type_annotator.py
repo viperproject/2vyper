@@ -259,6 +259,7 @@ class TypeAnnotator(NodeVisitor):
 
             with switch(name) as case:
                 if case(names.CONVERT):
+                    _check_number_of_arguments(node, 2)
                     self.annotate(node.args[0])
                     ntype = self.type_builder.build(node.args[1])
                     return [ntype], [node]
@@ -269,25 +270,33 @@ class TypeAnnotator(NodeVisitor):
                 elif case(names.ACCESSIBLE):
                     return self._visit_accessible(node)
                 elif case(names.EVENT):
+                    _check_number_of_arguments(node, 1, 2)
                     return self._visit_event(node)
                 elif case(names.RANGE):
+                    _check_number_of_arguments(node, 1, 2)
                     return self._visit_range(node)
                 elif case(names.MIN) or case(names.MAX):
+                    _check_number_of_arguments(node, 2)
                     self.annotate_expected(node.args[0], pred=types.is_numeric)
                     self.annotate_expected(node.args[1], pred=types.is_numeric)
                     return self.combine(node.args[0], node.args[1], node)
                 elif case(names.OLD) or case(names.ISSUED):
+                    _check_number_of_arguments(node, 1)
                     return self.pass_through(node.args[0], node)
                 elif case(names.REORDER_INDEPENDENT):
+                    _check_number_of_arguments(node, 1)
                     self.annotate(node.args[0])
                     return [types.VYPER_BOOL], [node]
                 elif case(names.FLOOR) or case(names.CEIL):
+                    _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], types.VYPER_DECIMAL)
                     return [types.VYPER_INT128], [node]
                 elif case(names.LEN):
+                    _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], pred=lambda t: isinstance(t, types.ArrayType))
                     return [types.VYPER_INT128], [node]
                 elif case(names.SEND):
+                    _check_number_of_arguments(node, 2)
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
                     return [None], [node]
@@ -306,11 +315,13 @@ class TypeAnnotator(NodeVisitor):
                     size = node.keywords[idx].value.n
                     return [ArrayType(types.VYPER_BYTE, size, False)], [node]
                 elif case(names.AS_WEI_VALUE):
+                    _check_number_of_arguments(node, 2)
                     self.annotate_expected(node.args[0], pred=types.is_integer)
                     unit = node.args[1]
                     _check(isinstance(unit, ast.Str) and unit.s in names.ETHER_UNITS, node, 'invalid.unit')
                     return [types.VYPER_WEI_VALUE], [node]
                 elif case(names.AS_UNITLESS_NUMBER):
+                    _check_number_of_arguments(node, 1)
                     # We ignore units completely, therefore the type stays the same
                     return self.pass_through(node.args[0], node)
                 elif case(names.CONCAT):
@@ -324,6 +335,7 @@ class TypeAnnotator(NodeVisitor):
                     size = sum(arg.type.size for arg in node.args)
                     return [ArrayType(node.args[0].type.element_type, size, False)], [node]
                 elif case(names.KECCAK256) or case(names.SHA256):
+                    _check_number_of_arguments(node, 1)
 
                     def is_bytes_array(t):
                         return isinstance(t, types.ArrayType) and t.element_type == types.VYPER_BYTE
@@ -331,12 +343,16 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[0], pred=is_bytes_array)
                     return [types.VYPER_BYTES32], [node]
                 elif case(names.IMPLIES):
+                    _check_number_of_arguments(node, 2)
+
                     self.annotate_expected(node.args[0], types.VYPER_BOOL)
                     self.annotate_expected(node.args[1], types.VYPER_BOOL)
                     return [types.VYPER_BOOL], [node]
                 elif case(names.RESULT):
+                    _check_number_of_arguments(node, 0)
                     return [self.current_func.type.return_type], [node]
                 elif case(names.SUM):
+                    _check_number_of_arguments(node, 1)
 
                     def is_numeric_map(t):
                         return isinstance(t, types.MapType) and types.is_integer(t.value_type)
@@ -344,6 +360,8 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[0], pred=is_numeric_map)
                     return [node.args[0].type.value_type], [node]
                 elif case(names.SENT) or case(names.RECEIVED):
+                    _check_number_of_arguments(node, 0, 1)
+
                     if not node.args:
                         type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
                         return [type], [node]
@@ -352,9 +370,13 @@ class TypeAnnotator(NodeVisitor):
                         return [types.VYPER_WEI_VALUE], [node]
                 elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                     # This is a struct inizializer
+                    _check_number_of_arguments(node, 0, 1)
+
                     return self._visit_struct_init(node)
                 elif name in self.program.contracts:
                     # This is a contract initializer
+                    _check_number_of_arguments(node, 0, 1)
+
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     return [self.program.contracts[name].type], [node]
                 else:
