@@ -16,8 +16,8 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     package_data={
-        'nagini_translation.backends': ['*.jar'],
-        'nagini_translation.resources': ['*.vpr'],
+        'twovyper.backends': ['*.jar'],
+        'twovyper.resources': ['*.vpr'],
     },
     install_requires=[
         'astunparse==1.6.2',
@@ -30,7 +30,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-                '2vyper = nagini_translation.main:main',
+                '2vyper = twovyper.main:main',
         ]
     },
 

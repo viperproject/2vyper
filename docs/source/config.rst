@@ -3,9 +3,9 @@ Configuration
 =============
 
 Configuration such as JAVA classpath is managed by
-:py:class:`nagini_translation.config` module.
+:py:class:`twovyper.config` module.
 
-.. automodule:: nagini_translation.lib.config
+.. automodule:: twovyper.lib.config
     :members: _construct_classpath, _get_boogie_path, _get_z3_path, _get_mypy_path
     :private-members:
 

@@ -44,13 +44,13 @@ from typing import Any, Dict, List, Optional
 # Change path such that the following imports succeed
 import context  # noqa
 
-from nagini_translation import config
-from nagini_translation.viper import jvmaccess
-from nagini_translation.verification import error_manager
-from nagini_translation.exceptions import InvalidProgramException
-from nagini_translation.main import translate, verify
-from nagini_translation.verification.verifier import ViperVerifier
-from nagini_translation.verification.result import VerificationResult
+from twovyper import config
+from twovyper.viper import jvmaccess
+from twovyper.verification import error_manager
+from twovyper.exceptions import InvalidProgramException
+from twovyper.main import translate, verify
+from twovyper.verification.verifier import ViperVerifier
+from twovyper.verification.result import VerificationResult
 
 
 VYPER_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)))
