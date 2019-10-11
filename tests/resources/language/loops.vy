@@ -92,6 +92,5 @@ def nested_loop_fail() -> int128:
 			continue
 		for j in range(2):
 			res = res + j
-	else:
-		res = 5
+
 	return res

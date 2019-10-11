@@ -190,7 +190,6 @@ class StatementTranslator(NodeTranslator):
                     continue_info = self.to_info(["End of loop iteration."])
                     stmts.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
 
-            stmts += self.translate_stmts(node.orelse, ctx)
             break_info = self.to_info(["End of loop."])
             stmts.append(self.viper_ast.Label(ctx.break_label, pos, break_info))
             return stmts

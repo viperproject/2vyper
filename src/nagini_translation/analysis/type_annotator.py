@@ -203,7 +203,9 @@ class TypeAnnotator(NodeVisitor):
         var_type = node.iter.type.element_type
         self.current_func.local_vars[var_name] = VyperVar(var_name, var_type, node.target)
         self.variables[var_name] = [var_type]
-        for stmt in node.body + node.orelse:
+        # Vyper does not support else branches in loops
+        assert not node.orelse
+        for stmt in node.body:
             self.visit(stmt)
 
     def visit_If(self, node: ast.If):
