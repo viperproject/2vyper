@@ -73,6 +73,10 @@ def success_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.SUCCESS_VAR, viper_ast.Bool, pos, info)
 
 
+def overflow_var(viper_ast: ViperAST, pos=None, info=None):
+    return viper_ast.LocalVarDecl(mangled.OVERFLOW, viper_ast.Bool, pos, info)
+
+
 def out_of_gas_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.OUT_OF_GAS, viper_ast.Bool, pos, info)
 

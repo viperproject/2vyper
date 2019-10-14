@@ -6,10 +6,17 @@
 #
 
 
-#@ config: no_gas, no_overflows
+#@ config: no_gas
 
 
+#@ ensures: success(if_not=overflow)
+@public
+def add_numbers(a: int128, b: int128) -> int128:
+    return a + b
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: success()
 @public
-def noop():
-    pass
+def add_numbers_fail(a: int128, b: int128) -> int128:
+    return a + b

@@ -117,7 +117,7 @@ class SpecificationTranslator(ExpressionTranslator):
             #   - success(if_not=expr)
             # where expr can be a disjunction of conditions
             var = ctx.success_var
-            local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
+            success = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
 
             conds = set()
 
@@ -133,16 +133,20 @@ class SpecificationTranslator(ExpressionTranslator):
                 args = node.keywords[0].value
                 collect_conds(args)
 
-            if names.SUCCESS_SENDER_FAILED in conds:
-                msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
-                not_msg_sender_call_failed = self.viper_ast.Not(msg_sender_call_failed, pos)
-                return [], self.viper_ast.Implies(not_msg_sender_call_failed, local_var, pos)
+            if names.SUCCESS_OVERFLOW in conds:
+                overflow = helpers.overflow_var(self.viper_ast, pos).localVar()
+                not_overflow = self.viper_ast.Not(overflow, pos)
+                return [], self.viper_ast.Implies(not_overflow, success, pos)
             elif names.SUCCESS_OUT_OF_GAS in conds:
                 out_of_gas = helpers.out_of_gas_var(self.viper_ast, pos).localVar()
                 not_out_of_gas = self.viper_ast.Not(out_of_gas, pos)
-                return [], self.viper_ast.Implies(not_out_of_gas, local_var, pos)
+                return [], self.viper_ast.Implies(not_out_of_gas, success, pos)
+            elif names.SUCCESS_SENDER_FAILED in conds:
+                msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
+                not_msg_sender_call_failed = self.viper_ast.Not(msg_sender_call_failed, pos)
+                return [], self.viper_ast.Implies(not_msg_sender_call_failed, success, pos)
             else:
-                return [], local_var
+                return [], success
         elif name == names.OLD or name == names.ISSUED:
             self_var = ctx.old_self_var if name == names.OLD else ctx.issued_self_var
             with self_scope(self_var, self_var, ctx):
