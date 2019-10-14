@@ -6,7 +6,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 import argparse
-import inspect
 import logging
 import os
 import traceback
@@ -16,17 +15,15 @@ from time import time
 
 from jpype import JException
 
-from twovyper import vyper
 from twovyper import config
+from twovyper import vyper
 
 from twovyper.parsing import parser
 from twovyper.analysis import analyzer
-from twovyper.translation.translator import ProgramTranslator
+from twovyper.translation import translator
 
 from twovyper.viper.jvmaccess import JVM
 from twovyper.viper.typedefs import Program
-from twovyper.viper.ast import ViperAST
-from twovyper.viper import sif
 
 from twovyper.verification import error_manager
 
@@ -42,37 +39,6 @@ from twovyper.exceptions import (
 )
 
 
-def parse_sil_file(sil_path: str, jvm):
-    parser = getattr(getattr(jvm.viper.silver.parser, "FastParser$"), "MODULE$")
-    assert parser
-    with open(sil_path, 'r') as file:
-        text = file.read()
-    path = jvm.java.nio.file.Paths.get(sil_path, [])
-    none = getattr(getattr(jvm.scala, 'None$'), 'MODULE$')
-    parsed = parser.parse(text, path, none)
-    assert (isinstance(parsed, getattr(jvm.fastparse.core,
-                                       'Parsed$Success')))
-    parse_result = parsed.value()
-    parse_result.initProperties()
-    resolver = jvm.viper.silver.parser.Resolver(parse_result)
-    resolved = resolver.run()
-    resolved = resolved.get()
-    translator = jvm.viper.silver.parser.Translator(resolved)
-    # Reset messages in global Consistency object. Otherwise, left-over
-    # translation errors from previous translations prevent loading of the
-    # built-in silver files.
-    jvm.viper.silver.ast.utility.Consistency.resetMessages()
-    program = translator.translate()
-    return program.get()
-
-
-# TODO: move this to a better place
-def load_sil_files(jvm: JVM):
-    current_path = os.path.dirname(inspect.stack()[0][1])
-    resources_path = os.path.join(current_path, 'resources')
-    return parse_sil_file(os.path.join(resources_path, 'all.vpr'), jvm)
-
-
 def translate(path: str, jvm: JVM, selected: Set[str] = set(),
               vyper_root=None, skip_vyper: bool = False,
               verbose: bool = False) -> Program:
@@ -81,38 +47,16 @@ def translate(path: str, jvm: JVM, selected: Set[str] = set(),
     """
     path = os.path.abspath(path)
     error_manager.clear()
-    # current_path = os.path.dirname(inspect.stack()[0][1])
-    # resources_path = os.path.join(current_path, 'resources')
 
     # Check that the file is a valid Vyper contract
     if not skip_vyper:
         vyper.check(path, vyper_root)
 
-    viper_ast = ViperAST(jvm)
-    if not viper_ast.is_available():
-        raise Exception('Viper not found on classpath.')
-    if not viper_ast.is_extension_available():
-        raise Exception('Viper AST SIF extension not found on classpath.')
-
-    with open(path) as file:
+    with open(path, 'r') as file:
         vyper_program = parser.parse(file.read(), path)
         analyzer.analyze(vyper_program)
 
-    builtins = load_sil_files(jvm)
-    translator = ProgramTranslator(viper_ast, builtins)
-    viper_program = translator.translate(vyper_program, path)
-
-    consistency_errors = viper_ast.to_list(viper_program.checkTransitively())
-    for error in consistency_errors:
-        # TODO: Print this when catching the consistency exception
-        print(error.toString())
-    if consistency_errors:
-        # print(viper_program)
-        raise ConsistencyException('consistency.error')
-
-    sif.configure_mpp_transformation(jvm)
-    viper_program = sif.transform(jvm, viper_program)
-    return viper_program
+    return translator.translate(vyper_program, path, jvm)
 
 
 def verify(prog: Program, path: str,
@@ -148,7 +92,8 @@ def _parse_log_level(log_level_string: str) -> int:
 
 
 def main() -> None:
-    """ Entry point for the translator.
+    """
+    Entry point for the verifier.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -166,14 +111,14 @@ def main() -> None:
         default=None
     )
     parser.add_argument(
-        '--boogie',
-        help='path to Boogie executable',
-        default=config.boogie_path
-    )
-    parser.add_argument(
         '--z3',
         help='path to Z3 executable',
         default=config.z3_path
+    )
+    parser.add_argument(
+        '--boogie',
+        help='path to Boogie executable',
+        default=config.boogie_path
     )
     parser.add_argument(
         '--vyper-root',
@@ -259,7 +204,7 @@ def main() -> None:
         socket = context.socket(zmq.REP)
         socket.bind(DEFAULT_SERVER_SOCKET)
         global sil_programs
-        sil_programs = load_sil_files(jvm, args.sif)
+        # sil_programs = load_sil_files(jvm, args.sif)
 
         while True:
             file = socket.recv_string()
@@ -311,7 +256,9 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
     except (InvalidProgramException, UnsupportedException) as e:
         print(e.error_string(vyper_file))
     except ConsistencyException as e:
-        print(e.message + ': Translated AST contains inconsistencies.')
+        print(e.message)
+        for error in e.errors:
+            print(error.toString())
     except InvalidVyperException as e:
         print(e.message)
     except JException as e:
