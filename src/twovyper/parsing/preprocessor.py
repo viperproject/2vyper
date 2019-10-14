@@ -15,7 +15,7 @@ def preprocess(program: str) -> str:
     program = re.sub(r'(?<=^)contract(?=\s.*:\s*$)', r'class   ', program, flags=re.MULTILINE)
 
     # Make specifications valid python statements. We use assignments instead of variable
-    # declarations because we could have contract variables called 'requires'.
+    # declarations because we could have contract variables called 'ensures'.
     # The spaces are used to keep the column numbers correct in the preprocessed program.
     program = program.replace('#@ config:', 'config   =')
     program = program.replace('#@ ensures:', 'ensures   =')
