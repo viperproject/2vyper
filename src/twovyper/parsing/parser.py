@@ -218,22 +218,22 @@ class LocalProgramBuilder(ast.NodeVisitor):
 
         self.type_builder = type_builder
 
-    def build(self, node):
+    def build(self, node: ast.AST):
         self.visit(node)
         return self.args, self.local_vars
 
-    def visit_arg(self, node):
+    def visit_arg(self, node: ast.arg):
         arg_name = node.arg
         arg_type = self.type_builder.build(node.annotation)
         var = VyperVar(arg_name, arg_type, node)
         self.args[arg_name] = var
 
-    def visit_AnnAssign(self, node):
+    def visit_AnnAssign(self, node: ast.AnnAssign):
         variable_name = node.target.id
         variable_type = self.type_builder.build(node.annotation)
         var = VyperVar(variable_name, variable_type, node)
         self.local_vars[variable_name] = var
 
-    def visit_For(self, node):
+    def visit_For(self, node: ast.For):
         # We ignore these variables as they are added in the type annotator
         self.generic_visit(node)
