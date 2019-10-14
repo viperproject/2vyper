@@ -12,6 +12,10 @@ PUBLIC = 'public'
 PRIVATE = 'private'
 PAYABLE = 'payable'
 
+# Modifiers
+CONSTANT = 'constant'
+MODIFYING = 'modifying'
+
 # Types
 BOOL = 'bool'
 WEI_VALUE = 'wei_value'

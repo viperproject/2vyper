@@ -483,7 +483,8 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     amount = self.viper_ast.IntLit(0, pos)
 
-                call_stmts, call = self._translate_contract_call(node, to, amount, ctx)
+                const = node.func.value.type.function_modifiers[node.func.attr] == names.CONSTANT
+                call_stmts, call = self._translate_contract_call(node, to, amount, ctx, const)
                 stmts.extend(call_stmts)
                 return stmts, call
             elif node.func.value.id == names.LOG:
@@ -500,7 +501,8 @@ class ExpressionTranslator(NodeTranslator):
                                  node: ast.Call,
                                  to: Expr,
                                  amount: Expr,
-                                 ctx: Context) -> StmtsAndExpr:
+                                 ctx: Context,
+                                 constant: bool = False) -> StmtsAndExpr:
         # Sends are translated as follows:
         #    - Evaluate arguments to and amount
         #    - Check that balance is sufficient (self.balance >= amount) else revert
@@ -510,10 +512,11 @@ class ExpressionTranslator(NodeTranslator):
         #    - Assert checks and invariants
         #    - Create new old state which old in the invariants after the call refers to
         #    - Fail based on an unkown value (i.e. the call could fail)
-        #    - Havoc self
-        #    - Assume type assumptions for self
-        #    - Assume invariants (where old refers to the state before send)
-        #    - Create new old state which subsequent old expressions refer to
+        #    - The last steps are only necessary if the function is not constant:
+        #       - Havoc self
+        #       - Assume type assumptions for self
+        #       - Assume invariants (where old refers to the state before send)
+        #       - Create new old state which subsequent old expressions refer to
 
         pos = self.to_position(node, ctx)
 
@@ -562,39 +565,43 @@ class ExpressionTranslator(NodeTranslator):
         assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
         fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
 
-        # Havov self
-        havoc_name = ctx.new_local_var_name('havoc')
-        havoc = self.viper_ast.LocalVarDecl(havoc_name, ctx.self_var.typ())
-        ctx.new_local_vars.append(havoc)
-        havoc_self = self.viper_ast.LocalVarAssign(self_var, havoc.localVar(), pos)
+        if not constant:
+            # Havov self
+            havoc_name = ctx.new_local_var_name('havoc')
+            havoc = self.viper_ast.LocalVarDecl(havoc_name, ctx.self_var.typ())
+            ctx.new_local_vars.append(havoc)
+            havoc_self = self.viper_ast.LocalVarAssign(self_var, havoc.localVar(), pos)
 
-        call = [copy_old, fail, havoc_self]
+            call = [copy_old, fail, havoc_self]
 
-        type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
-        assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
-        type_seq = self._seqn_with_info(assume_type_ass, "Assume type assumptions")
+            type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
+            assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
+            type_seq = self._seqn_with_info(assume_type_ass, "Assume type assumptions")
 
-        assume_posts = []
-        for post in ctx.program.transitive_postconditions:
-            # We translate the transitive postcondition like an invariant since we want
-            # old to refer to the state before the call, not the pre state
-            post_expr = self.spec_translator.translate_invariant(post, ctx)
-            ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-            assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
+            assume_posts = []
+            for post in ctx.program.transitive_postconditions:
+                # We translate the transitive postcondition like an invariant since we want
+                # old to refer to the state before the call, not the pre state
+                post_expr = self.spec_translator.translate_invariant(post, ctx)
+                ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
+                assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
 
-        post_seq = self._seqn_with_info(assume_posts, "Assume transitive postconditions")
+            post_seq = self._seqn_with_info(assume_posts, "Assume transitive postconditions")
 
-        assume_invs = []
-        for inv in ctx.unchecked_invariants():
-            assume_invs.append(self.viper_ast.Inhale(inv))
+            assume_invs = []
+            for inv in ctx.unchecked_invariants():
+                assume_invs.append(self.viper_ast.Inhale(inv))
 
-        for inv, expr in zip(ctx.program.invariants, invs):
-            ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-            assume_invs.append(self.viper_ast.Inhale(expr, ipos))
+            for inv, expr in zip(ctx.program.invariants, invs):
+                ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                assume_invs.append(self.viper_ast.Inhale(expr, ipos))
 
-        inv_seq = self._seqn_with_info(assume_invs, "Assume invariants")
+            inv_seq = self._seqn_with_info(assume_invs, "Assume invariants")
 
-        new_state = [*type_seq, *post_seq, *inv_seq, copy_old]
+            new_state = [*type_seq, *post_seq, *inv_seq, copy_old]
+        else:
+            call = [copy_old, fail]
+            new_state = []
 
         if node.type:
             ret_name = ctx.new_local_var_name('raw_ret')
