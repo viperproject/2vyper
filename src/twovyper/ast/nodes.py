@@ -9,6 +9,7 @@ import ast
 
 from typing import Dict, List, Optional
 
+from twovyper.ast import names
 from twovyper.ast.types import (
     VyperType, FunctionType, StructType, ContractType, EventType
 )
@@ -54,10 +55,13 @@ class VyperFunction:
         self.analysis = None
 
     def is_public(self) -> bool:
-        return 'public' in self.decorators
+        return names.PUBLIC in self.decorators
+
+    def is_private(self) -> bool:
+        return names.PRIVATE in self.decorators
 
     def is_payable(self) -> bool:
-        return 'payable' in self.decorators
+        return names.PAYABLE in self.decorators
 
 
 class VyperStruct:
