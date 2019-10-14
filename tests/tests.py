@@ -41,30 +41,33 @@ import tokenize
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
-# Change path such that the following imports succeed
+# Change path such that the subsequent imports succeed
 import context  # noqa
 
 from twovyper import config
-from twovyper.viper import jvmaccess
-from twovyper.verification import error_manager
+from twovyper.main import TwoVyper
+
 from twovyper.exceptions import InvalidProgramException
-from twovyper.main import translate, verify
+
+from twovyper.verification import error_manager
 from twovyper.verification.verifier import ViperVerifier
 from twovyper.verification.result import VerificationResult
+
+from twovyper.viper.jvmaccess import JVM
 
 
 VYPER_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)))
 
 _JVM = None
-VERIFIER = ViperVerifier.silicon
+VERIFIER = 'silicon'
 
 
 def _init_jvm(verifier):
     config.set_classpath(verifier)
     global _JVM
-    _JVM = jvmaccess.JVM(config.classpath)
+    _JVM = JVM(config.classpath)
     global VERIFIER
-    VERIFIER = ViperVerifier[verifier]
+    VERIFIER = verifier
 
 
 _BACKEND_SILICON = 'silicon'
@@ -539,26 +542,27 @@ class TwoVyperTest(AnnotatedTest):
     """Test for testing correct behavior of 2vyper for annotated programs."""
 
     def test_file(
-            self, path: str, jvm: jvmaccess.JVM, verifier: ViperVerifier):
+            self, path: str, jvm: JVM, verifier: ViperVerifier):
         """Test specific Vyper file."""
-        annotation_manager = self.get_annotation_manager(path, verifier.name)
+        annotation_manager = self.get_annotation_manager(path, verifier)
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         path = os.path.abspath(path)
+        tw = TwoVyper(jvm)
         try:
-            prog = translate(path, jvm, vyper_root=VYPER_ROOT)
+            prog = tw.translate(path, vyper_root=VYPER_ROOT)
         except InvalidProgramException as e:
             actual_errors = [InvalidProgramError(e)]
             annotation_manager.check_errors(actual_errors)
             if annotation_manager.has_unexpected_missing():
                 pytest.skip('Unexpected or missing output')
         else:
-            vresult = verify(prog, path, jvm, verifier)
+            vresult = tw.verify(prog, path, verifier)
             self._evaluate_result(vresult, annotation_manager, jvm)
 
     def _evaluate_result(
             self, vresult: VerificationResult,
-            annotation_manager: AnnotationManager, jvm: jvmaccess.JVM):
+            annotation_manager: AnnotationManager, jvm: JVM):
         """Evaluate verification result with regard to test annotations."""
         if vresult:
             actual_errors = []
