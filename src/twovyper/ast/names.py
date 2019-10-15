@@ -53,11 +53,13 @@ LOG = 'log'
 
 # Constants
 ZERO_ADDRESS = 'ZERO_ADDRESS'
+ZERO_WEI = 'ZERO_WEI'
 EMPTY_BYTES32 = 'EMPTY_BYTES32'
 
 CONSTANT_VALUES = {
+    EMPTY_BYTES32: 'b"' + '\\x00' * 32 + '"',
     ZERO_ADDRESS: '0',
-    EMPTY_BYTES32: 'b"' + '\\x00' * 32 + '"'
+    ZERO_WEI: '0'
 }
 
 # Special
