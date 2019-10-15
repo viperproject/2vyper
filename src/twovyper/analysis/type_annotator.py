@@ -259,8 +259,6 @@ class TypeAnnotator(NodeVisitor):
         if isinstance(node.func, ast.Name):
             name = node.func.id
 
-            # TODO: check correct number of arguments
-
             with switch(name) as case:
                 if case(names.CONVERT):
                     _check_number_of_arguments(node, 2)
