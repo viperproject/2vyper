@@ -15,4 +15,4 @@ def assume():
 
 @public
 def acc():
-    domain: int128
+    domain: int128 = 0

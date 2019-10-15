@@ -21,7 +21,7 @@ def increment():
 
 @public
 def local_increment():
-    i: int128
+    i: int128 = 0
     i += 1
 
 
@@ -34,6 +34,6 @@ def map_increment():
 #@ ensures: self.mp[12] == old(self.mp[12]) + self.fld - 12
 @public
 def increase():
-    i: int128
+    i: int128 = 0
     i += i + 12
     self.mp[i] += self.fld - i
