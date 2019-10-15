@@ -295,6 +295,10 @@ class TypeAnnotator(NodeVisitor):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], pred=lambda t: isinstance(t, types.ArrayType))
                     return [types.VYPER_INT128], [node]
+                elif case(names.ASSERT_MODIFIABLE):
+                    _check_number_of_arguments(node, 1)
+                    self.annotate_expected(node.args[0], types.VYPER_BOOL)
+                    return [None], [node]
                 elif case(names.SEND):
                     _check_number_of_arguments(node, 2)
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)

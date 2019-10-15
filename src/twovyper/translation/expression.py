@@ -421,6 +421,11 @@ class ExpressionTranslator(NodeTranslator):
             elif name == names.SHA256:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, helpers.array_sha256(self.viper_ast, arg, pos)
+            elif name == names.ASSERT_MODIFIABLE:
+                cond_stmts, cond = self.translate(node.args[0], ctx)
+                not_cond = self.viper_ast.Not(cond, pos)
+                fail = self.fail_if(not_cond, [], ctx, pos)
+                return [*cond_stmts, fail], None
             elif name == names.SEND:
                 to_stmts, to = self.translate(node.args[0], ctx)
                 amount_stmts, amount = self.translate(node.args[1], ctx)
