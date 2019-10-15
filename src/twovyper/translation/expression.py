@@ -308,6 +308,13 @@ class ExpressionTranslator(NodeTranslator):
                 comp = op(lhs, rhs, pos)
                 stmts = lhs_stmts + rhs_stmts
                 return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
+            elif name == names.SQRT:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                zero = self.viper_ast.IntLit(0, pos)
+                lt = self.viper_ast.LtCmp(arg, zero, pos)
+                fail = self.fail_if(lt, [], ctx, pos)
+                sqrt = helpers.sqrt(self.viper_ast, arg, pos)
+                return [*arg_stmts, fail], sqrt
             elif name == names.FLOOR or name == names.CEIL:
                 # Let s be the scaling factor, then
                 #    floor(d) == d < 0 ? (d - (s - 1)) / s : d / s

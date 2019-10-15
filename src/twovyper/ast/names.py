@@ -88,6 +88,7 @@ ETHER_UNITS = {
 RANGE = 'range'
 MIN = 'min'
 MAX = 'max'
+SQRT = 'sqrt'
 FLOOR = 'floor'
 CEIL = 'ceil'
 CLEAR = 'clear'
