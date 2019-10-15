@@ -22,7 +22,7 @@ setup(
     install_requires=[
         'astunparse==1.6.2',
         'jpype1==0.7.0',
-        'vyper',
+        'vyper>=0.1.0b13',
         'z3-solver',
     ],
     tests_require=[
