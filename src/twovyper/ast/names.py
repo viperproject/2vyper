@@ -70,18 +70,14 @@ UNREACHABLE = 'UNREACHABLE'
 
 # Ether units
 ETHER_UNITS = {
-    'wei': 1,
-    'kwei': 1_000,
-    'babbage': 1_000,
-    'mwei': 1_000_000,
-    'lovelace': 1_000_000,
-    'gwei': 1_000_000_000,
-    'shannon': 1_000_000_000,
-    'microether': 1_000_000_000_000,
-    'szabo': 1_000_000_000_000,
-    'milliether': 1_000_000_000_000_000,
-    'finney': 1_000_000_000_000_000,
-    'ether': 1_000_000_000_000_000_000
+    ('wei'): 1,
+    ('femtoether', 'kwei', 'babbage'): 10 ** 3,
+    ('picoether', 'mwei', 'lovelace'): 10 ** 6,
+    ('nanoether', 'gwei', 'shannon'): 10 ** 9,
+    ('microether', 'szabo'): 10 ** 12,
+    ('milliether', 'finney'): 10 ** 15,
+    ('ether'): 10 ** 18,
+    ('kether', 'grand'): 10 ** 21,
 }
 
 # Built-in functions

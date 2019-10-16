@@ -337,7 +337,8 @@ class TypeAnnotator(NodeVisitor):
                     _check_number_of_arguments(node, 2)
                     self.annotate_expected(node.args[0], types.is_integer)
                     unit = node.args[1]
-                    _check(isinstance(unit, ast.Str) and unit.s in names.ETHER_UNITS, node, 'invalid.unit')
+                    unit_exists = lambda u: next((v for k, v in names.ETHER_UNITS.items() if u in k), False)
+                    _check(isinstance(unit, ast.Str) and unit_exists(unit.s), node, 'invalid.unit')
                     return [types.VYPER_WEI_VALUE], [node]
                 elif case(names.AS_UNITLESS_NUMBER):
                     _check_number_of_arguments(node, 1)

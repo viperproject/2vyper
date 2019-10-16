@@ -336,8 +336,9 @@ class ExpressionTranslator(NodeTranslator):
                 stmts.append(self.fail_if(self.viper_ast.LtCmp(arg, zero, pos), [], ctx, pos))
                 unit = node.args[1].s
                 unit_pos = self.to_position(node.args[1], ctx)
-                multiplier = self.viper_ast.IntLit(names.ETHER_UNITS[unit], unit_pos)
-                res = self.viper_ast.Mul(arg, multiplier, pos)
+                multiplier = next(v for k, v in names.ETHER_UNITS.items() if unit in k)
+                multiplier_lit = self.viper_ast.IntLit(multiplier, unit_pos)
+                res = self.viper_ast.Mul(arg, multiplier_lit, pos)
 
                 if types.is_bounded(node.type):
                     stmts.append(helpers.check_overflow(self.viper_ast, res, node.type, ctx, pos))
