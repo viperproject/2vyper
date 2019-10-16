@@ -23,6 +23,7 @@ TX = names.TX
 
 SENT_FIELD = '$sent'
 RECEIVED_FIELD = '$received'
+SELFDESTRUCT_FIELD = '$selfdestruct'
 
 RESULT_VAR = '$res'
 SUCCESS_VAR = '$succ'

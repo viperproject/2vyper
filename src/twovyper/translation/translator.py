@@ -84,6 +84,9 @@ class ProgramTranslator(PositionTranslator):
         # Add self.$received field
         received_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
         vyper_program.fields.type.add_member(mangled.RECEIVED_FIELD, received_type)
+        # Add self.$selfdestruct field
+        selfdestruct_type = types.VYPER_BOOL
+        vyper_program.fields.type.add_member(mangled.SELFDESTRUCT_FIELD, selfdestruct_type)
 
         ctx = Context()
         ctx.file = file

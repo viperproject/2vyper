@@ -310,6 +310,15 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
                     return [None], [node]
+                elif case(names.SELFDESTRUCT):
+                    _check_number_of_arguments(node, 0, 1)
+                    if node.args:
+                        # The selfdestruct Vyper function
+                        self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                        return [None], [node]
+                    else:
+                        # The selfdestruct verification function
+                        return [types.VYPER_BOOL], [node]
                 elif case(names.CLEAR):
                     # Not type checking is needed here as clear may only occur in actual Vyper code
                     self.annotate(node.args[0])

@@ -218,6 +218,13 @@ class SpecificationTranslator(ExpressionTranslator):
             pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
             current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
             return [], self.viper_ast.EqCmp(current_perm, perm, pos)
+        elif name == names.SELFDESTRUCT:
+            self_var = ctx.self_var.localVar()
+            self_type = ctx.self_type
+            member = mangled.SELFDESTRUCT_FIELD
+            type = self.type_translator.translate(self_type.member_types[member], ctx)
+            sget = helpers.struct_get(self.viper_ast, self_var, member, type, self_type, pos)
+            return [], sget
         elif name not in names.NOT_ALLOWED_IN_SPEC:
             return super().translate_Call(node, ctx)
         else:
