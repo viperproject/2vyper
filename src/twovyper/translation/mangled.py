@@ -15,7 +15,6 @@ SELF = names.SELF
 OLD_SELF = f'$old_{names.SELF}'
 PRE_SELF = f'$pre_{names.SELF}'
 ISSUED_SELF = f'$issued_{names.SELF}'
-SELF_BALANCE = 's$balance'
 
 MSG = names.MSG
 BLOCK = names.BLOCK
