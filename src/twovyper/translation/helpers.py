@@ -133,6 +133,12 @@ def pow(viper_ast: ViperAST, base, exp, pos=None, info=None):
     return viper_ast.DomainFuncApp(mpow, [base, exp], viper_ast.Int, pos, info, domain)
 
 
+def sqrt(viper_ast: ViperAST, dec, pos=None, info=None):
+    msqrt = mangled.MATH_SQRT
+    domain = mangled.MATH_DOMAIN
+    return viper_ast.DomainFuncApp(msqrt, [dec], viper_ast.Int, pos, info, domain)
+
+
 def floor(viper_ast: ViperAST, dec, scaling_factor: int, pos=None, info=None):
     mfloor = mangled.MATH_FLOOR
     domain = mangled.MATH_DOMAIN

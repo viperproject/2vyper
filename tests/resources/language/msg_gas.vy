@@ -14,7 +14,7 @@ def current_gas() -> uint256:
 @public
 def compare_gas():
     cg: uint256 = msg.gas
-    ctr: int128
+    ctr: int128 = 0
     for i in range(20):
         ctr += 1
     

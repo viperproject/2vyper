@@ -23,6 +23,7 @@ TX = names.TX
 
 SENT_FIELD = '$sent'
 RECEIVED_FIELD = '$received'
+SELFDESTRUCT_FIELD = '$selfdestruct'
 
 RESULT_VAR = '$res'
 SUCCESS_VAR = '$succ'
@@ -45,6 +46,7 @@ MATH_SIGN = '$sign'
 MATH_DIV = '$div'
 MATH_MOD = '$mod'
 MATH_POW = '$pow'
+MATH_SQRT = '$sqrt'
 MATH_FLOOR = '$floor'
 MATH_CEIL = '$ceil'
 

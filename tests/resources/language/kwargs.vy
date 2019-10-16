@@ -10,3 +10,16 @@
 @public
 def add_numbers(i: int128, j: int128=1) -> int128:
     return i + j
+
+
+#@ ensures: implies(success(), result() == a)
+@public
+def get_address(a: address = msg.sender) -> address:
+    return a
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: implies(success(), result() == 0)
+@public
+def kwargs_fail(i: int128 = 0) -> int128:
+    return i

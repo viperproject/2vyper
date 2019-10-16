@@ -308,6 +308,13 @@ class ExpressionTranslator(NodeTranslator):
                 comp = op(lhs, rhs, pos)
                 stmts = lhs_stmts + rhs_stmts
                 return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
+            elif name == names.SQRT:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                zero = self.viper_ast.IntLit(0, pos)
+                lt = self.viper_ast.LtCmp(arg, zero, pos)
+                fail = self.fail_if(lt, [], ctx, pos)
+                sqrt = helpers.sqrt(self.viper_ast, arg, pos)
+                return [*arg_stmts, fail], sqrt
             elif name == names.FLOOR or name == names.CEIL:
                 # Let s be the scaling factor, then
                 #    floor(d) == d < 0 ? (d - (s - 1)) / s : d / s
@@ -421,6 +428,29 @@ class ExpressionTranslator(NodeTranslator):
             elif name == names.SHA256:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, helpers.array_sha256(self.viper_ast, arg, pos)
+            elif name == names.SELFDESTRUCT:
+                arg_stmts, _ = self.translate(node.args[0], ctx)
+
+                self_var = ctx.self_var.localVar()
+                self_type = ctx.self_type
+
+                val = self.viper_ast.TrueLit(pos)
+                member = mangled.SELFDESTRUCT_FIELD
+                type = self.type_translator.translate(self_type.member_types[member], ctx)
+                sset = helpers.struct_set(self.viper_ast, self_var, val, member, type, self_type, pos)
+                self_s_assign = self.viper_ast.LocalVarAssign(self_var, sset, pos)
+
+                zero = self.viper_ast.IntLit(0, pos)
+                bset = self.balance_translator.set_balance(self_var, zero, ctx, pos)
+                self_b_assign = self.viper_ast.LocalVarAssign(self_var, bset, pos)
+
+                goto_return = self.viper_ast.Goto(ctx.return_label, pos)
+                return [*arg_stmts, self_s_assign, self_b_assign, goto_return], None
+            elif name == names.ASSERT_MODIFIABLE:
+                cond_stmts, cond = self.translate(node.args[0], ctx)
+                not_cond = self.viper_ast.Not(cond, pos)
+                fail = self.fail_if(not_cond, [], ctx, pos)
+                return [*cond_stmts, fail], None
             elif name == names.SEND:
                 to_stmts, to = self.translate(node.args[0], ctx)
                 amount_stmts, amount = self.translate(node.args[1], ctx)
@@ -483,7 +513,8 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     amount = self.viper_ast.IntLit(0, pos)
 
-                call_stmts, call = self._translate_contract_call(node, to, amount, ctx)
+                const = node.func.value.type.function_modifiers[node.func.attr] == names.CONSTANT
+                call_stmts, call = self._translate_contract_call(node, to, amount, ctx, const)
                 stmts.extend(call_stmts)
                 return stmts, call
             elif node.func.value.id == names.LOG:
@@ -500,7 +531,8 @@ class ExpressionTranslator(NodeTranslator):
                                  node: ast.Call,
                                  to: Expr,
                                  amount: Expr,
-                                 ctx: Context) -> StmtsAndExpr:
+                                 ctx: Context,
+                                 constant: bool = False) -> StmtsAndExpr:
         # Sends are translated as follows:
         #    - Evaluate arguments to and amount
         #    - Check that balance is sufficient (self.balance >= amount) else revert
@@ -510,10 +542,11 @@ class ExpressionTranslator(NodeTranslator):
         #    - Assert checks and invariants
         #    - Create new old state which old in the invariants after the call refers to
         #    - Fail based on an unkown value (i.e. the call could fail)
-        #    - Havoc self
-        #    - Assume type assumptions for self
-        #    - Assume invariants (where old refers to the state before send)
-        #    - Create new old state which subsequent old expressions refer to
+        #    - The last steps are only necessary if the function is not constant:
+        #       - Havoc self
+        #       - Assume type assumptions for self
+        #       - Assume invariants (where old refers to the state before send)
+        #       - Create new old state which subsequent old expressions refer to
 
         pos = self.to_position(node, ctx)
 
@@ -562,39 +595,43 @@ class ExpressionTranslator(NodeTranslator):
         assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
         fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
 
-        # Havov self
-        havoc_name = ctx.new_local_var_name('havoc')
-        havoc = self.viper_ast.LocalVarDecl(havoc_name, ctx.self_var.typ())
-        ctx.new_local_vars.append(havoc)
-        havoc_self = self.viper_ast.LocalVarAssign(self_var, havoc.localVar(), pos)
+        if not constant:
+            # Havov self
+            havoc_name = ctx.new_local_var_name('havoc')
+            havoc = self.viper_ast.LocalVarDecl(havoc_name, ctx.self_var.typ())
+            ctx.new_local_vars.append(havoc)
+            havoc_self = self.viper_ast.LocalVarAssign(self_var, havoc.localVar(), pos)
 
-        call = [copy_old, fail, havoc_self]
+            call = [copy_old, fail, havoc_self]
 
-        type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
-        assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
-        type_seq = self._seqn_with_info(assume_type_ass, "Assume type assumptions")
+            type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
+            assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
+            type_seq = self._seqn_with_info(assume_type_ass, "Assume type assumptions")
 
-        assume_posts = []
-        for post in ctx.program.transitive_postconditions:
-            # We translate the transitive postcondition like an invariant since we want
-            # old to refer to the state before the call, not the pre state
-            post_expr = self.spec_translator.translate_invariant(post, ctx)
-            ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-            assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
+            assume_posts = []
+            for post in ctx.program.transitive_postconditions:
+                # We translate the transitive postcondition like an invariant since we want
+                # old to refer to the state before the call, not the pre state
+                post_expr = self.spec_translator.translate_invariant(post, ctx)
+                ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
+                assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
 
-        post_seq = self._seqn_with_info(assume_posts, "Assume transitive postconditions")
+            post_seq = self._seqn_with_info(assume_posts, "Assume transitive postconditions")
 
-        assume_invs = []
-        for inv in ctx.unchecked_invariants():
-            assume_invs.append(self.viper_ast.Inhale(inv))
+            assume_invs = []
+            for inv in ctx.unchecked_invariants():
+                assume_invs.append(self.viper_ast.Inhale(inv))
 
-        for inv, expr in zip(ctx.program.invariants, invs):
-            ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-            assume_invs.append(self.viper_ast.Inhale(expr, ipos))
+            for inv, expr in zip(ctx.program.invariants, invs):
+                ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                assume_invs.append(self.viper_ast.Inhale(expr, ipos))
 
-        inv_seq = self._seqn_with_info(assume_invs, "Assume invariants")
+            inv_seq = self._seqn_with_info(assume_invs, "Assume invariants")
 
-        new_state = [*type_seq, *post_seq, *inv_seq, copy_old]
+            new_state = [*type_seq, *post_seq, *inv_seq, copy_old]
+        else:
+            call = [copy_old, fail]
+            new_state = []
 
         if node.type:
             ret_name = ctx.new_local_var_name('raw_ret')

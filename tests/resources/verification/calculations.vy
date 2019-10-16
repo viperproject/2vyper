@@ -12,7 +12,7 @@
 #@ ensures: result() == (99 * 100) / 2 + 100 * start
 @public
 def sum_of_numbers(start: int128) -> int128:
-    sum: int128
+    sum: int128 = 0
     for i in range(start, start + 100):
         sum += i
 

@@ -7,14 +7,15 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import List
 
+from twovyper import resources
+
 from twovyper.utils import seq_to_list
 
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction
 
-from twovyper.viper.typedefs import Program, Stmt, Expr
-from twovyper.viper.ast import ViperAST
+from twovyper.exceptions import ConsistencyException
 
 from twovyper.translation.abstract import PositionTranslator
 from twovyper.translation.function import FunctionTranslator
@@ -26,7 +27,34 @@ from twovyper.translation.context import Context, function_scope, self_scope
 from twovyper.translation import mangled
 from twovyper.translation import helpers
 
+from twovyper.viper import sif
+from twovyper.viper.ast import ViperAST
+from twovyper.viper.jvmaccess import JVM
+from twovyper.viper.parser import ViperParser
+from twovyper.viper.typedefs import Program, Stmt, Expr
+
 from twovyper.verification import rules
+
+
+def translate(vyper_program: VyperProgram, file: str, jvm: JVM) -> Program:
+    viper_ast = ViperAST(jvm)
+    if not viper_ast.is_available():
+        raise Exception('Viper not found on classpath.')
+    if not viper_ast.is_extension_available():
+        raise Exception('Viper AST SIF extension not found on classpath.')
+
+    viper_parser = ViperParser(jvm)
+    builtins = viper_parser.parse(*resources.viper_all())
+    translator = ProgramTranslator(viper_ast, builtins)
+
+    viper_program = translator.translate(vyper_program, file)
+    consistency_errors = seq_to_list(viper_program.checkTransitively())
+    if consistency_errors:
+        raise ConsistencyException("The AST contains inconsistencies.", consistency_errors)
+
+    sif.configure_mpp_transformation(jvm)
+    viper_program = sif.transform(jvm, viper_program)
+    return viper_program
 
 
 class ProgramTranslator(PositionTranslator):
@@ -56,6 +84,9 @@ class ProgramTranslator(PositionTranslator):
         # Add self.$received field
         received_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
         vyper_program.fields.type.add_member(mangled.RECEIVED_FIELD, received_type)
+        # Add self.$selfdestruct field
+        selfdestruct_type = types.VYPER_BOOL
+        vyper_program.fields.type.add_member(mangled.SELFDESTRUCT_FIELD, selfdestruct_type)
 
         ctx = Context()
         ctx.file = file

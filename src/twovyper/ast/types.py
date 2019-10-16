@@ -77,11 +77,15 @@ class StructType(VyperType):
 
 class ContractType(VyperType):
 
-    def __init__(self, name: str, function_types: Dict[str, FunctionType]):
+    def __init__(self,
+                 name: str,
+                 function_types: Dict[str, FunctionType],
+                 function_modifiers: Dict[str, str]):
         id = f'contract {name}'
         super().__init__(id)
         self.name = name
         self.function_types = function_types
+        self.function_modifiers = function_modifiers
 
 
 class StringType(ArrayType):
@@ -223,12 +227,14 @@ class TypeBuilder(NodeVisitor):
         # This is a contract
         elif isinstance(node.body[0], ast.FunctionDef):
             functions = {}
+            modifiers = {}
             for f in node.body:
                 name = f.name
                 arg_types = [self.visit(arg.annotation) for arg in f.args.args]
                 return_type = None if f.returns is None else self.visit(f.returns)
                 functions[name] = FunctionType(arg_types, return_type)
-            return ContractType(node.name, functions)
+                modifiers[name] = f.body[0].value.id
+            return ContractType(node.name, functions, modifiers)
         else:
             assert False
 

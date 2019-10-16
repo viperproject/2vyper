@@ -5,6 +5,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+import abc
+
 from enum import Enum
 
 from twovyper import config
@@ -14,17 +16,23 @@ from twovyper.viper.jvmaccess import JVM
 from twovyper.verification.result import VerificationResult, Success, Failure
 
 
-class ViperVerifier(Enum):
-    silicon = 'silicon'
-    carbon = 'carbon'
+class AbstractVerifier(abc.ABC):
+
+    @abc.abstractmethod
+    def initialize(self, jvm: JVM, file: str):
+        pass
+
+    @abc.abstractmethod
+    def verify(self, program: Program) -> VerificationResult:
+        return None
 
 
-class Silicon:
+class Silicon(AbstractVerifier):
     """
     Provides access to the Silicon verifier
     """
 
-    def __init__(self, jvm: JVM, filename: str):
+    def initialize(self, jvm: JVM, filename: str):
         self.jvm = jvm
         self.silver = jvm.viper.silver
         if not jvm.is_known_class(jvm.viper.silicon.Silicon):
@@ -66,7 +74,7 @@ class Carbon:
     Provides access to the Carbon verifier
     """
 
-    def __init__(self, jvm: JVM, filename: str):
+    def initialize(self, jvm: JVM, filename: str):
         self.silver = jvm.viper.silver
         if not jvm.is_known_class(jvm.viper.carbon.CarbonVerifier):
             raise Exception('Carbon backend not found on classpath.')
@@ -100,3 +108,8 @@ class Carbon:
             return Failure(errors)
         else:
             return Success()
+
+
+class ViperVerifier(Enum):
+    silicon = Silicon()
+    carbon = Carbon()

@@ -12,6 +12,10 @@ PUBLIC = 'public'
 PRIVATE = 'private'
 PAYABLE = 'payable'
 
+# Modifiers
+CONSTANT = 'constant'
+MODIFYING = 'modifying'
+
 # Types
 BOOL = 'bool'
 WEI_VALUE = 'wei_value'
@@ -49,11 +53,13 @@ LOG = 'log'
 
 # Constants
 ZERO_ADDRESS = 'ZERO_ADDRESS'
+ZERO_WEI = 'ZERO_WEI'
 EMPTY_BYTES32 = 'EMPTY_BYTES32'
 
 CONSTANT_VALUES = {
+    EMPTY_BYTES32: 'b"' + '\\x00' * 32 + '"',
     ZERO_ADDRESS: '0',
-    EMPTY_BYTES32: 'b"' + '\\x00' * 32 + '"'
+    ZERO_WEI: '0'
 }
 
 # Special
@@ -82,6 +88,7 @@ ETHER_UNITS = {
 RANGE = 'range'
 MIN = 'min'
 MAX = 'max'
+SQRT = 'sqrt'
 FLOOR = 'floor'
 CEIL = 'ceil'
 CLEAR = 'clear'
@@ -93,6 +100,8 @@ LEN = 'len'
 CONCAT = 'concat'
 KECCAK256 = 'keccak256'
 SHA256 = 'sha256'
+ASSERT_MODIFIABLE = 'assert_modifiable'
+SELFDESTRUCT = 'selfdestruct'
 
 RAW_CALL = 'raw_call'
 RAW_CALL_OUTSIZE = 'outsize'
@@ -122,6 +131,7 @@ RECEIVED = 'received'
 ACCESSIBLE = 'accessible'
 REORDER_INDEPENDENT = 'reorder_independent'
 EVENT = 'event'
+SELFDESTRUCT = 'selfdestruct'
 
 SUCCESS = 'success'
 SUCCESS_IF_NOT = 'if_not'
@@ -130,7 +140,7 @@ SUCCESS_OUT_OF_GAS = 'out_of_gas'
 SUCCESS_SENDER_FAILED = 'sender_failed'
 SUCCESS_CONDITIONS = [SUCCESS_OVERFLOW, SUCCESS_OUT_OF_GAS, SUCCESS_SENDER_FAILED]
 
-NOT_ALLOWED_IN_SPEC = [CLEAR, SEND, RAW_CALL]
+NOT_ALLOWED_IN_SPEC = [ASSERT_MODIFIABLE, CLEAR, SEND, RAW_CALL]
 NOT_ALLOWED_IN_INVARIANT = [*NOT_ALLOWED_IN_SPEC, SUCCESS, RESULT, ISSUED, REORDER_INDEPENDENT, EVENT]
 NOT_ALLOWED_IN_CHECK = [*NOT_ALLOWED_IN_SPEC, ACCESSIBLE, RESULT]
 NOT_ALLOWED_IN_POSTCONDITION = [*NOT_ALLOWED_IN_SPEC, ACCESSIBLE, EVENT]

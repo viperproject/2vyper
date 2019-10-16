@@ -9,6 +9,11 @@
 #@ config: no_gas
 
 
+contract C:
+    def f() -> bool: modifying
+
+
+c: C
 f1: int128
 f2: int128
 
@@ -18,6 +23,7 @@ f2: int128
 
 @public
 def __init__():
+    self.c = C(msg.sender)
     self.f1 = 12
     self.f2 = 11
 
@@ -54,3 +60,21 @@ def assert_unreachable_fail(val: int128):
 @public
 def assert_property():
     assert -1 + 1 == 0, UNREACHABLE
+
+
+#@ ensures: success()
+@public
+def assert_modifiable_const(val: uint256):
+    assert_modifiable(val >= 0)
+
+
+@public
+def assert_modifiable_mut(val: uint256):
+    assert_modifiable(self.c.f())
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: success()
+@public
+def assert_modifiable_fail(val: uint256):
+    assert_modifiable(self.c.f())
