@@ -41,3 +41,8 @@ def empty_bytes() -> bytes32:
 @public
 def zero_wei() -> wei_value:
     return ZERO_WEI
+
+#@ ensures: implies(success(), result() == 170141183460469231731687303715884105727)
+@public
+def max_int128() -> int128:
+    return MAX_INT128
