@@ -11,12 +11,6 @@ def times(a: decimal, b: decimal) -> decimal:
     return a * b
 
 
-#@ ensures: implies(success(), result() >= a)
-@public
-def ipow2(a: int128) -> int128:
-    return a * a
-
-
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: implies(success(), result() >= a)
 @public

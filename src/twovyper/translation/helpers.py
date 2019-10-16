@@ -9,7 +9,7 @@ import ast
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.types import FunctionType, StructType
+from twovyper.ast.types import FunctionType, StructType, BoundedType
 from twovyper.ast.nodes import VyperFunction
 
 from twovyper.analysis.analyzer import FunctionAnalysis
@@ -75,6 +75,28 @@ def success_var(viper_ast: ViperAST, pos=None, info=None):
 
 def overflow_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.OVERFLOW, viper_ast.Bool, pos, info)
+
+
+def check_overflow(viper_ast: ViperAST, arg, type: BoundedType, ctx: Context, pos=None, info=None):
+    lower = viper_ast.IntLit(type.lower, pos)
+    upper = viper_ast.IntLit(type.upper, pos)
+
+    lt = viper_ast.LtCmp(arg, lower, pos)
+    gt = viper_ast.GtCmp(arg, upper, pos)
+
+    # If the no_overflows config option is enabled, we only check non-negativity for uints
+    if ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
+        if types.is_unsigned(type):
+            cond = lt
+        else:
+            cond = viper_ast.FalseLit(pos)
+    else:
+        cond = viper_ast.Or(lt, gt, pos)
+    overflow = overflow_var(viper_ast, pos).localVar()
+    set_overflow = viper_ast.LocalVarAssign(overflow, viper_ast.TrueLit(pos), pos)
+    revert = viper_ast.Goto(ctx.revert_label, pos)
+    body = [set_overflow, revert]
+    return viper_ast.If(cond, body, [], pos, info)
 
 
 def out_of_gas_var(viper_ast: ViperAST, pos=None, info=None):

@@ -102,11 +102,21 @@ class PrimitiveType(VyperType):
         self.name = name
 
 
-class DecimalType(PrimitiveType):
+class BoundedType(PrimitiveType):
 
-    def __init__(self, name: str, digits: int):
+    def __init__(self, name: str, lower: int, upper: int):
         super().__init__(name)
-        self.scaling_factor = pow(10, digits)
+        self.lower = lower
+        self.upper = upper
+
+
+class DecimalType(BoundedType):
+
+    def __init__(self, name: str, digits: int, lower: int, upper: int):
+        self.scaling_factor = 10 ** digits
+        lower *= self.scaling_factor
+        upper *= self.scaling_factor
+        super().__init__(name, lower, upper)
 
 
 class EventType(VyperType):
@@ -119,9 +129,9 @@ class EventType(VyperType):
 
 
 VYPER_BOOL = PrimitiveType(names.BOOL)
-VYPER_INT128 = PrimitiveType(names.INT128)
-VYPER_UINT256 = PrimitiveType(names.UINT256)
-VYPER_DECIMAL = DecimalType(names.DECIMAL, 10)
+VYPER_INT128 = BoundedType(names.INT128, -2 ** 127, 2 ** 127 - 1)
+VYPER_UINT256 = BoundedType(names.UINT256, 0, 2 ** 256 - 1)
+VYPER_DECIMAL = DecimalType(names.DECIMAL, 10, -2 ** 127, 2 ** 127 - 1)
 VYPER_WEI_VALUE = VYPER_UINT256
 VYPER_ADDRESS = PrimitiveType(names.ADDRESS)
 VYPER_BYTE = PrimitiveType(names.BYTE)
@@ -162,7 +172,11 @@ TX_TYPE = StructType(names.TX, {
 
 
 def is_numeric(type: VyperType) -> bool:
-    return type == VYPER_INT128 or type == VYPER_UINT256 or type == VYPER_DECIMAL
+    return type in [VYPER_INT128, VYPER_UINT256, VYPER_DECIMAL]
+
+
+def is_bounded(type: VyperType) -> bool:
+    return type in [VYPER_INT128, VYPER_UINT256, VYPER_DECIMAL]
 
 
 def is_integer(type: VyperType) -> bool:

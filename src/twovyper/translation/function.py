@@ -240,10 +240,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # Add variable for success(if_not=overflow) that tracks whether an overflow happened
             overflow_var = helpers.overflow_var(self.viper_ast)
             ctx.new_local_vars.append(overflow_var)
-            # Fail, if an overflow happened
-            # If the no_overflows option is set, ignore it
-            if not ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
-                body.append(self.fail_if(overflow_var.localVar(), [], ctx))
 
             # Add variable for success(if_not=out_of_gas) that tracks whether the contract ran out of gas
             out_of_gas_var = helpers.out_of_gas_var(self.viper_ast)

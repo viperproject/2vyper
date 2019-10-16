@@ -6,6 +6,9 @@
 #
 
 
+#@ config: no_overflows
+
+
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: success()
 @public

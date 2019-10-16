@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ config: no_gas
+#@ config: no_gas, no_overflows
 
 val: int128
 

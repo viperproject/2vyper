@@ -145,15 +145,13 @@ class ExpressionTranslator(NodeTranslator):
             cond = self.viper_ast.EqCmp(right, self.viper_ast.IntLit(0, pos), pos)
             stmts.append(self.fail_if(cond, [], ctx, pos))
 
-        # If the result of a uint subtraction is negative, revert the transaction
-        if isinstance(node.op, ast.Sub) and types.is_unsigned(node.type):
-            cond = self.viper_ast.GtCmp(right, left, pos)
-            stmts.append(self.fail_if(cond, [], ctx, pos))
-
         res = op(left, right, pos)
         if is_decimal(node.left) and isinstance(node.op, ast.Mult):
             # In decimal multiplication we divide the end result by the scaling factor
             res = helpers.div(self.viper_ast, res, scaling_factor, pos)
+
+        if types.is_bounded(node.type):
+            stmts.append(helpers.check_overflow(self.viper_ast, res, node.type, ctx, pos))
 
         return stmts, res
 
@@ -177,9 +175,13 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         op = self.translate_operator(node.op)
-
         stmts, expr = self.translate(node.operand, ctx)
-        return stmts, op(expr, pos)
+        res = op(expr, pos)
+
+        if types.is_bounded(node.type):
+            stmts.append(helpers.check_overflow(self.viper_ast, res, node.type, ctx, pos))
+
+        return stmts, res
 
     def translate_IfExp(self, node: ast.IfExp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
@@ -335,7 +337,12 @@ class ExpressionTranslator(NodeTranslator):
                 unit = node.args[1].s
                 unit_pos = self.to_position(node.args[1], ctx)
                 multiplier = self.viper_ast.IntLit(names.ETHER_UNITS[unit], unit_pos)
-                return stmts, self.viper_ast.Mul(arg, multiplier, pos)
+                res = self.viper_ast.Mul(arg, multiplier, pos)
+
+                if types.is_bounded(node.type):
+                    stmts.append(helpers.check_overflow(self.viper_ast, res, node.type, ctx, pos))
+
+                return stmts, res
             elif name == names.AS_UNITLESS_NUMBER:
                 return self.translate(node.args[0], ctx)
             elif name == names.LEN:
@@ -406,19 +413,23 @@ class ExpressionTranslator(NodeTranslator):
                         stmts.append(fail)
                         s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
                         return stmts, helpers.div(self.viper_ast, arg, s, pos)
-                    elif case(_, types.VYPER_DECIMAL):
+                    elif case(types.VYPER_INT128, types.VYPER_DECIMAL):
                         s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
                         return stmts, self.viper_ast.Mul(arg, s, pos)
+                    elif case(types.VYPER_UINT256, types.VYPER_DECIMAL):
+                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+                        res = self.viper_ast.Mul(arg, s, pos)
+                        stmts.append(helpers.check_overflow(self.viper_ast, res, to_type, ctx, pos))
+                        return stmts, res
                     # When converting a signed number to an unsigned number we revert if
                     # the argument is negative
                     elif case(types.VYPER_INT128, types.VYPER_UINT256):
-                        is_negative = self.viper_ast.LtCmp(arg, zero, pos)
-                        fail = self.fail_if(is_negative, [], ctx, pos)
-                        stmts.append(fail)
+                        stmts.append(helpers.check_overflow(self.viper_ast, arg, to_type, ctx, pos))
                         return stmts, arg
                     # If we convert an unsigned to a signed value we simply return
-                    # the argument
+                    # the argument, given that it fits
                     elif case(types.VYPER_UINT256, types.VYPER_INT128):
+                        stmts.append(helpers.check_overflow(self.viper_ast, arg, to_type, ctx, pos))
                         return stmts, arg
                     else:
                         raise UnsupportedException(node, 'Unsupported type converison.')

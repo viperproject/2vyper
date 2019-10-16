@@ -6,7 +6,7 @@
 #
 
 
-#@ config: no_gas
+#@ config: no_gas, no_overflows
 
 
 Transfer: event({_from: indexed(address), _to: indexed(address), _value: uint256})

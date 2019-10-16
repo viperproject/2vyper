@@ -9,6 +9,7 @@ import ast
 
 from typing import Optional, List
 
+from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.types import (
     VyperType, PrimitiveType, MapType, ArrayType, StructType, ContractType
@@ -90,11 +91,11 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
             assert False
 
     def type_assumptions(self, node, type: VyperType, ctx: Context) -> List[Expr]:
-        return [*self._non_negative(node, type, ctx), *self._array_length(node, type, ctx)]
+        return [*self._number_bounds(node, type, ctx), *self._array_length(node, type, ctx)]
 
-    def _non_negative(self, node, type: VyperType, ctx: Context) -> List[Expr]:
+    def _number_bounds(self, node, type: VyperType, ctx: Context) -> List[Expr]:
         """
-        Computes the non-negativeness assumptions for a node `node` of type `type`.
+        Computes the bound assumptions for a node `node` of type `type`.
         Node has to be a translated viper node.
         """
 
@@ -110,23 +111,34 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
 
     def _construct_quantifiers(self, node, type: VyperType, ctx: Context, mode: int) -> List[Expr]:
         """
-        Computes the assumptions for either array length or non-negativeness of nested
+        Computes the assumptions for either array length or number bounds of nested
         structures.
 
-        If mode == 0: constructs non-negativeness
+        If mode == 0: constructs bounds
         If mode == 1: constructs array lengths
         """
 
         def construct(type, node):
             ret = []
 
-            # If we encounter an unsigned primitive type we add the following assumption:
-            #   x >= 0
+            # If we encounter a bounded primitive type we add the following assumption:
+            #   x >= lower
+            #   x <= upper
             # where x is said integer
-            if mode == 0 and types.is_unsigned(type):
-                zero = self.viper_ast.IntLit(0)
-                non_neg = self.viper_ast.GeCmp(node, zero)
-                ret.append(non_neg)
+            if mode == 0 and types.is_bounded(type):
+                lower = self.viper_ast.IntLit(type.lower)
+                upper = self.viper_ast.IntLit(type.upper)
+                lcmp = self.viper_ast.LeCmp(lower, node)
+                ucmp = self.viper_ast.LeCmp(node, upper)
+                # If the no_overflows config option is enabled, we only assume non-negativity for uints
+                if ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
+                    if types.is_unsigned(type):
+                        bounds = lcmp
+                    else:
+                        bounds = self.viper_ast.TrueLit()
+                else:
+                    bounds = self.viper_ast.And(lcmp, ucmp)
+                ret.append(bounds)
             # If we encounter a map, we add the following assumptions:
             # In any mode:
             #   forall k: Key :: construct(map_get(k))

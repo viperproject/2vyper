@@ -93,12 +93,11 @@ class StatementTranslator(NodeTranslator):
             cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos), pos)
             stmts.append(self.fail_if(cond, [], ctx, pos))
 
-        # If the result of a uint subtraction is negative, revert the transaction
-        if isinstance(node.op, ast.Sub) and types.is_unsigned(left.type):
-            cond = self.viper_ast.GtCmp(rhs, lhs, pos)
-            stmts.append(self.fail_if(cond, [], ctx, pos))
-
         value = op(lhs, rhs, pos)
+
+        if types.is_bounded(node.value.type):
+            stmts.append(helpers.check_overflow(self.viper_ast, value, node.value.type, ctx, pos))
+
         if is_decimal(node.target) and isinstance(node.op, ast.Mult):
             # In decimal multiplication we divide the end result by the scaling factor
             value = helpers.div(self.viper_ast, value, scaling_factor, pos)

@@ -6,7 +6,7 @@
 #
 
 
-#@ config: no_gas
+#@ config: no_gas, no_overflows
 
 
 val: int128
