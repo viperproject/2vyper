@@ -11,6 +11,8 @@ from functools import reduce
 
 from twovyper.ast import names
 
+from twovyper.utils import switch
+
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import StmtsAndExpr
 
@@ -128,23 +130,27 @@ class SpecificationTranslator(ExpressionTranslator):
                     for val in node.values:
                         collect_conds(val)
 
-            assert len(node.keywords) <= 1
             if node.keywords:
                 args = node.keywords[0].value
                 collect_conds(args)
 
-            if names.SUCCESS_OVERFLOW in conds:
-                overflow = helpers.overflow_var(self.viper_ast, pos).localVar()
-                not_overflow = self.viper_ast.Not(overflow, pos)
-                return [], self.viper_ast.Implies(not_overflow, success, pos)
-            elif names.SUCCESS_OUT_OF_GAS in conds:
-                out_of_gas = helpers.out_of_gas_var(self.viper_ast, pos).localVar()
-                not_out_of_gas = self.viper_ast.Not(out_of_gas, pos)
-                return [], self.viper_ast.Implies(not_out_of_gas, success, pos)
-            elif names.SUCCESS_SENDER_FAILED in conds:
-                msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast, pos).localVar()
-                not_msg_sender_call_failed = self.viper_ast.Not(msg_sender_call_failed, pos)
-                return [], self.viper_ast.Implies(not_msg_sender_call_failed, success, pos)
+                def translate_condition(cond):
+                    with switch(cond) as case:
+                        if case(names.SUCCESS_OVERFLOW):
+                            var = helpers.overflow_var(self.viper_ast, pos)
+                        elif case(names.SUCCESS_OUT_OF_GAS):
+                            var = helpers.out_of_gas_var(self.viper_ast, pos)
+                        elif case(names.SUCCESS_SENDER_FAILED):
+                            var = helpers.msg_sender_call_fail_var(self.viper_ast, pos)
+                        else:
+                            assert False
+
+                        return var.localVar()
+
+                or_conds = [translate_condition(c) for c in conds]
+                or_op = reduce(lambda l, r: self.viper_ast.Or(l, r, pos), or_conds)
+                not_or_op = self.viper_ast.Not(or_op, pos)
+                return [], self.viper_ast.Implies(not_or_op, success, pos)
             else:
                 return [], success
         elif name == names.OLD or name == names.ISSUED:
