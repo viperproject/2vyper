@@ -87,6 +87,13 @@ class ArithmeticTranslator(CommonTranslator):
 
         return stmts, res
 
+    # Overflows and underflow checks can be disabled with the config flag 'no_overflows'.
+    # If it is not enabled, we revert if on an overflow. Additionally, we set the overflows
+    # variable to true, which is used for success(if_not=overflow).
+    #
+    # Note that we only treat 'arbitary' bounds due to limited bit size as overflows,
+    # getting negative unsigned values results in a normal revert.
+
     def _set_overflow_flag(self, pos=None, info=None):
         overflow = helpers.overflow_var(self.viper_ast, pos).localVar()
         true_lit = self.viper_ast.TrueLit(pos)
