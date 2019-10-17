@@ -9,22 +9,20 @@ import ast
 
 from typing import List
 
-from twovyper.utils import flatten
-
-from twovyper.ast import types
 from twovyper.ast import names
-
 from twovyper.ast.types import MapType, ArrayType, StructType
 
-from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Stmt
+from twovyper.utils import flatten
 
+from twovyper.translation import helpers
 from twovyper.translation.context import Context, break_scope, continue_scope
 from twovyper.translation.abstract import NodeTranslator
+from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.type import TypeTranslator
 
-from twovyper.translation import helpers
+from twovyper.viper.ast import ViperAST
+from twovyper.viper.typedefs import Stmt
 
 
 class StatementTranslator(NodeTranslator):
@@ -33,6 +31,7 @@ class StatementTranslator(NodeTranslator):
         self.viper_ast = viper_ast
         self.expression_translator = ExpressionTranslator(viper_ast)
         self.assignment_translator = _AssignmentTranslator(viper_ast)
+        self.arithmetic_translator = ArithmeticTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
     def translate_stmts(self, stmts: List[Stmt], ctx: Context) -> List[Stmt]:
@@ -61,49 +60,16 @@ class StatementTranslator(NodeTranslator):
         return assign_stmts + rhs_stmts + [assign]
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
-        # TODO: merge with expression translator
         pos = self.to_position(node, ctx)
 
-        left = node.target
-
         lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
-        op = self.expression_translator.translate_operator(node.op)
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 
-        stmts = lhs_stmts + rhs_stmts
-
-        scaling_factor = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-
-        def is_decimal(n):
-            return n.type == types.VYPER_DECIMAL
-
-        # Decimals are scaled integers, i.e. the decimal 2.3 is represented as the integer
-        # 2.3 * 10^10 = 23000000000. For addition, subtraction, and modulo the same operations
-        # as with integers can be used. For multiplication we need to divide out one of the
-        # scaling factors while in division we need to multiply one in.
-        if is_decimal(node.target) or is_decimal(node.value):
-            assert is_decimal(node.target) and is_decimal(node.value)
-
-            # In decimal division we first multiply the lhs by the scaling factor
-            if isinstance(node.op, ast.Div):
-                lhs = self.viper_ast.Mul(left, scaling_factor, pos)
-
-        # If the divisor is 0 revert the transaction
-        if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
-            cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos), pos)
-            stmts.append(self.fail_if(cond, [], ctx, pos))
-
-        value = op(lhs, rhs, pos)
-
-        if types.is_bounded(node.value.type):
-            stmts.append(helpers.check_overflow(self.viper_ast, value, node.value.type, ctx, pos))
-
-        if is_decimal(node.target) and isinstance(node.op, ast.Mult):
-            # In decimal multiplication we divide the end result by the scaling factor
-            value = helpers.div(self.viper_ast, value, scaling_factor, pos)
+        at = self.arithmetic_translator
+        value_stmts, value = at.binop(lhs, node.op, rhs, node.value.type, ctx, pos)
 
         assign_stmts, assign = self.assignment_translator.assign_to(node.target, value, ctx)
-        return stmts + assign_stmts + [assign]
+        return [*lhs_stmts, *rhs_stmts, *value_stmts, *assign_stmts, assign]
 
     def translate_Expr(self, node: ast.Expr, ctx: Context) -> List[Stmt]:
         # Check if we are translating a call to clear

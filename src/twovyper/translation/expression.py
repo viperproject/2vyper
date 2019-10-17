@@ -21,8 +21,9 @@ from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, StmtsAndExpr
 
 from twovyper.translation.abstract import NodeTranslator
-from twovyper.translation.type import TypeTranslator
+from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.balance import BalanceTranslator
+from twovyper.translation.type import TypeTranslator
 from twovyper.translation.context import Context
 
 from twovyper.translation import mangled
@@ -36,18 +37,12 @@ class ExpressionTranslator(NodeTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
-        self.type_translator = TypeTranslator(viper_ast)
+        self.arithmetic_translator = ArithmeticTranslator(viper_ast)
         self.balance_translator = BalanceTranslator(viper_ast)
+        self.type_translator = TypeTranslator(viper_ast)
 
         self._operations = {
             ast.USub: self.viper_ast.Minus,
-            ast.Add: self.viper_ast.Add,
-            ast.Sub: self.viper_ast.Sub,
-            ast.Mult: self.viper_ast.Mul,
-            # Note that / and % in Vyper means truncating division
-            ast.Div: lambda l, r, pos: helpers.div(viper_ast, l, r, pos),
-            ast.Mod: lambda l, r, pos: helpers.mod(viper_ast, l, r, pos),
-            ast.Pow: lambda l, r, pos: helpers.pow(viper_ast, l, r, pos),
             ast.Eq: self.viper_ast.EqCmp,
             ast.NotEq: self.viper_ast.NeCmp,
             ast.Lt: self.viper_ast.LtCmp,
@@ -120,40 +115,10 @@ class ExpressionTranslator(NodeTranslator):
 
         left_stmts, left = self.translate(node.left, ctx)
         right_stmts, right = self.translate(node.right, ctx)
-        stmts = left_stmts + right_stmts
 
-        scaling_factor = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-
-        def is_decimal(n):
-            return n.type == types.VYPER_DECIMAL
-
-        # Decimals are scaled integers, i.e. the decimal 2.3 is represented as the integer
-        # 2.3 * 10^10 = 23000000000. For addition, subtraction, and modulo the same operations
-        # as with integers can be used. For multiplication we need to divide out one of the
-        # scaling factors while in division we need to multiply one in.
-        if is_decimal(node.left) or is_decimal(node.right):
-            assert is_decimal(node.left) and is_decimal(node.right)
-
-            # In decimal division we first multiply the lhs by the scaling factor
-            if isinstance(node.op, ast.Div):
-                left = self.viper_ast.Mul(left, scaling_factor, pos)
-
-        op = self.translate_operator(node.op)
-
-        # If the divisor is 0 revert the transaction
-        if isinstance(node.op, ast.Div) or isinstance(node.op, ast.Mod):
-            cond = self.viper_ast.EqCmp(right, self.viper_ast.IntLit(0, pos), pos)
-            stmts.append(self.fail_if(cond, [], ctx, pos))
-
-        res = op(left, right, pos)
-        if is_decimal(node.left) and isinstance(node.op, ast.Mult):
-            # In decimal multiplication we divide the end result by the scaling factor
-            res = helpers.div(self.viper_ast, res, scaling_factor, pos)
-
-        if types.is_bounded(node.type):
-            stmts.append(helpers.check_overflow(self.viper_ast, res, node.type, ctx, pos))
-
-        return stmts, res
+        at = self.arithmetic_translator
+        res_stmts, res = at.binop(left, node.op, right, node.type, ctx, pos)
+        return left_stmts + right_stmts + res_stmts, res
 
     def translate_BoolOp(self, node: ast.BoolOp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
@@ -174,12 +139,14 @@ class ExpressionTranslator(NodeTranslator):
     def translate_UnaryOp(self, node: ast.UnaryOp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
-        op = self.translate_operator(node.op)
         stmts, expr = self.translate(node.operand, ctx)
-        res = op(expr, pos)
 
-        if types.is_bounded(node.type):
-            stmts.append(helpers.check_overflow(self.viper_ast, res, node.type, ctx, pos))
+        if types.is_integer(node.type):
+            res_stmts, res = self.arithmetic_translator.uop(node.op, expr, node.type, ctx, pos)
+            stmts.extend(res_stmts)
+        else:
+            op = self.translate_operator(node.op)
+            res = op(expr, pos)
 
         return stmts, res
 
@@ -199,12 +166,6 @@ class ExpressionTranslator(NodeTranslator):
         left = node.left
         operator = node.ops[0]
         right = node.comparators[0]
-
-        def is_decimal(n):
-            return n.type == types.VYPER_DECIMAL
-
-        if is_decimal(left) or is_decimal(right):
-            assert is_decimal(left) and is_decimal(right)
 
         lhs_stmts, lhs = self.translate(left, ctx)
         op = self.translate_operator(operator)
@@ -341,7 +302,8 @@ class ExpressionTranslator(NodeTranslator):
                 res = self.viper_ast.Mul(arg, multiplier_lit, pos)
 
                 if types.is_bounded(node.type):
-                    stmts.append(helpers.check_overflow(self.viper_ast, res, node.type, ctx, pos))
+                    oc = self.arithmetic_translator.check_overflow(res, node.type, ctx, pos)
+                    stmts.extend(oc)
 
                 return stmts, res
             elif name == names.AS_UNITLESS_NUMBER:
@@ -420,17 +382,20 @@ class ExpressionTranslator(NodeTranslator):
                     elif case(types.VYPER_UINT256, types.VYPER_DECIMAL):
                         s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
                         res = self.viper_ast.Mul(arg, s, pos)
-                        stmts.append(helpers.check_overflow(self.viper_ast, res, to_type, ctx, pos))
+                        oc = self.arithmetic_translator.check_overflow(res, to_type, ctx, pos)
+                        stmts.extend(oc)
                         return stmts, res
                     # When converting a signed number to an unsigned number we revert if
                     # the argument is negative
                     elif case(types.VYPER_INT128, types.VYPER_UINT256):
-                        stmts.append(helpers.check_overflow(self.viper_ast, arg, to_type, ctx, pos))
+                        uc = self.arithmetic_translator.check_underflow(arg, to_type, ctx, pos)
+                        stmts.extend(uc)
                         return stmts, arg
                     # If we convert an unsigned to a signed value we simply return
                     # the argument, given that it fits
                     elif case(types.VYPER_UINT256, types.VYPER_INT128):
-                        stmts.append(helpers.check_overflow(self.viper_ast, arg, to_type, ctx, pos))
+                        oc = self.arithmetic_translator.check_overflow(arg, to_type, ctx, pos)
+                        stmts.extend(oc)
                         return stmts, arg
                     else:
                         raise UnsupportedException(node, 'Unsupported type converison.')
