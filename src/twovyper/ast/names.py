@@ -18,17 +18,17 @@ MODIFYING = 'modifying'
 
 # Types
 BOOL = 'bool'
-WEI_VALUE = 'wei_value'
-TIMESTAMP = 'timestamp'
-TIMEDELTA = 'timedelta'
 INT128 = 'int128'
 UINT256 = 'uint256'
 DECIMAL = 'decimal'
+WEI_VALUE = 'wei_value'
+TIMESTAMP = 'timestamp'
+TIMEDELTA = 'timedelta'
 ADDRESS = 'address'
-MAP = 'map'
 BYTE = 'bytes'
 BYTES32 = 'bytes32'
 STRING = 'string'
+MAP = 'map'
 EVENT = 'event'
 
 # Functions
@@ -87,27 +87,31 @@ ETHER_UNITS = {
     ('microether', 'szabo'): 10 ** 12,
     ('milliether', 'finney'): 10 ** 15,
     ('ether'): 10 ** 18,
-    ('kether', 'grand'): 10 ** 21,
+    ('kether', 'grand'): 10 ** 21
 }
 
 # Built-in functions
-RANGE = 'range'
 MIN = 'min'
 MAX = 'max'
 SQRT = 'sqrt'
 FLOOR = 'floor'
 CEIL = 'ceil'
-CLEAR = 'clear'
-SEND = 'send'
+
 AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 CONVERT = 'convert'
+
+RANGE = 'range'
 LEN = 'len'
 CONCAT = 'concat'
+
 KECCAK256 = 'keccak256'
 SHA256 = 'sha256'
+
 ASSERT_MODIFIABLE = 'assert_modifiable'
+CLEAR = 'clear'
 SELFDESTRUCT = 'selfdestruct'
+SEND = 'send'
 
 RAW_CALL = 'raw_call'
 RAW_CALL_OUTSIZE = 'outsize'
@@ -128,10 +132,10 @@ CONFIG_NO_OVERFLOWS = 'no_overflows'
 
 IMPLIES = 'implies'
 FORALL = 'forall'
+SUM = 'sum'
 RESULT = 'result'
 OLD = 'old'
 ISSUED = 'issued'
-SUM = 'sum'
 SENT = 'sent'
 RECEIVED = 'received'
 ACCESSIBLE = 'accessible'
