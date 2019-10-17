@@ -186,13 +186,13 @@ class _AssignmentTranslator(NodeTranslator):
     def generic_assign_to(self, node, value, ctx):
         assert False
 
-    def assign_to_Name(self, node: ast.Name, value, ctx: Context) -> List[Stmt]:
+    def assign_to_Name(self, node: ast.Name, value, ctx: Context):
         pos = self.to_position(node, ctx)
         lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
         assign = self.viper_ast.LocalVarAssign(lhs, value, pos)
         return lhs_stmts, assign
 
-    def assign_to_Attribute(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
+    def assign_to_Attribute(self, node: ast.Attribute, value, ctx: Context):
         pos = self.to_position(node, ctx)
         if isinstance(node.value.type, StructType):
             receiver_stmts, rec = self.expression_translator.translate(node.value, ctx)
@@ -205,7 +205,7 @@ class _AssignmentTranslator(NodeTranslator):
             assign = self.viper_ast.FieldAssign(lhs, value, pos)
             return lhs_stmts, assign
 
-    def assign_to_Subscript(self, node: ast.Attribute, value, ctx: Context) -> List[Stmt]:
+    def assign_to_Subscript(self, node: ast.Attribute, value, ctx: Context):
         pos = self.to_position(node, ctx)
 
         receiver_stmts, receiver = self.expression_translator.translate(node.value, ctx)
