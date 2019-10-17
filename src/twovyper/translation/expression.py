@@ -406,7 +406,7 @@ class ExpressionTranslator(NodeTranslator):
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, helpers.array_sha256(self.viper_ast, arg, pos)
             elif name == names.SELFDESTRUCT:
-                arg_stmts, _ = self.translate(node.args[0], ctx)
+                arg_stmts, arg = self.translate(node.args[0], ctx)
 
                 self_var = ctx.self_var.localVar()
                 self_type = ctx.self_type
@@ -417,12 +417,15 @@ class ExpressionTranslator(NodeTranslator):
                 sset = helpers.struct_set(self.viper_ast, self_var, val, member, type, self_type, pos)
                 self_s_assign = self.viper_ast.LocalVarAssign(self_var, sset, pos)
 
+                balance = self.balance_translator.get_balance(self_var, ctx, pos)
+                sent = self.balance_translator.increase_sent(arg, balance, ctx, pos)
+
                 zero = self.viper_ast.IntLit(0, pos)
                 bset = self.balance_translator.set_balance(self_var, zero, ctx, pos)
                 self_b_assign = self.viper_ast.LocalVarAssign(self_var, bset, pos)
 
                 goto_return = self.viper_ast.Goto(ctx.return_label, pos)
-                return [*arg_stmts, self_s_assign, self_b_assign, goto_return], None
+                return [*arg_stmts, self_s_assign, sent, self_b_assign, goto_return], None
             elif name == names.ASSERT_MODIFIABLE:
                 cond_stmts, cond = self.translate(node.args[0], ctx)
                 not_cond = self.viper_ast.Not(cond, pos)

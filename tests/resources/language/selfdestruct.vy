@@ -17,7 +17,8 @@ def __init__():
     self.owner = msg.sender
 
 
-#@ ensures: implies(msg.sender == self.owner, selfdestruct() and self.balance == 0)
+#@ ensures: implies(msg.sender == self.owner, selfdestruct() and self.balance == 0 and 
+#@     sent(self.owner) == old(sent(self.owner) + old(self.balance)))
 @public
 def destroy():
     assert msg.sender == self.owner
