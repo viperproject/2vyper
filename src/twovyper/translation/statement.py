@@ -12,11 +12,11 @@ from typing import List
 from twovyper.ast import names
 from twovyper.ast.types import MapType, ArrayType, StructType
 
-from twovyper.utils import flatten
+from twovyper.utils import flatten, NodeVisitor
 
 from twovyper.translation import helpers
 from twovyper.translation.context import Context, break_scope, continue_scope
-from twovyper.translation.abstract import NodeTranslator
+from twovyper.translation.abstract import NodeTranslator, PositionTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.type import TypeTranslator
@@ -170,20 +170,21 @@ class StatementTranslator(NodeTranslator):
         return []
 
 
-class _AssignmentTranslator(NodeTranslator):
+class _AssignmentTranslator(NodeVisitor, PositionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
         self.expression_translator = ExpressionTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
-    def assign_to(self, node, value, ctx):
-        """Translate a node."""
-        method = 'assign_to_' + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_assign_to)
-        return visitor(node, value, ctx)
+    @property
+    def method_name(self) -> str:
+        return 'assign_to'
 
-    def generic_assign_to(self, node, value, ctx):
+    def assign_to(self, node, value, ctx):
+        return self.visit(node, value, ctx)
+
+    def generic_visit(self, node, value, ctx):
         assert False
 
     def assign_to_Name(self, node: ast.Name, value, ctx: Context):

@@ -74,7 +74,7 @@ class NodeVisitor(abc.ABC):
     def visit(self, node, *args):
         method = f'{self.method_name}_' + node.__class__.__name__
         visitor = getattr(self, method, self.generic_visit)
-        return visitor(node)
+        return visitor(node, *args)
 
     def generic_visit(self, node, *args):
         for field, value in ast.iter_fields(node):

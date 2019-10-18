@@ -9,15 +9,17 @@ import ast
 
 from typing import List
 
-from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Stmt
-from twovyper.viper.typedefs import Position, Info
-
 from twovyper.translation.context import Context
+
+from twovyper.utils import NodeVisitor
 
 from twovyper.verification import error_manager
 from twovyper.verification.error import ErrorInfo, Via
 from twovyper.verification.rules import Rules
+
+from twovyper.viper.ast import ViperAST
+from twovyper.viper.typedefs import Stmt
+from twovyper.viper.typedefs import Position, Info
 
 
 class PositionTranslator:
@@ -82,16 +84,17 @@ class CommonTranslator:
         return [self.viper_ast.Seqn(stmts, info=info)]
 
 
-class NodeTranslator(PositionTranslator, CommonTranslator):
+class NodeTranslator(NodeVisitor, PositionTranslator, CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
 
-    def translate(self, node, ctx):
-        """Translate a node."""
-        method = 'translate_' + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_translate)
-        return visitor(node, ctx)
+    @property
+    def method_name(self) -> str:
+        return 'translate'
 
-    def generic_translate(self, node, ctx):
+    def translate(self, node, ctx):
+        return self.visit(node, ctx)
+
+    def generic_visit(self, node, ctx):
         raise AssertionError(f"Node of type {type(node)} not supported.")
