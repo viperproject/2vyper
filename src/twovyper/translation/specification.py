@@ -30,6 +30,10 @@ class SpecificationTranslator(ExpressionTranslator):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
 
+    @property
+    def no_reverts(self):
+        return True
+
     def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False):
         # For postconditions the old state is the state before the function call, except for
         # __init__ where we use the self state instead (since there is no pre-state)
@@ -54,7 +58,8 @@ class SpecificationTranslator(ExpressionTranslator):
         return expr
 
     def _translate_spec(self, node, ctx: Context):
-        _, expr = self.translate(node, ctx)
+        stmts, expr = self.translate(node, ctx)
+        assert not stmts
         return expr
 
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:

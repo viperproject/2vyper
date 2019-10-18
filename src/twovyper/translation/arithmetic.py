@@ -25,8 +25,9 @@ from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
 
 class ArithmeticTranslator(CommonTranslator):
 
-    def __init__(self, viper_ast: ViperAST):
+    def __init__(self, viper_ast: ViperAST, no_reverts: bool = False):
         self.viper_ast = viper_ast
+        self.no_reverts = no_reverts
 
         self._operations = {
             ast.USub: self.viper_ast.Minus,
@@ -71,7 +72,7 @@ class ArithmeticTranslator(CommonTranslator):
         with switch(type(op), otype) as case:
             from twovyper.utils import _
 
-            if case(ast.Div, _) or case(ast.Mod, _):
+            if (case(ast.Div, _) or case(ast.Mod, _)) and not self.no_reverts:
                 cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos), pos)
                 stmts.append(self.fail_if(cond, [], ctx, pos))
 
@@ -103,9 +104,9 @@ class ArithmeticTranslator(CommonTranslator):
         lower = self.viper_ast.IntLit(type.lower, pos)
         lt = self.viper_ast.LtCmp(arg, lower, pos)
 
-        if types.is_unsigned(type):
+        if types.is_unsigned(type) and not self.no_reverts:
             return [self.fail_if(lt, [], ctx, pos, info)]
-        elif ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
+        elif self.no_reverts or ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
             return []
         else:
             stmts = [self._set_overflow_flag(pos)]
@@ -115,18 +116,18 @@ class ArithmeticTranslator(CommonTranslator):
         upper = self.viper_ast.IntLit(type.upper, pos)
         gt = self.viper_ast.GtCmp(arg, upper, pos)
 
-        if ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
+        if self.no_reverts or ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
             return []
         else:
             stmts = [self._set_overflow_flag(pos)]
             return [self.fail_if(gt, stmts, ctx, pos, info)]
 
     def check_under_overflow(self, arg, type: BoundedType, ctx: Context, pos=None, info=None) -> List[Stmt]:
-        if types.is_unsigned(type):
+        if types.is_unsigned(type) and not self.no_reverts:
             underflow = self.check_underflow(arg, type, ctx, pos, info)
             overflow = self.check_overflow(arg, type, ctx, pos, info)
             return underflow + overflow
-        elif ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
+        elif self.no_reverts or ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
             return []
         else:
             lower = self.viper_ast.IntLit(type.lower, pos)

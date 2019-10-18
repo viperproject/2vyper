@@ -37,7 +37,7 @@ class ExpressionTranslator(NodeTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
-        self.arithmetic_translator = ArithmeticTranslator(viper_ast)
+        self.arithmetic_translator = ArithmeticTranslator(viper_ast, self.no_reverts)
         self.balance_translator = BalanceTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
@@ -54,6 +54,10 @@ class ExpressionTranslator(NodeTranslator):
             ast.Or: self.viper_ast.Or,
             ast.Not: self.viper_ast.Not
         }
+
+    @property
+    def no_reverts(self) -> bool:
+        return False
 
     @property
     def spec_translator(self):
@@ -216,7 +220,8 @@ class ExpressionTranslator(NodeTranslator):
             value_type = self.type_translator.translate(node_type.value_type, ctx)
             call = helpers.map_get(self.viper_ast, value, index, key_type, value_type, pos)
         elif isinstance(node_type, ArrayType):
-            stmts.append(self.type_translator.array_bounds_check(value, index, ctx))
+            if not self.no_reverts:
+                stmts.append(self.type_translator.array_bounds_check(value, index, ctx))
             element_type = self.type_translator.translate(node_type.element_type, ctx)
             call = helpers.array_get(self.viper_ast, value, index, element_type, pos)
 
@@ -292,8 +297,6 @@ class ExpressionTranslator(NodeTranslator):
                 return arg_stmts, expr
             elif name == names.AS_WEI_VALUE:
                 stmts, arg = self.translate(node.args[0], ctx)
-                zero = self.viper_ast.IntLit(0, pos)
-                stmts.append(self.fail_if(self.viper_ast.LtCmp(arg, zero, pos), [], ctx, pos))
                 unit = node.args[1].s
                 unit_pos = self.to_position(node.args[1], ctx)
                 multiplier = next(v for k, v in names.ETHER_UNITS.items() if unit in k)
@@ -301,7 +304,7 @@ class ExpressionTranslator(NodeTranslator):
                 res = self.viper_ast.Mul(arg, multiplier_lit, pos)
 
                 if types.is_bounded(node.type):
-                    oc = self.arithmetic_translator.check_overflow(res, node.type, ctx, pos)
+                    oc = self.arithmetic_translator.check_under_overflow(res, node.type, ctx, pos)
                     stmts.extend(oc)
 
                 return stmts, res
@@ -370,11 +373,11 @@ class ExpressionTranslator(NodeTranslator):
                         s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
                         return stmts, helpers.div(self.viper_ast, arg, s, pos)
                     elif case(types.VYPER_DECIMAL, types.VYPER_UINT256):
-                        is_negative = self.viper_ast.LtCmp(arg, zero, pos)
-                        fail = self.fail_if(is_negative, [], ctx, pos)
-                        stmts.append(fail)
                         s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                        return stmts, helpers.div(self.viper_ast, arg, s, pos)
+                        res = helpers.div(self.viper_ast, arg, s, pos)
+                        uc = self.arithmetic_translator.check_underflow(res, to_type, ctx, pos)
+                        stmts.extend(uc)
+                        return stmts, res
                     elif case(types.VYPER_INT128, types.VYPER_DECIMAL):
                         s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
                         return stmts, self.viper_ast.Mul(arg, s, pos)
