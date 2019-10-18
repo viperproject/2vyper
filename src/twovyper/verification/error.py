@@ -147,7 +147,7 @@ class Error:
         """
         Full error position as a string.
         """
-        vias = self.reason._reason_info.vias or self._error_info.vias or []
+        vias = self._error_info.vias or self.reason._reason_info.vias or []
         vias_string = "".join(f", via {via.origin} at {via.position}" for via in vias)
         return f"{self.position}{vias_string}"
 

@@ -32,7 +32,11 @@ class PositionTranslator:
                                   vias: List[Via] = [],
                                   error_string: str = None) -> str:
         name = None if not ctx.function else ctx.function.name
-        error_info = ErrorInfo(name, node, vias, error_string)
+        # Inline vias are in reverse order, as the outermost is first,
+        # and successive vias are appended. For the error output, changing
+        # the order makes more sense.
+        inline_vias = list(reversed(ctx.inline_vias))
+        error_info = ErrorInfo(name, node, inline_vias + vias, error_string)
         id = error_manager.add_error_information(error_info, rules)
         return id
 

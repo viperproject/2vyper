@@ -5,6 +5,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+import ast
+
 from itertools import chain
 from typing import List
 
@@ -435,8 +437,11 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             method = self.viper_ast.Method(viper_name, args_list, rets, [], [], locals_list, body, pos)
             return method
 
-    def inline(self, function: VyperFunction, args: List[Expr], ctx: Context) -> StmtsAndExpr:
-        with inline_scope(ctx):
+    def inline(self, call: ast.Call, args: List[Expr], ctx: Context) -> StmtsAndExpr:
+        function = ctx.program.functions[call.func.attr]
+        cpos = self.to_position(call, ctx)
+        via = Via('inline', cpos)
+        with inline_scope(via, ctx):
             assert function.node
             # Only private self-calls are allowed in Vyper
             assert not function.is_public()

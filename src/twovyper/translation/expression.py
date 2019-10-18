@@ -480,8 +480,7 @@ class ExpressionTranslator(NodeTranslator):
                 args.append(arg_expr)
 
             if isinstance(node.func.value.type, types.StructType):
-                func = ctx.program.functions[name]
-                call_stmts, res = self.function_translator.inline(func, args, ctx)
+                call_stmts, res = self.function_translator.inline(node, args, ctx)
                 return stmts + call_stmts, res
             elif isinstance(node.func.value.type, types.ContractType):
                 to_stmts, to = self.translate(node.func.value, ctx)

@@ -46,6 +46,7 @@ class Context:
         self._quantified_var_counter = -1
         self._inline_counter = -1
         self._current_inline = -1
+        self.inline_vias = []
 
     @property
     def self_type(self):
@@ -136,6 +137,7 @@ def function_scope(ctx: Context):
     quantified_var_counter = ctx._quantified_var_counter
     inline_counter = ctx._inline_counter
     current_inline = ctx._current_inline
+    inline_vias = ctx.inline_vias.copy()
 
     ctx.function = None
 
@@ -190,6 +192,7 @@ def function_scope(ctx: Context):
     ctx._quantified_var_counter = quantified_var_counter
     ctx._inline_counter = inline_counter
     ctx._current_inline = current_inline
+    ctx.inline_vias = inline_vias
 
 
 @contextmanager
@@ -217,7 +220,7 @@ def inside_trigger_scope(ctx: Context):
 
 
 @contextmanager
-def inline_scope(ctx: Context):
+def inline_scope(via, ctx: Context):
     result_var = ctx.result_var
     ctx.result_var = None
 
@@ -229,6 +232,9 @@ def inline_scope(ctx: Context):
     ctx._inline_counter += 1
     ctx._current_inline = ctx._inline_counter
 
+    inline_vias = ctx.inline_vias.copy()
+    ctx.inline_vias.append(via)
+
     yield
 
     ctx.result_var = result_var
@@ -236,6 +242,8 @@ def inline_scope(ctx: Context):
 
     ctx.all_vars = all_vars
     ctx._current_inline = old_inline
+
+    ctx.inline_vias = inline_vias
 
 
 @contextmanager

@@ -140,15 +140,15 @@ class VerificationError(Error):
         return self._error.position.line
 
     def get_vias(self) -> List[int]:
+        error_pos = self._error.position
+        if error_pos.node_id:
+            vias = error_manager.get_vias(error_pos.node_id)
+            return [via.position.line() for via in vias]
         reason_pos = self._error.reason.position
         if reason_pos.node_id:
             vias = error_manager.get_vias(reason_pos.node_id)
             if vias:
                 return [via.position.line() for via in vias]
-        error_pos = self._error.position
-        if error_pos.node_id:
-            vias = error_manager.get_vias(error_pos.node_id)
-            return [via.position.line() for via in vias]
         return []
 
 
