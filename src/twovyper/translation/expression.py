@@ -42,7 +42,6 @@ class ExpressionTranslator(NodeTranslator):
         self.type_translator = TypeTranslator(viper_ast)
 
         self._operations = {
-            ast.USub: self.viper_ast.Minus,
             ast.Eq: self.viper_ast.EqCmp,
             ast.NotEq: self.viper_ast.NeCmp,
             ast.Lt: self.viper_ast.LtCmp,
@@ -141,7 +140,7 @@ class ExpressionTranslator(NodeTranslator):
 
         stmts, expr = self.translate(node.operand, ctx)
 
-        if types.is_integer(node.type):
+        if types.is_numeric(node.type):
             res_stmts, res = self.arithmetic_translator.uop(node.op, expr, node.type, ctx, pos)
             stmts.extend(res_stmts)
         else:
