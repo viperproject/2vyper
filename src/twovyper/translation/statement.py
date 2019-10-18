@@ -12,6 +12,8 @@ from typing import List
 from twovyper.ast import names
 from twovyper.ast.types import MapType, ArrayType, StructType
 
+from twovyper.exceptions import UnsupportedException
+
 from twovyper.utils import flatten, NodeVisitor
 
 from twovyper.translation import helpers
@@ -229,3 +231,6 @@ class _AssignmentTranslator(NodeVisitor, PositionTranslator):
         # assignment is pure.
         assign_stmts, assign = self.assign_to(node.value, new_value, ctx)
         return receiver_stmts + index_stmts + stmts + assign_stmts, assign
+
+    def assign_to_Call(self, node: ast.Call, value, ctx: Context):
+        raise UnsupportedException(node, "Assignments to calls are not supported.")
