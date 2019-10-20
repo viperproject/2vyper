@@ -148,6 +148,16 @@ def main() -> None:
         action='store_true',
         help='Output errors in IDE format'
     )
+    parser.add_argument(
+        '--start-server',
+        action='store_true',
+        help='Start 2Vyper server'
+    )
+    parser.add_argument(
+        '--jvm-path',
+        help='Path to LibJVM',
+        default=None
+    )
 
     args = parser.parse_args()
 
@@ -167,8 +177,27 @@ def main() -> None:
 
     logging.basicConfig(level=args.log)
 
-    jvm = JVM(config.classpath)
-    translate_and_verify(args.vyper_file, jvm, args)
+    jvm = JVM(config.classpath, args.jvm_path)
+    if args.start_server:
+        import zmq
+        from twovyper.client import DEFAULT_SERVER_SOCKET
+        context = zmq.Context()
+        socket = context.socket(zmq.REP)
+        socket.bind(DEFAULT_SERVER_SOCKET)
+
+        while True:
+            file = socket.recv_string()
+            response = ['']
+
+            def add_response(part):
+                response[0] = response[0] + '\n' + part
+            try:
+                translate_and_verify(file, jvm, args, add_response)
+            except Exception as  e:
+                response[0] = str(e)
+            socket.send_string(response[0])
+    else:
+        translate_and_verify(args.vyper_file, jvm, args)
 
 
 def translate_and_verify(vyper_file, jvm, args, print=print):

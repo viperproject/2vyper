@@ -36,15 +36,21 @@ from twovyper.viper.typedefs import Program, Stmt, Expr
 from twovyper.verification import rules
 
 
+builtins_cache = None
+
+
 def translate(vyper_program: VyperProgram, file: str, jvm: JVM) -> Program:
+    global builtins_cache
     viper_ast = ViperAST(jvm)
     if not viper_ast.is_available():
         raise Exception('Viper not found on classpath.')
     if not viper_ast.is_extension_available():
         raise Exception('Viper AST SIF extension not found on classpath.')
 
-    viper_parser = ViperParser(jvm)
-    builtins = viper_parser.parse(*resources.viper_all())
+    if builtins_cache is None:
+        viper_parser = ViperParser(jvm)
+        builtins_cache = viper_parser.parse(*resources.viper_all())
+    builtins = builtins_cache
     translator = ProgramTranslator(viper_ast, builtins)
 
     viper_program = translator.translate(vyper_program, file)

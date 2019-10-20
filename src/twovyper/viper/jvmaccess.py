@@ -13,8 +13,9 @@ class JVM:
     Encapsulates access to a JVM
     """
 
-    def __init__(self, classpath: str):
-        jvm_path = jpype.getDefaultJVMPath()
+    def __init__(self, classpath: str, jvm_path: str = None):
+        if not jvm_path:
+            jvm_path = jpype.getDefaultJVMPath()
         path_arg = f'-Djava.class.path={classpath}'
         jpype.startJVM(jvm_path, path_arg, '-Xss32m', convertStrings=False)
         self.java = jpype.JPackage('java')
