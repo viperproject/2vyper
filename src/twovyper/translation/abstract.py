@@ -18,7 +18,7 @@ from twovyper.verification.error import ErrorInfo, Via
 from twovyper.verification.rules import Rules
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Stmt
+from twovyper.viper.typedefs import Stmt, StmtsAndExpr
 from twovyper.viper.typedefs import Position, Info
 
 
@@ -72,6 +72,14 @@ class PositionTranslator:
 
 
 class CommonTranslator:
+
+    def collect(self, se: List[StmtsAndExpr]):
+        stmts = []
+        exprs = []
+        for stmt, expr in se:
+            stmts.extend(stmt)
+            exprs.append(expr)
+        return stmts, exprs
 
     def fail_if(self, cond, stmts, ctx: Context, pos=None, info=None) -> Stmt:
         body = [*stmts, self.viper_ast.Goto(ctx.revert_label, pos)]

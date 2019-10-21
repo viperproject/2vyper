@@ -209,11 +209,9 @@ class SpecificationTranslator(ExpressionTranslator):
                 if len(node.args) == 2:
                     func_args = [amount] if ctx.program.analysis.accessible_function.args else []
                 else:
-                    func_args = []
-                    for arg in node.args[2].args:
-                        func_stmts, func_expr = self.translate(arg, ctx)
-                        stmts.extend(func_stmts)
-                        func_args.append(func_expr)
+                    args = node.args[2].args
+                    func_stmts, func_args = self.collect(self.translate(arg, ctx) for arg in args)
+                    stmts.extend(func_stmts)
                 acc_name = mangled.accessible_name(func_name)
                 acc_args = [tag, to, amount, *func_args]
                 pred_acc = self.viper_ast.PredicateAccess(acc_args, acc_name, pos)
@@ -234,12 +232,7 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.EVENT:
             event = node.args[0]
             event_name = mangled.event_name(event.func.id)
-            stmts = []
-            args = []
-            for arg in event.args:
-                arg_stmts, arg_expr = self.translate(arg, ctx)
-                stmts.extend(arg_stmts)
-                args.append(arg_expr)
+            stmts, args = self.collect(self.translate(arg, ctx) for arg in event.args)
             full_perm = self.viper_ast.FullPerm(pos)
             one = self.viper_ast.IntLit(1, pos)
             num_stmts, num = self.translate(node.args[1], ctx) if len(node.args) == 2 else ([], one)
