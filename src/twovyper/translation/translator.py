@@ -214,15 +214,17 @@ class ProgramTranslator(PositionTranslator):
                 body.append(self.viper_ast.Inhale(inv))
             for inv in ctx.program.invariants:
                 pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                inv_expr = self.specification_translator.translate_invariant(inv, ctx)
+                inv_stmts, inv_expr = self.specification_translator.translate_invariant(inv, ctx)
+                body.extend(inv_stmts)
                 body.append(self.viper_ast.Inhale(inv_expr, pos))
             for post in ctx.program.transitive_postconditions:
                 pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                 # We translate the postcondition like an invariant because we don't
                 # want old to refer to the pre state
-                post_expr = self.specification_translator.translate_invariant(post, ctx)
+                post_stmts, post_expr = self.specification_translator.translate_invariant(post, ctx)
                 is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                 post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
+                body.extend(post_stmts)
                 body.append(self.viper_ast.Inhale(post_expr, pos))
         return body
 
@@ -280,18 +282,21 @@ class ProgramTranslator(PositionTranslator):
                 for inv in ctx.program.invariants:
                     rule = rules.INVARIANT_TRANSITIVITY_VIOLATED
                     apos = self.to_position(inv, ctx, rule)
-                    inv_expr = self.specification_translator.translate_invariant(inv, ctx)
+                    inv_stmts, inv_expr = self.specification_translator.translate_invariant(inv, ctx)
+                    body.extend(inv_stmts)
                     body.append(self.viper_ast.Assert(inv_expr, apos))
 
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_TRANSITIVITY_VIOLATED
                     apos = self.to_position(post, ctx, rule)
-                    post_expr = self.specification_translator.translate_invariant(post, ctx)
+                    post_stmts, post_expr = self.specification_translator.translate_invariant(post, ctx)
                     pos = self.to_position(post, ctx)
                     is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                     post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
+                    body.extend(post_stmts)
                     body.append(self.viper_ast.Assert(post_expr, apos))
 
+            local_vars.extend(ctx.new_local_vars)
             return self.viper_ast.Method(name, [], [], [], [], local_vars, body)
 
     def _create_forced_ether_check(self, ctx: Context):
@@ -344,10 +349,12 @@ class ProgramTranslator(PositionTranslator):
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)
-                    post_expr = self.specification_translator.translate_invariant(post, ctx)
+                    post_stmts, post_expr = self.specification_translator.translate_invariant(post, ctx)
                     pos = self.to_position(post, ctx)
                     is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                     post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
+                    body.extend(post_stmts)
                     body.append(self.viper_ast.Assert(post_expr, apos))
 
+            local_vars.extend(ctx.new_local_vars)
             return self.viper_ast.Method(name, [], [], [], [], local_vars, body)

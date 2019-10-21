@@ -130,6 +130,9 @@ CONFIG = 'config'
 CONFIG_NO_GAS = 'no_gas'
 CONFIG_NO_OVERFLOWS = 'no_overflows'
 
+PURE = 'pure'
+NOT_ALLOWED_IN_PURE = [MSG, BLOCK, TX]
+
 IMPLIES = 'implies'
 FORALL = 'forall'
 SUM = 'sum'

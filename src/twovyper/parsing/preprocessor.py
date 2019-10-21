@@ -18,6 +18,7 @@ def preprocess(program: str) -> str:
     # declarations because we could have contract variables called 'ensures'.
     # The spaces are used to keep the column numbers correct in the preprocessed program.
     program = program.replace('#@ config:', 'config   =')
+    program = program.replace('#@ pure', 'pure = True')
     program = program.replace('#@ ensures:', 'ensures   =')
     program = program.replace('#@ check:', 'check   =')
     program = program.replace('#@ invariant:', 'invariant   =')

@@ -39,25 +39,25 @@ class SpecificationTranslator(ExpressionTranslator):
         # __init__ where we use the self state instead (since there is no pre-state)
         old_var = ctx.self_var if is_init else ctx.pre_self_var
         with self_scope(ctx.self_var, old_var, ctx):
-            return self._translate_spec(post, ctx)
+            return self.translate(post, ctx)
 
     def translate_check(self, check: ast.AST, ctx: Context, is_fail=False):
-        expr = self._translate_spec(check, ctx)
+        stmts, expr = self.translate(check, ctx)
         if is_fail:
             # We evaluate the check on failure in the old heap because events didn't
             # happen there
             pos = self.to_position(check, ctx)
-            return self.viper_ast.Old(expr, pos)
+            return stmts, self.viper_ast.Old(expr, pos)
         else:
-            return expr
+            return stmts, expr
 
     def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_accessible=False):
         self._ignore_accessible = ignore_accessible
-        expr = self._translate_spec(inv, ctx)
+        stmts, expr = self.translate(inv, ctx)
         del self._ignore_accessible
-        return expr
+        return stmts, expr
 
-    def _translate_spec(self, node, ctx: Context):
+    def _translate_spec(self, node: ast.AST, ctx: Context):
         stmts, expr = self.translate(node, ctx)
         assert not stmts
         return expr
@@ -65,11 +65,14 @@ class SpecificationTranslator(ExpressionTranslator):
     def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
+        if isinstance(node.func, ast.Attribute):
+            return super().translate_Call(node, ctx)
+
         name = node.func.id
         if name == names.IMPLIES:
-            lhs = self._translate_spec(node.args[0], ctx)
-            rhs = self._translate_spec(node.args[1], ctx)
-            return [], self.viper_ast.Implies(lhs, rhs, pos)
+            lhs_stmts, lhs = self.translate(node.args[0], ctx)
+            rhs_stmts, rhs = self.translate(node.args[1], ctx)
+            return lhs_stmts + rhs_stmts, self.viper_ast.Implies(lhs, rhs, pos)
         elif name == names.FORALL:
             with quantified_var_scope(ctx):
                 num_args = len(node.args)
@@ -162,25 +165,25 @@ class SpecificationTranslator(ExpressionTranslator):
             self_var = ctx.old_self_var if name == names.OLD else ctx.issued_self_var
             with self_scope(self_var, self_var, ctx):
                 arg = node.args[0]
-                return [], self._translate_spec(arg, ctx)
+                return self.translate(arg, ctx)
         elif name == names.SUM:
             arg = node.args[0]
-            expr = self._translate_spec(arg, ctx)
+            stmts, expr = self.translate(arg, ctx)
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
-            return [], helpers.map_sum(self.viper_ast, expr, key_type, pos)
+            return stmts, helpers.map_sum(self.viper_ast, expr, key_type, pos)
         elif name == names.RECEIVED:
             self_var = ctx.self_var.localVar()
             if node.args:
-                arg = self._translate_spec(node.args[0], ctx)
-                return [], self.balance_translator.get_received(self_var, arg, ctx, pos)
+                stmts, arg = self.translate(node.args[0], ctx)
+                return stmts, self.balance_translator.get_received(self_var, arg, ctx, pos)
             else:
                 return [], self.balance_translator.received(self_var, ctx, pos)
         elif name == names.SENT:
             self_var = ctx.self_var.localVar()
             if node.args:
-                arg = self._translate_spec(node.args[0], ctx)
-                return [], self.balance_translator.get_sent(self_var, arg, ctx, pos)
+                stmts, arg = self.translate(node.args[0], ctx)
+                return stmts, self.balance_translator.get_sent(self_var, arg, ctx, pos)
             else:
                 return [], self.balance_translator.sent(self_var, ctx, pos)
         elif name == names.ACCESSIBLE:
@@ -200,39 +203,51 @@ class SpecificationTranslator(ExpressionTranslator):
                 return [], self.viper_ast.TrueLit(pos)
             else:
                 tag = self.viper_ast.IntLit(ctx.program.analysis.accessible_tags[node], pos)
-                to = self._translate_spec(node.args[0], ctx)
-                amount = self._translate_spec(node.args[1], ctx)
+                to_stmts, to = self.translate(node.args[0], ctx)
+                amount_stmts, amount = self.translate(node.args[1], ctx)
+                stmts = to_stmts + amount_stmts
                 if len(node.args) == 2:
                     func_args = [amount] if ctx.program.analysis.accessible_function.args else []
                 else:
-                    func_args = [self._translate_spec(arg, ctx) for arg in node.args[2].args]
+                    func_args = []
+                    for arg in node.args[2].args:
+                        func_stmts, func_expr = self.translate(arg, ctx)
+                        stmts.extend(func_stmts)
+                        func_args.append(func_expr)
                 acc_name = mangled.accessible_name(func_name)
                 acc_args = [tag, to, amount, *func_args]
                 pred_acc = self.viper_ast.PredicateAccess(acc_args, acc_name, pos)
                 # Inside triggers we need to use the predicate access, not the permission amount
                 if ctx.inside_trigger:
+                    assert not stmts
                     return [], pred_acc
                 full_perm = self.viper_ast.FullPerm(pos)
-                return [], self.viper_ast.PredicateAccessPredicate(pred_acc, full_perm, pos)
+                return stmts, self.viper_ast.PredicateAccessPredicate(pred_acc, full_perm, pos)
         elif name == names.REORDER_INDEPENDENT:
-            arg = self._translate_spec(node.args[0], ctx)
+            stmts, arg = self.translate(node.args[0], ctx)
             # Using the current msg_var is only ok if we don't support gas, i.e. if msg is constant
             variables = [ctx.issued_self_var, ctx.msg_var, *ctx.args.values()]
             low_variables = [self.viper_ast.Low(var.localVar()) for var in variables]
             cond = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_variables)
             implies = self.viper_ast.Implies(cond, self.viper_ast.Low(arg, pos), pos)
-            return [], implies
+            return stmts, implies
         elif name == names.EVENT:
             event = node.args[0]
             event_name = mangled.event_name(event.func.id)
-            args = [self._translate_spec(arg, ctx) for arg in event.args]
+            stmts = []
+            args = []
+            for arg in event.args:
+                arg_stmts, arg_expr = self.translate(arg, ctx)
+                stmts.extend(arg_stmts)
+                args.append(arg_expr)
             full_perm = self.viper_ast.FullPerm(pos)
             one = self.viper_ast.IntLit(1, pos)
-            num = self._translate_spec(node.args[1], ctx) if len(node.args) == 2 else one
+            num_stmts, num = self.translate(node.args[1], ctx) if len(node.args) == 2 else ([], one)
+            stmts.extend(num_stmts)
             perm = self.viper_ast.IntPermMul(num, full_perm, pos)
             pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
             current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
-            return [], self.viper_ast.EqCmp(current_perm, perm, pos)
+            return stmts, self.viper_ast.EqCmp(current_perm, perm, pos)
         elif name == names.SELFDESTRUCT:
             self_var = ctx.self_var.localVar()
             self_type = ctx.self_type

@@ -545,20 +545,20 @@ class ExpressionTranslator(NodeTranslator):
 
         check_assertions = []
         for check in chain(ctx.function.checks, ctx.program.general_checks):
-            check_cond = self.spec_translator.translate_check(check, ctx)
+            check_stmts, check_cond = self.spec_translator.translate_check(check, ctx)
             via = [Via('check', check_cond.pos())]
             check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via)
+            check_assertions.extend(check_stmts)
             check_assertions.append(self.viper_ast.Assert(check_cond, check_pos))
 
-        invs = []
         inv_assertions = []
         for inv in ctx.program.invariants:
             # We ignore accessible because it only has to be checked in the end of
             # the function
-            cond = self.spec_translator.translate_invariant(inv, ctx, True)
-            invs.append(cond)
+            inv_stmts, cond = self.spec_translator.translate_invariant(inv, ctx, True)
             via = [Via('invariant', cond.pos())]
             call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
+            inv_assertions.extend(inv_stmts)
             inv_assertions.append(self.viper_ast.Assert(cond, call_pos))
 
         assertions = [*check_assertions, *inv_assertions]
@@ -593,8 +593,9 @@ class ExpressionTranslator(NodeTranslator):
             for post in ctx.program.transitive_postconditions:
                 # We translate the transitive postcondition like an invariant since we want
                 # old to refer to the state before the call, not the pre state
-                post_expr = self.spec_translator.translate_invariant(post, ctx)
+                post_stmts, post_expr = self.spec_translator.translate_invariant(post, ctx)
                 ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
+                assume_posts.extend(post_stmts)
                 assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
 
             post_seq = self._seqn_with_info(assume_posts, "Assume transitive postconditions")
@@ -603,9 +604,12 @@ class ExpressionTranslator(NodeTranslator):
             for inv in ctx.unchecked_invariants():
                 assume_invs.append(self.viper_ast.Inhale(inv))
 
-            for inv, expr in zip(ctx.program.invariants, invs):
+            for inv in ctx.program.invariants:
+
+                inv_stmts, cond = self.spec_translator.translate_invariant(inv, ctx, True)
                 ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                assume_invs.append(self.viper_ast.Inhale(expr, ipos))
+                assume_invs.extend(inv_stmts)
+                assume_invs.append(self.viper_ast.Inhale(cond, ipos))
 
             inv_seq = self._seqn_with_info(assume_invs, "Assume invariants")
 

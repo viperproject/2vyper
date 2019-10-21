@@ -155,7 +155,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
                     for inv in ctx.program.invariants:
                         ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                        expr = self.specification_translator.translate_invariant(inv, ctx, True)
+                        stmts, expr = self.specification_translator.translate_invariant(inv, ctx, True)
+                        inv_pres_issued.extend(stmts)
                         inv_pres_issued.append(self.viper_ast.Inhale(expr, ppos))
 
             # If we use issued, we translate the invariants for the current state with the
@@ -169,7 +170,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
                     for inv in ctx.program.invariants:
                         ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                        expr = self.specification_translator.translate_invariant(inv, ctx)
+                        stmts, expr = self.specification_translator.translate_invariant(inv, ctx)
+                        inv_pres_self.extend(stmts)
                         inv_pres_self.append(self.viper_ast.Inhale(expr, ppos))
 
             iv_info_msg = "Assume invariants for issued self"
@@ -296,13 +298,15 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             post_stmts = []
             for post in function.postconditions:
                 post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
-                cond = self.specification_translator.translate_postcondition(post, ctx, False)
+                stmts, cond = self.specification_translator.translate_postcondition(post, ctx, False)
                 post_assert = self.viper_ast.Assert(cond, post_pos)
+                post_stmts.extend(stmts)
                 post_stmts.append(post_assert)
 
             for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
                 post_pos = self.to_position(post, ctx)
-                cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
+                stmts, cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
+                post_stmts.extend(stmts)
                 if is_init:
                     init_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
                     # General postconditions only have to hold for init if it succeeds
@@ -323,16 +327,18 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             checks_fail = []
             for check in function.checks:
                 check_pos = self.to_position(check, ctx, rules.CHECK_FAIL)
-                cond_succ = self.specification_translator.translate_check(check, ctx, False)
+                succ_stmts, cond_succ = self.specification_translator.translate_check(check, ctx, False)
+                checks_succ.extend(succ_stmts)
                 checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
-                cond_fail = self.specification_translator.translate_check(check, ctx, True)
+                fail_stmts, cond_fail = self.specification_translator.translate_check(check, ctx, True)
                 # Checks do not have to hold if init fails
                 if not is_init:
+                    checks_fail.extend(fail_stmts)
                     checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
             for check in ctx.program.general_checks:
-                cond_succ = self.specification_translator.translate_check(check, ctx, False)
-                cond_fail = self.specification_translator.translate_check(check, ctx, True)
+                succ_stmts, cond_succ = self.specification_translator.translate_check(check, ctx, False)
+                fail_stmts, cond_fail = self.specification_translator.translate_check(check, ctx, True)
 
                 # If we are in the initializer we might have a synthesized __init__, therefore
                 # just use always check as position, else use function as position and create
@@ -344,9 +350,11 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     via = [Via('check', check_pos)]
                     check_pos = self.to_position(function.node, ctx, rules.CHECK_FAIL, via)
 
+                checks_succ.extend(succ_stmts)
                 checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
                 # Checks do not have to hold if __init__ fails
                 if not is_init:
+                    checks_fail.extend(fail_stmts)
                     checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
             check_info = self.to_info(["Assert checks"])
@@ -365,7 +373,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             for inv in ctx.program.invariants:
                 inv_pos = self.to_position(inv, ctx)
                 # We ignore accessible here because we use a separate check
-                cond = self.specification_translator.translate_invariant(inv, ctx, True)
+                stmts, cond = self.specification_translator.translate_invariant(inv, ctx, True)
 
                 # If we have a synthesized __init__ we only create an
                 # error message on the invariant
@@ -377,6 +385,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     via = [Via('invariant', inv_pos)]
                     apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
 
+                invariant_stmts.extend(stmts)
                 invariant_stmts.append(self.viper_ast.Assert(cond, apos))
 
             body.extend(self._seqn_with_info(invariant_stmts, "Assert Invariants"))
@@ -444,7 +453,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         with inline_scope(via, ctx):
             assert function.node
             # Only private self-calls are allowed in Vyper
-            assert not function.is_public()
+            # In specifications, we also allow pure calls
+            assert function.is_private() or function.is_pure()
 
             pos = self.to_position(function.node, ctx)
             body = []

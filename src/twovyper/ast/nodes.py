@@ -63,6 +63,12 @@ class VyperFunction:
     def is_payable(self) -> bool:
         return names.PAYABLE in self.decorators
 
+    def is_constant(self) -> bool:
+        return names.CONSTANT in self.decorators
+
+    def is_pure(self) -> bool:
+        return names.PURE in self.decorators
+
 
 class VyperStruct:
 
