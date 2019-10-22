@@ -13,7 +13,9 @@ from twovyper.utils import first_index, NodeVisitor, switch
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.types import TypeBuilder, VyperType, MapType, ArrayType
+from twovyper.ast.types import (
+    TypeBuilder, VyperType, MapType, ArrayType, StructType, ContractType
+)
 from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperVar
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
@@ -60,7 +62,7 @@ class TypeAnnotator(NodeVisitor):
             names.BLOCK: [types.BLOCK_TYPE],
             names.TX: [types.TX_TYPE],
             names.MSG: [types.MSG_TYPE],
-            names.SELF: [self.program.fields.type, types.VYPER_ADDRESS],
+            names.SELF: [types.VYPER_ADDRESS, self.program.fields.type],
             names.LOG: [None]
         }
 
@@ -301,6 +303,10 @@ class TypeAnnotator(NodeVisitor):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], lambda t: isinstance(t, types.ArrayType))
                     return [types.VYPER_INT128], [node]
+                elif case(names.STORAGE):
+                    _check_number_of_arguments(node, 1)
+                    self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                    return [self.program.fields.type], [node]
                 elif case(names.ASSERT_MODIFIABLE):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], types.VYPER_BOOL)
@@ -402,7 +408,14 @@ class TypeAnnotator(NodeVisitor):
                 else:
                     raise UnsupportedException(node, "Unsupported function call")
         elif isinstance(node.func, ast.Attribute):
-            self.annotate(node.func.value)
+
+            def expected(t):
+                is_self_call = isinstance(t, StructType)
+                is_external_call = isinstance(t, ContractType)
+                is_log = t is None
+                return is_self_call or is_external_call or is_log
+
+            self.annotate_expected(node.func.value, expected)
             receiver_type = node.func.value.type
 
             # We don't have to type check calls as they are not allowed in specifications
@@ -417,12 +430,12 @@ class TypeAnnotator(NodeVisitor):
                 return [None], [node]
 
             # A self call
-            if isinstance(receiver_type, types.StructType):
+            if isinstance(receiver_type, StructType):
                 name = node.func.attr
                 function = self.program.functions[name]
                 return [function.type.return_type], [node]
             # A contract call
-            elif isinstance(receiver_type, types.ContractType):
+            elif isinstance(receiver_type, ContractType):
                 name = node.func.attr
                 return [receiver_type.function_types[name].return_type], [node]
         else:
@@ -531,7 +544,7 @@ class TypeAnnotator(NodeVisitor):
         return [types.VYPER_BOOL], [node]
 
     def visit_Attribute(self, node: ast.Attribute):
-        self.annotate(node.value)
+        self.annotate_expected(node.value, lambda t: isinstance(t, StructType))
         ntype = node.value.type.member_types[node.attr]
         return [ntype], [node]
 

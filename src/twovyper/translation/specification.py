@@ -172,6 +172,11 @@ class SpecificationTranslator(ExpressionTranslator):
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
             return stmts, helpers.map_sum(self.viper_ast, expr, key_type, pos)
+        elif name == names.STORAGE:
+            arg = node.args[0]
+            assert isinstance(arg, ast.Name) and arg.id == names.SELF
+            self_var = ctx.self_var
+            return [], self.viper_ast.LocalVar(self_var.name(), self_var.typ(), pos)
         elif name == names.RECEIVED:
             self_var = ctx.self_var.localVar()
             if node.args:

@@ -29,14 +29,14 @@ def inc_i():
 
 
 #@ ensures: self.i == old(self.i)
-#@ ensures: self == old(self)
+#@ ensures: storage(self) == old(storage(self))
 @public
 def get_balance_of(a: address) -> wei_value:
     return self.e.balance_of(a)
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: self == old(self)
+#@ ensures: storage(self) == old(storage(self))
 @public
 def get_balance_of_fail(a: address) -> wei_value:
     ret: wei_value = self.e.balance_of(a)

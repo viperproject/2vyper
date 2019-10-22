@@ -21,3 +21,17 @@ def __init__():
 @public
 def get_self_address() -> address:
     return self
+
+
+#@ ensures: self == old(self)
+@public
+def no_change():
+    pass
+
+
+#@ ensures: self == old(self)
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: self != old(self)
+@public
+def change():
+    self.self_address = ZERO_ADDRESS
