@@ -5,9 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-import tests.resources.language.interfaces.wallet as Wallet
+from . import wallet
 
-implements: Wallet
+implements: wallet
 
 
 balance_of: map(address, wei_value)
