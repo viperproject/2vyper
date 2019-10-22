@@ -396,12 +396,12 @@ class TypeAnnotator(NodeVisitor):
                         return [types.VYPER_WEI_VALUE], [node]
                 elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                     # This is a struct inizializer
-                    _check_number_of_arguments(node, 0, 1)
+                    _check_number_of_arguments(node, 1)
 
                     return self._visit_struct_init(node)
                 elif name in self.program.contracts:
                     # This is a contract initializer
-                    _check_number_of_arguments(node, 0, 1)
+                    _check_number_of_arguments(node, 1)
 
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     return [self.program.contracts[name].type], [node]
