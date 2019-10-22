@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from contextlib import contextmanager
 from functools import reduce
 
 from twovyper.ast import names
@@ -34,6 +35,14 @@ class SpecificationTranslator(ExpressionTranslator):
     def no_reverts(self):
         return True
 
+    @contextmanager
+    def _ignore_accessible_scope(self, ignore: bool):
+        self._ignore_accessible = ignore
+
+        yield
+
+        del self._ignore_accessible
+
     def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False):
         # For postconditions the old state is the state before the function call, except for
         # __init__ where we use the self state instead (since there is no pre-state)
@@ -53,9 +62,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
     def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_accessible=False):
         self._ignore_accessible = ignore_accessible
-        stmts, expr = self.translate(inv, ctx)
-        del self._ignore_accessible
-        return stmts, expr
+        with self._ignore_accessible_scope(ignore_accessible):
+            return self.translate(inv, ctx)
 
     def _translate_spec(self, node: ast.AST, ctx: Context):
         stmts, expr = self.translate(node, ctx)
@@ -202,8 +210,8 @@ class SpecificationTranslator(ExpressionTranslator):
             is_wrong_func = ctx.function and func_name != ctx.function.name
             # If we ignore accessibles or if we are in a function not mentioned in the accessible
             # expression we just use True as the body
-            # Triggers, however, always have to be translated correctly, because every trigger
-            # needs to mention all quantified variables
+            # Triggers, however, always need to be translated correctly, because every trigger
+            # has to mention all quantified variables
             if (self._ignore_accessible or is_wrong_func) and not ctx.inside_trigger:
                 return [], self.viper_ast.TrueLit(pos)
             else:
