@@ -16,14 +16,26 @@ def preprocess(program: str) -> str:
 
     # Make specifications valid python statements. We use assignments instead of variable
     # declarations because we could have contract variables called 'ensures'.
-    # The spaces are used to keep the column numbers correct in the preprocessed program.
-    program = program.replace('#@ config:', 'config   =')
-    program = program.replace('#@ pure', 'pure = True')
-    program = program.replace('#@ ensures:', 'ensures   =')
-    program = program.replace('#@ check:', 'check   =')
-    program = program.replace('#@ invariant:', 'invariant   =')
-    program = program.replace('#@ always ensures:', 'always_ensures   =')
-    program = program.replace('#@ always check:', 'always_check   =')
-    program = program.replace('#@ preserves:', 'if False:     ')
-    program = program.replace('#@', '  ')
+    # Padding with spaces is used to keep the column numbers correct in the preprocessed program.
+
+    def padding(old_length: int, match_length: int) -> str:
+        return (match_length - old_length) * ' '
+
+    def replacement(start: str, end: str):
+        old_length = len(start) + len(end)
+        return lambda m: f'{start}{padding(old_length, len(m.group(0)))}{end}'
+
+    def replace(regex, repl):
+        nonlocal program
+        program = re.sub(regex, repl, program, flags=re.MULTILINE)
+
+    replace(r'#@\s*config\s*:', replacement('config', '='))
+    replace(r'#@\s*pure', replacement('pure', '=True'))
+    replace(r'#@\s*ensures\s*:', replacement('ensures', '='))
+    replace(r'#@\s*check\s*:', replacement('check', '='))
+    replace(r'#@\s*invariant\s*:', replacement('invariant', '='))
+    replace(r'#@\s*always\s*ensures\s*:', replacement('always_ensures', '='))
+    replace(r'#@\s*always\s*check\s*:', replacement('always_check', '='))
+    replace(r'#@\s*preserves\s*:', replacement('if False', ':'))
+    replace(r'#@', replacement('  ', ''))
     return program
