@@ -192,7 +192,7 @@ class SpecificationTranslator(ExpressionTranslator):
             else:
                 return [], self.balance_translator.sent(self_var, ctx, pos)
         elif name == names.ACCESSIBLE:
-            # The function ment in accessible is either the one used as the third argument
+            # The function necessary for accessible is either the one used as the third argument
             # or the one the heuristics determined
             if len(node.args) == 2:
                 func_name = ctx.program.analysis.accessible_function.name
