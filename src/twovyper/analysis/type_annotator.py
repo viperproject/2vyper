@@ -419,6 +419,7 @@ class TypeAnnotator(NodeVisitor):
             receiver_type = node.func.value.type
 
             # We don't have to type check calls as they are not allowed in specifications
+            # TODO: this changed, we need type checking for self calls
             for arg in node.args:
                 self.annotate(arg)
 
