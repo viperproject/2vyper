@@ -14,9 +14,9 @@ from twovyper.utils import first_index, NodeVisitor, switch
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.types import (
-    TypeBuilder, VyperType, MapType, ArrayType, StructType, ContractType
+    TypeBuilder, VyperType, MapType, ArrayType, StructType, ContractType, InterfaceType
 )
-from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperVar
+from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperInterface, VyperVar
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
@@ -57,12 +57,14 @@ class TypeAnnotator(NodeVisitor):
 
         self.program = program
         self.current_func = None
+
+        self_type = None if isinstance(program, VyperInterface) else self.program.fields.type
         # Contains the possible types a variable can have
         self.variables = {
             names.BLOCK: [types.BLOCK_TYPE],
             names.TX: [types.TX_TYPE],
             names.MSG: [types.MSG_TYPE],
-            names.SELF: [types.VYPER_ADDRESS, self.program.fields.type],
+            names.SELF: [types.VYPER_ADDRESS, self_type],
             names.LOG: [None]
         }
 
@@ -405,13 +407,19 @@ class TypeAnnotator(NodeVisitor):
 
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     return [self.program.contracts[name].type], [node]
+                elif name in self.program.interfaces:
+                    # This is an interface initializer
+                    _check_number_of_arguments(node, 1)
+
+                    self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                    return [self.program.interfaces[name].type], [node]
                 else:
                     raise UnsupportedException(node, "Unsupported function call")
         elif isinstance(node.func, ast.Attribute):
 
             def expected(t):
                 is_self_call = isinstance(t, StructType)
-                is_external_call = isinstance(t, ContractType)
+                is_external_call = isinstance(t, (ContractType, InterfaceType))
                 is_log = t is None
                 return is_self_call or is_external_call or is_log
 
@@ -439,6 +447,11 @@ class TypeAnnotator(NodeVisitor):
             elif isinstance(receiver_type, ContractType):
                 name = node.func.attr
                 return [receiver_type.function_types[name].return_type], [node]
+            elif isinstance(receiver_type, InterfaceType):
+                name = node.func.attr
+                interface = self.program.interfaces[receiver_type.name]
+                function = interface.functions[name]
+                return [function.type.return_type], [node]
         else:
             assert False
 

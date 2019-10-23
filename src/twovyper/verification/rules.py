@@ -73,6 +73,15 @@ INHALE_POSTCONDITION_FAIL = {
         ('postcondition.not.wellformed', 'seq.index.negative')
 }
 
+INHALE_INTERFACE_FAIL = {
+    ('inhale.failed', 'division.by.zero'):
+        ('interface.postcondition.not.wellformed', 'division.by.zero'),
+    ('inhale.failed', 'seq.index.length'):
+        ('interface.postcondition.not.wellformed', 'seq.index.length'),
+    ('inhale.failed', 'seq.index.negative'):
+        ('interface.postcondition.not.wellformed', 'seq.index.negative')
+}
+
 INVARIANT_TRANSITIVITY_VIOLATED = {
     ('assert.failed', 'assertion.false'):
         ('invariant.not.wellformed', 'transitivity.violated')

@@ -88,6 +88,14 @@ class ContractType(VyperType):
         self.function_modifiers = function_modifiers
 
 
+class InterfaceType(VyperType):
+
+    def __init__(self, name: str):
+        id = f'interface {name}'
+        super().__init__(id)
+        self.name = name
+
+
 class StringType(ArrayType):
 
     def __init__(self, size: int):
@@ -208,6 +216,8 @@ def matches(t, m):
     elif is_integer(t) and is_integer(m):
         return True
     elif isinstance(t, ContractType) and m == VYPER_ADDRESS:
+        return True
+    elif isinstance(t, InterfaceType) and m == VYPER_ADDRESS:
         return True
     else:
         return t == m

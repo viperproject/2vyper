@@ -13,7 +13,7 @@ from twovyper.utils import seq_to_list
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction
+from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, VyperInterface
 
 from twovyper.exceptions import ConsistencyException
 
@@ -42,6 +42,9 @@ def translate(vyper_program: VyperProgram, file: str, jvm: JVM) -> Program:
         raise Exception('Viper not found on classpath.')
     if not viper_ast.is_extension_available():
         raise Exception('Viper AST SIF extension not found on classpath.')
+
+    if isinstance(vyper_program, VyperInterface):
+        return viper_ast.Program([], [], [], [], [])
 
     viper_parser = ViperParser(jvm)
     builtins = viper_parser.parse(*resources.viper_all())

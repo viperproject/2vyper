@@ -247,6 +247,27 @@ def inline_scope(via, ctx: Context):
 
 
 @contextmanager
+def interface_call_scope(ctx: Context):
+    result_var = ctx.result_var
+    ctx.result_var = None
+    success_var = ctx.success_var
+    ctx.success_var = None
+
+    all_vars = ctx.all_vars.copy()
+    old_inline = ctx._current_inline
+    ctx._inline_counter += 1
+    ctx._current_inline = ctx._inline_counter
+
+    yield
+
+    ctx.result_var = result_var
+    ctx.success_var = success_var
+
+    ctx.all_vars = all_vars
+    ctx._current_inline = old_inline
+
+
+@contextmanager
 def self_scope(self_var, old_self_var, ctx: Context):
     all_vars = ctx.all_vars.copy()
     local_vars = ctx.locals.copy()

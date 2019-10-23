@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 from twovyper.ast import names
 from twovyper.ast.types import (
-    VyperType, FunctionType, StructType, ContractType, EventType
+    VyperType, FunctionType, StructType, ContractType, EventType, InterfaceType
 )
 
 
@@ -99,6 +99,7 @@ class VyperProgram:
                  config: VyperConfig,
                  fields: VyperStruct,
                  functions: Dict[str, VyperFunction],
+                 interfaces: Dict[str, 'VyperProgram'],
                  structs: Dict[str, VyperStruct],
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
@@ -109,6 +110,7 @@ class VyperProgram:
         self.config = config
         self.fields = fields
         self.functions = functions
+        self.interfaces = interfaces
         self.structs = structs
         self.contracts = contracts
         self.events = events
@@ -118,3 +120,15 @@ class VyperProgram:
         self.general_checks = general_checks
         # Gets set in the analyzer
         self.analysis = None
+
+
+class VyperInterface(VyperProgram):
+
+    def __init__(self,
+                 name: Optional[str],
+                 config: VyperConfig,
+                 functions: Dict[str, VyperFunction],
+                 type: InterfaceType):
+        super().__init__(config, None, functions, {}, {}, {}, {}, [], [], [], [])
+        self.name = name
+        self.type = type

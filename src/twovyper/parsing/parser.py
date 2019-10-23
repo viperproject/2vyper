@@ -6,8 +6,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 import ast
+import os
 
-from typing import List
+from typing import List, Union
 
 from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
@@ -17,22 +18,24 @@ from twovyper.ast import types
 
 from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
-    VyperConfig
+    VyperConfig, VyperInterface
 )
 
 from twovyper.ast.types import (
-    TypeBuilder, FunctionType, EventType, StructType, ContractType
+    TypeBuilder, FunctionType, EventType, StructType, ContractType, InterfaceType
 )
 
 from twovyper.exceptions import InvalidProgramException
 
 
-def parse(contract: str, filename: str) -> VyperProgram:
+def parse(path: str, as_interface=False, name=None) -> Union[VyperProgram, VyperInterface]:
+    with open(path, 'r') as file:
+        contract = file.read()
     try:
         preprocessed_contract = preprocess(contract)
-        contract_ast = ast.parse(preprocessed_contract, filename)
+        contract_ast = ast.parse(preprocessed_contract, path)
         contract_ast = transform(contract_ast)
-        program_builder = ProgramBuilder()
+        program_builder = ProgramBuilder(path, as_interface, name)
         return program_builder.build(contract_ast)
     except SyntaxError as err:
         err.text = contract.splitlines()[err.lineno - 1]
@@ -49,11 +52,16 @@ class ProgramBuilder(ast.NodeVisitor):
     # top-level statements we gather pre and postconditions until we reach a function
     # definition.
 
-    def __init__(self):
+    def __init__(self, path, is_interface, name):
+        self.path = path
+        self.is_interface = is_interface
+        self.name = name
+
         self.config = None
 
         self.field_types = {}
         self.functions = {}
+        self.interfaces = {}
         self.structs = {}
         self.contracts = {}
         self.events = {}
@@ -78,31 +86,35 @@ class ProgramBuilder(ast.NodeVisitor):
 
         return TypeBuilder(type_map)
 
-    def build(self, node) -> VyperProgram:
+    def build(self, node) -> Union[VyperProgram, VyperInterface]:
         self.visit(node)
         # No trailing local specs allowed
         self._check_no_local_spec()
 
-        # Add self.balance
-        assert not self.field_types.get(names.SELF_BALANCE)
-        self.field_types[names.SELF_BALANCE] = types.VYPER_WEI_VALUE
-
-        # Create the self-type
-        self_type = StructType(names.SELF, self.field_types)
-        self_struct = VyperStruct(names.SELF, self_type, None)
-
         self.config = self.config or VyperConfig([])
 
-        return VyperProgram(self.config,
-                            self_struct,
-                            self.functions,
-                            self.structs,
-                            self.contracts,
-                            self.events,
-                            self.invariants,
-                            self.general_postconditions,
-                            self.transitive_postconditions,
-                            self.general_checks)
+        if self.is_interface:
+            interface_type = InterfaceType(self.name)
+            return VyperInterface(self.name, self.config, self.functions, interface_type)
+        else:
+            # Add self.balance
+            assert not self.field_types.get(names.SELF_BALANCE)
+            self.field_types[names.SELF_BALANCE] = types.VYPER_WEI_VALUE
+
+            # Create the self-type
+            self_type = StructType(names.SELF, self.field_types)
+            self_struct = VyperStruct(names.SELF, self_type, None)
+            return VyperProgram(self.config,
+                                self_struct,
+                                self.functions,
+                                self.interfaces,
+                                self.structs,
+                                self.contracts,
+                                self.events,
+                                self.invariants,
+                                self.general_postconditions,
+                                self.transitive_postconditions,
+                                self.general_checks)
 
     def _check_no_local_spec(self):
         """
@@ -125,6 +137,32 @@ class ProgramBuilder(ast.NodeVisitor):
     def _check_not_pure(self):
         if self.pure:
             raise InvalidProgramException(self.pure, 'local.pure', "Pure only allowed before function")
+
+    def visit_ImportFrom(self, node: ast.ImportFrom):
+        # TODO: handle absolute imports
+        # TODO: check for ERC20
+        if self.is_interface or node.level == 0:
+            return
+
+        module = node.module or ''
+        components = module.split('.')
+
+        path = self.path
+        for _ in range(node.level):
+            path = os.path.dirname(path)
+
+        for c in components:
+            path = os.path.join(path, c)
+
+        files = {}
+        for alias in node.names:
+            name = alias.name
+            interface_path = os.path.join(path, f'{name}.vy')
+            files[interface_path] = name
+
+        for file, name in files.items():
+            interface = parse(file, True, name)
+            self.interfaces[name] = interface
 
     def visit_ClassDef(self, node: ast.ClassDef):
         type = self.type_builder.build(node)
@@ -166,6 +204,10 @@ class ProgramBuilder(ast.NodeVisitor):
             elif isinstance(node.value, ast.Tuple):
                 options = [n.id for n in node.value.elts]
             self.config = VyperConfig(options)
+        elif name == names.INTERFACE:
+            self._check_not_pure()
+            self._check_no_local_spec()
+            self.is_interface = True
         elif name == names.PURE:
             self._check_not_pure()
             self.pure = node.targets[0]

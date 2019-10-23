@@ -45,6 +45,8 @@ ERRORS = {
         lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
     'postcondition.not.wellformed':
         lambda i: f"General postcondition {pprint(i.node)} might not be well-formed.",
+    'interface.postcondition.not.wellformed':
+        lambda i: f"Postcondition of {pprint(i.node)} might not be well-formed.",
     'fold.failed':
         lambda i: "Fold might fail.",
     'unfold.failed':

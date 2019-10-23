@@ -30,6 +30,7 @@ def preprocess(program: str) -> str:
         program = re.sub(regex, repl, program, flags=re.MULTILINE)
 
     replace(r'#@\s*config\s*:', replacement('config', '='))
+    replace(r'#@\s*interface', replacement('interface', '=True'))
     replace(r'#@\s*pure', replacement('pure', '=True'))
     replace(r'#@\s*ensures\s*:', replacement('ensures', '='))
     replace(r'#@\s*check\s*:', replacement('check', '='))

@@ -48,9 +48,10 @@ class TwoVyper:
         if not skip_vyper:
             vyper.check(path, vyper_root)
 
-        with open(path, 'r') as file:
-            vyper_program = parser.parse(file.read(), path)
-            analyzer.analyze(vyper_program)
+        vyper_program = parser.parse(path)
+        for interface in vyper_program.interfaces.values():
+            analyzer.analyze(interface)
+        analyzer.analyze(vyper_program)
 
         return translator.translate(vyper_program, path, self.jvm)
 
