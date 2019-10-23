@@ -121,6 +121,9 @@ class VyperProgram:
         # Gets set in the analyzer
         self.analysis = None
 
+    def is_interface(self) -> bool:
+        return False
+
 
 class VyperInterface(VyperProgram):
 
@@ -129,6 +132,11 @@ class VyperInterface(VyperProgram):
                  config: VyperConfig,
                  functions: Dict[str, VyperFunction],
                  type: InterfaceType):
-        super().__init__(config, None, functions, {}, {}, {}, {}, [], [], [], [])
+        struct_name = f'{name}$self'
+        empty_struct = VyperStruct(struct_name, StructType(struct_name, {}), None)
+        super().__init__(config, empty_struct, functions, {}, {}, {}, {}, [], [], [], [])
         self.name = name
         self.type = type
+
+    def is_interface(self) -> bool:
+        return True

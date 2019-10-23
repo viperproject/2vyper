@@ -16,7 +16,7 @@ from twovyper.ast import types
 from twovyper.ast.types import (
     TypeBuilder, VyperType, MapType, ArrayType, StructType, ContractType, InterfaceType
 )
-from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperInterface, VyperVar
+from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperVar
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
@@ -58,7 +58,7 @@ class TypeAnnotator(NodeVisitor):
         self.program = program
         self.current_func = None
 
-        self_type = None if isinstance(program, VyperInterface) else self.program.fields.type
+        self_type = self.program.fields.type
         # Contains the possible types a variable can have
         self.variables = {
             names.BLOCK: [types.BLOCK_TYPE],

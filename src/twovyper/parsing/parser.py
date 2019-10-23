@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 import os
 
-from typing import List, Union
+from typing import List
 
 from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
@@ -28,7 +28,7 @@ from twovyper.ast.types import (
 from twovyper.exceptions import InvalidProgramException
 
 
-def parse(path: str, as_interface=False, name=None) -> Union[VyperProgram, VyperInterface]:
+def parse(path: str, as_interface=False, name=None) -> VyperProgram:
     with open(path, 'r') as file:
         contract = file.read()
     try:
@@ -86,7 +86,7 @@ class ProgramBuilder(ast.NodeVisitor):
 
         return TypeBuilder(type_map)
 
-    def build(self, node) -> Union[VyperProgram, VyperInterface]:
+    def build(self, node) -> VyperProgram:
         self.visit(node)
         # No trailing local specs allowed
         self._check_no_local_spec()
