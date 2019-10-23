@@ -190,7 +190,10 @@ class TypeAnnotator(NodeVisitor):
 
     def visit_Return(self, node: ast.Return):
         if node.value:
-            self.annotate_expected(node.value, self.current_func.type.return_type)
+            if self.program.is_interface():
+                self.annotate(node.value)
+            else:
+                self.annotate_expected(node.value, self.current_func.type.return_type)
 
     def visit_Assign(self, node: ast.Assign):
         self.annotate(node.targets[0], node.value)
