@@ -554,7 +554,7 @@ class TypeAnnotator(NodeVisitor):
             assert False
 
     def visit_NameConstant(self, node: ast.NameConstant):
-        assert node.value is not None
+        _check(node.value is not None, node, 'use.of.none')
         return [types.VYPER_BOOL], [node]
 
     def visit_Attribute(self, node: ast.Attribute):
@@ -563,7 +563,7 @@ class TypeAnnotator(NodeVisitor):
         return [ntype], [node]
 
     def visit_Subscript(self, node: ast.Subscript):
-        self.annotate(node.value)
+        self.annotate_expected(node.value, lambda t: isinstance(t, (ArrayType, MapType)))
         if isinstance(node.value.type, MapType):
             key_type = node.value.type.key_type
             self.annotate_expected(node.slice.value, key_type)
