@@ -499,6 +499,16 @@ class ExpressionTranslator(NodeTranslator):
                     interface = ctx.program.interfaces[rec_type.name]
                     function = interface.functions[name]
                     const = function.is_constant()
+
+                    # If the function is payable, but no ether is sent, revert
+                    # If the function is not payable, but ether is sent, revert
+                    zero = self.viper_ast.IntLit(0, pos)
+                    if function.is_payable():
+                        cond = self.viper_ast.LeCmp(amount, zero, pos)
+                    else:
+                        cond = self.viper_ast.NeCmp(amount, zero, pos)
+
+                    stmts.append(self.fail_if(cond, [], ctx, pos))
                     call_stmts, succ, res = self._translate_external_call(node, to, amount, const, ctx)
 
                     ass = self._assume_interface_specifications(node, interface, function, args, to, amount, succ, res, ctx)
@@ -661,7 +671,19 @@ class ExpressionTranslator(NodeTranslator):
             ctx.all_vars[names.MSG] = msg_decl
             ctx.locals[names.MSG] = msg_decl
             ctx.new_local_vars.append(msg_decl)
-            # TODO: Assume msg.sender == self and msg.value == amount
+
+            # Assume msg.sender == self and msg.value == amount
+            msg = msg_decl.localVar()
+            svytype = types.MSG_TYPE.member_types[names.MSG_SENDER]
+            svitype = self.type_translator.translate(svytype, ctx)
+            msg_sender = helpers.struct_get(self.viper_ast, msg, names.MSG_SENDER, svitype, types.MSG_TYPE)
+            self_address = helpers.self_address(self.viper_ast)
+            body.append(self.viper_ast.Inhale(self.viper_ast.EqCmp(msg_sender, self_address)))
+
+            vvytype = types.MSG_TYPE.member_types[names.MSG_VALUE]
+            vvitype = self.type_translator.translate(vvytype, ctx)
+            msg_value = helpers.struct_get(self.viper_ast, msg, names.MSG_VALUE, vvitype, types.MSG_TYPE)
+            body.append(self.viper_ast.Inhale(self.viper_ast.EqCmp(msg_value, amount)))
 
             # Add arguments to local vars, assign passed args
             for (name, var), arg in zip(function.args.items(), args):

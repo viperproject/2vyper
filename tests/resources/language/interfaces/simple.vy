@@ -20,3 +20,16 @@ def positive(i: int128) -> int128:
 @public
 def positive_not_welldefined(i: int128) -> int128:
     raise "Not implemented"
+
+
+#@ ensures: implies(success(), result() == msg.sender)
+@public
+def use_msg_sender() -> address:
+    raise "Not imlpemented"
+
+
+#@ ensures: implies(success(), result() == msg.value)
+@public
+@payable
+def use_msg_value() -> wei_value:
+    raise "Not implemented"
