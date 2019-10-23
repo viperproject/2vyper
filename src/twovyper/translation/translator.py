@@ -36,7 +36,7 @@ from twovyper.viper.typedefs import Program, Stmt, Expr
 from twovyper.verification import rules
 
 
-def translate(vyper_program: VyperProgram, file: str, jvm: JVM) -> Program:
+def translate(vyper_program: VyperProgram, jvm: JVM) -> Program:
     viper_ast = ViperAST(jvm)
     if not viper_ast.is_available():
         raise Exception('Viper not found on classpath.')
@@ -50,7 +50,7 @@ def translate(vyper_program: VyperProgram, file: str, jvm: JVM) -> Program:
     builtins = viper_parser.parse(*resources.viper_all())
     translator = ProgramTranslator(viper_ast, builtins)
 
-    viper_program = translator.translate(vyper_program, file)
+    viper_program = translator.translate(vyper_program)
     consistency_errors = seq_to_list(viper_program.checkTransitively())
     if consistency_errors:
         raise ConsistencyException("The AST contains inconsistencies.", consistency_errors)
@@ -70,7 +70,7 @@ class ProgramTranslator(PositionTranslator):
         self.specification_translator = SpecificationTranslator(viper_ast)
         self.balance_translator = BalanceTranslator(viper_ast)
 
-    def translate(self, vyper_program: VyperProgram, file: str) -> Program:
+    def translate(self, vyper_program: VyperProgram) -> Program:
         if names.INIT not in vyper_program.functions:
             vyper_program.functions[mangled.INIT] = helpers.init_function()
 
@@ -92,7 +92,6 @@ class ProgramTranslator(PositionTranslator):
         vyper_program.fields.type.add_member(mangled.SELFDESTRUCT_FIELD, selfdestruct_type)
 
         ctx = Context()
-        ctx.file = file
         ctx.program = vyper_program
 
         # Translate self

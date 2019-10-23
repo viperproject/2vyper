@@ -15,7 +15,7 @@ from twovyper.exceptions import UnsupportedException
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.nodes import VyperFunction, VyperVar
+from twovyper.ast.nodes import VyperFunction, VyperInterface, VyperVar
 from twovyper.ast.types import MapType, ArrayType, ContractType, InterfaceType
 
 from twovyper.viper.ast import ViperAST
@@ -25,7 +25,7 @@ from twovyper.translation.abstract import NodeTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.type import TypeTranslator
-from twovyper.translation.context import Context, interface_call_scope
+from twovyper.translation.context import Context, interface_call_scope, program_scope
 
 from twovyper.translation import mangled
 from twovyper.translation import helpers
@@ -501,7 +501,7 @@ class ExpressionTranslator(NodeTranslator):
                     const = function.is_constant()
                     call_stmts, succ, res = self._translate_external_call(node, to, amount, const, ctx)
 
-                    ass = self._assume_interface_specifications(node, function, args, to, amount, succ, res, ctx)
+                    ass = self._assume_interface_specifications(node, interface, function, args, to, amount, succ, res, ctx)
                     stmts.extend(call_stmts)
                     stmts.extend(ass)
 
@@ -643,6 +643,7 @@ class ExpressionTranslator(NodeTranslator):
 
     def _assume_interface_specifications(self,
                                          node: ast.AST,
+                                         interface: VyperInterface,
                                          function: VyperFunction,
                                          args: List[Expr],
                                          to: Expr,
@@ -691,9 +692,11 @@ class ExpressionTranslator(NodeTranslator):
 
             translate = self.spec_translator.translate_postcondition
             pos = self.to_position(node, ctx, rules.INHALE_INTERFACE_FAIL)
-            stmts, exprs = self.collect(translate(post, ctx) for post in function.postconditions)
-            body.extend(stmts)
-            body.extend(self.viper_ast.Inhale(expr, pos) for expr in exprs)
+
+            with program_scope(interface, ctx):
+                stmts, exprs = self.collect(translate(post, ctx) for post in function.postconditions)
+                body.extend(stmts)
+                body.extend(self.viper_ast.Inhale(expr, pos) for expr in exprs)
 
             return body
 

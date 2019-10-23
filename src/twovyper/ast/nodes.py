@@ -96,6 +96,7 @@ class VyperEvent:
 class VyperProgram:
 
     def __init__(self,
+                 file: str,
                  config: VyperConfig,
                  fields: VyperStruct,
                  functions: Dict[str, VyperFunction],
@@ -107,6 +108,7 @@ class VyperProgram:
                  general_postconditions: List[ast.Expr],
                  transitive_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr]):
+        self.file = file
         self.config = config
         self.fields = fields
         self.functions = functions
@@ -128,13 +130,14 @@ class VyperProgram:
 class VyperInterface(VyperProgram):
 
     def __init__(self,
+                 file: str,
                  name: Optional[str],
                  config: VyperConfig,
                  functions: Dict[str, VyperFunction],
                  type: InterfaceType):
         struct_name = f'{name}$self'
         empty_struct = VyperStruct(struct_name, StructType(struct_name, {}), None)
-        super().__init__(config, empty_struct, functions, {}, {}, {}, {}, [], [], [], [])
+        super().__init__(file, config, empty_struct, functions, {}, {}, {}, {}, [], [], [], [])
         self.name = name
         self.type = type
 

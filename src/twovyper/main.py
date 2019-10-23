@@ -53,7 +53,7 @@ class TwoVyper:
             analyzer.analyze(interface)
         analyzer.analyze(vyper_program)
 
-        return translator.translate(vyper_program, path, self.jvm)
+        return translator.translate(vyper_program, self.jvm)
 
     def verify(self, program: Program, path: str, backend: str) -> VerificationResult:
         """

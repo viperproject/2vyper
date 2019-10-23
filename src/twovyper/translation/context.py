@@ -268,6 +268,16 @@ def interface_call_scope(ctx: Context):
 
 
 @contextmanager
+def program_scope(program, ctx: Context):
+    old_program = ctx.program
+    ctx.program = program
+
+    yield
+
+    ctx.program = old_program
+
+
+@contextmanager
 def self_scope(self_var, old_self_var, ctx: Context):
     all_vars = ctx.all_vars.copy()
     local_vars = ctx.locals.copy()

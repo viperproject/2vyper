@@ -95,7 +95,7 @@ class ProgramBuilder(ast.NodeVisitor):
 
         if self.is_interface:
             interface_type = InterfaceType(self.name)
-            return VyperInterface(self.name, self.config, self.functions, interface_type)
+            return VyperInterface(self.path, self.name, self.config, self.functions, interface_type)
         else:
             # Add self.balance
             assert not self.field_types.get(names.SELF_BALANCE)
@@ -104,7 +104,8 @@ class ProgramBuilder(ast.NodeVisitor):
             # Create the self-type
             self_type = StructType(names.SELF, self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
-            return VyperProgram(self.config,
+            return VyperProgram(self.path,
+                                self.config,
                                 self_struct,
                                 self.functions,
                                 self.interfaces,

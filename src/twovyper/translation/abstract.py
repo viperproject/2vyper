@@ -53,7 +53,7 @@ class PositionTranslator:
         the node and the position in the context for it.
         """
         id = self._register_potential_error(node, ctx, rules, vias, error_string)
-        return self.viper_ast.to_position(node, id, ctx.file)
+        return self.viper_ast.to_position(node, id, ctx.program.file)
 
     def no_position(self, error_string: str = None) -> Position:
         return self.viper_ast.NoPosition
