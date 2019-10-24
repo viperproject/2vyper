@@ -478,7 +478,7 @@ class ExpressionTranslator(NodeTranslator):
             stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
             rec_type = node.func.value.type
 
-            if isinstance(rec_type, types.StructType):
+            if isinstance(rec_type, types.SelfType):
                 call_stmts, res = self.function_translator.inline(node, args, ctx)
                 return stmts + call_stmts, res
             elif isinstance(rec_type, (ContractType, InterfaceType)):

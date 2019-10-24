@@ -9,7 +9,7 @@ import ast
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.types import FunctionType, StructType
+from twovyper.ast.types import FunctionType, StructType, SelfType
 from twovyper.ast.nodes import VyperFunction
 
 from twovyper.analysis.analyzer import FunctionAnalysis
@@ -29,22 +29,22 @@ def init_function() -> ast.FunctionDef:
     return function
 
 
-def self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
+def self_var(viper_ast: ViperAST, self_type: SelfType, pos=None, info=None):
     type = struct_type(viper_ast)
     return viper_ast.LocalVarDecl(mangled.SELF, type, pos, info)
 
 
-def old_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
+def old_self_var(viper_ast: ViperAST, self_type: SelfType, pos=None, info=None):
     type = struct_type(viper_ast)
     return viper_ast.LocalVarDecl(mangled.OLD_SELF, type, pos, info)
 
 
-def pre_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
+def pre_self_var(viper_ast: ViperAST, self_type: SelfType, pos=None, info=None):
     type = struct_type(viper_ast)
     return viper_ast.LocalVarDecl(mangled.PRE_SELF, type, pos, info)
 
 
-def issued_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
+def issued_self_var(viper_ast: ViperAST, self_type: SelfType, pos=None, info=None):
     type = struct_type(viper_ast)
     return viper_ast.LocalVarDecl(mangled.ISSUED_SELF, type, pos, info)
 

@@ -14,7 +14,7 @@ from twovyper.utils import first_index, NodeVisitor, switch
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.types import (
-    TypeBuilder, VyperType, MapType, ArrayType, StructType, ContractType, InterfaceType
+    TypeBuilder, VyperType, MapType, ArrayType, StructType, SelfType, ContractType, InterfaceType
 )
 from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperVar
 
@@ -421,7 +421,7 @@ class TypeAnnotator(NodeVisitor):
         elif isinstance(node.func, ast.Attribute):
 
             def expected(t):
-                is_self_call = isinstance(t, StructType)
+                is_self_call = isinstance(t, SelfType)
                 is_external_call = isinstance(t, (ContractType, InterfaceType))
                 is_log = t is None
                 return is_self_call or is_external_call or is_log
@@ -442,7 +442,7 @@ class TypeAnnotator(NodeVisitor):
                 return [None], [node]
 
             # A self call
-            if isinstance(receiver_type, StructType):
+            if isinstance(receiver_type, SelfType):
                 name = node.func.attr
                 function = self.program.functions[name]
                 return [function.type.return_type], [node]

@@ -22,7 +22,7 @@ from twovyper.ast.nodes import (
 )
 
 from twovyper.ast.types import (
-    TypeBuilder, FunctionType, EventType, StructType, ContractType, InterfaceType
+    TypeBuilder, FunctionType, EventType, StructType, SelfType, ContractType, InterfaceType
 )
 
 from twovyper.exceptions import InvalidProgramException
@@ -109,7 +109,7 @@ class ProgramBuilder(ast.NodeVisitor):
             self.field_types[names.SELF_BALANCE] = types.VYPER_WEI_VALUE
 
             # Create the self-type
-            self_type = StructType(names.SELF, self.field_types)
+            self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
             return VyperProgram(self.path,
                                 self.config,
