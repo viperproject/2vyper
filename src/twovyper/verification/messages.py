@@ -37,6 +37,8 @@ ERRORS = {
         lambda i: "Assert might fail.",
     'postcondition.violated':
         lambda i: f"Postcondition of {i.function} might not hold.",
+    'postcondition.not.implemented':
+        lambda i: f"Function {i.function} might not correctly implement an interface.",
     'invariant.violated':
         lambda i: f"Invariant not preserved by {i.function}.",
     'check.violated':

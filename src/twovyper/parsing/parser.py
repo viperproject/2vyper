@@ -69,6 +69,7 @@ class ProgramBuilder(ast.NodeVisitor):
         self.general_postconditions = []
         self.transitive_postconditions = []
         self.general_checks = []
+        self.implements = []
 
         self.postconditions = []
         self.checks = []
@@ -83,6 +84,8 @@ class ProgramBuilder(ast.NodeVisitor):
             type_map[name] = struct.type
         for name, contract in self.contracts.items():
             type_map[name] = contract.type
+        for name, interface in self.interfaces.items():
+            type_map[name] = interface.type
 
         return TypeBuilder(type_map)
 
@@ -95,7 +98,11 @@ class ProgramBuilder(ast.NodeVisitor):
 
         if self.is_interface:
             interface_type = InterfaceType(self.name)
-            return VyperInterface(self.path, self.name, self.config, self.functions, interface_type)
+            return VyperInterface(self.path,
+                                  self.name,
+                                  self.config,
+                                  self.functions,
+                                  interface_type)
         else:
             # Add self.balance
             assert not self.field_types.get(names.SELF_BALANCE)
@@ -115,7 +122,8 @@ class ProgramBuilder(ast.NodeVisitor):
                                 self.invariants,
                                 self.general_postconditions,
                                 self.transitive_postconditions,
-                                self.general_checks)
+                                self.general_checks,
+                                self.implements)
 
     def _check_no_local_spec(self):
         """
@@ -181,8 +189,13 @@ class ProgramBuilder(ast.NodeVisitor):
         self._check_no_local_spec()
 
         variable_name = node.target.id
-        # We ignore the units and implements declarations
-        if variable_name != names.UNITS and variable_name != names.IMPLEMENTS:
+        if variable_name == names.IMPLEMENTS:
+            # TODO: handle ERC20
+            if node.annotation.id not in ['ERC20', 'ERC721']:
+                interface_type = InterfaceType(node.annotation.id)
+                self.implements.append(interface_type)
+        # We ignore the units declarations
+        elif variable_name != names.UNITS:
             variable_type = self.type_builder.build(node.annotation)
             if isinstance(variable_type, EventType):
                 event = VyperEvent(variable_name, variable_type)

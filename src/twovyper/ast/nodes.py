@@ -100,14 +100,15 @@ class VyperProgram:
                  config: VyperConfig,
                  fields: VyperStruct,
                  functions: Dict[str, VyperFunction],
-                 interfaces: Dict[str, 'VyperProgram'],
+                 interfaces: Dict[str, 'VyperInterface'],
                  structs: Dict[str, VyperStruct],
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
                  invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
                  transitive_postconditions: List[ast.Expr],
-                 general_checks: List[ast.Expr]):
+                 general_checks: List[ast.Expr],
+                 implements: List[InterfaceType]):
         self.file = file
         self.config = config
         self.fields = fields
@@ -120,6 +121,7 @@ class VyperProgram:
         self.general_postconditions = general_postconditions
         self.transitive_postconditions = transitive_postconditions
         self.general_checks = general_checks
+        self.implements = implements
         # Gets set in the analyzer
         self.analysis = None
 
@@ -136,8 +138,14 @@ class VyperInterface(VyperProgram):
                  functions: Dict[str, VyperFunction],
                  type: InterfaceType):
         struct_name = f'{name}$self'
-        empty_struct = VyperStruct(struct_name, StructType(struct_name, {}), None)
-        super().__init__(file, config, empty_struct, functions, {}, {}, {}, {}, [], [], [], [])
+        empty_struct_type = StructType(struct_name, {})
+        empty_struct = VyperStruct(struct_name, empty_struct_type, None)
+        super().__init__(file,
+                         config,
+                         empty_struct,
+                         functions,
+                         {}, {}, {}, {},
+                         [], [], [], [], [])
         self.name = name
         self.type = type
 

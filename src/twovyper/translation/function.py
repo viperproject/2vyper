@@ -24,7 +24,7 @@ from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.context import (
-    Context, function_scope, inline_scope, self_scope
+    Context, function_scope, inline_scope, self_scope, program_scope
 )
 
 from twovyper.translation import mangled
@@ -316,6 +316,20 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                     via = [Via('general postcondition', post_pos)]
                     func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via)
                     post_stmts.append(self.viper_ast.Assert(cond, func_pos))
+
+            for itype in ctx.program.implements:
+                interface = ctx.program.interfaces[itype.name]
+                if function.name not in interface.functions:
+                    continue
+                ifunc = interface.functions[function.name]
+                pos_node = function.node or ctx.program.node
+                for post in ifunc.postconditions:
+                    post_pos = self.to_position(pos_node, ctx, rules.INTERFACE_POSTCONDITION_FAIL)
+                    with program_scope(interface, ctx):
+                        stmts, cond = self.specification_translator.translate_postcondition(post, ctx, False)
+                    post_assert = self.viper_ast.Assert(cond, post_pos)
+                    post_stmts.extend(stmts)
+                    post_stmts.append(post_assert)
 
             body.extend(self._seqn_with_info(post_stmts, "Assert postconditions"))
 

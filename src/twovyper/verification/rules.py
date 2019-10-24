@@ -34,6 +34,11 @@ POSTCONDITION_FAIL = {
         ('not.wellformed', 'seq.index.negative')
 }
 
+INTERFACE_POSTCONDITION_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('postcondition.not.implemented', 'assertion.false')
+}
+
 CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('check.violated', 'assertion.false'),
