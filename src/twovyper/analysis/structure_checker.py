@@ -42,6 +42,14 @@ class ProgramChecker(ast.NodeVisitor):
             self.visit(func.node)
             self.is_pure = False
 
+    def visit_Assert(self, node: ast.Assert):
+        if self.is_pure:
+            raise InvalidProgramException(node, 'pure.not.pure')
+
+    def visit_Raise(self, node: ast.Raise):
+        if self.is_pure:
+            raise InvalidProgramException(node, 'pure.not.pure')
+
     def visit_Call(self, node: ast.Call):
         if isinstance(node.func, ast.Name):
             name = node.func.id
@@ -49,6 +57,8 @@ class ProgramChecker(ast.NodeVisitor):
             if name == names.RAW_CALL:
                 if names.RAW_CALL_DELEGATE_CALL in [kw.arg for kw in node.keywords]:
                     raise UnsupportedException(node, 'Delegate calls are not supported.')
+            elif name == names.ASSERT_MODIFIABLE and self.is_pure:
+                raise InvalidProgramException(node, 'pure.not.pure')
         elif isinstance(node.func, ast.Attribute) and self.is_pure:
             fname = node.func.attr
             if isinstance(node.func.value, ast.Name):
