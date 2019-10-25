@@ -66,18 +66,25 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # The tx variable
             tx_type = self.type_translator.translate(types.TX_TYPE, ctx)
             locals[names.TX] = self.viper_ast.LocalVarDecl(mangled.TX, tx_type)
-            state = {}
-            state[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
+
+            ctx.present_state[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
             # The last publicly visible state of self
-            state[mangled.OLD_SELF] = helpers.old_self_var(self.viper_ast, ctx.self_type)
+            ctx.old_state[names.SELF] = helpers.old_self_var(self.viper_ast, ctx.self_type)
             # The state of self before the function call
-            state[mangled.PRE_SELF] = helpers.pre_self_var(self.viper_ast, ctx.self_type)
+            ctx.pre_state[names.SELF] = helpers.pre_self_var(self.viper_ast, ctx.self_type)
             # The state of self when the transaction was issued
-            state[mangled.ISSUED_SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
+            ctx.issued_state[names.SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
+            # Usually self refers to the present state and old(self) refers to the old state
+            ctx.current_state = ctx.present_state
+            ctx.current_old_state = ctx.old_state
             # We create copies of variable maps because ctx is allowed to modify them
             ctx.args = args.copy()
             ctx.locals = locals.copy()
-            ctx.current_state = state.copy()
+
+            state_dicts = [ctx.present_state, ctx.old_state, ctx.pre_state, ctx.issued_state]
+            state = {}
+            for d in state_dicts:
+                state.update(**{str(val.name()): val for val in d.values()})
 
             self_var = ctx.self_var.localVar()
             old_self_var = ctx.old_self_var.localVar()

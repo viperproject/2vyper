@@ -8,7 +8,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from contextlib import contextmanager
 
 from twovyper.ast import names
-from twovyper.translation import mangled
 from twovyper.utils import DicitionaryView
 
 
@@ -26,8 +25,17 @@ class Context:
 
         self.args = {}
         self.locals = {}
+        # The state which is currently regarded as 'present'
         self.current_state = {}
+        # The state which is currently regarded as 'old'
+        self.current_old_state = {}
         self.quantified_vars = {}
+
+        # The actual preset, old, pre, and issued states
+        self.present_state = {}
+        self.old_state = {}
+        self.pre_state = {}
+        self.issued_state = {}
 
         self._break_label_counter = -1
         self._continue_label_counter = -1
@@ -60,19 +68,31 @@ class Context:
 
     @property
     def self_var(self):
-        return self.all_vars[names.SELF]
+        """
+        The variable declaration to which `self` currently refers.
+        """
+        return self.current_state[names.SELF]
 
     @property
     def old_self_var(self):
-        return self.all_vars[mangled.OLD_SELF]
+        """
+        The variable declaration to which `old(self)` currently refers.
+        """
+        return self.current_old_state[names.SELF]
 
     @property
     def pre_self_var(self):
-        return self.all_vars[mangled.PRE_SELF]
+        """
+        The state of `self` before the function call.
+        """
+        return self.pre_state[names.SELF]
 
     @property
     def issued_self_var(self):
-        return self.all_vars[mangled.ISSUED_SELF]
+        """
+        The state of `self` when issuing the transaction.
+        """
+        return self.issued_state[names.SELF]
 
     @property
     def msg_var(self):
@@ -284,14 +304,29 @@ def program_scope(program, ctx: Context):
 
 
 @contextmanager
-def self_scope(self_var, old_self_var, ctx: Context):
+def state_scope(present_state, old_state, ctx: Context):
     current_state = ctx.current_state.copy()
-    ctx.current_state[names.SELF] = self_var
-    ctx.current_state[mangled.OLD_SELF] = old_self_var
+    current_old_state = ctx.current_old_state.copy()
+    ctx.current_state = present_state
+    ctx.current_old_state = old_state
 
     yield
 
     ctx.current_state = current_state
+    ctx.current_old_state = current_old_state
+
+
+@contextmanager
+def self_scope(self_var, old_self_var, ctx: Context):
+    current_state = ctx.current_state.copy()
+    current_old_state = ctx.current_old_state.copy()
+    ctx.current_state[names.SELF] = self_var
+    ctx.current_old_state[names.SELF] = old_self_var
+
+    yield
+
+    ctx.current_state = current_state
+    ctx.current_old_state = current_old_state
 
 
 @contextmanager
