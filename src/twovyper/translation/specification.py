@@ -236,7 +236,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 return stmts, self.viper_ast.PredicateAccessPredicate(pred_acc, full_perm, pos)
         elif name == names.REORDER_INDEPENDENT:
             stmts, arg = self.translate(node.args[0], ctx)
-            # Using the current msg_var is only ok if we don't support gas, i.e. if msg is constant
+            # Using the current msg_var is ok since we don't use msg.gas, but always return fresh values,
+            # therefore msg is constant
             variables = [ctx.issued_self_var, ctx.msg_var, *ctx.args.values()]
             low_variables = [self.viper_ast.Low(var.localVar()) for var in variables]
             cond = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_variables)
