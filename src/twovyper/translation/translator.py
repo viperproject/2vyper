@@ -5,11 +5,11 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import List
+from typing import Dict, List
 
 from twovyper import resources
 
-from twovyper.utils import seq_to_list
+from twovyper.utils import flatten, seq_to_list
 
 from twovyper.ast import names
 from twovyper.ast import types
@@ -22,7 +22,7 @@ from twovyper.translation.function import FunctionTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.balance import BalanceTranslator
-from twovyper.translation.context import Context, function_scope, self_scope
+from twovyper.translation.context import Context, function_scope, state_scope
 
 from twovyper.translation import mangled
 from twovyper.translation import helpers
@@ -34,6 +34,9 @@ from twovyper.viper.parser import ViperParser
 from twovyper.viper.typedefs import Program, Stmt, Expr
 
 from twovyper.verification import rules
+
+
+State = Dict[str, Expr]
 
 
 def translate(vyper_program: VyperProgram, jvm: JVM) -> Program:
@@ -209,9 +212,9 @@ class ProgramTranslator(PositionTranslator):
             args.append(self.viper_ast.LocalVarDecl(arg_name, arg_type))
         return self.viper_ast.Predicate(name, args, None)
 
-    def _assume_assertions(self, self_state: Expr, old_state: Expr, ctx: Context) -> List[Stmt]:
+    def _assume_assertions(self, self_state: State, old_state: State, ctx: Context) -> List[Stmt]:
         body = []
-        with self_scope(self_state, old_state, ctx):
+        with state_scope(self_state, old_state, ctx):
             for inv in ctx.unchecked_invariants():
                 body.append(self.viper_ast.Inhale(inv))
             for inv in ctx.program.invariants:
@@ -246,13 +249,13 @@ class ProgramTranslator(PositionTranslator):
             name = mangled.TRANSITIVITY_CHECK
 
             self_type = self.type_translator.translate(ctx.self_type, ctx)
-            states = [self.viper_ast.LocalVarDecl(f'$s{i}', self_type) for i in range(3)]
+            states = [{names.SELF: self.viper_ast.LocalVarDecl(f'$s{i}', self_type)} for i in range(3)]
 
             block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
             block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
             ctx.locals[names.BLOCK] = block
             is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
-            local_vars = [*states, block, is_post]
+            local_vars = [*flatten(s.values() for s in states), block, is_post]
 
             body = []
 
@@ -261,9 +264,10 @@ class ProgramTranslator(PositionTranslator):
 
             # Assume type assumptions for all self-states
             for state in states:
-                var = state.localVar()
-                type_assumptions = self.type_translator.type_assumptions(var, ctx.self_type, ctx)
-                body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
+                for var in state.values():
+                    local = var.localVar()
+                    type_assumptions = self.type_translator.type_assumptions(local, ctx.self_type, ctx)
+                    body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
 
             # Assume type assumptions for block
             block_var = block.localVar()
@@ -280,7 +284,7 @@ class ProgramTranslator(PositionTranslator):
             assume_assertions(states[2], states[1])
 
             # Check invariants for current state 2 and old state 0
-            with self_scope(states[2], states[0], ctx):
+            with state_scope(states[2], states[0], ctx):
                 for inv in ctx.program.invariants:
                     rule = rules.INVARIANT_TRANSITIVITY_VIOLATED
                     apos = self.to_position(inv, ctx, rule)
@@ -340,14 +344,16 @@ class ProgramTranslator(PositionTranslator):
             assume_non_negative = self.viper_ast.Inhale(self.viper_ast.GeCmp(havoc.localVar(), zero))
             body.append(assume_non_negative)
 
-            assume_assertions(self_var, self_var)
+            self_state = {names.SELF: self_var}
+            pre_self_state = {names.SELF: pre_self_var}
+            assume_assertions(self_state, self_state)
 
             body.append(self.viper_ast.LocalVarAssign(pre_self_local, self_local))
 
-            with self_scope(self_var, self_var, ctx):
+            with state_scope(self_state, self_state, ctx):
                 body.append(self.balance_translator.increase_balance(havoc.localVar(), ctx))
 
-            with self_scope(self_var, pre_self_var, ctx):
+            with state_scope(self_state, pre_self_state, ctx):
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)

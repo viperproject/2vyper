@@ -19,7 +19,7 @@ from twovyper.viper.typedefs import StmtsAndExpr
 
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.context import (
-    Context, quantified_var_scope, self_scope, inside_trigger_scope
+    Context, quantified_var_scope, state_scope, inside_trigger_scope
 )
 
 from twovyper.translation import mangled
@@ -46,8 +46,8 @@ class SpecificationTranslator(ExpressionTranslator):
     def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False):
         # For postconditions the old state is the state before the function call, except for
         # __init__ where we use the self state instead (since there is no pre-state)
-        old_var = ctx.self_var if is_init else ctx.pre_self_var
-        with self_scope(ctx.self_var, old_var, ctx):
+        old_state = ctx.present_state if is_init else ctx.pre_state
+        with state_scope(ctx.present_state, old_state, ctx):
             return self.translate(post, ctx)
 
     def translate_check(self, check: ast.AST, ctx: Context, is_fail=False):
@@ -169,8 +169,8 @@ class SpecificationTranslator(ExpressionTranslator):
             else:
                 return [], success
         elif name == names.OLD or name == names.ISSUED:
-            self_var = ctx.old_self_var if name == names.OLD else ctx.issued_self_var
-            with self_scope(self_var, self_var, ctx):
+            self_state = ctx.current_old_state if name == names.OLD else ctx.issued_state
+            with state_scope(self_state, self_state, ctx):
                 arg = node.args[0]
                 return self.translate(arg, ctx)
         elif name == names.SUM:

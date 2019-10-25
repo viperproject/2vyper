@@ -24,7 +24,7 @@ from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.context import (
-    Context, function_scope, inline_scope, self_scope, program_scope
+    Context, function_scope, inline_scope, state_scope, program_scope
 )
 
 from twovyper.translation import mangled
@@ -157,7 +157,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # Translate the invariants for the issued state. Since we don't know anything about
             # the state before then, we use the issued state itself as the old state
             if not is_init and function.analysis.uses_issued:
-                with self_scope(ctx.issued_self_var, ctx.issued_self_var, ctx):
+                with state_scope(ctx.issued_state, ctx.issued_state, ctx):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_issued.append(self.viper_ast.Inhale(inv))
 
@@ -171,8 +171,8 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # issued state as the old state, else we just use the self state as the old state
             # which results in fewer assumptions passed to the prover
             if not is_init:
-                last_state = ctx.issued_self_var if function.analysis.uses_issued else ctx.self_var
-                with self_scope(ctx.self_var, last_state, ctx):
+                last_state = ctx.issued_state if function.analysis.uses_issued else ctx.present_state
+                with state_scope(ctx.present_state, last_state, ctx):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_self.append(self.viper_ast.Inhale(inv))
 

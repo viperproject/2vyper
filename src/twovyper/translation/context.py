@@ -317,19 +317,6 @@ def state_scope(present_state, old_state, ctx: Context):
 
 
 @contextmanager
-def self_scope(self_var, old_self_var, ctx: Context):
-    current_state = ctx.current_state.copy()
-    current_old_state = ctx.current_old_state.copy()
-    ctx.current_state[names.SELF] = self_var
-    ctx.current_old_state[names.SELF] = old_self_var
-
-    yield
-
-    ctx.current_state = current_state
-    ctx.current_old_state = current_old_state
-
-
-@contextmanager
 def break_scope(ctx: Context):
     break_label = ctx.break_label
     ctx.break_label = ctx._next_break_label()
