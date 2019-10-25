@@ -57,13 +57,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
-            locals[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
-            # The last publicly visible state of self
-            locals[mangled.OLD_SELF] = helpers.old_self_var(self.viper_ast, ctx.self_type)
-            # The state of self before the function call
-            locals[mangled.PRE_SELF] = helpers.pre_self_var(self.viper_ast, ctx.self_type)
-            # The state of self when the transaction was issued
-            locals[mangled.ISSUED_SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
             # The block variable
             block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
             locals[names.BLOCK] = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
@@ -73,10 +66,18 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # The tx variable
             tx_type = self.type_translator.translate(types.TX_TYPE, ctx)
             locals[names.TX] = self.viper_ast.LocalVarDecl(mangled.TX, tx_type)
-            # We create copies of args and locals because ctx is allowed to modify them
+            state = {}
+            state[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
+            # The last publicly visible state of self
+            state[mangled.OLD_SELF] = helpers.old_self_var(self.viper_ast, ctx.self_type)
+            # The state of self before the function call
+            state[mangled.PRE_SELF] = helpers.pre_self_var(self.viper_ast, ctx.self_type)
+            # The state of self when the transaction was issued
+            state[mangled.ISSUED_SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
+            # We create copies of variable maps because ctx is allowed to modify them
             ctx.args = args.copy()
             ctx.locals = locals.copy()
-            ctx.all_vars = {**args, **locals}
+            ctx.current_state = state.copy()
 
             self_var = ctx.self_var.localVar()
             old_self_var = ctx.old_self_var.localVar()
@@ -454,7 +455,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.extend(self._seqn_with_info(accessibles, "Assert accessibles"))
 
             args_list = list(args.values())
-            locals_list = [*locals.values(), *ctx.new_local_vars]
+            locals_list = [*state.values(), *locals.values(), *ctx.new_local_vars]
 
             viper_name = mangled.method_name(function.name)
             method = self.viper_ast.Method(viper_name, args_list, rets, [], [], locals_list, body, pos)
@@ -479,7 +480,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
             msg_name = ctx.inline_prefix + mangled.MSG
             msg_decl = self.viper_ast.LocalVarDecl(msg_name, msg_type)
-            ctx.all_vars[names.MSG] = msg_decl
             ctx.locals[names.MSG] = msg_decl
             ctx.new_local_vars.append(msg_decl)
 
@@ -487,14 +487,14 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             for (name, var), arg in zip(function.args.items(), args):
                 apos = self.to_position(var.node, ctx)
                 arg_decl = self._translate_var(var, ctx)
-                ctx.all_vars[name] = arg_decl
+                ctx.args[name] = arg_decl
                 ctx.new_local_vars.append(arg_decl)
                 body.append(self.viper_ast.LocalVarAssign(arg_decl.localVar(), arg, apos))
 
             # Add prefixed locals to local vars
             for name, var in function.local_vars.items():
                 var_decl = self._translate_var(var, ctx)
-                ctx.all_vars[name] = var_decl
+                ctx.locals[name] = var_decl
                 ctx.new_local_vars.append(var_decl)
 
             # Define return var

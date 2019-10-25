@@ -9,6 +9,7 @@ from contextlib import contextmanager
 
 from twovyper.ast import names
 from twovyper.translation import mangled
+from twovyper.utils import DicitionaryView
 
 
 class Context:
@@ -23,9 +24,9 @@ class Context:
 
         self.function = None
 
-        self.all_vars = {}
         self.args = {}
         self.locals = {}
+        self.current_state = {}
         self.quantified_vars = {}
 
         self._break_label_counter = -1
@@ -47,6 +48,11 @@ class Context:
         self._inline_counter = -1
         self._current_inline = -1
         self.inline_vias = []
+
+    @property
+    def all_vars(self):
+        var_dicts = [self.quantified_vars, self.current_state, self.locals, self.args]
+        return DicitionaryView(var_dicts)
 
     @property
     def self_type(self):
@@ -114,9 +120,9 @@ def function_scope(ctx: Context):
 
     function = ctx.function
 
-    all_vars = ctx.all_vars
     args = ctx.args
     locals = ctx.locals
+    current_state = ctx.current_state
     quantified_vars = ctx.quantified_vars
 
     _break_label_counter = ctx._break_label_counter
@@ -141,9 +147,9 @@ def function_scope(ctx: Context):
 
     ctx.function = None
 
-    ctx.all_vars = {}
     ctx.args = {}
     ctx.locals = {}
+    ctx.current_state = {}
     ctx.quantified_vars = {}
 
     ctx._break_label_counter = -1
@@ -169,9 +175,9 @@ def function_scope(ctx: Context):
 
     ctx.function = function
 
-    ctx.all_vars = all_vars
     ctx.args = args
     ctx.locals = locals
+    ctx.current_state = current_state
     ctx.quantified_vars = quantified_vars
 
     ctx._break_label_counter = _break_label_counter
@@ -197,14 +203,12 @@ def function_scope(ctx: Context):
 
 @contextmanager
 def quantified_var_scope(ctx: Context):
-    all_vars = ctx.all_vars.copy()
     quantified_vars = ctx.quantified_vars.copy()
     quantified_var_counter = ctx._quantified_var_counter
     ctx.quantified_var_counter = -1
 
     yield
 
-    ctx.all_vars = all_vars
     ctx.quantified_vars = quantified_vars
     ctx._quantified_var_counter = quantified_var_counter
 
@@ -227,7 +231,8 @@ def inline_scope(via, ctx: Context):
     return_label = ctx.return_label
     ctx.return_label = None
 
-    all_vars = ctx.all_vars.copy()
+    local_vars = ctx.locals.copy()
+    args = ctx.args.copy()
     old_inline = ctx._current_inline
     ctx._inline_counter += 1
     ctx._current_inline = ctx._inline_counter
@@ -240,7 +245,8 @@ def inline_scope(via, ctx: Context):
     ctx.result_var = result_var
     ctx.return_label = return_label
 
-    ctx.all_vars = all_vars
+    ctx.locals = local_vars
+    ctx.args = args
     ctx._current_inline = old_inline
 
     ctx.inline_vias = inline_vias
@@ -253,7 +259,7 @@ def interface_call_scope(ctx: Context):
     success_var = ctx.success_var
     ctx.success_var = None
 
-    all_vars = ctx.all_vars.copy()
+    local_vars = ctx.locals.copy()
     old_inline = ctx._current_inline
     ctx._inline_counter += 1
     ctx._current_inline = ctx._inline_counter
@@ -263,7 +269,7 @@ def interface_call_scope(ctx: Context):
     ctx.result_var = result_var
     ctx.success_var = success_var
 
-    ctx.all_vars = all_vars
+    ctx.locals = local_vars
     ctx._current_inline = old_inline
 
 
@@ -279,17 +285,13 @@ def program_scope(program, ctx: Context):
 
 @contextmanager
 def self_scope(self_var, old_self_var, ctx: Context):
-    all_vars = ctx.all_vars.copy()
-    local_vars = ctx.locals.copy()
-    ctx.all_vars[names.SELF] = self_var
-    ctx.locals[names.SELF] = self_var
-    ctx.all_vars[mangled.OLD_SELF] = old_self_var
-    ctx.locals[mangled.OLD_SELF] = old_self_var
+    current_state = ctx.current_state.copy()
+    ctx.current_state[names.SELF] = self_var
+    ctx.current_state[mangled.OLD_SELF] = old_self_var
 
     yield
 
-    ctx.all_vars = all_vars
-    ctx.locals = local_vars
+    ctx.current_state = current_state
 
 
 @contextmanager

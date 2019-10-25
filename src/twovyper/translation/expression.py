@@ -668,7 +668,6 @@ class ExpressionTranslator(NodeTranslator):
             msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
             msg_name = ctx.inline_prefix + mangled.MSG
             msg_decl = self.viper_ast.LocalVarDecl(msg_name, msg_type)
-            ctx.all_vars[names.MSG] = msg_decl
             ctx.locals[names.MSG] = msg_decl
             ctx.new_local_vars.append(msg_decl)
 
@@ -689,7 +688,7 @@ class ExpressionTranslator(NodeTranslator):
             for (name, var), arg in zip(function.args.items(), args):
                 apos = arg.pos()
                 arg_decl = self._translate_var(var, ctx)
-                ctx.all_vars[name] = arg_decl
+                ctx.locals[name] = arg_decl
                 ctx.new_local_vars.append(arg_decl)
                 body.append(self.viper_ast.LocalVarAssign(arg_decl.localVar(), arg, apos))
 

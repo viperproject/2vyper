@@ -250,7 +250,7 @@ class ProgramTranslator(PositionTranslator):
 
             block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
             block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
-            ctx.all_vars[names.BLOCK] = block
+            ctx.locals[names.BLOCK] = block
             is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
             local_vars = [*states, block, is_post]
 
@@ -316,7 +316,7 @@ class ProgramTranslator(PositionTranslator):
 
             block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
             block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
-            ctx.all_vars[names.BLOCK] = block
+            ctx.locals[names.BLOCK] = block
             is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
             havoc = self.viper_ast.LocalVarDecl('$havoc', self.viper_ast.Int)
             local_vars = [self_var, pre_self_var, block, is_post, havoc]

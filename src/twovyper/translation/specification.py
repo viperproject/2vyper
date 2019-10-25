@@ -97,7 +97,6 @@ class SpecificationTranslator(ExpressionTranslator):
                     type_assumptions.extend(tassps)
                     quants.append(var_decl)
                     ctx.quantified_vars[var_name.id] = var_decl
-                    ctx.all_vars[var_name.id] = var_decl
 
                 # The last argument to forall is the quantified expression
                 expr = self._translate_spec(node.args[num_args - 1], ctx)
