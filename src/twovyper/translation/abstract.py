@@ -71,7 +71,7 @@ class PositionTranslator:
         return self.to_info([])
 
 
-class CommonTranslator:
+class CommonTranslator(PositionTranslator):
 
     def collect(self, se: List[StmtsAndExpr]):
         stmts = []
@@ -85,14 +85,14 @@ class CommonTranslator:
         body = [*stmts, self.viper_ast.Goto(ctx.revert_label, pos)]
         return self.viper_ast.If(cond, body, [], pos, info)
 
-    def _seqn_with_info(self, stmts: [Stmt], comment: str) -> [Stmt]:
+    def _seqn_with_info(self, stmts: [Stmt], comment: str) -> List[Stmt]:
         if not stmts:
             return stmts
         info = self.to_info([comment])
         return [self.viper_ast.Seqn(stmts, info=info)]
 
 
-class NodeTranslator(NodeVisitor, PositionTranslator, CommonTranslator):
+class NodeTranslator(NodeVisitor, CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)

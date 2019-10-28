@@ -47,7 +47,7 @@ class ProgramChecker(ast.NodeVisitor):
             raise InvalidProgramException(node, 'pure.not.pure')
 
     def visit_Raise(self, node: ast.Raise):
-        if self.is_pure:
+        if self.is_pure and not self.program.is_interface():
             raise InvalidProgramException(node, 'pure.not.pure')
 
     def visit_Call(self, node: ast.Call):
@@ -92,9 +92,6 @@ class SpecStructureChecker(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call):
         if isinstance(node.func, ast.Attribute):
-            _assert(isinstance(node.func.value, ast.Name), node, 'spec.call')
-            _assert(node.func.value.id == names.SELF, node, 'spec.call')
-            _assert(self.program.functions[node.func.attr].is_pure(), node, 'spec.call')
             self.generic_visit(node)
         else:
             _assert(isinstance(node.func, ast.Name), node, 'spec.call')

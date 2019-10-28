@@ -49,6 +49,11 @@ def issued_self_var(viper_ast: ViperAST, self_type: SelfType, pos=None, info=Non
     return viper_ast.LocalVarDecl(mangled.ISSUED_SELF, type, pos, info)
 
 
+def contract_var(viper_ast: ViperAST, name: str, pos=None, info=None):
+    type = map_type(viper_ast, viper_ast.Int, struct_type(viper_ast))
+    return viper_ast.LocalVarDecl(name, type, pos, info)
+
+
 def msg_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.MSG, viper_ast.Ref, pos, info)
 
@@ -87,16 +92,6 @@ def msg_sender_call_fail_var(viper_ast: ViperAST, pos=None, info=None):
 
 def first_public_state_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.FIRST_PUBLIC_STATE, viper_ast.Bool, pos, info)
-
-
-def check_first_public_state(viper_ast: ViperAST, ctx: Context, set_false: bool, pos=None, info=None):
-    self_var = ctx.self_var.localVar()
-    old_self_var = ctx.old_self_var.localVar()
-    first_public_state = first_public_state_var(viper_ast, pos).localVar()
-    old_assign = viper_ast.LocalVarAssign(old_self_var, self_var)
-    var_assign = viper_ast.LocalVarAssign(first_public_state, viper_ast.FalseLit(pos), pos)
-    stmts = [old_assign, var_assign] if set_false else [old_assign]
-    return viper_ast.If(first_public_state, stmts, [], pos, info)
 
 
 def self_address(viper_ast: ViperAST, pos=None, info=None):

@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import Dict, List
+from typing import List
 
 from twovyper import resources
 
@@ -13,10 +13,11 @@ from twovyper.utils import flatten, seq_to_list
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction
+from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, VyperInterface
 
 from twovyper.exceptions import ConsistencyException
 
+from twovyper.translation import helpers, mangled, State
 from twovyper.translation.abstract import PositionTranslator
 from twovyper.translation.function import FunctionTranslator
 from twovyper.translation.type import TypeTranslator
@@ -24,19 +25,13 @@ from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.context import Context, function_scope, state_scope
 
-from twovyper.translation import mangled
-from twovyper.translation import helpers
-
 from twovyper.viper import sif
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.jvmaccess import JVM
 from twovyper.viper.parser import ViperParser
-from twovyper.viper.typedefs import Program, Stmt, Expr
+from twovyper.viper.typedefs import Program, Stmt
 
 from twovyper.verification import rules
-
-
-State = Dict[str, Expr]
 
 
 def translate(vyper_program: VyperProgram, jvm: JVM) -> Program:
@@ -121,6 +116,10 @@ class ProgramTranslator(PositionTranslator):
         structs = vyper_program.structs.values()
         domains.extend(self._translate_struct(struct, ctx) for struct in structs)
 
+        # Interfaces
+        interfaces = vyper_program.interfaces.values()
+        domains.extend(self._translate_interface(interface, ctx) for interface in interfaces)
+
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
         accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
@@ -191,6 +190,24 @@ class ProgramTranslator(PositionTranslator):
         eq_axiom = self.viper_ast.DomainAxiom(eq_axiom_name, eq_quant, domain)
 
         return self.viper_ast.Domain(domain, [init_f, eq_f], [init_axiom, eq_axiom], [])
+
+    def _translate_interface(self, interface: VyperInterface, ctx: Context):
+        domain = mangled.interface_name(interface.name)
+        functions = []
+        for function in interface.functions.values():
+            if function.is_pure() and function.type.return_type:
+                fname = mangled.interface_function_name(interface.name, function.name)
+                self_var = self.viper_ast.LocalVarDecl('$self', helpers.struct_type(self.viper_ast))
+                args = [self_var]
+                for idx, var in enumerate(function.args.values()):
+                    arg_name = f'$arg_{idx}'
+                    arg_type = self.type_translator.translate(var.type, ctx)
+                    arg_decl = self.viper_ast.LocalVarDecl(arg_name, arg_type)
+                    args.append(arg_decl)
+                type = self.type_translator.translate(function.type.return_type, ctx)
+                functions.append(self.viper_ast.DomainFunc(fname, args, type, False, domain))
+
+        return self.viper_ast.Domain(domain, functions, [], [])
 
     def _translate_event(self, event: VyperEvent, ctx: Context):
         name = mangled.event_name(event.name)

@@ -11,6 +11,8 @@ from contextlib import contextmanager
 from functools import reduce
 
 from twovyper.ast import names
+from twovyper.ast import types
+from twovyper.ast.types import InterfaceType
 
 from twovyper.utils import switch
 
@@ -74,7 +76,24 @@ class SpecificationTranslator(ExpressionTranslator):
         pos = self.to_position(node, ctx)
 
         if isinstance(node.func, ast.Attribute):
-            return super().translate_Call(node, ctx)
+            if isinstance(node.func.value.type, InterfaceType):
+                interface = ctx.program.interfaces[node.func.value.type.name]
+                function = interface.functions[node.func.attr]
+
+                to_stmts, to = self.translate(node.func.value, ctx)
+                args, args_stmts = self.collect(self.translate(arg, ctx) for arg in node.args)
+
+                contracts = ctx.current_state[mangled.CONTRACTS].localVar()
+                key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
+                value_type = helpers.struct_type(self.viper_ast)
+                struct = helpers.map_get(self.viper_ast, contracts, to, key_type, value_type)
+                func = mangled.interface_function_name(interface.name, function.name)
+                fargs = [struct, *args]
+                fdomain = mangled.interface_name(interface.name)
+                func_ret_type = self.type_translator.translate(function.type.return_type, ctx)
+                return to_stmts + args_stmts, self.viper_ast.DomainFuncApp(func, fargs, func_ret_type, None, None, fdomain)
+            else:
+                return super().translate_Call(node, ctx)
 
         name = node.func.id
         if name == names.IMPLIES:

@@ -17,12 +17,13 @@ from twovyper.ast.nodes import VyperFunction, VyperVar
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
 
-from twovyper.translation.abstract import PositionTranslator, CommonTranslator
+from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.statement import StatementTranslator
 from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.balance import BalanceTranslator
+from twovyper.translation.state import StateTranslator
 from twovyper.translation.context import (
     Context, function_scope, inline_scope, state_scope, program_scope
 )
@@ -34,7 +35,7 @@ from twovyper.verification import rules
 from twovyper.verification.error import Via
 
 
-class FunctionTranslator(PositionTranslator, CommonTranslator):
+class FunctionTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
@@ -43,6 +44,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
         self.specification_translator = SpecificationTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
         self.balance_translator = BalanceTranslator(viper_ast)
+        self.state_translator = StateTranslator(viper_ast)
 
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
         with function_scope(ctx):
@@ -67,13 +69,20 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             tx_type = self.type_translator.translate(types.TX_TYPE, ctx)
             locals[names.TX] = self.viper_ast.LocalVarDecl(mangled.TX, tx_type)
 
+            # We represent self as a struct in each state (present, old, pre, issued).
+            # For other contracts we use a map from addresses to structs.
+
             ctx.present_state[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
-            # The last publicly visible state of self
+            ctx.present_state[mangled.CONTRACTS] = helpers.contract_var(self.viper_ast, mangled.CONTRACTS)
+            # The last publicly visible state of the blockchain
             ctx.old_state[names.SELF] = helpers.old_self_var(self.viper_ast, ctx.self_type)
-            # The state of self before the function call
+            ctx.old_state[mangled.CONTRACTS] = helpers.contract_var(self.viper_ast, mangled.OLD_CONTRACTS)
+            # The state of the blockchain before the function call
             ctx.pre_state[names.SELF] = helpers.pre_self_var(self.viper_ast, ctx.self_type)
-            # The state of self when the transaction was issued
+            ctx.pre_state[mangled.CONTRACTS] = helpers.contract_var(self.viper_ast, mangled.PRE_CONTRACTS)
+            # The state of the blockchain when the transaction was issued
             ctx.issued_state[names.SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
+            ctx.issued_state[mangled.CONTRACTS] = helpers.contract_var(self.viper_ast, mangled.ISSUED_CONTRACTS)
             # Usually self refers to the present state and old(self) refers to the old state
             ctx.current_state = ctx.present_state
             ctx.current_old_state = ctx.old_state
@@ -87,7 +96,6 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 state.update(**{str(val.name()): val for val in d.values()})
 
             self_var = ctx.self_var.localVar()
-            old_self_var = ctx.old_self_var.localVar()
             pre_self_var = ctx.pre_self_var.localVar()
             issued_self_var = ctx.issued_self_var.localVar()
 
@@ -188,9 +196,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             body.extend(self._seqn_with_info(inv_pres_self, iv_info_msg))
 
             # old_self and pre_self are the same as self in the beginning
-            copy_old = self.viper_ast.LocalVarAssign(old_self_var, self_var)
-            copy_pre = self.viper_ast.LocalVarAssign(pre_self_var, self_var)
-            body.extend([copy_old, copy_pre])
+            copy_old = self.state_translator.copy_state(ctx.present_state, ctx.old_state, ctx)
+            copy_pre = self.state_translator.copy_state(ctx.present_state, ctx.pre_state, ctx)
+            body.extend(copy_old)
+            body.extend(copy_pre)
 
             def returnBool(value: bool) -> Stmt:
                 lit = self.viper_ast.TrueLit if value else self.viper_ast.FalseLit
@@ -278,9 +287,10 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
                 havoc = self._havoc_var(ctx.result_var.typ(), ctx)
                 body.append(self.viper_ast.LocalVarAssign(ctx.result_var.localVar(), havoc))
             # Revert self and old_self to the state before the function
-            copy_self = self.viper_ast.LocalVarAssign(self_var, pre_self_var)
-            copy_old = self.viper_ast.LocalVarAssign(old_self_var, pre_self_var)
-            body.extend([copy_self, copy_old])
+            copy_present = self.state_translator.copy_state(ctx.pre_state, ctx.present_state, ctx)
+            copy_old = self.state_translator.copy_state(ctx.pre_state, ctx.old_state, ctx)
+            body.extend(copy_present)
+            body.extend(copy_old)
 
             # The end of a program, label where return statements jump to
             body.append(end_label)
@@ -300,7 +310,7 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
             # However, the state has to be set again after havocing the balance, therefore
             # we don't update the flag
             if is_init:
-                body.append(helpers.check_first_public_state(self.viper_ast, ctx, False))
+                body.append(self.state_translator.check_first_public_state(ctx, False))
 
             # Assert postconditions
             post_stmts = []
@@ -385,10 +395,12 @@ class FunctionTranslator(PositionTranslator, CommonTranslator):
 
             # Havoc self.balance
             body.extend(self._havoc_balance(ctx))
+            # Havoc other contract state
+            body.extend(self.state_translator.havoc_state_except_self(ctx.current_state, ctx))
 
             # In init set old to current self, if this is the first public state
             if is_init:
-                body.append(helpers.check_first_public_state(self.viper_ast, ctx, False))
+                body.append(self.state_translator.check_first_public_state(ctx, False))
 
             # Assert the invariants
             invariant_stmts = []

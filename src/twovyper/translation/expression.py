@@ -24,6 +24,7 @@ from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
 from twovyper.translation.abstract import NodeTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.balance import BalanceTranslator
+from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.context import Context, interface_call_scope, program_scope
 
@@ -40,6 +41,7 @@ class ExpressionTranslator(NodeTranslator):
         super().__init__(viper_ast)
         self.arithmetic_translator = ArithmeticTranslator(viper_ast, self.no_reverts)
         self.balance_translator = BalanceTranslator(viper_ast)
+        self.state_translator = StateTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
         self._operations = {
@@ -542,7 +544,7 @@ class ExpressionTranslator(NodeTranslator):
         #    - Create new old state which old in the invariants after the call refers to
         #    - Fail based on an unkown value (i.e. the call could fail)
         #    - The last steps are only necessary if the function is not constant:
-        #       - Havoc self
+        #       - Havoc self and contracts
         #       - Assume type assumptions for self
         #       - Assume invariants (where old refers to the state before send)
         #       - Create new old state which subsequent old expressions refer to
@@ -559,7 +561,7 @@ class ExpressionTranslator(NodeTranslator):
         # In init set the old self state to the current self state, if this is the
         # first public state.
         if ctx.function.name == names.INIT:
-            stmts.append(helpers.check_first_public_state(self.viper_ast, ctx, True))
+            stmts.append(self.state_translator.check_first_public_state(ctx, True))
 
         check_assertions = []
         for check in chain(ctx.function.checks, ctx.program.general_checks):
@@ -581,8 +583,7 @@ class ExpressionTranslator(NodeTranslator):
 
         assertions = [*check_assertions, *inv_assertions]
 
-        old_self = helpers.old_self_var(self.viper_ast, ctx.self_type, pos)
-        copy_old = self.viper_ast.LocalVarAssign(old_self.localVar(), self_var)
+        copy_old = self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, ctx)
 
         send_fail_name = ctx.new_local_var_name('send_fail')
         send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
@@ -595,13 +596,10 @@ class ExpressionTranslator(NodeTranslator):
         fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
 
         if not constant:
-            # Havov self
-            havoc_name = ctx.new_local_var_name('havoc')
-            havoc = self.viper_ast.LocalVarDecl(havoc_name, ctx.self_var.typ())
-            ctx.new_local_vars.append(havoc)
-            havoc_self = self.viper_ast.LocalVarAssign(self_var, havoc.localVar(), pos)
+            # Havoc state
+            havocs = self.state_translator.havoc_state(ctx.current_state, ctx, pos)
 
-            call = [copy_old, fail, havoc_self]
+            call = [*copy_old, fail, *havocs]
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
@@ -631,9 +629,9 @@ class ExpressionTranslator(NodeTranslator):
 
             inv_seq = self._seqn_with_info(assume_invs, "Assume invariants")
 
-            new_state = [*type_seq, *post_seq, *inv_seq, copy_old]
+            new_state = [*type_seq, *post_seq, *inv_seq, *copy_old]
         else:
-            call = [copy_old, fail]
+            call = [*copy_old, fail]
             new_state = []
 
         if node.type:
@@ -718,6 +716,21 @@ class ExpressionTranslator(NodeTranslator):
                 stmts, exprs = self.collect(translate(post, ctx) for post in function.postconditions)
                 body.extend(stmts)
                 body.extend(self.viper_ast.Inhale(expr, pos) for expr in exprs)
+
+            # If we call an external pure function we assume that it equals the result of the respective
+            # interface function, so multiple calls to it will return the same value
+            if function.is_pure() and function.type.return_type:
+                contracts = ctx.current_state[mangled.CONTRACTS].localVar()
+                key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
+                value_type = helpers.struct_type(self.viper_ast)
+                struct = helpers.map_get(self.viper_ast, contracts, to, key_type, value_type)
+                func = mangled.interface_function_name(interface.name, function.name)
+                fargs = [struct, *args]
+                fdomain = mangled.interface_name(interface.name)
+                func_ret_type = self.type_translator.translate(function.type.return_type, ctx)
+                func_app = self.viper_ast.DomainFuncApp(func, fargs, func_ret_type, None, None, fdomain)
+                eq = self.viper_ast.EqCmp(res, func_app)
+                body.append(self.viper_ast.Inhale(eq))
 
             return body
 

@@ -18,13 +18,13 @@ from twovyper.ast.types import (
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr, Type
 
-from twovyper.translation.abstract import PositionTranslator, CommonTranslator
+from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.context import Context, quantified_var_scope
 
 from twovyper.translation import helpers
 
 
-class TypeTranslator(PositionTranslator, CommonTranslator):
+class TypeTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)

@@ -33,3 +33,22 @@ def use_msg_sender() -> address:
 @payable
 def use_msg_value() -> wei_value:
     raise "Not implemented"
+
+
+#@ pure
+@public
+@constant
+def pure(i: int128) -> int128:
+    raise "Not implemented"
+
+
+#@ pure
+@public
+@constant
+def get_val() -> int128:
+    raise "Not implemented"
+
+
+@public
+def set_val(new_val: int128):
+    raise "Not implemented"
