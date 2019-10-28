@@ -14,7 +14,6 @@ from twovyper.utils import DicitionaryView
 class Context:
 
     def __init__(self):
-        self.file = None
         self.program = None
         # The translated types of all fields
         self.field_types = {}
