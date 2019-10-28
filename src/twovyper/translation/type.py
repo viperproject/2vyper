@@ -12,7 +12,7 @@ from typing import Optional, List
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.types import (
-    VyperType, PrimitiveType, MapType, ArrayType, StructType, ContractType
+    VyperType, PrimitiveType, MapType, ArrayType, StructType, ContractType, InterfaceType
 )
 
 from twovyper.viper.ast import ViperAST
@@ -49,7 +49,7 @@ class TypeTranslator(CommonTranslator):
             return helpers.array_type(self.viper_ast, element_type)
         elif isinstance(type, StructType):
             return helpers.struct_type(self.viper_ast)
-        elif isinstance(type, ContractType):
+        elif isinstance(type, (ContractType, InterfaceType)):
             return self.translate(types.VYPER_ADDRESS, ctx)
         else:
             assert False
@@ -85,7 +85,7 @@ class TypeTranslator(CommonTranslator):
                 stmts.extend(default_stmts)
             args = [init_args[i] for i in range(len(init_args))]
             return stmts, helpers.struct_init(self.viper_ast, args, type, pos)
-        elif isinstance(type, ContractType):
+        elif isinstance(type, (ContractType, InterfaceType)):
             return self.default_value(node, types.VYPER_ADDRESS, ctx)
         else:
             assert False

@@ -9,10 +9,16 @@
 from . import simple
 
 
+s: simple
+
+
+#@ invariant: self.s == old(self.s)
+
+
 @public
 @payable
-def __default__():
-    pass
+def __init__():
+    self.s = simple(msg.sender)
 
 
 #@ ensures: implies(arg <= 0, not success())
@@ -79,8 +85,21 @@ def get_simple_val(at: address) -> int128:
     return simple(at).get_val()
 
 
+# ensures: implies(success(), result() == self.s.get_val())
+@public
+def get_self_simple_val() -> int128:
+    return self.s.get_val()
+
+
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: simple(at).get_val() == old(simple(at).get_val())
 @public
 def set_simple_val(at: address):
     simple(at).set_val(5)
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: self.s.get_val() == old(self.s.get_val())
+@public
+def set_self_simple_val(at: address):
+    self.s.set_val(5)
