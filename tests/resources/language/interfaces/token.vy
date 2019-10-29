@@ -9,15 +9,21 @@
 #@ interface
 
 
+#@ ghost:
+    #@ def _balance_of(a: address) -> uint256: ...
+
+
+#@ ensures: implies(success(), result() == _balance_of(self, a))
 @public
+@constant
 def balance_of(a: address) -> uint256:
     raise "Not implemented"
 
 
 # ensures: implies(msg.sender == to or to == ZERO_ADDRESS, not success())
-# ensures: implies(self.balance_of(msg.sender) < amount, not success())
-# ensures: self.balance_of(msg.sender) == old(self.balance_of(msg.sender)) - amount
-# ensures: self.balance_of(to) == old(self.balance_of(msg.sender)) + amount
+# ensures: implies(_balance_of(self, msg.sender) < amount, not success())
+# ensures: _balance_of(self, msg.sender) == old(self.balance_of(msg.sender)) - amount
+# ensures: _balance_of(self, to) == old(_balance_of(self, msg.sender)) + amount
 @public
 @payable
 def transfer(to: address, amount: uint256):

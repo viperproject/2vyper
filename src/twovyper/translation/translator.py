@@ -264,7 +264,14 @@ class ProgramTranslator(PositionTranslator):
             name = mangled.TRANSITIVITY_CHECK
 
             self_type = self.type_translator.translate(ctx.self_type, ctx)
-            states = [{names.SELF: self.viper_ast.LocalVarDecl(f'$s{i}', self_type)} for i in range(3)]
+
+            def self_var(name):
+                return self.viper_ast.LocalVarDecl(name, self_type)
+
+            def contract_var(name):
+                return helpers.contract_var(self.viper_ast, name)
+
+            states = [{names.SELF: self_var(f'$s{i}'), mangled.CONTRACTS: contract_var(f'$c{i}')} for i in range(3)]
 
             block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
             block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
@@ -279,10 +286,11 @@ class ProgramTranslator(PositionTranslator):
 
             # Assume type assumptions for all self-states
             for state in states:
-                for var in state.values():
-                    local = var.localVar()
-                    type_assumptions = self.type_translator.type_assumptions(local, ctx.self_type, ctx)
-                    body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
+                for var_name, var in state.items():
+                    if var_name == names.SELF:
+                        local = var.localVar()
+                        type_assumptions = self.type_translator.type_assumptions(local, ctx.self_type, ctx)
+                        body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
 
             # Assume type assumptions for block
             block_var = block.localVar()
@@ -333,12 +341,17 @@ class ProgramTranslator(PositionTranslator):
             pre_self_var = helpers.pre_self_var(self.viper_ast, self_type)
             pre_self_local = pre_self_var.localVar()
 
+            contracts_var = helpers.contract_var(self.viper_ast, mangled.CONTRACTS)
+            contracts_local = contracts_var.localVar()
+            pre_contracts_var = helpers.contract_var(self.viper_ast, mangled.PRE_CONTRACTS)
+            pre_contracts_local = pre_contracts_var.localVar()
+
             block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
             block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
             ctx.locals[names.BLOCK] = block
             is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
             havoc = self.viper_ast.LocalVarDecl('$havoc', self.viper_ast.Int)
-            local_vars = [self_var, pre_self_var, block, is_post, havoc]
+            local_vars = [self_var, pre_self_var, contracts_var, pre_contracts_var, block, is_post, havoc]
 
             body = []
 
@@ -359,11 +372,12 @@ class ProgramTranslator(PositionTranslator):
             assume_non_negative = self.viper_ast.Inhale(self.viper_ast.GeCmp(havoc.localVar(), zero))
             body.append(assume_non_negative)
 
-            self_state = {names.SELF: self_var}
-            pre_self_state = {names.SELF: pre_self_var}
+            self_state = {names.SELF: self_var, mangled.CONTRACTS: contracts_var}
+            pre_self_state = {names.SELF: pre_self_var, mangled.CONTRACTS: pre_contracts_var}
             assume_assertions(self_state, self_state)
 
             body.append(self.viper_ast.LocalVarAssign(pre_self_local, self_local))
+            body.append(self.viper_ast.LocalVarAssign(pre_contracts_local, contracts_local))
 
             with state_scope(self_state, self_state, ctx):
                 body.append(self.balance_translator.increase_balance(havoc.localVar(), ctx))
