@@ -142,6 +142,13 @@ class ProgramBuilder(ast.NodeVisitor):
             return
         raise InvalidProgramException(node, 'local.spec', f"{cond} only allowed before function")
 
+    def generic_visit(self, node: ast.AST):
+        raise InvalidProgramException(node, 'invalid.spec')
+
+    def visit_Module(self, node: ast.Module):
+        for stmt in node.body:
+            self.visit(stmt)
+
     def visit_ImportFrom(self, node: ast.ImportFrom):
         # TODO: handle absolute imports
         # TODO: check for ERC20
