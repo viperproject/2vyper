@@ -433,7 +433,7 @@ class TypeAnnotator(NodeVisitor):
                     function = self.program.ghost_functions[name]
                     _check_number_of_arguments(node, len(function.args) + 1)
 
-                    arg_types = [types.VYPER_ADDRESS, *[arg.type for arg in function.args]]
+                    arg_types = [types.VYPER_ADDRESS, *[arg.type for arg in function.args.values()]]
                     for type, arg in zip(arg_types, node.args):
                         self.annotate_expected(arg, type)
 
