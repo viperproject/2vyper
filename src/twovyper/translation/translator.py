@@ -51,7 +51,7 @@ def translate(vyper_program: VyperProgram, jvm: JVM) -> Program:
     viper_program = translator.translate(vyper_program)
     consistency_errors = seq_to_list(viper_program.checkTransitively())
     if consistency_errors:
-        raise ConsistencyException("The AST contains inconsistencies.", consistency_errors)
+        raise ConsistencyException(viper_program, "The AST contains inconsistencies.", consistency_errors)
 
     sif.configure_mpp_transformation(jvm)
     viper_program = sif.transform(jvm, viper_program)

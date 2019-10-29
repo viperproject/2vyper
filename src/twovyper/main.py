@@ -202,6 +202,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
     except (InvalidProgramException, UnsupportedException) as e:
         print(e.error_string(vyper_file))
     except ConsistencyException as e:
+        print(e.program)
         print(e.message)
         for error in e.errors:
             print(error.toString())
