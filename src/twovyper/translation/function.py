@@ -487,8 +487,7 @@ class FunctionTranslator(CommonTranslator):
         with inline_scope(via, ctx):
             assert function.node
             # Only private self-calls are allowed in Vyper
-            # In specifications, we also allow pure calls
-            assert function.is_private() or function.is_pure()
+            assert function.is_private()
 
             pos = self.to_position(function.node, ctx)
             body = []

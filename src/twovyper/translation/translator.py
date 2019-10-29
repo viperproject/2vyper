@@ -13,7 +13,7 @@ from twovyper.utils import flatten, seq_to_list
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, VyperInterface
+from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction
 
 from twovyper.exceptions import ConsistencyException
 
@@ -116,10 +116,6 @@ class ProgramTranslator(PositionTranslator):
         structs = vyper_program.structs.values()
         domains.extend(self._translate_struct(struct, ctx) for struct in structs)
 
-        # Interfaces
-        interfaces = vyper_program.interfaces.values()
-        domains.extend(self._translate_interface(interface, ctx) for interface in interfaces)
-
         # Ghost functions
         domains.append(self._translate_ghost_functions(vyper_program, ctx))
 
@@ -193,24 +189,6 @@ class ProgramTranslator(PositionTranslator):
         eq_axiom = self.viper_ast.DomainAxiom(eq_axiom_name, eq_quant, domain)
 
         return self.viper_ast.Domain(domain, [init_f, eq_f], [init_axiom, eq_axiom], [])
-
-    def _translate_interface(self, interface: VyperInterface, ctx: Context):
-        domain = mangled.interface_name(interface.name)
-        functions = []
-        for function in interface.functions.values():
-            if function.is_pure() and function.type.return_type:
-                fname = mangled.interface_function_name(interface.name, function.name)
-                self_var = self.viper_ast.LocalVarDecl('$self', helpers.struct_type(self.viper_ast))
-                args = [self_var]
-                for idx, var in enumerate(function.args.values()):
-                    arg_name = f'$arg_{idx}'
-                    arg_type = self.type_translator.translate(var.type, ctx)
-                    arg_decl = self.viper_ast.LocalVarDecl(arg_name, arg_type)
-                    args.append(arg_decl)
-                type = self.type_translator.translate(function.type.return_type, ctx)
-                functions.append(self.viper_ast.DomainFunc(fname, args, type, False, domain))
-
-        return self.viper_ast.Domain(domain, functions, [], [])
 
     def _translate_ghost_functions(self, program: VyperProgram, ctx: Context):
         domain = mangled.GHOST_FUNCTION_DOMAIN

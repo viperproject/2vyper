@@ -132,9 +132,6 @@ CONFIG_NO_OVERFLOWS = 'no_overflows'
 
 INTERFACE = 'interface'
 
-PURE = 'pure'
-NOT_ALLOWED_IN_PURE = [MSG, BLOCK, TX]
-
 IMPLIES = 'implies'
 FORALL = 'forall'
 SUM = 'sum'

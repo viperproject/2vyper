@@ -70,11 +70,10 @@ class ProgramBuilder(ast.NodeVisitor):
         self.transitive_postconditions = []
         self.general_checks = []
         self.implements = []
+        self.ghost_functions = {}
 
         self.postconditions = []
         self.checks = []
-        self.pure = None
-        self.ghost_functions = {}
 
         self.is_preserves = False
 
@@ -133,8 +132,6 @@ class ProgramBuilder(ast.NodeVisitor):
         are no local specifications followed by either global specifications or eof.
         """
 
-        self._check_not_pure()
-
         if self.postconditions:
             cond = "Postcondition"
             node = self.postconditions[0]
@@ -144,10 +141,6 @@ class ProgramBuilder(ast.NodeVisitor):
         else:
             return
         raise InvalidProgramException(node, 'local.spec', f"{cond} only allowed before function")
-
-    def _check_not_pure(self):
-        if self.pure:
-            raise InvalidProgramException(self.pure, 'local.pure', "Pure only allowed before function")
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
         # TODO: handle absolute imports
@@ -209,8 +202,6 @@ class ProgramBuilder(ast.NodeVisitor):
         # This is for invariants and postconditions which get translated to
         # assignments during preprocessing.
 
-        self._check_not_pure()
-
         assert len(node.targets) == 1
         name = node.targets[0].id
 
@@ -221,12 +212,8 @@ class ProgramBuilder(ast.NodeVisitor):
                 options = [n.id for n in node.value.elts]
             self.config = VyperConfig(options)
         elif name == names.INTERFACE:
-            self._check_not_pure()
             self._check_no_local_spec()
             self.is_interface = True
-        elif name == names.PURE:
-            self._check_not_pure()
-            self.pure = node.targets[0]
         elif name == names.INVARIANT:
             # No local specifications allowed before invariants
             self._check_no_local_spec()
@@ -258,8 +245,6 @@ class ProgramBuilder(ast.NodeVisitor):
         if self.is_preserves:
             raise InvalidProgramException(node, 'preserves.in.preserves')
 
-        self._check_not_pure()
-
         self.is_preserves = True
         for stmt in node.body:
             self.visit(stmt)
@@ -287,9 +272,6 @@ class ProgramBuilder(ast.NodeVisitor):
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
         decs = self._decorators(node)
-        if self.pure:
-            decs.append(names.PURE)
-            self.pure = None
         function = VyperFunction(node.name, args, local_vars, type,
                                  self.postconditions, self.checks, decs, node)
         self.functions[node.name] = function

@@ -57,7 +57,6 @@ class TypeAnnotator(NodeVisitor):
 
         self.program = program
         self.current_func = None
-        self.is_spec = False
 
         self_type = self.program.fields.type
         # Contains the possible types a variable can have
@@ -83,15 +82,6 @@ class TypeAnnotator(NodeVisitor):
         self.variables = old_variables
 
     @contextmanager
-    def _specification_scope(self):
-        is_spec = self.is_spec
-        self.is_spec = True
-
-        yield
-
-        self.is_spec = is_spec
-
-    @contextmanager
     def _quantified_vars_scope(self):
         old_variables = self.variables.copy()
 
@@ -108,24 +98,22 @@ class TypeAnnotator(NodeVisitor):
             with self._function_scope(function):
                 self.visit(function.node)
 
-                with self._specification_scope():
-                    for post in function.postconditions:
-                        self.annotate_expected(post, types.VYPER_BOOL)
-                    for check in function.checks:
-                        self.annotate_expected(check, types.VYPER_BOOL)
+                for post in function.postconditions:
+                    self.annotate_expected(post, types.VYPER_BOOL)
+                for check in function.checks:
+                    self.annotate_expected(check, types.VYPER_BOOL)
 
-        with self._specification_scope():
-            for inv in self.program.invariants:
-                self.annotate_expected(inv, types.VYPER_BOOL)
+        for inv in self.program.invariants:
+            self.annotate_expected(inv, types.VYPER_BOOL)
 
-            for post in self.program.general_postconditions:
-                self.annotate_expected(post, types.VYPER_BOOL)
+        for post in self.program.general_postconditions:
+            self.annotate_expected(post, types.VYPER_BOOL)
 
-            for post in self.program.transitive_postconditions:
-                self.annotate_expected(post, types.VYPER_BOOL)
+        for post in self.program.transitive_postconditions:
+            self.annotate_expected(post, types.VYPER_BOOL)
 
-            for check in self.program.general_checks:
-                self.annotate_expected(check, types.VYPER_BOOL)
+        for check in self.program.general_checks:
+            self.annotate_expected(check, types.VYPER_BOOL)
 
     def generic_visit(self, node: ast.AST):
         assert False
@@ -452,7 +440,6 @@ class TypeAnnotator(NodeVisitor):
             receiver_type = node.func.value.type
 
             # We don't have to type check calls as they are not allowed in specifications
-            # TODO: this changed, we need type checking for self calls
             for arg in node.args:
                 self.annotate(arg)
 
@@ -467,18 +454,15 @@ class TypeAnnotator(NodeVisitor):
             if isinstance(receiver_type, SelfType):
                 name = node.func.attr
                 function = self.program.functions[name]
-                _check(not self.is_spec or function.is_pure(), node, 'spec.call')
                 return [function.type.return_type], [node]
             # A contract call
             elif isinstance(receiver_type, ContractType):
-                _check(not self.is_spec, node, 'spec.call')
                 name = node.func.attr
                 return [receiver_type.function_types[name].return_type], [node]
             elif isinstance(receiver_type, InterfaceType):
                 name = node.func.attr
                 interface = self.program.interfaces[receiver_type.name]
                 function = interface.functions[name]
-                _check(not self.is_spec or function.is_pure(), node, 'spec.call')
                 return [function.type.return_type], [node]
         else:
             assert False

@@ -30,25 +30,10 @@ class ProgramChecker(ast.NodeVisitor):
 
     def __init__(self, program: VyperProgram):
         self.program = program
-        self.is_pure = False
 
     def check(self):
         for func in self.program.functions.values():
-            if func.is_pure() and not func.is_constant():
-                msg = "Pure functions must be constant."
-                raise InvalidProgramException(func.node, 'pure.not.constant', msg)
-
-            self.is_pure = func.is_pure()
             self.visit(func.node)
-            self.is_pure = False
-
-    def visit_Assert(self, node: ast.Assert):
-        if self.is_pure:
-            raise InvalidProgramException(node, 'pure.not.pure')
-
-    def visit_Raise(self, node: ast.Raise):
-        if self.is_pure and not self.program.is_interface():
-            raise InvalidProgramException(node, 'pure.not.pure')
 
     def visit_Call(self, node: ast.Call):
         if isinstance(node.func, ast.Name):
@@ -57,23 +42,8 @@ class ProgramChecker(ast.NodeVisitor):
             if name == names.RAW_CALL:
                 if names.RAW_CALL_DELEGATE_CALL in [kw.arg for kw in node.keywords]:
                     raise UnsupportedException(node, 'Delegate calls are not supported.')
-            elif name == names.ASSERT_MODIFIABLE and self.is_pure:
-                raise InvalidProgramException(node, 'pure.not.pure')
-        elif isinstance(node.func, ast.Attribute) and self.is_pure:
-            fname = node.func.attr
-            if isinstance(node.func.value, ast.Name):
-                value = node.func.value.id
-                is_self_pure = value == names.SELF and self.program.functions[fname].is_pure()
-                if not is_self_pure:
-                    raise InvalidProgramException(node, 'pure.not.pure')
-            else:
-                raise InvalidProgramException(node, 'pure.not.pure')
 
         self.generic_visit(node)
-
-    def visit_Name(self, node: ast.Name):
-        if self.is_pure and node.id in names.NOT_ALLOWED_IN_PURE:
-            raise InvalidProgramException(node, 'pure.not.pure')
 
 
 class SpecStructureChecker(ast.NodeVisitor):
@@ -91,53 +61,50 @@ class SpecStructureChecker(ast.NodeVisitor):
         self.func
 
     def visit_Call(self, node: ast.Call):
-        if isinstance(node.func, ast.Attribute):
+        _assert(isinstance(node.func, ast.Name), node, 'spec.call')
+
+        name = node.func.id
+        # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
+        if name == names.SUCCESS:
+
+            def check_success_args(node):
+                if isinstance(node, ast.Name):
+                    _assert(node.id in names.SUCCESS_CONDITIONS, node, 'spec.success')
+                elif isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
+                    for val in node.values:
+                        check_success_args(val)
+                else:
+                    raise InvalidProgramException(node, 'spec.success')
+
+            _assert(len(node.keywords) <= 1, node, 'spec.success')
+            if node.keywords:
+                _assert(node.keywords[0].arg == names.SUCCESS_IF_NOT, node, 'spec.success')
+                check_success_args(node.keywords[0].value)
+        # Accessible is of the form accessible(to, amount, self.some_func(args...))
+        elif name == names.ACCESSIBLE:
+            _assert(not self._inside_old, node, 'spec.old.accessible')
+            _assert(len(node.args) == 2 or len(node.args) == 3, node, 'spec.accessible')
+
+            self.visit(node.args[0])
+            self.visit(node.args[1])
+
+            if len(node.args) == 3:
+                call = node.args[2]
+                _assert(isinstance(call, ast.Call), node, 'spec.accessible')
+                _assert(isinstance(call.func, ast.Attribute), node, 'spec.accessible')
+                _assert(isinstance(call.func.value, ast.Name), node, 'spec.accessible')
+                _assert(call.func.value.id == names.SELF, node, 'spec.accessible')
+                _assert(call.func.attr in self.program.functions, node, 'spec.accessible')
+                _assert(call.func.attr != names.INIT, node, 'spec.accessible')
+
+                self.generic_visit(call)
+        elif name == names.OLD:
+            inside_old = self._inside_old
+            self._inside_old = True
             self.generic_visit(node)
+            self._inside_old = inside_old
         else:
-            _assert(isinstance(node.func, ast.Name), node, 'spec.call')
-
-            name = node.func.id
-            # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
-            if name == names.SUCCESS:
-
-                def check_success_args(node):
-                    if isinstance(node, ast.Name):
-                        _assert(node.id in names.SUCCESS_CONDITIONS, node, 'spec.success')
-                    elif isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
-                        for val in node.values:
-                            check_success_args(val)
-                    else:
-                        raise InvalidProgramException(node, 'spec.success')
-
-                _assert(len(node.keywords) <= 1, node, 'spec.success')
-                if node.keywords:
-                    _assert(node.keywords[0].arg == names.SUCCESS_IF_NOT, node, 'spec.success')
-                    check_success_args(node.keywords[0].value)
-            # Accessible is of the form accessible(to, amount, self.some_func(args...))
-            elif name == names.ACCESSIBLE:
-                _assert(not self._inside_old, node, 'spec.old.accessible')
-                _assert(len(node.args) == 2 or len(node.args) == 3, node, 'spec.accessible')
-
-                self.visit(node.args[0])
-                self.visit(node.args[1])
-
-                if len(node.args) == 3:
-                    call = node.args[2]
-                    _assert(isinstance(call, ast.Call), node, 'spec.accessible')
-                    _assert(isinstance(call.func, ast.Attribute), node, 'spec.accessible')
-                    _assert(isinstance(call.func.value, ast.Name), node, 'spec.accessible')
-                    _assert(call.func.value.id == names.SELF, node, 'spec.accessible')
-                    _assert(call.func.attr in self.program.functions, node, 'spec.accessible')
-                    _assert(call.func.attr != names.INIT, node, 'spec.accessible')
-
-                    self.generic_visit(call)
-            elif name == names.OLD:
-                inside_old = self._inside_old
-                self._inside_old = True
-                self.generic_visit(node)
-                self._inside_old = inside_old
-            else:
-                self.generic_visit(node)
+            self.generic_visit(node)
 
 
 class InvariantChecker(SpecStructureChecker):
@@ -165,8 +132,7 @@ class CheckChecker(SpecStructureChecker):
 
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
-        if isinstance(node.func, ast.Name):
-            _assert(node.func.id not in names.NOT_ALLOWED_IN_CHECK, node, 'check.call')
+        _assert(node.func.id not in names.NOT_ALLOWED_IN_CHECK, node, 'check.call')
 
 
 class PostconditionChecker(SpecStructureChecker):
@@ -191,13 +157,12 @@ class PostconditionChecker(SpecStructureChecker):
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
 
-        if isinstance(node.func, ast.Name):
-            if self._is_transitive:
-                not_allowed = names.NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION
-            else:
-                not_allowed = names.NOT_ALLOWED_IN_POSTCONDITION
+        if self._is_transitive:
+            not_allowed = names.NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION
+        else:
+            not_allowed = names.NOT_ALLOWED_IN_POSTCONDITION
 
-            _assert(node.func.id not in not_allowed, node, 'postcondition.call')
+        _assert(node.func.id not in not_allowed, node, 'postcondition.call')
 
-            if self.func and self.func.name == names.INIT:
-                _assert(node.func.id != names.OLD, node, 'postcondition.init.old')
+        if self.func and self.func.name == names.INIT:
+            _assert(node.func.id != names.OLD, node, 'postcondition.init.old')

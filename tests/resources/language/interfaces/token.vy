@@ -9,7 +9,6 @@
 #@ interface
 
 
-# pure
 @public
 def balance_of(a: address) -> uint256:
     raise "Not implemented"

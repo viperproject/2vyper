@@ -718,21 +718,6 @@ class ExpressionTranslator(NodeTranslator):
                     body.extend(stmts)
                     body.extend(self.viper_ast.Inhale(expr, pos) for expr in exprs)
 
-            # If we call an external pure function we assume that it equals the result of the respective
-            # interface function, so multiple calls to it will return the same value
-            if function.is_pure() and function.type.return_type:
-                contracts = ctx.current_state[mangled.CONTRACTS].localVar()
-                key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
-                value_type = helpers.struct_type(self.viper_ast)
-                struct = helpers.map_get(self.viper_ast, contracts, to, key_type, value_type)
-                func = mangled.interface_function_name(interface.name, function.name)
-                fargs = [struct, *args]
-                fdomain = mangled.interface_name(interface.name)
-                func_ret_type = self.type_translator.translate(function.type.return_type, ctx)
-                func_app = self.viper_ast.DomainFuncApp(func, fargs, func_ret_type, None, None, fdomain)
-                eq = self.viper_ast.EqCmp(res, func_app)
-                body.append(self.viper_ast.Inhale(eq))
-
             return body
 
     def _translate_var(self, var: VyperVar, ctx: Context):

@@ -10,6 +10,7 @@
 
 #@ ghost:
     #@ def _val() -> int128: ...
+    #@ def _pure(i: int128) -> int128: ...
 
 
 #@ ensures: implies(i <= 0, not success())
@@ -38,7 +39,7 @@ def use_msg_value() -> wei_value:
     raise "Not implemented"
 
 
-#@ pure
+#@ ensures: implies(success(), result() == _pure(self, i))
 @public
 @constant
 def pure(i: int128) -> int128:
@@ -46,7 +47,6 @@ def pure(i: int128) -> int128:
 
 
 #@ ensures: implies(success(), result() == _val(self))
-#@ pure
 @public
 @constant
 def get_val() -> int128:
