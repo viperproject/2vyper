@@ -86,6 +86,8 @@ STRUCT_INIT_DOMAIN = '$StructInit'
 RANGE_DOMAIN = '$Range'
 RANGE_RANGE = '$range'
 
+GHOST_FUNCTION_DOMAIN = '$Ghost'
+
 TRANSITIVITY_CHECK = '$transitivity_check'
 FORCED_ETHER_CHECK = '$forced_ether_check'
 
@@ -112,6 +114,10 @@ def interface_name(vyper_interface_name: str) -> str:
 
 def interface_function_name(vyper_iname: str, vyper_fname: str) -> str:
     return f'{interface_name(vyper_iname)}${vyper_fname}'
+
+
+def ghost_function_name(vyper_name: str) -> str:
+    return f'g${vyper_name}'
 
 
 def axiom_name(viper_name: str) -> str:

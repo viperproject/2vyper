@@ -8,6 +8,9 @@
 
 #@ interface
 
+#@ ghost:
+    #@ def _val() -> int128: ...
+
 
 #@ ensures: implies(i <= 0, not success())
 #@ ensures: implies(success(), result() == i)
@@ -42,6 +45,7 @@ def pure(i: int128) -> int128:
     raise "Not implemented"
 
 
+#@ ensures: implies(success(), result() == _val(self))
 #@ pure
 @public
 @constant
@@ -49,6 +53,7 @@ def get_val() -> int128:
     raise "Not implemented"
 
 
+#@ ensures: implies(success(), _val(self) == new_val)
 @public
 def set_val(new_val: int128):
     raise "Not implemented"

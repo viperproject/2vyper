@@ -429,6 +429,15 @@ class TypeAnnotator(NodeVisitor):
 
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     return [self.program.interfaces[name].type], [node]
+                elif name in self.program.ghost_functions:
+                    function = self.program.ghost_functions[name]
+                    _check_number_of_arguments(node, len(function.args) + 1)
+
+                    arg_types = [types.VYPER_ADDRESS, *[arg.type for arg in function.args]]
+                    for type, arg in zip(arg_types, node.args):
+                        self.annotate_expected(arg, type)
+
+                    return [function.type.return_type], [node]
                 else:
                     raise UnsupportedException(node, "Unsupported function call")
         elif isinstance(node.func, ast.Attribute):

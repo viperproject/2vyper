@@ -301,3 +301,9 @@ def range(viper_ast: ViperAST, start, end, pos=None, info=None):
     range_type = viper_ast.SeqType(viper_ast.Int)
     domain = mangled.RANGE_DOMAIN
     return viper_ast.DomainFuncApp(range_func, [start, end], range_type, pos, info, domain)
+
+
+def ghost_function(viper_ast: ViperAST, name, address, args, return_type, pos=None, info=None):
+    domain = mangled.GHOST_FUNCTION_DOMAIN
+    ghost_func = mangled.ghost_function_name(name)
+    return viper_ast.DomainFuncApp(ghost_func, [address, *args], return_type, pos, info, domain)

@@ -18,7 +18,7 @@ from twovyper.ast import types
 
 from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
-    VyperConfig, VyperInterface
+    VyperConfig, VyperInterface, GhostFunction
 )
 
 from twovyper.ast.types import (
@@ -74,6 +74,7 @@ class ProgramBuilder(ast.NodeVisitor):
         self.postconditions = []
         self.checks = []
         self.pure = None
+        self.ghost_functions = {}
 
         self.is_preserves = False
 
@@ -102,6 +103,7 @@ class ProgramBuilder(ast.NodeVisitor):
                                   self.name,
                                   self.config,
                                   self.functions,
+                                  self.ghost_functions,
                                   interface_type)
         else:
             # Add self.balance
@@ -262,6 +264,18 @@ class ProgramBuilder(ast.NodeVisitor):
         for stmt in node.body:
             self.visit(stmt)
         self.is_preserves = False
+
+    def visit_With(self, node: ast.With):
+        # This is a ghost clause, since we replace all ghost clauses with with statements
+        # when preprocessing
+        for func in node.body:
+            # TODO: Check structure
+            name = func.name
+            args, _ = LocalProgramBuilder(self.type_builder).build(func)
+            arg_types = [arg.type for arg in args.values()]
+            return_type = None if func.returns is None else self.type_builder.build(func.returns)
+            type = FunctionType(arg_types, return_type)
+            self.ghost_functions[name] = GhostFunction(name, args, type, func)
 
     def _decorators(self, node: ast.FunctionDef) -> List[str]:
         return [dec.id for dec in node.decorator_list if isinstance(dec, ast.Name)]

@@ -26,7 +26,7 @@ from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
-from twovyper.translation.context import Context, interface_call_scope, program_scope
+from twovyper.translation.context import Context, interface_call_scope, program_scope, self_address_scope
 
 from twovyper.translation import mangled
 from twovyper.translation import helpers
@@ -111,7 +111,7 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         if node.id == names.SELF and node.type == types.VYPER_ADDRESS:
-            return [], helpers.self_address(self.viper_ast, pos)
+            return [], ctx.self_address or helpers.self_address(self.viper_ast, pos)
 
         var_decl = ctx.all_vars[node.id]
         return [], self.viper_ast.LocalVar(var_decl.name(), var_decl.typ(), pos)
@@ -713,9 +713,10 @@ class ExpressionTranslator(NodeTranslator):
             pos = self.to_position(node, ctx, rules.INHALE_INTERFACE_FAIL)
 
             with program_scope(interface, ctx):
-                stmts, exprs = self.collect(translate(post, ctx) for post in function.postconditions)
-                body.extend(stmts)
-                body.extend(self.viper_ast.Inhale(expr, pos) for expr in exprs)
+                with self_address_scope(to, ctx):
+                    stmts, exprs = self.collect(translate(post, ctx) for post in function.postconditions)
+                    body.extend(stmts)
+                    body.extend(self.viper_ast.Inhale(expr, pos) for expr in exprs)
 
             # If we call an external pure function we assume that it equals the result of the respective
             # interface function, so multiple calls to it will return the same value

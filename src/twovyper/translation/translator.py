@@ -120,6 +120,9 @@ class ProgramTranslator(PositionTranslator):
         interfaces = vyper_program.interfaces.values()
         domains.extend(self._translate_interface(interface, ctx) for interface in interfaces)
 
+        # Ghost functions
+        domains.append(self._translate_ghost_functions(vyper_program, ctx))
+
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
         accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
@@ -206,6 +209,23 @@ class ProgramTranslator(PositionTranslator):
                     args.append(arg_decl)
                 type = self.type_translator.translate(function.type.return_type, ctx)
                 functions.append(self.viper_ast.DomainFunc(fname, args, type, False, domain))
+
+        return self.viper_ast.Domain(domain, functions, [], [])
+
+    def _translate_ghost_functions(self, program: VyperProgram, ctx: Context):
+        domain = mangled.GHOST_FUNCTION_DOMAIN
+        functions = []
+        for function in program.ghost_functions.values():
+            fname = mangled.ghost_function_name(function.name)
+            self_var = self.viper_ast.LocalVarDecl('$self', helpers.struct_type(self.viper_ast))
+            args = [self_var]
+            for idx, var in enumerate(function.args.values()):
+                arg_name = f'$arg_{idx}'
+                arg_type = self.type_translator.translate(var.type, ctx)
+                arg_decl = self.viper_ast.LocalVarDecl(arg_name, arg_type)
+                args.append(arg_decl)
+            type = self.type_translator.translate(function.type.return_type, ctx)
+            functions.append(self.viper_ast.DomainFunc(fname, args, type, False, domain))
 
         return self.viper_ast.Domain(domain, functions, [], [])
 

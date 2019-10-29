@@ -70,6 +70,19 @@ class VyperFunction:
         return names.PURE in self.decorators
 
 
+class GhostFunction:
+
+    def __init__(self,
+                 name: str,
+                 args: Dict[str, VyperVar],
+                 type: FunctionType,
+                 node: ast.FunctionDef):
+        self.name = name
+        self.args = args
+        self.type = type
+        self.node = node
+
+
 class VyperStruct:
 
     def __init__(self, name: str, type: StructType, node: ast.ClassDef):
@@ -122,11 +135,17 @@ class VyperProgram:
         self.transitive_postconditions = transitive_postconditions
         self.general_checks = general_checks
         self.implements = implements
+        self.ghost_functions = dict(self._ghost_functions())
         # Gets set in the analyzer
         self.analysis = None
 
     def is_interface(self) -> bool:
         return False
+
+    def _ghost_functions(self) -> Dict[str, GhostFunction]:
+        for interface in self.interfaces.values():
+            for name, func in interface.ghost_functions.items():
+                yield name, func
 
 
 class VyperInterface(VyperProgram):
@@ -136,6 +155,7 @@ class VyperInterface(VyperProgram):
                  name: Optional[str],
                  config: VyperConfig,
                  functions: Dict[str, VyperFunction],
+                 ghost_functions: Dict[str, GhostFunction],
                  type: InterfaceType):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})
@@ -147,6 +167,7 @@ class VyperInterface(VyperProgram):
                          {}, {}, {}, {},
                          [], [], [], [], [])
         self.name = name
+        self.ghost_functions = ghost_functions
         self.type = type
 
     def is_interface(self) -> bool:

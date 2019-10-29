@@ -36,6 +36,8 @@ class Context:
         self.pre_state = {}
         self.issued_state = {}
 
+        self.self_address = None
+
         self._break_label_counter = -1
         self._continue_label_counter = -1
         self.break_label = None
@@ -142,7 +144,15 @@ def function_scope(ctx: Context):
     args = ctx.args
     locals = ctx.locals
     current_state = ctx.current_state
+    current_old_state = ctx.current_old_state
     quantified_vars = ctx.quantified_vars
+
+    present_state = ctx.present_state
+    old_state = ctx.old_state
+    pre_state = ctx.pre_state
+    issued_state = ctx.issued_state
+
+    self_address = ctx.self_address
 
     _break_label_counter = ctx._break_label_counter
     _continue_label_counter = ctx._continue_label_counter
@@ -169,7 +179,13 @@ def function_scope(ctx: Context):
     ctx.args = {}
     ctx.locals = {}
     ctx.current_state = {}
+    ctx.current_old_state = {}
     ctx.quantified_vars = {}
+
+    ctx.present_state = {}
+    ctx.old_state = {}
+    ctx.pre_state = {}
+    ctx.issued_state = {}
 
     ctx._break_label_counter = -1
     ctx._continue_label_counter = -1
@@ -197,7 +213,15 @@ def function_scope(ctx: Context):
     ctx.args = args
     ctx.locals = locals
     ctx.current_state = current_state
+    ctx.current_old_state = current_old_state
     ctx.quantified_vars = quantified_vars
+
+    ctx.present_state = present_state
+    ctx.old_state = old_state
+    ctx.pre_state = pre_state
+    ctx.issued_state = issued_state
+
+    ctx.self_address = self_address
 
     ctx._break_label_counter = _break_label_counter
     ctx._continue_label_counter = _continue_label_counter
@@ -313,6 +337,16 @@ def state_scope(present_state, old_state, ctx: Context):
 
     ctx.current_state = current_state
     ctx.current_old_state = current_old_state
+
+
+@contextmanager
+def self_address_scope(address, ctx: Context):
+    old_self_address = ctx.self_address
+    ctx.self_address = address
+
+    yield
+
+    ctx.self_address = old_self_address
 
 
 @contextmanager

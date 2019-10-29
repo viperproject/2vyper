@@ -79,27 +79,36 @@ def use_simple_pure(at: address, i: int128):
     assert first == third, UNREACHABLE
 
 
-#@ ensures: implies(success(), result() == simple(at).get_val())
+#@ ensures: implies(success(), result() == _val(simple(at)))
 @public
 def get_simple_val(at: address) -> int128:
     return simple(at).get_val()
 
 
-# ensures: implies(success(), result() == self.s.get_val())
+# ensures: implies(success(), result() == _val(self.s))
 @public
 def get_self_simple_val() -> int128:
     return self.s.get_val()
 
 
+#@ ensures: implies(success(), _val(simple(at)) == 5)
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: simple(at).get_val() == old(simple(at).get_val())
+#@ ensures: _val(simple(at)) == old(_val(simple(at)))
 @public
 def set_simple_val(at: address):
     simple(at).set_val(5)
 
 
+#@ ensures: implies(success(), _val(self.s) == 5)
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: self.s.get_val() == old(self.s.get_val())
+#@ ensures: _val(self.s) == old(_val(self.s))
 @public
-def set_self_simple_val(at: address):
+def set_self_simple_val():
     self.s.set_val(5)
+
+
+#@ ensures: implies(success(), result() == 42)
+@public
+def set_and_get_simple_val(at: address) -> int128:
+    simple(at).set_val(42)
+    return simple(at).get_val()
