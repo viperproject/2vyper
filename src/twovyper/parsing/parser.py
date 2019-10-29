@@ -270,6 +270,8 @@ class ProgramBuilder(ast.NodeVisitor):
             arg_types = [arg.type for arg in args.values()]
             return_type = None if func.returns is None else self.type_builder.build(func.returns)
             type = FunctionType(arg_types, return_type)
+            if name in self.ghost_functions:
+                raise InvalidProgramException(func, 'duplicate.ghost')
             self.ghost_functions[name] = GhostFunction(name, args, type, func)
 
     def _decorators(self, node: ast.FunctionDef) -> List[str]:
