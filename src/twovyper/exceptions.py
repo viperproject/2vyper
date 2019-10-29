@@ -54,7 +54,7 @@ class InvalidProgramException(TranslationException):
         if not message:
             node_msg = astunparse.unparse(node)
             message = f"Node {node_msg} not allowed here."
-        super().__init__(node, f"Invalid program: {message}")
+        super().__init__(node, f"Invalid program ({self.reason_code}): {message}")
 
 
 class ConsistencyException(Exception):
