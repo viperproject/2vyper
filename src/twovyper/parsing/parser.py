@@ -254,7 +254,17 @@ class ProgramBuilder(ast.NodeVisitor):
         # This is a ghost clause, since we replace all ghost clauses with with statements
         # when preprocessing
         for func in node.body:
-            # TODO: Check structure
+
+            def check_ghost(cond):
+                if not cond:
+                    raise InvalidProgramException(func, 'invalid.ghost')
+
+            check_ghost(isinstance(func, ast.FunctionDef))
+            check_ghost(len(func.body) == 1)
+            check_ghost(isinstance(func.body[0], ast.Expr))
+            check_ghost(isinstance(func.body[0].value, ast.Ellipsis))
+            check_ghost(func.returns)
+
             name = func.name
             args, _ = LocalProgramBuilder(self.type_builder).build(func)
             arg_types = [arg.type for arg in args.values()]
