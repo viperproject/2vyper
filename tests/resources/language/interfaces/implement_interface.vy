@@ -6,7 +6,7 @@
 #
 
 
-from . import interface
+from tests.resources.language.interfaces import interface
 
 implements: interface
 

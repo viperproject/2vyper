@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 import os
 
-from typing import List
+from typing import List, Optional
 
 from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
@@ -28,14 +28,14 @@ from twovyper.ast.types import (
 from twovyper.exceptions import InvalidProgramException
 
 
-def parse(path: str, as_interface=False, name=None) -> VyperProgram:
+def parse(path: str, root: Optional[str], as_interface=False, name=None) -> VyperProgram:
     with open(path, 'r') as file:
         contract = file.read()
     try:
         preprocessed_contract = preprocess(contract)
         contract_ast = ast.parse(preprocessed_contract, path)
         contract_ast = transform(contract_ast)
-        program_builder = ProgramBuilder(path, as_interface, name)
+        program_builder = ProgramBuilder(path, root, as_interface, name)
         return program_builder.build(contract_ast)
     except SyntaxError as err:
         err.text = contract.splitlines()[err.lineno - 1]
@@ -52,8 +52,9 @@ class ProgramBuilder(ast.NodeVisitor):
     # top-level statements we gather pre and postconditions until we reach a function
     # definition.
 
-    def __init__(self, path, is_interface, name):
+    def __init__(self, path: str, root: str, is_interface: bool, name: str):
         self.path = path
+        self.root = root
         self.is_interface = is_interface
         self.name = name
 
@@ -150,20 +151,25 @@ class ProgramBuilder(ast.NodeVisitor):
             self.visit(stmt)
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
-        # TODO: handle absolute imports
         # TODO: check for ERC20
-        if self.is_interface or node.level == 0:
-            return
 
         module = node.module or ''
         components = module.split('.')
 
-        path = self.path
-        for _ in range(node.level):
-            path = os.path.dirname(path)
+        if self.is_interface or (components and components[0] == 'vyper'):
+            return
 
-        for c in components:
-            path = os.path.join(path, c)
+        if node.level == 0:
+            path = self.root or ''
+            for c in components:
+                path = os.path.join(path, c)
+        else:
+            path = self.path
+            for _ in range(node.level):
+                path = os.path.dirname(path)
+
+            for c in components:
+                path = os.path.join(path, c)
 
         files = {}
         for alias in node.names:
@@ -172,7 +178,7 @@ class ProgramBuilder(ast.NodeVisitor):
             files[interface_path] = name
 
         for file, name in files.items():
-            interface = parse(file, True, name)
+            interface = parse(file, self.root, True, name)
             self.interfaces[name] = interface
 
     def visit_ClassDef(self, node: ast.ClassDef):

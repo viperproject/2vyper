@@ -48,7 +48,7 @@ class TwoVyper:
         if not skip_vyper:
             vyper.check(path, vyper_root)
 
-        vyper_program = parser.parse(path)
+        vyper_program = parser.parse(path, vyper_root)
         for interface in vyper_program.interfaces.values():
             analyzer.analyze(interface)
         analyzer.analyze(vyper_program)
