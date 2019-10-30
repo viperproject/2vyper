@@ -400,6 +400,14 @@ class TypeAnnotator(NodeVisitor):
                     else:
                         self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                         return [types.VYPER_WEI_VALUE], [node]
+                elif case(names.IMPLEMENTS):
+                    _check_number_of_arguments(node, 2)
+                    address = node.args[0]
+                    interface = node.args[1]
+                    is_interface = isinstance(interface, ast.Name) and interface.id in self.program.interfaces
+                    _check(is_interface, node, 'invalid.interface')
+                    self.annotate_expected(address, types.VYPER_ADDRESS)
+                    return [types.VYPER_BOOL], [node]
                 elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                     # This is a struct inizializer
                     _check_number_of_arguments(node, 1)

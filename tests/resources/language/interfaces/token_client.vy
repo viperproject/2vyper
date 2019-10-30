@@ -6,6 +6,9 @@
 #
 
 
+#@ config: trust_casts
+
+
 from . import token
 
 

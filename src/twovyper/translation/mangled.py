@@ -44,6 +44,7 @@ REVERT_LABEL = 'revert'
 
 CONTRACT_DOMAIN = '$Contract'
 SELF_ADDRESS = '$self_address'
+IMPLEMENTS = '$implements'
 
 MATH_DOMAIN = '$Math'
 MATH_SIGN = '$sign'

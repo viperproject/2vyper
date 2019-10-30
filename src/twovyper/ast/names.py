@@ -129,6 +129,7 @@ CHECK = 'check'
 CONFIG = 'config'
 CONFIG_NO_GAS = 'no_gas'
 CONFIG_NO_OVERFLOWS = 'no_overflows'
+CONFIG_TRUST_CASTS = 'trust_casts'
 
 INTERFACE = 'interface'
 
@@ -145,6 +146,7 @@ ACCESSIBLE = 'accessible'
 REORDER_INDEPENDENT = 'reorder_independent'
 EVENT = 'event'
 SELFDESTRUCT = 'selfdestruct'
+IMPLEMENTS = 'implements'
 
 SUCCESS = 'success'
 SUCCESS_IF_NOT = 'if_not'

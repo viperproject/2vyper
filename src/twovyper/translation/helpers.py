@@ -19,6 +19,8 @@ from twovyper.viper.ast import ViperAST
 from twovyper.translation import mangled
 from twovyper.translation.context import Context
 
+from twovyper.utils import first_index
+
 
 # Helper functions
 
@@ -98,6 +100,13 @@ def self_address(viper_ast: ViperAST, pos=None, info=None):
     address = mangled.SELF_ADDRESS
     domain = mangled.CONTRACT_DOMAIN
     return viper_ast.DomainFuncApp(address, [], viper_ast.Int, pos, info, domain)
+
+
+def implements(viper_ast: ViperAST, address, interface: str, ctx: Context, pos=None, info=None):
+    impl = mangled.IMPLEMENTS
+    domain = mangled.CONTRACT_DOMAIN
+    intf = viper_ast.IntLit(first_index(lambda i: i == interface, ctx.program.interfaces), pos)
+    return viper_ast.DomainFuncApp(impl, [address, intf], viper_ast.Bool, pos, info, domain)
 
 
 def div(viper_ast: ViperAST, dividend, divisor, pos=None, info=None):

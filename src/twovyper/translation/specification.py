@@ -259,6 +259,10 @@ class SpecificationTranslator(ExpressionTranslator):
             type = self.type_translator.translate(self_type.member_types[member], ctx)
             sget = helpers.struct_get(self.viper_ast, self_var, member, type, self_type, pos)
             return [], sget
+        elif name == names.IMPLEMENTS:
+            stmts, address = self.translate(node.args[0], ctx)
+            interface = node.args[1].id
+            return stmts, helpers.implements(self.viper_ast, address, interface, ctx, pos)
         elif name in ctx.program.ghost_functions:
             function = ctx.program.ghost_functions[name]
             stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)

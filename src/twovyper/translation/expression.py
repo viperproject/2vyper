@@ -718,7 +718,11 @@ class ExpressionTranslator(NodeTranslator):
                     body.extend(stmts)
                     body.extend(self.viper_ast.Inhale(expr, pos) for expr in exprs)
 
-            return body
+            if ctx.program.config.has_option(names.CONFIG_TRUST_CASTS):
+                return body
+            else:
+                implements = helpers.implements(self.viper_ast, to, interface.name, ctx, pos)
+                return [self.viper_ast.If(implements, body, [], pos)]
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
