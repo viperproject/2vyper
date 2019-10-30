@@ -150,6 +150,18 @@ class ProgramBuilder(ast.NodeVisitor):
         for stmt in node.body:
             self.visit(stmt)
 
+    def visit_Import(self, node: ast.Import):
+        files = {}
+        for alias in node.names:
+            components = alias.name.split('.')
+            components[-1] = f'{components[-1]}.vy'
+            path = os.path.join(self.root or '', *components)
+            files[path] = alias.asname
+
+        for file, name in files.items():
+            interface = parse(file, self.root, True, name)
+            self.interfaces[name] = interface
+
     def visit_ImportFrom(self, node: ast.ImportFrom):
         # TODO: check for ERC20
 
@@ -160,16 +172,13 @@ class ProgramBuilder(ast.NodeVisitor):
             return
 
         if node.level == 0:
-            path = self.root or ''
-            for c in components:
-                path = os.path.join(path, c)
+            path = os.path.join(self.root or '', *components)
         else:
             path = self.path
             for _ in range(node.level):
                 path = os.path.dirname(path)
 
-            for c in components:
-                path = os.path.join(path, c)
+            path = os.path.join(path, *components)
 
         files = {}
         for alias in node.names:
