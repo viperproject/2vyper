@@ -579,7 +579,9 @@ class TypeAnnotator(NodeVisitor):
 
     def visit_Attribute(self, node: ast.Attribute):
         self.annotate_expected(node.value, lambda t: isinstance(t, StructType))
-        ntype = node.value.type.member_types[node.attr]
+        ntype = node.value.type.member_types.get(node.attr)
+        if not ntype:
+            raise InvalidProgramException(node, 'invalid.storage.var')
         return [ntype], [node]
 
     def visit_Subscript(self, node: ast.Subscript):
