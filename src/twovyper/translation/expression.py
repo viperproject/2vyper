@@ -511,11 +511,9 @@ class ExpressionTranslator(NodeTranslator):
                         cond = self.viper_ast.NeCmp(amount, zero, pos)
 
                     stmts.append(self.fail_if(cond, [], ctx, pos))
-                    call_stmts, succ, res = self._translate_external_call(node, to, amount, const, ctx)
-
-                    ass = self._assume_interface_specifications(node, interface, function, args, to, amount, succ, res, ctx)
+                    known = (interface, function, args)
+                    call_stmts, succ, res = self._translate_external_call(node, to, amount, const, ctx, known)
                     stmts.extend(call_stmts)
-                    stmts.extend(ass)
 
                 return stmts, res
             elif node.func.value.id == names.LOG:
@@ -533,7 +531,8 @@ class ExpressionTranslator(NodeTranslator):
                                  to: Expr,
                                  amount: Expr,
                                  constant: bool,
-                                 ctx: Context) -> Tuple[List[Stmt], Expr, Expr]:
+                                 ctx: Context,
+                                 known: Tuple[VyperInterface, VyperFunction, List[Expr]] = []) -> Tuple[List[Stmt], Expr, Expr]:
         # Sends are translated as follows:
         #    - Evaluate arguments to and amount
         #    - Check that balance is sufficient (self.balance >= amount) else revert
@@ -543,11 +542,12 @@ class ExpressionTranslator(NodeTranslator):
         #    - Assert checks and invariants
         #    - Create new old state which old in the invariants after the call refers to
         #    - Fail based on an unkown value (i.e. the call could fail)
-        #    - The last steps are only necessary if the function is not constant:
+        #    - The next steps are only necessary if the function is not constant:
         #       - Havoc self and contracts
         #       - Assume type assumptions for self
         #       - Assume invariants (where old refers to the state before send)
         #       - Create new old state which subsequent old expressions refer to
+        #    - In the case of an interface call: Assume postconditions
 
         pos = self.to_position(node, ctx)
 
@@ -629,9 +629,9 @@ class ExpressionTranslator(NodeTranslator):
 
             inv_seq = self._seqn_with_info(assume_invs, "Assume invariants")
 
-            new_state = [*type_seq, *post_seq, *inv_seq, *copy_old]
+            new_state = [*type_seq, *post_seq, *inv_seq]
         else:
-            call = [*copy_old, fail]
+            call = [fail]
             new_state = []
 
         if node.type:
@@ -647,7 +647,15 @@ class ExpressionTranslator(NodeTranslator):
             return_stmts = []
 
         success = self.viper_ast.Not(fail_cond, pos)
-        return stmts + assertions + call + new_state + return_stmts, success, return_value
+
+        if known:
+            interface, function, args = known
+            assume_itf = self._assume_interface_specifications
+            itf = assume_itf(node, interface, function, args, to, amount, success, return_value, ctx)
+        else:
+            itf = []
+
+        return stmts + assertions + call + new_state + return_stmts + itf + copy_old, success, return_value
 
     def _assume_interface_specifications(self,
                                          node: ast.AST,
@@ -709,7 +717,8 @@ class ExpressionTranslator(NodeTranslator):
             succ_var = succ_var_decl.localVar()
             body.append(self.viper_ast.LocalVarAssign(succ_var, succ, succ.pos()))
 
-            translate = self.spec_translator.translate_postcondition
+            # We use the invariant translation as we don't want to refer to the pre-state
+            translate = self.spec_translator.translate_invariant
             pos = self.to_position(node, ctx, rules.INHALE_INTERFACE_FAIL)
 
             with program_scope(interface, ctx):
