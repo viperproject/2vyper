@@ -7,14 +7,17 @@
 
 
 from . import interface
+from . import simple
 
 
 i: interface
+s: simple
 
 
 @public
 def __init__():
     self.i = interface(msg.sender)
+    self.s = simple(msg.sender)
 
 
 #@ ensures: implies(success() and implements(self.i, interface), result() == val)
@@ -28,3 +31,18 @@ def get_foo(val: int128) -> int128:
 @public
 def get_foo_fail(val: int128) -> int128:
     return self.i.foo(val)
+
+
+#@ ensures: implies(success() and implements(self.s, simple), result() == new_val)
+@public
+def set_simple_val(new_val: int128) -> int128:
+    self.s.set_val(new_val)
+    return self.s.get_val()
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: implies(success(), result() == new_val)
+@public
+def set_simple_val_fail(new_val: int128) -> int128:
+    self.s.set_val(new_val)
+    return self.s.get_val()
