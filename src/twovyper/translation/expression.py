@@ -723,7 +723,8 @@ class ExpressionTranslator(NodeTranslator):
 
             with program_scope(interface, ctx):
                 with self_address_scope(to, ctx):
-                    stmts, exprs = self.collect(translate(post, ctx) for post in function.postconditions)
+                    postconditions = chain(function.postconditions, interface.general_postconditions)
+                    stmts, exprs = self.collect(translate(post, ctx) for post in postconditions)
                     body.extend(stmts)
                     body.extend(self.viper_ast.Inhale(expr, pos) for expr in exprs)
 

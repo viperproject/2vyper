@@ -10,7 +10,16 @@
 
 #@ ghost:
     #@ def _val() -> int128: ...
+    #@ def _inc_val() -> int128: ...
     #@ def _pure(i: int128) -> int128: ...
+
+
+#@ always ensures: _inc_val(self) >= old(_inc_val(self))
+
+
+@public
+def do_stuff():
+    raise "Not implemented"
 
 
 #@ ensures: implies(i <= 0, not success())

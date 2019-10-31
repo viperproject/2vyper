@@ -153,6 +153,7 @@ class VyperInterface(VyperProgram):
                  config: VyperConfig,
                  functions: Dict[str, VyperFunction],
                  ghost_functions: Dict[str, GhostFunction],
+                 general_postconditions: List[ast.expr],
                  type: InterfaceType):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})
@@ -162,7 +163,9 @@ class VyperInterface(VyperProgram):
                          empty_struct,
                          functions,
                          {}, {}, {}, {},
-                         [], [], [], [], [])
+                         [],
+                         general_postconditions,
+                         [], [], [])
         self.name = name
         self.ghost_functions = ghost_functions
         self.type = type

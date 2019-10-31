@@ -104,6 +104,7 @@ class ProgramBuilder(ast.NodeVisitor):
                                   self.config,
                                   self.functions,
                                   self.ghost_functions,
+                                  self.general_postconditions,
                                   interface_type)
         else:
             # Add self.balance
