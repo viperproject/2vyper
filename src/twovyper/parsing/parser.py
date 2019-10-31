@@ -232,6 +232,12 @@ class ProgramBuilder(ast.NodeVisitor):
                 options = [node.value.id]
             elif isinstance(node.value, ast.Tuple):
                 options = [n.id for n in node.value.elts]
+
+            for option in options:
+                if option not in names.CONFIG_OPTIONS:
+                    msg = f"Option {option} is invalid."
+                    raise InvalidProgramException(node, 'invalid.config.option', msg)
+
             self.config = VyperConfig(options)
         elif name == names.INTERFACE:
             self._check_no_local_spec()
