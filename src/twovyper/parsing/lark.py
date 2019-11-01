@@ -253,6 +253,23 @@ class _PythonTransformer(Transformer):
         return ast.IfExp(cond, body, orelse)
 
     @copy_pos
+    def impl_test(self, children, meta):
+        it = iter(children)
+        left = next(it)
+
+        def impl(l):
+            r = next(it, None)
+            if r is None:
+                return l
+            else:
+                r = impl(r)
+                ret = ast.BinOp(l, ast.MatMult(), r)
+                copy_pos_between(ret, l, r)
+                return ret
+
+        return impl(left)
+
+    @copy_pos
     def or_test(self, children, meta):
         return ast.BoolOp(ast.Or(), children)
 
