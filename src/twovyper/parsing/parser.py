@@ -10,6 +10,7 @@ import os
 
 from typing import List, Optional
 
+from twovyper.parsing import lark
 from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
 
@@ -33,7 +34,7 @@ def parse(path: str, root: Optional[str], as_interface=False, name=None) -> Vype
         contract = file.read()
     try:
         preprocessed_contract = preprocess(contract)
-        contract_ast = ast.parse(preprocessed_contract, path)
+        contract_ast = lark.parse(preprocessed_contract)
         contract_ast = transform(contract_ast)
         program_builder = ProgramBuilder(path, root, as_interface, name)
         return program_builder.build(contract_ast)
