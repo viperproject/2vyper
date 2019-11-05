@@ -42,6 +42,29 @@ def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
     return constants
 
 
+def sign(a: int) -> int:
+    if a > 0:
+        return 1
+    elif a < 0:
+        return -1
+    else:
+        return 0
+
+
+def div(a: int, b: int) -> int:
+    """
+    Truncating division of two integers.
+    """
+    return sign(a) * sign(b) * (abs(a) // abs(b))
+
+
+def mod(a, b):
+    """
+    Truncating modulo of two integers.
+    """
+    return sign(a) * (abs(a) % abs(b))
+
+
 class ConstantInterpreter(ast.NodeVisitor):
     """
     Determines the value of all constants in the AST.
@@ -70,10 +93,9 @@ class ConstantInterpreter(ast.NodeVisitor):
         elif isinstance(op, ast.Mult):
             return lhs * rhs
         elif isinstance(op, ast.Div):
-            # Note that contrary to Python Vyper does a floor division
-            return lhs // rhs
+            return div(lhs, rhs)
         elif isinstance(op, ast.Mod):
-            return lhs % rhs
+            return mod(lhs, rhs)
         elif isinstance(op, ast.Pow):
             return lhs ** rhs
         else:
@@ -118,6 +140,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         raise UnsupportedException(node)
 
     def visit_Num(self, node: ast.Num):
+        assert isinstance(node.n, int)
         return node.n
 
     def visit_NameConstant(self, node: ast.NameConstant):
