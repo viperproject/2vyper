@@ -12,10 +12,10 @@ def times(a: decimal, b: decimal) -> decimal:
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: implies(success(), result() >= a)
+#@ ensures: implies(success() and a > 0.0, result() <= a)
 @public
-def dpow2(a: decimal) -> decimal:
-    return a * a
+def invert_fail(a: decimal) -> decimal:
+    return 1.0 / a
 
 
 #@ ensures: 2.0 / 2.0 == 1.0
