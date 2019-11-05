@@ -14,7 +14,7 @@ from twovyper.utils import first_index, NodeVisitor, switch
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.types import (
-    TypeBuilder, VyperType, MapType, ArrayType, StructType, SelfType, ContractType, InterfaceType
+    TypeBuilder, VyperType, MapType, ArrayType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
 )
 from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperVar
 
@@ -312,7 +312,12 @@ class TypeAnnotator(NodeVisitor):
                 elif case(names.STORAGE):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
-                    return [self.program.fields.type], [node]
+                    # We know that storage(self) has the self-type
+                    if isinstance(node.args[0], ast.Name) and node.args[0].id == names.SELF:
+                        return [self.program.type], [node]
+                    # Otherwise it is just some struct, which we don't know anything about
+                    else:
+                        return [AnyStructType()], [node]
                 elif case(names.ASSERT_MODIFIABLE):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], types.VYPER_BOOL)

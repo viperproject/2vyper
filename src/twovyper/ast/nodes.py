@@ -133,6 +133,7 @@ class VyperProgram:
         self.general_checks = general_checks
         self.implements = implements
         self.ghost_functions = dict(self._ghost_functions())
+        self.type = fields.type
         # Gets set in the analyzer
         self.analysis = None
 

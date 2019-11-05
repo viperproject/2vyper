@@ -75,6 +75,12 @@ class StructType(VyperType):
         self.member_indices[name] = len(self.member_indices)
 
 
+class AnyStructType(VyperType):
+
+    def __init__(self):
+        super().__init__('$AnyStruct')
+
+
 class SelfType(StructType):
 
     def __init__(self, member_types: Dict[str, VyperType]):
