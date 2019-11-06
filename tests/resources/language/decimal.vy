@@ -12,6 +12,13 @@ def times(a: decimal, b: decimal) -> decimal:
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: success() ==> a > 0.0 and a <= 1.0 ==> a == 1.0
+@public
+def gaps_fail(a: decimal) -> decimal:
+    return a
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: implies(success() and a > 0.0, result() <= a)
 @public
 def invert_fail(a: decimal) -> decimal:
