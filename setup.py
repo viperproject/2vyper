@@ -17,6 +17,7 @@ setup(
     package_dir={'': 'src'},
     package_data={
         'twovyper.backends': ['*.jar'],
+        'twovyper.parsing': ['*.lark'],
         'twovyper.resources': ['*.vpr'],
     },
     install_requires=[
