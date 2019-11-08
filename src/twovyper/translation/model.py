@@ -33,6 +33,7 @@ class ModelTranslator(CommonTranslator):
             return [], None
 
         self_var = ctx.self_var.localVar()
+        old_self_var = ctx.old_self_var.localVar()
         stmts = []
         transform = {}
 
@@ -43,15 +44,14 @@ class ModelTranslator(CommonTranslator):
             transform[new_var_name] = name
             stmts.append(self.viper_ast.LocalVarAssign(new_var.localVar(), rhs, pos))
 
-        def add_struct_members(struct_type, components):
+        def add_struct_members(struct, struct_type, components, wrapped=None):
             for member, member_type in struct_type.member_types.items():
                 new_components = components + [member]
+                mtype = self.type_translator.translate(member_type, ctx)
+                get = helpers.struct_get(self.viper_ast, struct, member, mtype, struct_type, pos)
                 if isinstance(member_type, StructType):
-                    add_struct_members(member_type, new_components)
+                    add_struct_members(get, member_type, new_components, wrapped)
                 else:
-                    mtype = self.type_translator.translate(member_type, ctx)
-                    get = helpers.struct_get(self.viper_ast, self_var, member, mtype, struct_type, pos)
-
                     if member == mangled.SELFDESTRUCT_FIELD:
                         name = f'{names.SELFDESTRUCT}()'
                     elif member == mangled.SENT_FIELD:
@@ -61,9 +61,16 @@ class ModelTranslator(CommonTranslator):
                     else:
                         name = '.'.join(new_components)
 
+                    if wrapped:
+                        name = wrapped(name)
+
                     add_model_var(name, mtype, get, new_components)
 
-        add_struct_members(ctx.program.type, [names.SELF])
+        add_struct_members(self_var, ctx.program.type, [names.SELF])
+        add_struct_members(old_self_var, ctx.program.type, [names.SELF], lambda n: f'{names.OLD}({n})')
+        if ctx.function.analysis.uses_issued:
+            issued_self_var = ctx.issued_self_var.localVar()
+            add_struct_members(issued_self_var, ctx.program.type, [names.SELF], lambda n: f'{names.ISSUED}({n})')
 
         for arg_name, arg_var in ctx.args.items():
             transform[arg_var.name()] = arg_name
