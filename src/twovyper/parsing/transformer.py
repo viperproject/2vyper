@@ -140,6 +140,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         raise UnsupportedException(node)
 
     def visit_Num(self, node: ast.Num):
+        # TODO: handle decimals
         assert isinstance(node.n, int)
         return node.n
 
