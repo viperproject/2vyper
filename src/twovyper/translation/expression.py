@@ -609,9 +609,7 @@ class ExpressionTranslator(NodeTranslator):
 
             assume_posts = []
             for post in ctx.program.transitive_postconditions:
-                # We translate the transitive postcondition like an invariant since we want
-                # old to refer to the state before the call, not the pre state
-                post_stmts, post_expr = self.spec_translator.translate_invariant(post, ctx)
+                post_stmts, post_expr = self.spec_translator.translate_postcondition(post, ctx)
                 ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                 assume_posts.extend(post_stmts)
                 assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
@@ -719,8 +717,7 @@ class ExpressionTranslator(NodeTranslator):
             succ_var = succ_var_decl.localVar()
             body.append(self.viper_ast.LocalVarAssign(succ_var, succ, succ.pos()))
 
-            # We use the invariant translation as we don't want to refer to the pre-state
-            translate = self.spec_translator.translate_invariant
+            translate = self.spec_translator.translate_postcondition
             pos = self.to_position(node, ctx, rules.INHALE_INTERFACE_FAIL)
 
             with program_scope(interface, ctx):

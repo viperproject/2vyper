@@ -246,9 +246,7 @@ class ProgramTranslator(PositionTranslator):
                 body.append(self.viper_ast.Inhale(inv_expr, pos))
             for post in ctx.program.transitive_postconditions:
                 pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                # We translate the postcondition like an invariant because we don't
-                # want old to refer to the pre state
-                post_stmts, post_expr = self.specification_translator.translate_invariant(post, ctx)
+                post_stmts, post_expr = self.specification_translator.translate_postcondition(post, ctx)
                 is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                 post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
                 body.extend(post_stmts)
@@ -393,7 +391,7 @@ class ProgramTranslator(PositionTranslator):
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)
-                    post_stmts, post_expr = self.specification_translator.translate_invariant(post, ctx)
+                    post_stmts, post_expr = self.specification_translator.translate_postcondition(post, ctx)
                     pos = self.to_position(post, ctx)
                     is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                     post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)

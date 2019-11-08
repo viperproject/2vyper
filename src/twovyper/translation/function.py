@@ -314,47 +314,49 @@ class FunctionTranslator(CommonTranslator):
             if is_init:
                 body.append(self.state_translator.check_first_public_state(ctx, False))
 
-            # Save model vars
-            post_stmts, modelt = self.model_translator.save_variables(ctx)
-            # Assert postconditions
-            for post in function.postconditions:
-                post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=modelt)
-                stmts, cond = self.specification_translator.translate_postcondition(post, ctx, False)
-                post_assert = self.viper_ast.Assert(cond, post_pos)
-                post_stmts.extend(stmts)
-                post_stmts.append(post_assert)
-
-            for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
-                post_pos = self.to_position(post, ctx)
-                stmts, cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
-                post_stmts.extend(stmts)
-                if is_init:
-                    init_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=modelt)
-                    # General postconditions only have to hold for init if it succeeds
-                    cond = self.viper_ast.Implies(success_var, cond, post_pos)
-                    post_stmts.append(self.viper_ast.Assert(cond, init_pos))
-                else:
-                    via = [Via('general postcondition', post_pos)]
-                    func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via, modelt)
-                    post_stmts.append(self.viper_ast.Assert(cond, func_pos))
-
-            # The postconditions of the interface the contract is supposed to implement
-            # TODO: extend to include invariants, checks, etc.
-            for itype in ctx.program.implements:
-                interface = ctx.program.interfaces[itype.name]
-                if function.name not in interface.functions:
-                    continue
-                ifunc = interface.functions[function.name]
-                pos_node = function.node or ctx.program.node
-                for post in ifunc.postconditions:
-                    post_pos = self.to_position(pos_node, ctx, rules.INTERFACE_POSTCONDITION_FAIL)
-                    with program_scope(interface, ctx):
-                        stmts, cond = self.specification_translator.translate_postcondition(post, ctx, False)
+            old_state = ctx.present_state if is_init else ctx.pre_state
+            with state_scope(ctx.present_state, old_state, ctx):
+                # Save model vars
+                post_stmts, modelt = self.model_translator.save_variables(ctx)
+                # Assert postconditions
+                for post in function.postconditions:
+                    post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=modelt)
+                    stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
                     post_assert = self.viper_ast.Assert(cond, post_pos)
                     post_stmts.extend(stmts)
                     post_stmts.append(post_assert)
 
-            body.extend(self._seqn_with_info(post_stmts, "Assert postconditions"))
+                for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
+                    post_pos = self.to_position(post, ctx)
+                    stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
+                    post_stmts.extend(stmts)
+                    if is_init:
+                        init_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=modelt)
+                        # General postconditions only have to hold for init if it succeeds
+                        cond = self.viper_ast.Implies(success_var, cond, post_pos)
+                        post_stmts.append(self.viper_ast.Assert(cond, init_pos))
+                    else:
+                        via = [Via('general postcondition', post_pos)]
+                        func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via, modelt)
+                        post_stmts.append(self.viper_ast.Assert(cond, func_pos))
+
+                # The postconditions of the interface the contract is supposed to implement
+                # TODO: extend to include invariants, checks, etc.
+                for itype in ctx.program.implements:
+                    interface = ctx.program.interfaces[itype.name]
+                    if function.name not in interface.functions:
+                        continue
+                    ifunc = interface.functions[function.name]
+                    pos_node = function.node or ctx.program.node
+                    for post in ifunc.postconditions:
+                        post_pos = self.to_position(pos_node, ctx, rules.INTERFACE_POSTCONDITION_FAIL)
+                        with program_scope(interface, ctx):
+                            stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
+                        post_assert = self.viper_ast.Assert(cond, post_pos)
+                        post_stmts.extend(stmts)
+                        post_stmts.append(post_assert)
+
+                body.extend(self._seqn_with_info(post_stmts, "Assert postconditions"))
 
             # Assert checks
             # For the checks we need to differentiate between success and failure because we

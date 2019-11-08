@@ -44,12 +44,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
         del self._ignore_accessible
 
-    def translate_postcondition(self, post: ast.AST, ctx: Context, is_init=False):
-        # For postconditions the old state is the state before the function call, except for
-        # __init__ where we use the self state instead (since there is no pre-state)
-        old_state = ctx.present_state if is_init else ctx.pre_state
-        with state_scope(ctx.present_state, old_state, ctx):
-            return self.translate(post, ctx)
+    def translate_postcondition(self, post: ast.AST, ctx: Context):
+        return self.translate(post, ctx)
 
     def translate_check(self, check: ast.AST, ctx: Context, is_fail=False):
         stmts, expr = self.translate(check, ctx)
@@ -62,7 +58,6 @@ class SpecificationTranslator(ExpressionTranslator):
             return stmts, expr
 
     def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_accessible=False):
-        self._ignore_accessible = ignore_accessible
         with self._ignore_accessible_scope(ignore_accessible):
             return self.translate(inv, ctx)
 
