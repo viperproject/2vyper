@@ -73,6 +73,13 @@ def seq_to_list(scala_iterable):
     return lst
 
 
+def list_to_seq(lst, jvm):
+    seq = jvm.scala.collection.mutable.ArraySeq(len(lst))
+    for i, element in enumerate(lst):
+        seq.update(i, element)
+    return seq
+
+
 def pprint(node: ast.AST) -> str:
     res = astunparse.unparse(node)
     res = res.replace('\n', '')

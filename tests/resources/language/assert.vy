@@ -58,6 +58,14 @@ def assert_unreachable_fail(val: int128):
 
 
 @public
+def times_assert_unreachable_fail(val: int128) -> int128:
+    res: int128 = 2 * val
+    #:: ExpectedOutput(assert.failed:assertion.false)
+    assert res > val, UNREACHABLE
+    return res
+
+
+@public
 def assert_property():
     assert -1 + 1 == 0, UNREACHABLE
 

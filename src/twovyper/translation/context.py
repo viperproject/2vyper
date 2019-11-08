@@ -15,6 +15,7 @@ class Context:
 
     def __init__(self):
         self.program = None
+        self.options = None
         # The translated types of all fields
         self.field_types = {}
         # Invariants that are known to be true and therefore don't need to be checked

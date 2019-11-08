@@ -26,7 +26,7 @@ class Success(VerificationResult):
     def __bool__(self):
         return True
 
-    def to_string(self, ide_mode: bool, show_viper_errors: bool) -> str:
+    def to_string(self, ide_mode: bool, show_viper_errors: bool, include_model: bool = False) -> str:
         return "Verification successful"
 
 
@@ -43,6 +43,6 @@ class Failure(VerificationResult):
     def __bool__(self):
         return False
 
-    def to_string(self, ide_mode: bool, show_viper_errors: bool) -> str:
-        errors = [error.string(ide_mode, show_viper_errors) for error in self.errors]
+    def to_string(self, ide_mode: bool, show_viper_errors: bool, include_model: bool = False) -> str:
+        errors = [error.string(ide_mode, show_viper_errors, include_model) for error in self.errors]
         return "Verification failed\nErrors:\n" + '\n'.join(errors)

@@ -19,6 +19,7 @@ from twovyper import vyper
 from twovyper.parsing import parser
 from twovyper.analysis import analyzer
 from twovyper.translation import translator
+from twovyper.translation.translator import TranslationOptions
 
 from twovyper.viper.jvmaccess import JVM
 from twovyper.viper.typedefs import Program
@@ -37,8 +38,9 @@ from twovyper.exceptions import (
 
 class TwoVyper:
 
-    def __init__(self, jvm: JVM):
+    def __init__(self, jvm: JVM, get_model: bool = False):
         self.jvm = jvm
+        self.get_model = get_model
 
     def translate(self, path: str, vyper_root: str = None, skip_vyper: bool = False) -> Program:
         path = os.path.abspath(path)
@@ -53,14 +55,15 @@ class TwoVyper:
             analyzer.analyze(interface)
         analyzer.analyze(vyper_program)
 
-        return translator.translate(vyper_program, self.jvm)
+        options = TranslationOptions(self.get_model)
+        return translator.translate(vyper_program, options, self.jvm)
 
     def verify(self, program: Program, path: str, backend: str) -> VerificationResult:
         """
         Verifies the given Viper program
         """
         verifier = ViperVerifier[backend].value
-        verifier.initialize(self.jvm, path)
+        verifier.initialize(self.jvm, path, self.get_model)
         return verifier.verify(program)
 
 
@@ -106,6 +109,11 @@ def main() -> None:
         '--boogie',
         help='path to Boogie executable',
         default=config.boogie_path
+    )
+    parser.add_argument(
+        '--model',
+        action='store_true',
+        help='print a counterexample if the verification fails',
     )
     parser.add_argument(
         '--vyper-root',
@@ -175,7 +183,7 @@ def main() -> None:
 def translate_and_verify(vyper_file, jvm, args, print=print):
     try:
         start = time()
-        tw = TwoVyper(jvm)
+        tw = TwoVyper(jvm, args.model)
         program = tw.translate(vyper_file, args.vyper_root, args.skip_vyper)
         if args.print_viper:
             print(str(program))
@@ -195,7 +203,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
                 print(f"{i}, {args.benchmark}, {start}, {end}, {end - start}")
         else:
             vresult = tw.verify(program, vyper_file, backend)
-        print(vresult.to_string(args.ide_mode, args.show_viper_errors))
+        print(vresult.to_string(args.ide_mode, args.show_viper_errors, include_model=args.model))
         end = time()
         duration = end - start
         print(f"Verification took {duration:.2f} seconds.")

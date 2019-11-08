@@ -18,12 +18,13 @@ from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
 
 from twovyper.translation.abstract import CommonTranslator
-from twovyper.translation.expression import ExpressionTranslator
-from twovyper.translation.statement import StatementTranslator
-from twovyper.translation.specification import SpecificationTranslator
-from twovyper.translation.type import TypeTranslator
 from twovyper.translation.balance import BalanceTranslator
+from twovyper.translation.expression import ExpressionTranslator
+from twovyper.translation.model import ModelTranslator
+from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
+from twovyper.translation.statement import StatementTranslator
+from twovyper.translation.type import TypeTranslator
 from twovyper.translation.context import (
     Context, function_scope, inline_scope, state_scope, program_scope
 )
@@ -39,12 +40,13 @@ class FunctionTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
-        self.expression_translator = ExpressionTranslator(viper_ast)
-        self.statement_translator = StatementTranslator(viper_ast)
-        self.specification_translator = SpecificationTranslator(viper_ast)
-        self.type_translator = TypeTranslator(viper_ast)
         self.balance_translator = BalanceTranslator(viper_ast)
+        self.expression_translator = ExpressionTranslator(viper_ast)
+        self.model_translator = ModelTranslator(viper_ast)
+        self.specification_translator = SpecificationTranslator(viper_ast)
+        self.statement_translator = StatementTranslator(viper_ast)
         self.state_translator = StateTranslator(viper_ast)
+        self.type_translator = TypeTranslator(viper_ast)
 
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
         with function_scope(ctx):
@@ -312,10 +314,11 @@ class FunctionTranslator(CommonTranslator):
             if is_init:
                 body.append(self.state_translator.check_first_public_state(ctx, False))
 
+            # Save model vars
+            post_stmts, modelt = self.model_translator.save_variables(ctx)
             # Assert postconditions
-            post_stmts = []
             for post in function.postconditions:
-                post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
+                post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=modelt)
                 stmts, cond = self.specification_translator.translate_postcondition(post, ctx, False)
                 post_assert = self.viper_ast.Assert(cond, post_pos)
                 post_stmts.extend(stmts)
@@ -326,15 +329,17 @@ class FunctionTranslator(CommonTranslator):
                 stmts, cond = self.specification_translator.translate_postcondition(post, ctx, is_init)
                 post_stmts.extend(stmts)
                 if is_init:
-                    init_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL)
+                    init_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=modelt)
                     # General postconditions only have to hold for init if it succeeds
                     cond = self.viper_ast.Implies(success_var, cond, post_pos)
                     post_stmts.append(self.viper_ast.Assert(cond, init_pos))
                 else:
                     via = [Via('general postcondition', post_pos)]
-                    func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via)
+                    func_pos = self.to_position(function.node, ctx, rules.POSTCONDITION_FAIL, via, modelt)
                     post_stmts.append(self.viper_ast.Assert(cond, func_pos))
 
+            # The postconditions of the interface the contract is supposed to implement
+            # TODO: extend to include invariants, checks, etc.
             for itype in ctx.program.implements:
                 interface = ctx.program.interfaces[itype.name]
                 if function.name not in interface.functions:
@@ -358,7 +363,7 @@ class FunctionTranslator(CommonTranslator):
             checks_succ = []
             checks_fail = []
             for check in function.checks:
-                check_pos = self.to_position(check, ctx, rules.CHECK_FAIL)
+                check_pos = self.to_position(check, ctx, rules.CHECK_FAIL, modelt=modelt)
                 succ_stmts, cond_succ = self.specification_translator.translate_check(check, ctx, False)
                 checks_succ.extend(succ_stmts)
                 checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
@@ -376,11 +381,11 @@ class FunctionTranslator(CommonTranslator):
                 # just use always check as position, else use function as position and create
                 # via to always check
                 if is_init:
-                    check_pos = self.to_position(check, ctx, rules.CHECK_FAIL)
+                    check_pos = self.to_position(check, ctx, rules.CHECK_FAIL, modelt=modelt)
                 else:
                     check_pos = self.to_position(check, ctx)
                     via = [Via('check', check_pos)]
-                    check_pos = self.to_position(function.node, ctx, rules.CHECK_FAIL, via)
+                    check_pos = self.to_position(function.node, ctx, rules.CHECK_FAIL, via, modelt)
 
                 checks_succ.extend(succ_stmts)
                 checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
@@ -403,7 +408,7 @@ class FunctionTranslator(CommonTranslator):
                 body.append(self.state_translator.check_first_public_state(ctx, False))
 
             # Assert the invariants
-            invariant_stmts = []
+            invariant_stmts, imodelt = self.model_translator.save_variables(ctx, pos)
             for inv in ctx.program.invariants:
                 inv_pos = self.to_position(inv, ctx)
                 # We ignore accessible here because we use a separate check
@@ -414,10 +419,10 @@ class FunctionTranslator(CommonTranslator):
                 if is_init:
                     # Invariants do not have to hold if __init__ fails
                     cond = self.viper_ast.Implies(success_var, cond, inv_pos)
-                    apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL)
+                    apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL, modelt=imodelt)
                 else:
                     via = [Via('invariant', inv_pos)]
-                    apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via)
+                    apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via, imodelt)
 
                 invariant_stmts.extend(stmts)
                 invariant_stmts.append(self.viper_ast.Assert(cond, apos))
@@ -440,7 +445,7 @@ class FunctionTranslator(CommonTranslator):
                 tag_inv = ctx.program.analysis.inv_tags[tag]
                 inv_pos = self.to_position(tag_inv, ctx)
                 vias = [Via('invariant', inv_pos)]
-                acc_pos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, vias)
+                acc_pos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, vias, imodelt)
 
                 wei_value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
                 amount_var = self.viper_ast.LocalVarDecl('$a', wei_value_type, inv_pos)

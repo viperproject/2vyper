@@ -11,6 +11,7 @@ option = None
 
 def pytest_addoption(parser):
     parser.addoption('--verifier', action='store', default='silicon')
+    parser.addoption('--model', action='store_true', default=False)
 
 
 def pytest_configure(config):

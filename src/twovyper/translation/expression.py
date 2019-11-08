@@ -24,6 +24,7 @@ from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
 from twovyper.translation.abstract import NodeTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.balance import BalanceTranslator
+from twovyper.translation.model import ModelTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.context import Context, interface_call_scope, program_scope, self_address_scope
@@ -41,6 +42,7 @@ class ExpressionTranslator(NodeTranslator):
         super().__init__(viper_ast)
         self.arithmetic_translator = ArithmeticTranslator(viper_ast, self.no_reverts)
         self.balance_translator = BalanceTranslator(viper_ast)
+        self.model_translsator = ModelTranslator(viper_ast)
         self.state_translator = StateTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
@@ -563,11 +565,11 @@ class ExpressionTranslator(NodeTranslator):
         if ctx.function.name == names.INIT:
             stmts.append(self.state_translator.check_first_public_state(ctx, True))
 
-        check_assertions = []
+        check_assertions, modelt = self.model_translsator.save_variables(ctx, pos)
         for check in chain(ctx.function.checks, ctx.program.general_checks):
             check_stmts, check_cond = self.spec_translator.translate_check(check, ctx)
             via = [Via('check', check_cond.pos())]
-            check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via)
+            check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via, modelt)
             check_assertions.extend(check_stmts)
             check_assertions.append(self.viper_ast.Assert(check_cond, check_pos))
 
@@ -577,7 +579,7 @@ class ExpressionTranslator(NodeTranslator):
             # the function
             inv_stmts, cond = self.spec_translator.translate_invariant(inv, ctx, True)
             via = [Via('invariant', cond.pos())]
-            call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via)
+            call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via, modelt)
             inv_assertions.extend(inv_stmts)
             inv_assertions.append(self.viper_ast.Assert(cond, call_pos))
 

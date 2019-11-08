@@ -70,9 +70,16 @@ def _init_jvm(verifier):
     VERIFIER = verifier
 
 
+def _init_model(model):
+    global OPTIONS_MODEL
+    OPTIONS_MODEL = model
+
+
 _BACKEND_SILICON = 'silicon'
 _BACKEND_CARBON = 'carbon'
 _BACKEND_ANY = 'ANY'
+
+OPTIONS_MODEL = False
 
 
 def _consume(key: str, dictionary: Dict[str, Any], check: bool = False) -> Any:
@@ -548,7 +555,7 @@ class TwoVyperTest(AnnotatedTest):
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         path = os.path.abspath(path)
-        tw = TwoVyper(jvm)
+        tw = TwoVyper(jvm, OPTIONS_MODEL)
         try:
             prog = tw.translate(path, vyper_root=VYPER_ROOT)
         except InvalidProgramException as e:

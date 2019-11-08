@@ -7,7 +7,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import List
+from typing import Callable, Dict, List, Optional, Tuple
+
+from twovyper.utils import seq_to_list
 
 from twovyper.viper.typedefs import Node, AbstractSourcePosition
 from twovyper.viper.typedefs import AbstractVerificationError, AbstractErrorReason
@@ -55,12 +57,47 @@ class Via:
         self.position = position
 
 
+ModelTransformation = Callable[[str, str], Tuple[str, str]]
+
+
+class Model:
+
+    def __init__(self, error: AbstractVerificationError, transform: Optional[ModelTransformation]):
+        self._model = error.parsedModel().get()
+        print(self._model)
+        self._transform = transform
+        self.values()
+
+    def values(self) -> Dict[str, str]:
+        res = {}
+        if self._model and self._transform:
+            entries = self._model.entries()
+            for name_entry in seq_to_list(entries):
+                name = str(name_entry._1())
+                value = str(name_entry._2())
+                transformation = self._transform(name, value)
+                if transformation:
+                    name, value = transformation
+                    res[name] = value
+
+        return res
+
+    def __str__(self):
+        return "\n".join(f"   {name} = {value}" for name, value in self.values().items())
+
+
 class ErrorInfo:
 
-    def __init__(self, function: str, node: ast.AST, vias: List[Via], reason_string: str):
+    def __init__(self,
+                 function: str,
+                 node: ast.AST,
+                 vias: List[Via],
+                 model_transformation: Optional[ModelTransformation],
+                 reason_string: str):
         self.function = function
         self.node = node
         self.vias = vias
+        self.model_transformation = model_transformation
         self.reason_string = reason_string
 
 
@@ -113,6 +150,10 @@ class Error:
         self.identifier = error_id
         self._error_info = error_item
         self.reason = Reason(reason_id, viper_reason, reason_item)
+        if error.parsedModel().isDefined():
+            self.model = Model(error, error_item.model_transformation)
+        else:
+            self._model = None
         self.position = Position(error.pos())
 
     def pos(self) -> AbstractSourcePosition:
@@ -161,7 +202,7 @@ class Error:
     def __str__(self) -> str:
         return self.string(False, False)
 
-    def string(self, ide_mode: bool, show_viper_errors: bool) -> str:
+    def string(self, ide_mode: bool, show_viper_errors: bool, include_model: bool = False) -> str:
         """
         Format error.
 
@@ -173,6 +214,8 @@ class Error:
         The second parameter determines if the message may show Viper-level error
         explanations if no Python-level explanation is available.
         """
+        assert not (ide_mode and include_model)
+
         if ide_mode:
             file_name = self.position.file_name
             line = self.position.line
@@ -184,4 +227,8 @@ class Error:
             msg = self.message
             reason = self.reason.string(show_viper_errors)
             pos = self.position_string
-            return f"{msg} {reason} ({pos})"
+            error_msg = f"{msg} {reason} ({pos})"
+            if include_model and self.model:
+                return f"{error_msg}\nCounterexample:\n{self.model}"
+            else:
+                return error_msg

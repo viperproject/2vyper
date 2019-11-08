@@ -21,6 +21,7 @@ from twovyper.translation.context import Context, break_scope, continue_scope
 from twovyper.translation.abstract import NodeTranslator, PositionTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.expression import ExpressionTranslator
+from twovyper.translation.model import ModelTranslator
 from twovyper.translation.type import TypeTranslator
 
 from twovyper.viper.ast import ViperAST
@@ -34,6 +35,7 @@ class StatementTranslator(NodeTranslator):
         self.expression_translator = ExpressionTranslator(viper_ast)
         self.assignment_translator = _AssignmentTranslator(viper_ast)
         self.arithmetic_translator = ArithmeticTranslator(viper_ast)
+        self.model_translator = ModelTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
     def translate_stmts(self, stmts: List[Stmt], ctx: Context) -> List[Stmt]:
@@ -94,7 +96,10 @@ class StatementTranslator(NodeTranslator):
         # If UNREACHABLE is used, we assert that the exception is unreachable,
         # i.e., that it never happens; else, we revert
         if isinstance(node.exc, ast.Name) and node.exc.id == names.UNREACHABLE:
-            return [self.viper_ast.Assert(self.viper_ast.FalseLit(pos), pos)]
+            save_vars, modelt = self.model_translator.save_variables(ctx, pos)
+            mpos = self.to_position(node, ctx, modelt=modelt)
+            false = self.viper_ast.FalseLit(pos)
+            return [self.viper_ast.Assert(false, mpos)]
         else:
             return [self.viper_ast.Goto(ctx.revert_label, pos)]
 
@@ -107,7 +112,9 @@ class StatementTranslator(NodeTranslator):
         # translating it directly as an assert; else, revert if the condition
         # is false.
         if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
-            return stmts + [self.viper_ast.Assert(expr, pos)]
+            save_vars, modelt = self.model_translator.save_variables(ctx, pos)
+            mpos = self.to_position(node, ctx, modelt=modelt)
+            return stmts + save_vars + [self.viper_ast.Assert(expr, mpos)]
         else:
             cond = self.viper_ast.Not(expr, pos)
             return stmts + [self.fail_if(cond, [], ctx, pos)]

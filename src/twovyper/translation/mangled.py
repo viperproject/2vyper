@@ -142,3 +142,7 @@ def local_var_name(vyper_name: str) -> str:
 
 def quantifier_var_name(vyper_name: str) -> str:
     return f'q${vyper_name}'
+
+
+def model_var_name(*components: str) -> str:
+    return f'm${"$".join(components)}'

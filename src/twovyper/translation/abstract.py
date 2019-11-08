@@ -14,7 +14,7 @@ from twovyper.translation.context import Context
 from twovyper.utils import NodeVisitor
 
 from twovyper.verification import error_manager
-from twovyper.verification.error import ErrorInfo, Via
+from twovyper.verification.error import ErrorInfo, ModelTransformation, Via
 from twovyper.verification.rules import Rules
 
 from twovyper.viper.ast import ViperAST
@@ -32,13 +32,14 @@ class PositionTranslator:
                                   ctx: Context,
                                   rules: Rules = None,
                                   vias: List[Via] = [],
+                                  modelt: ModelTransformation = None,
                                   error_string: str = None) -> str:
         name = None if not ctx.function else ctx.function.name
         # Inline vias are in reverse order, as the outermost is first,
         # and successive vias are appended. For the error output, changing
         # the order makes more sense.
         inline_vias = list(reversed(ctx.inline_vias))
-        error_info = ErrorInfo(name, node, inline_vias + vias, error_string)
+        error_info = ErrorInfo(name, node, inline_vias + vias, modelt, error_string)
         id = error_manager.add_error_information(error_info, rules)
         return id
 
@@ -47,12 +48,13 @@ class PositionTranslator:
                     ctx: Context,
                     rules: Rules = None,
                     vias: List[Via] = [],
+                    modelt: ModelTransformation = None,
                     error_string: str = None) -> Position:
         """
         Extracts the position from a node, assigns an ID to the node and stores
         the node and the position in the context for it.
         """
-        id = self._register_potential_error(node, ctx, rules, vias, error_string)
+        id = self._register_potential_error(node, ctx, rules, vias, modelt, error_string)
         return self.viper_ast.to_position(node, id, ctx.program.file)
 
     def no_position(self, error_string: str = None) -> Position:
