@@ -19,7 +19,6 @@ class Model:
 
     def __init__(self, error: AbstractVerificationError, transform: Optional[ModelTransformation]):
         self._model = error.parsedModel().get()
-        print(self._model)
         self._transform = transform
         self.values()
 
