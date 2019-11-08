@@ -15,7 +15,7 @@ from twovyper.translation.context import Context
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.type import TypeTranslator
 
-from twovyper.verification.error import ModelTransformation
+from twovyper.verification.model import ModelTransformation
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Stmt

@@ -7,14 +7,13 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import Callable, Dict, List, Optional, Tuple
-
-from twovyper.utils import seq_to_list
+from typing import List, Optional
 
 from twovyper.viper.typedefs import Node, AbstractSourcePosition
 from twovyper.viper.typedefs import AbstractVerificationError, AbstractErrorReason
 
 from twovyper.verification.messages import ERRORS, REASONS, VAGUE_REASONS
+from twovyper.verification.model import Model, ModelTransformation
 from twovyper.verification.rules import Rules
 
 
@@ -55,35 +54,6 @@ class Via:
     def __init__(self, origin: str, position: AbstractSourcePosition):
         self.origin = origin
         self.position = position
-
-
-ModelTransformation = Callable[[str, str], Tuple[str, str]]
-
-
-class Model:
-
-    def __init__(self, error: AbstractVerificationError, transform: Optional[ModelTransformation]):
-        self._model = error.parsedModel().get()
-        print(self._model)
-        self._transform = transform
-        self.values()
-
-    def values(self) -> Dict[str, str]:
-        res = {}
-        if self._model and self._transform:
-            entries = self._model.entries()
-            for name_entry in seq_to_list(entries):
-                name = str(name_entry._1())
-                value = str(name_entry._2())
-                transformation = self._transform(name, value)
-                if transformation:
-                    name, value = transformation
-                    res[name] = value
-
-        return res
-
-    def __str__(self):
-        return "\n".join(f"   {name} = {value}" for name, value in self.values().items())
 
 
 class ErrorInfo:
