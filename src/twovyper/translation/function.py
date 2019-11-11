@@ -28,6 +28,7 @@ from twovyper.translation.type import TypeTranslator
 from twovyper.translation.context import (
     Context, function_scope, inline_scope, state_scope, program_scope
 )
+from twovyper.translation.variable import TranslatedVar
 
 from twovyper.translation import mangled
 from twovyper.translation import helpers
@@ -62,29 +63,27 @@ class FunctionTranslator(CommonTranslator):
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
             locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
             # The block variable
-            block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
-            locals[names.BLOCK] = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
+            locals[names.BLOCK] = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             # The msg variable
-            msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
-            locals[names.MSG] = self.viper_ast.LocalVarDecl(mangled.MSG, msg_type)
+            locals[names.MSG] = TranslatedVar(names.MSG, mangled.MSG, types.MSG_TYPE, self.viper_ast)
             # The tx variable
-            tx_type = self.type_translator.translate(types.TX_TYPE, ctx)
-            locals[names.TX] = self.viper_ast.LocalVarDecl(mangled.TX, tx_type)
+            locals[names.TX] = TranslatedVar(names.TX, mangled.TX, types.TX_TYPE, self.viper_ast)
 
             # We represent self as a struct in each state (present, old, pre, issued).
             # For other contracts we use a map from addresses to structs.
 
-            ctx.present_state[names.SELF] = helpers.self_var(self.viper_ast, ctx.self_type)
-            ctx.present_state[mangled.CONTRACTS] = helpers.contract_var(self.viper_ast, mangled.CONTRACTS)
+            ctype = helpers.contracts_type()
+            ctx.present_state[names.SELF] = TranslatedVar(names.SELF, mangled.SELF, ctx.self_type, self.viper_ast)
+            ctx.present_state[mangled.CONTRACTS] = TranslatedVar(mangled.CONTRACTS, mangled.CONTRACTS, ctype, self.viper_ast)
             # The last publicly visible state of the blockchain
-            ctx.old_state[names.SELF] = helpers.old_self_var(self.viper_ast, ctx.self_type)
-            ctx.old_state[mangled.CONTRACTS] = helpers.contract_var(self.viper_ast, mangled.OLD_CONTRACTS)
+            ctx.old_state[names.SELF] = TranslatedVar(names.SELF, mangled.OLD_SELF, ctx.self_type, self.viper_ast)
+            ctx.old_state[mangled.CONTRACTS] = TranslatedVar(mangled.CONTRACTS, mangled.OLD_CONTRACTS, ctype, self.viper_ast)
             # The state of the blockchain before the function call
-            ctx.pre_state[names.SELF] = helpers.pre_self_var(self.viper_ast, ctx.self_type)
-            ctx.pre_state[mangled.CONTRACTS] = helpers.contract_var(self.viper_ast, mangled.PRE_CONTRACTS)
+            ctx.pre_state[names.SELF] = TranslatedVar(names.SELF, mangled.PRE_SELF, ctx.self_type, self.viper_ast)
+            ctx.pre_state[mangled.CONTRACTS] = TranslatedVar(mangled.CONTRACTS, mangled.PRE_CONTRACTS, ctype, self.viper_ast)
             # The state of the blockchain when the transaction was issued
-            ctx.issued_state[names.SELF] = helpers.issued_self_var(self.viper_ast, ctx.self_type)
-            ctx.issued_state[mangled.CONTRACTS] = helpers.contract_var(self.viper_ast, mangled.ISSUED_CONTRACTS)
+            ctx.issued_state[names.SELF] = TranslatedVar(names.SELF, mangled.ISSUED_SELF, ctx.self_type, self.viper_ast)
+            ctx.issued_state[mangled.CONTRACTS] = TranslatedVar(mangled.CONTRACTS, mangled.ISSUED_CONTRACTS, ctype, self.viper_ast)
             # Usually self refers to the present state and old(self) refers to the old state
             ctx.current_state = ctx.present_state
             ctx.current_old_state = ctx.old_state
@@ -93,13 +92,13 @@ class FunctionTranslator(CommonTranslator):
             ctx.locals = locals.copy()
 
             state_dicts = [ctx.present_state, ctx.old_state, ctx.pre_state, ctx.issued_state]
-            state = {}
+            state = []
             for d in state_dicts:
-                state.update(**{str(val.name()): val for val in d.values()})
+                state.extend(d.values())
 
-            self_var = ctx.self_var.localVar()
-            pre_self_var = ctx.pre_self_var.localVar()
-            issued_self_var = ctx.issued_self_var.localVar()
+            self_var = ctx.self_var.local_var(ctx)
+            pre_self_var = ctx.pre_self_var.local_var(ctx)
+            issued_self_var = ctx.issued_self_var.local_var(ctx)
 
             ctx.success_var = helpers.success_var(self.viper_ast)
             rets = [ctx.success_var]
@@ -134,7 +133,7 @@ class FunctionTranslator(CommonTranslator):
             # Assume type assumptions for arguments
             argument_conds = []
             for var in function.args.values():
-                local_var = args[var.name].localVar()
+                local_var = args[var.name].local_var(ctx)
                 assumptions = self.type_translator.type_assumptions(local_var, var.type, ctx)
                 argument_conds.extend(assumptions)
 
@@ -143,14 +142,14 @@ class FunctionTranslator(CommonTranslator):
             body.extend(self.seqn_with_info(argument_cond_assumes, ui_info_msg))
 
             # Assume type assumptions for block
-            block_var = ctx.block_var.localVar()
+            block_var = ctx.block_var.local_var(ctx)
             block_conds = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
             block_assumes = [self.viper_ast.Inhale(c) for c in block_conds]
             block_info_msg = "Assume type assumptions for block"
             body.extend(self.seqn_with_info(block_assumes, block_info_msg))
 
             # Assume type assumptions for msg
-            msg_var = ctx.msg_var.localVar()
+            msg_var = ctx.msg_var.local_var(ctx)
             msg_conds = self.type_translator.type_assumptions(msg_var, types.MSG_TYPE, ctx)
             # We additionally know that msg.sender != 0
             zero = self.viper_ast.IntLit(0)
@@ -456,7 +455,7 @@ class FunctionTranslator(CommonTranslator):
                 msg_sender = helpers.msg_sender(self.viper_ast, ctx, inv_pos)
                 amount_local = self.viper_ast.LocalVar('$a', wei_value_type, inv_pos)
 
-                arg_vars = [arg.localVar() for arg in args.values()]
+                arg_vars = [arg.local_var(ctx, inv_pos) for arg in args.values()]
                 acc_args = [tag_lit, msg_sender, amount_local, *arg_vars]
                 acc_pred = self.viper_ast.PredicateAccess(acc_args, acc_name, inv_pos)
                 acc_perm = self.viper_ast.CurrentPerm(acc_pred, inv_pos)
@@ -480,8 +479,9 @@ class FunctionTranslator(CommonTranslator):
 
             body.extend(self.seqn_with_info(accessibles, "Assert accessibles"))
 
-            args_list = list(args.values())
-            locals_list = [*state.values(), *locals.values(), *ctx.new_local_vars]
+            args_list = [arg.var_decl(ctx) for arg in args.values()]
+            locals_list = [local.var_decl(ctx) for local in chain(locals.values(), state)]
+            locals_list = [*locals_list, *ctx.new_local_vars]
 
             viper_name = mangled.method_name(function.name)
             method = self.viper_ast.Method(viper_name, args_list, rets, [], [], locals_list, body, pos)
@@ -502,25 +502,24 @@ class FunctionTranslator(CommonTranslator):
             # Define new msg variable
             # This is only necessary for msg.gas, as msg.sender and msg.value are not
             # allowed in private functions
-            msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
             msg_name = ctx.inline_prefix + mangled.MSG
-            msg_decl = self.viper_ast.LocalVarDecl(msg_name, msg_type)
-            ctx.locals[names.MSG] = msg_decl
-            ctx.new_local_vars.append(msg_decl)
+            msg_var = TranslatedVar(names.MSG, msg_name, types.MSG_TYPE, self.viper_ast, pos)
+            ctx.locals[names.MSG] = msg_var
+            ctx.new_local_vars.append(msg_var.var_decl(ctx))
 
             # Add arguments to local vars, assign passed args
             for (name, var), arg in zip(function.args.items(), args):
                 apos = self.to_position(var.node, ctx)
-                arg_decl = self._translate_var(var, ctx)
-                ctx.args[name] = arg_decl
-                ctx.new_local_vars.append(arg_decl)
-                body.append(self.viper_ast.LocalVarAssign(arg_decl.localVar(), arg, apos))
+                translated_arg = self._translate_var(var, ctx)
+                ctx.args[name] = translated_arg
+                ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
+                body.append(self.viper_ast.LocalVarAssign(translated_arg.local_var(ctx), arg, apos))
 
             # Add prefixed locals to local vars
             for name, var in function.local_vars.items():
-                var_decl = self._translate_var(var, ctx)
-                ctx.locals[name] = var_decl
-                ctx.new_local_vars.append(var_decl)
+                translated_var = self._translate_var(var, ctx)
+                ctx.locals[name] = translated_var
+                ctx.new_local_vars.append(translated_var.var_decl(ctx))
 
             # Define return var
             if function.type.return_type:
@@ -547,9 +546,8 @@ class FunctionTranslator(CommonTranslator):
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
-        type = self.type_translator.translate(var.type, ctx)
         name = ctx.inline_prefix + mangled.local_var_name(var.name)
-        return self.viper_ast.LocalVarDecl(name, type, pos)
+        return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)
 
     def _assume_non_negative(self, var, ctx: Context) -> Stmt:
         zero = self.viper_ast.IntLit(0)

@@ -7,6 +7,6 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import Dict
 
-from twovyper.viper.typedefs import VarDecl
+from twovyper.translation.variable import TranslatedVar
 
-State = Dict[str, VarDecl]
+State = Dict[str, TranslatedVar]

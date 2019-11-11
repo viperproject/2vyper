@@ -145,7 +145,7 @@ class StatementTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         with break_scope(ctx):
-            loop_var = ctx.all_vars[node.target.id].localVar()
+            loop_var = ctx.all_vars[node.target.id].local_var(ctx)
             lpos = self.to_position(node.target, ctx)
             rpos = self.to_position(node.iter, ctx)
 

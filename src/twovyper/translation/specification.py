@@ -22,6 +22,7 @@ from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.context import (
     Context, quantified_var_scope, state_scope, inside_trigger_scope
 )
+from twovyper.translation.variable import TranslatedVar
 
 from twovyper.translation import mangled
 from twovyper.translation import helpers
@@ -84,12 +85,11 @@ class SpecificationTranslator(ExpressionTranslator):
                     name_pos = self.to_position(var_name, ctx)
                     type = self.type_translator.translate(var_name.type, ctx)
                     qname = mangled.quantifier_var_name(var_name.id)
-                    var_decl = self.viper_ast.LocalVarDecl(qname, type, name_pos)
-                    var = var_decl.localVar()
-                    tassps = self.type_translator.type_assumptions(var, var_name.type, ctx)
+                    qvar = TranslatedVar(var_name.id, qname, var_name.type, self.viper_ast, name_pos)
+                    tassps = self.type_translator.type_assumptions(qvar.local_var(ctx), qvar.type, ctx)
                     type_assumptions.extend(tassps)
-                    quants.append(var_decl)
-                    ctx.quantified_vars[var_name.id] = var_decl
+                    quants.append(qvar.var_decl(ctx))
+                    ctx.quantified_vars[var_name.id] = qvar
 
                 # The last argument to forall is the quantified expression
                 expr = self._translate_spec(node.args[num_args - 1], ctx)
@@ -177,23 +177,22 @@ class SpecificationTranslator(ExpressionTranslator):
             # We translate storage(self) just as the self variable, otherwise we look up
             # the struct in the contract state map
             if isinstance(args[0], ast.Name) and args[0].id == names.SELF:
-                self_var = ctx.self_var
-                return [], self.viper_ast.LocalVar(self_var.name(), self_var.typ(), pos)
+                return [], ctx.self_var.local_var(ctx, pos)
             else:
                 stmts, arg = self.translate(args[0], ctx)
-                contracts = ctx.current_state[mangled.CONTRACTS].localVar()
+                contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
                 key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
                 value_type = helpers.struct_type(self.viper_ast)
                 return stmts, helpers.map_get(self.viper_ast, contracts, arg, key_type, value_type)
         elif name == names.RECEIVED:
-            self_var = ctx.self_var.localVar()
+            self_var = ctx.self_var.local_var(ctx)
             if node.args:
                 stmts, arg = self.translate(node.args[0], ctx)
                 return stmts, self.balance_translator.get_received(self_var, arg, ctx, pos)
             else:
                 return [], self.balance_translator.received(self_var, ctx, pos)
         elif name == names.SENT:
-            self_var = ctx.self_var.localVar()
+            self_var = ctx.self_var.local_var(ctx)
             if node.args:
                 stmts, arg = self.translate(node.args[0], ctx)
                 return stmts, self.balance_translator.get_sent(self_var, arg, ctx, pos)
@@ -239,7 +238,8 @@ class SpecificationTranslator(ExpressionTranslator):
             # Using the current msg_var is ok since we don't use msg.gas, but always return fresh values,
             # therefore msg is constant
             variables = [ctx.issued_self_var, ctx.msg_var, *ctx.args.values()]
-            low_variables = [self.viper_ast.Low(var.localVar()) for var in variables]
+            var_decls = [var.var_decl(ctx, pos) for var in variables]
+            low_variables = [self.viper_ast.Low(var.localVar()) for var in var_decls]
             cond = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_variables)
             implies = self.viper_ast.Implies(cond, self.viper_ast.Low(arg, pos), pos)
             return stmts, implies
@@ -256,7 +256,7 @@ class SpecificationTranslator(ExpressionTranslator):
             current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
             return stmts, self.viper_ast.EqCmp(current_perm, perm, pos)
         elif name == names.SELFDESTRUCT:
-            self_var = ctx.self_var.localVar()
+            self_var = ctx.self_var.local_var(ctx)
             self_type = ctx.self_type
             member = mangled.SELFDESTRUCT_FIELD
             type = self.type_translator.translate(self_type.member_types[member], ctx)
@@ -270,7 +270,7 @@ class SpecificationTranslator(ExpressionTranslator):
             function = ctx.program.ghost_functions[name]
             stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
 
-            contracts = ctx.current_state[mangled.CONTRACTS].localVar()
+            contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
             key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
             value_type = helpers.struct_type(self.viper_ast)
             struct = helpers.map_get(self.viper_ast, contracts, args[0], key_type, value_type)

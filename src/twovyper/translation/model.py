@@ -32,8 +32,8 @@ class ModelTranslator(CommonTranslator):
         if not ctx.options.create_model:
             return [], None
 
-        self_var = ctx.self_var.localVar()
-        old_self_var = ctx.old_self_var.localVar()
+        self_var = ctx.self_var.local_var(ctx)
+        old_self_var = ctx.old_self_var.local_var(ctx)
         stmts = []
         transform = {}
 
@@ -69,7 +69,7 @@ class ModelTranslator(CommonTranslator):
         add_struct_members(self_var, ctx.program.type, [names.SELF])
         add_struct_members(old_self_var, ctx.program.type, [names.SELF], lambda n: f'{names.OLD}({n})')
         if ctx.function.analysis.uses_issued:
-            issued_self_var = ctx.issued_self_var.localVar()
+            issued_self_var = ctx.pre_self_var.local_var(ctx)
             add_struct_members(issued_self_var, ctx.program.type, [names.SELF], lambda n: f'{names.ISSUED}({n})')
 
         for arg_name, arg_var in ctx.args.items():

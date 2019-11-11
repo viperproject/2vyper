@@ -24,6 +24,7 @@ from twovyper.translation.type import TypeTranslator
 from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.context import Context, function_scope, state_scope
+from twovyper.translation.variable import TranslatedVar
 
 from twovyper.viper import sif
 from twovyper.viper.ast import ViperAST
@@ -106,8 +107,8 @@ class ProgramTranslator(CommonTranslator):
             ctx.field_types[field] = self.type_translator.translate(field_type, ctx)
 
         def unchecked_invariants():
-            self_var = ctx.self_var.localVar()
-            old_self_var = ctx.old_self_var.localVar()
+            self_var = ctx.self_var.local_var(ctx)
+            old_self_var = ctx.old_self_var.local_var(ctx)
             address_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
             q_var = self.viper_ast.LocalVarDecl('$a', address_type)
             q_local = q_var.localVar()
@@ -268,21 +269,21 @@ class ProgramTranslator(CommonTranslator):
         with function_scope(ctx):
             name = mangled.TRANSITIVITY_CHECK
 
-            self_type = self.type_translator.translate(ctx.self_type, ctx)
-
             def self_var(name):
-                return self.viper_ast.LocalVarDecl(name, self_type)
+                return TranslatedVar(names.SELF, name, ctx.self_type, self.viper_ast)
 
             def contract_var(name):
-                return helpers.contract_var(self.viper_ast, name)
+                contracts_type = helpers.contracts_type()
+                return TranslatedVar(mangled.CONTRACTS, name, contracts_type, self.viper_ast)
 
             states = [{names.SELF: self_var(f'$s{i}'), mangled.CONTRACTS: contract_var(f'$c{i}')} for i in range(3)]
 
-            block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
-            block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
+            block = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             ctx.locals[names.BLOCK] = block
             is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
-            local_vars = [*flatten(s.values() for s in states), block, is_post]
+            local_vars = [*flatten(s.values() for s in states), block]
+            local_vars = [var.var_decl(ctx) for var in local_vars]
+            local_vars.append(is_post)
 
             body = []
 
@@ -291,14 +292,13 @@ class ProgramTranslator(CommonTranslator):
 
             # Assume type assumptions for all self-states
             for state in states:
-                for var_name, var in state.items():
-                    if var_name == names.SELF:
-                        local = var.localVar()
-                        type_assumptions = self.type_translator.type_assumptions(local, ctx.self_type, ctx)
-                        body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
+                for var in state.values():
+                    local = var.local_var(ctx)
+                    type_assumptions = self.type_translator.type_assumptions(local, var.type, ctx)
+                    body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
 
             # Assume type assumptions for block
-            block_var = block.localVar()
+            block_var = block.local_var(ctx)
             block_assumptions = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
             body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
 
@@ -340,23 +340,23 @@ class ProgramTranslator(CommonTranslator):
         with function_scope(ctx):
             name = mangled.FORCED_ETHER_CHECK
 
-            self_type = self.type_translator.translate(ctx.self_type, ctx)
-            self_var = helpers.self_var(self.viper_ast, self_type)
-            self_local = self_var.localVar()
-            pre_self_var = helpers.pre_self_var(self.viper_ast, self_type)
-            pre_self_local = pre_self_var.localVar()
+            self_var = TranslatedVar(names.SELF, mangled.SELF, ctx.self_type, self.viper_ast)
+            self_local = self_var.local_var(ctx)
+            pre_self_var = TranslatedVar(names.SELF, mangled.PRE_SELF, ctx.self_type, self.viper_ast)
+            pre_self_local = pre_self_var.local_var(ctx)
 
-            contracts_var = helpers.contract_var(self.viper_ast, mangled.CONTRACTS)
-            contracts_local = contracts_var.localVar()
-            pre_contracts_var = helpers.contract_var(self.viper_ast, mangled.PRE_CONTRACTS)
-            pre_contracts_local = pre_contracts_var.localVar()
+            contracts_type = helpers.contracts_type()
+            contracts_var = TranslatedVar(mangled.CONTRACTS, mangled.CONTRACTS, contracts_type, self.viper_ast)
+            contracts_local = contracts_var.local_var(ctx)
+            pre_contracts_var = TranslatedVar(mangled.PRE_CONTRACTS, mangled.PRE_CONTRACTS, contracts_type, self.viper_ast)
+            pre_contracts_local = pre_contracts_var.local_var(ctx)
 
-            block_type = self.type_translator.translate(types.BLOCK_TYPE, ctx)
-            block = self.viper_ast.LocalVarDecl(mangled.BLOCK, block_type)
+            block = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             ctx.locals[names.BLOCK] = block
             is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
             havoc = self.viper_ast.LocalVarDecl('$havoc', self.viper_ast.Int)
-            local_vars = [self_var, pre_self_var, contracts_var, pre_contracts_var, block, is_post, havoc]
+            local_vars = [var.var_decl(ctx) for var in [self_var, pre_self_var, contracts_var, pre_contracts_var, block]]
+            local_vars.extend([is_post, havoc])
 
             body = []
 
@@ -368,7 +368,7 @@ class ProgramTranslator(CommonTranslator):
             body.extend([self.viper_ast.Inhale(a) for a in type_assumptions])
 
             # Assume type assumptions for block
-            block_var = block.localVar()
+            block_var = block.local_var(ctx)
             block_assumptions = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
             body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
 

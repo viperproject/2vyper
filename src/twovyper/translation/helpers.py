@@ -9,7 +9,7 @@ import ast
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.types import FunctionType, StructType, SelfType
+from twovyper.ast.types import FunctionType, StructType, SelfType, MapType, AnyStructType
 from twovyper.ast.nodes import VyperFunction
 
 from twovyper.analysis.analyzer import FunctionAnalysis
@@ -61,13 +61,13 @@ def msg_var(viper_ast: ViperAST, pos=None, info=None):
 
 
 def msg_sender(viper_ast: ViperAST, ctx: Context, pos=None, info=None):
-    msg_var = ctx.msg_var.localVar()
+    msg_var = ctx.msg_var.local_var(ctx)
     type = types.MSG_TYPE
     return struct_get(viper_ast, msg_var, names.MSG_SENDER, viper_ast.Int, type, pos, info)
 
 
 def msg_value(viper_ast: ViperAST, ctx: Context, pos=None, info=None):
-    msg_var = ctx.msg_var.localVar()
+    msg_var = ctx.msg_var.local_var(ctx)
     type = types.MSG_TYPE
     return struct_get(viper_ast, msg_var, names.MSG_VALUE, viper_ast.Int, type, pos, info)
 
@@ -94,6 +94,10 @@ def msg_sender_call_fail_var(viper_ast: ViperAST, pos=None, info=None):
 
 def first_public_state_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.FIRST_PUBLIC_STATE, viper_ast.Bool, pos, info)
+
+
+def contracts_type():
+    return MapType(types.VYPER_ADDRESS, AnyStructType())
 
 
 def self_address(viper_ast: ViperAST, pos=None, info=None):

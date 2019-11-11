@@ -25,8 +25,8 @@ class StateTranslator(CommonTranslator):
     def copy_state(self, from_state: State, to_state: State, ctx: Context, pos=None) -> List[Stmt]:
         copies = []
         for name in set(from_state) & set(to_state):
-            to_var = to_state[name].localVar()
-            from_var = from_state[name].localVar()
+            to_var = to_state[name].local_var(ctx)
+            from_var = from_state[name].local_var(ctx)
             copies.append(self.viper_ast.LocalVarAssign(to_var, from_var, pos))
         return self.seqn_with_info(copies, "Copy state")
 
@@ -38,18 +38,18 @@ class StateTranslator(CommonTranslator):
 
     def havoc_state(self, state: State, ctx: Context, pos=None, unless=None) -> List[Stmt]:
         havocs = []
-        for name, var in ctx.current_state.items():
-            if unless and unless(name):
+        for var in ctx.current_state.values():
+            if unless and unless(var.name):
                 continue
             havoc_name = ctx.new_local_var_name('havoc')
-            havoc_var = self.viper_ast.LocalVarDecl(havoc_name, var.typ(), pos)
+            havoc_var = self.viper_ast.LocalVarDecl(havoc_name, var.var_decl(ctx).typ(), pos)
             ctx.new_local_vars.append(havoc_var)
-            havocs.append(self.viper_ast.LocalVarAssign(var.localVar(), havoc_var.localVar(), pos))
+            havocs.append(self.viper_ast.LocalVarAssign(var.local_var(ctx), havoc_var.localVar(), pos))
         return self.seqn_with_info(havocs, "Havoc state")
 
     def check_first_public_state(self, ctx: Context, set_false: bool, pos=None, info=None) -> Stmt:
-        self_var = ctx.self_var.localVar()
-        old_self_var = ctx.old_self_var.localVar()
+        self_var = ctx.self_var.local_var(ctx)
+        old_self_var = ctx.old_self_var.local_var(ctx)
         first_public_state = helpers.first_public_state_var(self.viper_ast, pos).localVar()
         old_assign = self.viper_ast.LocalVarAssign(old_self_var, self_var)
         false = self.viper_ast.FalseLit(pos)

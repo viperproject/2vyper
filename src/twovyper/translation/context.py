@@ -44,6 +44,7 @@ class Context:
         self.break_label = None
         self.continue_label = None
 
+        # TODO: change success_var and result_var to TranslatedVar
         self.success_var = None
         self.revert_label = None
         self.result_var = None

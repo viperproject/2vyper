@@ -28,6 +28,7 @@ from twovyper.translation.model import ModelTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.context import Context, interface_call_scope, program_scope, self_address_scope
+from twovyper.translation.variable import TranslatedVar
 
 from twovyper.translation import mangled
 from twovyper.translation import helpers
@@ -114,9 +115,8 @@ class ExpressionTranslator(NodeTranslator):
 
         if node.id == names.SELF and node.type == types.VYPER_ADDRESS:
             return [], ctx.self_address or helpers.self_address(self.viper_ast, pos)
-
-        var_decl = ctx.all_vars[node.id]
-        return [], self.viper_ast.LocalVar(var_decl.name(), var_decl.typ(), pos)
+        else:
+            return [], ctx.all_vars[node.id].local_var(ctx, pos)
 
     def translate_BinOp(self, node: ast.BinOp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
@@ -415,7 +415,7 @@ class ExpressionTranslator(NodeTranslator):
             elif name == names.SELFDESTRUCT:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
 
-                self_var = ctx.self_var.localVar()
+                self_var = ctx.self_var.local_var(ctx)
                 self_type = ctx.self_type
 
                 val = self.viper_ast.TrueLit(pos)
@@ -553,7 +553,7 @@ class ExpressionTranslator(NodeTranslator):
 
         pos = self.to_position(node, ctx)
 
-        self_var = ctx.self_var.localVar()
+        self_var = ctx.self_var.local_var(ctx)
         check = self.balance_translator.check_balance(amount, ctx, pos)
         sent = self.balance_translator.increase_sent(to, amount, ctx, pos)
         sub = self.balance_translator.decrease_balance(amount, ctx, pos)
@@ -671,14 +671,13 @@ class ExpressionTranslator(NodeTranslator):
             body = []
 
             # Define new msg variable
-            msg_type = self.type_translator.translate(types.MSG_TYPE, ctx)
             msg_name = ctx.inline_prefix + mangled.MSG
-            msg_decl = self.viper_ast.LocalVarDecl(msg_name, msg_type)
-            ctx.locals[names.MSG] = msg_decl
-            ctx.new_local_vars.append(msg_decl)
+            msg_var = TranslatedVar(names.MSG, msg_name, types.MSG_TYPE, self.viper_ast)
+            ctx.locals[names.MSG] = msg_var
+            ctx.new_local_vars.append(msg_var.var_decl(ctx))
 
             # Assume msg.sender == self and msg.value == amount
-            msg = msg_decl.localVar()
+            msg = msg_var.local_var(ctx)
             svytype = types.MSG_TYPE.member_types[names.MSG_SENDER]
             svitype = self.type_translator.translate(svytype, ctx)
             msg_sender = helpers.struct_get(self.viper_ast, msg, names.MSG_SENDER, svitype, types.MSG_TYPE)
@@ -693,10 +692,10 @@ class ExpressionTranslator(NodeTranslator):
             # Add arguments to local vars, assign passed args
             for (name, var), arg in zip(function.args.items(), args):
                 apos = arg.pos()
-                arg_decl = self._translate_var(var, ctx)
-                ctx.locals[name] = arg_decl
-                ctx.new_local_vars.append(arg_decl)
-                body.append(self.viper_ast.LocalVarAssign(arg_decl.localVar(), arg, apos))
+                arg_var = self._translate_var(var, ctx)
+                ctx.locals[name] = arg_var
+                ctx.new_local_vars.append(arg_var.var_decl(ctx))
+                body.append(self.viper_ast.LocalVarAssign(arg_var.local_var(ctx), arg, apos))
 
             # Add result variable
             if function.type.return_type:
@@ -735,6 +734,5 @@ class ExpressionTranslator(NodeTranslator):
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
-        type = self.type_translator.translate(var.type, ctx)
         name = ctx.inline_prefix + mangled.local_var_name(var.name)
-        return self.viper_ast.LocalVarDecl(name, type, pos)
+        return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)
