@@ -32,7 +32,7 @@ class StateTranslator(CommonTranslator):
 
     def havoc_state_except_self(self, state: State, ctx: Context, pos=None) -> List[Stmt]:
         """
-        Havocs all contract state except self, and then havocs self.balance.
+        Havocs all contract state except self.
         """
         return self.havoc_state(state, ctx, pos, unless=lambda v: v == names.SELF)
 
