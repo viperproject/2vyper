@@ -524,7 +524,7 @@ class ExpressionTranslator(NodeTranslator):
                 one = self.viper_ast.FullPerm(pos)
                 pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, one, pos)
                 stmts.append(self.viper_ast.Inhale(pred_acc_pred, pos))
-                return self._seqn_with_info(stmts, f"Event: {name}"), None
+                return self.seqn_with_info(stmts, f"Event: {name}"), None
             else:
                 assert False
 
@@ -605,7 +605,7 @@ class ExpressionTranslator(NodeTranslator):
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
-            type_seq = self._seqn_with_info(assume_type_ass, "Assume type assumptions")
+            type_seq = self.seqn_with_info(assume_type_ass, "Assume type assumptions")
 
             assume_posts = []
             for post in ctx.program.transitive_postconditions:
@@ -614,7 +614,7 @@ class ExpressionTranslator(NodeTranslator):
                 assume_posts.extend(post_stmts)
                 assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
 
-            post_seq = self._seqn_with_info(assume_posts, "Assume transitive postconditions")
+            post_seq = self.seqn_with_info(assume_posts, "Assume transitive postconditions")
 
             assume_invs = []
             for inv in ctx.unchecked_invariants():
@@ -627,7 +627,7 @@ class ExpressionTranslator(NodeTranslator):
                 assume_invs.extend(inv_stmts)
                 assume_invs.append(self.viper_ast.Inhale(cond, ipos))
 
-            inv_seq = self._seqn_with_info(assume_invs, "Assume invariants")
+            inv_seq = self.seqn_with_info(assume_invs, "Assume invariants")
 
             new_state = [*type_seq, *post_seq, *inv_seq]
         else:

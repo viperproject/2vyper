@@ -28,7 +28,7 @@ class StateTranslator(CommonTranslator):
             to_var = to_state[name].localVar()
             from_var = from_state[name].localVar()
             copies.append(self.viper_ast.LocalVarAssign(to_var, from_var, pos))
-        return self._seqn_with_info(copies, "Copy state")
+        return self.seqn_with_info(copies, "Copy state")
 
     def havoc_state_except_self(self, state: State, ctx: Context, pos=None) -> List[Stmt]:
         """
@@ -45,7 +45,7 @@ class StateTranslator(CommonTranslator):
             havoc_var = self.viper_ast.LocalVarDecl(havoc_name, var.typ(), pos)
             ctx.new_local_vars.append(havoc_var)
             havocs.append(self.viper_ast.LocalVarAssign(var.localVar(), havoc_var.localVar(), pos))
-        return self._seqn_with_info(havocs, "Havoc state")
+        return self.seqn_with_info(havocs, "Havoc state")
 
     def check_first_public_state(self, ctx: Context, set_false: bool, pos=None, info=None) -> Stmt:
         self_var = ctx.self_var.localVar()

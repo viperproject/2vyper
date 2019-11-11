@@ -18,7 +18,7 @@ from twovyper.utils import flatten, NodeVisitor
 
 from twovyper.translation import helpers
 from twovyper.translation.context import Context, break_scope, continue_scope
-from twovyper.translation.abstract import NodeTranslator, PositionTranslator
+from twovyper.translation.abstract import NodeTranslator, CommonTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.model import ModelTranslator
@@ -179,7 +179,7 @@ class StatementTranslator(NodeTranslator):
         return []
 
 
-class _AssignmentTranslator(NodeVisitor, PositionTranslator):
+class _AssignmentTranslator(NodeVisitor, CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)

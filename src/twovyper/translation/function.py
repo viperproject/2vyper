@@ -123,13 +123,13 @@ class FunctionTranslator(CommonTranslator):
             # Assume type assumptions for self state
             self_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             self_assumptions = [self.viper_ast.Inhale(inv) for inv in self_ass]
-            body.extend(self._seqn_with_info(self_assumptions, "Self state assumptions"))
+            body.extend(self.seqn_with_info(self_assumptions, "Self state assumptions"))
 
             # Assume type assumptions for issued self state
             if function.analysis.uses_issued:
                 issued = self.type_translator.type_assumptions(issued_self_var, ctx.self_type, ctx)
                 issued_assumptions = [self.viper_ast.Inhale(a) for a in issued]
-                body.extend(self._seqn_with_info(issued_assumptions, "Issued state assumptions"))
+                body.extend(self.seqn_with_info(issued_assumptions, "Issued state assumptions"))
 
             # Assume type assumptions for arguments
             argument_conds = []
@@ -140,14 +140,14 @@ class FunctionTranslator(CommonTranslator):
 
             argument_cond_assumes = [self.viper_ast.Inhale(c) for c in argument_conds]
             ui_info_msg = "Assume type assumptions for arguments"
-            body.extend(self._seqn_with_info(argument_cond_assumes, ui_info_msg))
+            body.extend(self.seqn_with_info(argument_cond_assumes, ui_info_msg))
 
             # Assume type assumptions for block
             block_var = ctx.block_var.localVar()
             block_conds = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
             block_assumes = [self.viper_ast.Inhale(c) for c in block_conds]
             block_info_msg = "Assume type assumptions for block"
-            body.extend(self._seqn_with_info(block_assumes, block_info_msg))
+            body.extend(self.seqn_with_info(block_assumes, block_info_msg))
 
             # Assume type assumptions for msg
             msg_var = ctx.msg_var.localVar()
@@ -158,7 +158,7 @@ class FunctionTranslator(CommonTranslator):
             neq0 = self.viper_ast.NeCmp(msg_sender, zero)
             msg_assumes = [self.viper_ast.Inhale(c) for c in chain(msg_conds, [neq0])]
             msg_info_msg = "Assume type assumptions for msg"
-            body.extend(self._seqn_with_info(msg_assumes, msg_info_msg))
+            body.extend(self.seqn_with_info(msg_assumes, msg_info_msg))
 
             # Assume unchecked and user-specified invariants
             inv_pres_issued = []
@@ -193,9 +193,9 @@ class FunctionTranslator(CommonTranslator):
                         inv_pres_self.append(self.viper_ast.Inhale(expr, ppos))
 
             iv_info_msg = "Assume invariants for issued self"
-            body.extend(self._seqn_with_info(inv_pres_issued, iv_info_msg))
+            body.extend(self.seqn_with_info(inv_pres_issued, iv_info_msg))
             iv_info_msg = "Assume invariants for self"
-            body.extend(self._seqn_with_info(inv_pres_self, iv_info_msg))
+            body.extend(self.seqn_with_info(inv_pres_self, iv_info_msg))
 
             # old_self and pre_self are the same as self in the beginning
             copy_old = self.state_translator.copy_state(ctx.present_state, ctx.old_state, ctx)
@@ -254,7 +254,7 @@ class FunctionTranslator(CommonTranslator):
             # If we are in a synthesized init, we don't have a function body
             if function.node:
                 body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
-                body.extend(self._seqn_with_info(body_stmts, "Function body"))
+                body.extend(self.seqn_with_info(body_stmts, "Function body"))
 
             # If we reach this point we either jumped to it by returning or got threre directly
             # because we didn't revert (yet)
@@ -356,7 +356,7 @@ class FunctionTranslator(CommonTranslator):
                         post_stmts.extend(stmts)
                         post_stmts.append(post_assert)
 
-                body.extend(self._seqn_with_info(post_stmts, "Assert postconditions"))
+                body.extend(self.seqn_with_info(post_stmts, "Assert postconditions"))
 
             # Assert checks
             # For the checks we need to differentiate between success and failure because we
@@ -429,7 +429,7 @@ class FunctionTranslator(CommonTranslator):
                 invariant_stmts.extend(stmts)
                 invariant_stmts.append(self.viper_ast.Assert(cond, apos))
 
-            body.extend(self._seqn_with_info(invariant_stmts, "Assert Invariants"))
+            body.extend(self.seqn_with_info(invariant_stmts, "Assert Invariants"))
 
             # We check accessibility by inhaling a predicate in the corresponding function
             # and checking in the end that if it has been inhaled (i.e. if we want to prove
@@ -478,7 +478,7 @@ class FunctionTranslator(CommonTranslator):
                 forall = self.viper_ast.Forall([amount_var], [trigger], impl, inv_pos)
                 accessibles.append(self.viper_ast.Assert(forall, acc_pos))
 
-            body.extend(self._seqn_with_info(accessibles, "Assert accessibles"))
+            body.extend(self.seqn_with_info(accessibles, "Assert accessibles"))
 
             args_list = list(args.values())
             locals_list = [*state.values(), *locals.values(), *ctx.new_local_vars]
@@ -542,7 +542,7 @@ class FunctionTranslator(CommonTranslator):
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
             body.extend(body_stmts)
 
-            seqn = self._seqn_with_info(body, f"Inlined call of {function.name}")
+            seqn = self.seqn_with_info(body, f"Inlined call of {function.name}")
             return seqn + [return_label], ret_var
 
     def _translate_var(self, var: VyperVar, ctx: Context):

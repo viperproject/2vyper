@@ -22,7 +22,7 @@ from twovyper.viper.typedefs import Stmt, StmtsAndExpr
 from twovyper.viper.typedefs import Position, Info
 
 
-class PositionTranslator:
+class CommonTranslator:
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
@@ -72,9 +72,6 @@ class PositionTranslator:
     def no_info(self) -> Info:
         return self.to_info([])
 
-
-class CommonTranslator(PositionTranslator):
-
     def collect(self, se: List[StmtsAndExpr]):
         stmts = []
         exprs = []
@@ -87,7 +84,7 @@ class CommonTranslator(PositionTranslator):
         body = [*stmts, self.viper_ast.Goto(ctx.revert_label, pos)]
         return self.viper_ast.If(cond, body, [], pos, info)
 
-    def _seqn_with_info(self, stmts: [Stmt], comment: str) -> List[Stmt]:
+    def seqn_with_info(self, stmts: [Stmt], comment: str) -> List[Stmt]:
         if not stmts:
             return stmts
         info = self.to_info([comment])
