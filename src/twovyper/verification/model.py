@@ -29,7 +29,8 @@ class Model:
             for name_entry in seq_to_list(entries):
                 name = str(name_entry._1())
                 value = str(name_entry._2())
-                transformation = self._transform(name, value)
+                py_value = _eval_value(_parse_value(value))
+                transformation = self._transform(name, py_value)
                 if transformation:
                     name, value = transformation
                     res[name] = value
@@ -38,3 +39,64 @@ class Model:
 
     def __str__(self):
         return "\n".join(f"   {name} = {value}" for name, value in self.values().items())
+
+
+def _parse_value(val: str):
+    it = iter(val)
+
+    def parse(it):
+        args = []
+        current_word = ''
+
+        def new_word():
+            nonlocal current_word
+            if current_word:
+                args.append(current_word)
+                current_word = ''
+
+        while True:
+            c = next(it, None)
+            if c is None or c == ')':
+                new_word()
+                return args
+            elif c == '(':
+                new_word()
+                func = parse(it)
+                args.append(func)
+            elif c.isspace():
+                new_word()
+            else:
+                current_word += c
+
+    return parse(it)
+
+
+def _eval_func(val):
+    if isinstance(val, str):
+        if val == '+':
+            return lambda n: n
+        elif val == '-':
+            return lambda n: -n
+    elif isinstance(val, list):
+        assert len(val) == 1
+        return _eval_func(val[0])
+
+
+def _eval_value(val):
+    if isinstance(val, str):
+        if val == 'true':
+            return True
+        elif val == 'false':
+            return False
+        try:
+            return int(val)
+        except ValueError:
+            return val
+    elif isinstance(val, list) and len(val) == 1:
+        return _eval_value(val[0])
+    elif isinstance(val, list):
+        func = _eval_func(val[0])
+        args = [_eval_value(v) for v in val[1:]]
+        return func(*args)
+    else:
+        assert False

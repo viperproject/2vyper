@@ -86,11 +86,12 @@ class ModelTranslator(CommonTranslator):
         transform[mangled.MSG_SENDER_CALL_FAIL] = f'{names.SUCCESS_SENDER_FAILED}()'
         transform[mangled.OVERFLOW] = f'{names.SUCCESS_OVERFLOW}()'
 
-        def model_transformation(name: str, value: str) -> Optional[Tuple[str, str]]:
+        def model_transformation(name: str, value) -> Optional[Tuple[str, str]]:
             transformed_name = transform.get(name)
             if transformed_name is None:
                 return None
             else:
+                # TODO: use type information to map values to correct outputs (mostly for decimals and byte literals)
                 return transformed_name, value
 
         return stmts, model_transformation
