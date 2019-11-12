@@ -133,6 +133,7 @@ class BoundedType(PrimitiveType):
 class DecimalType(BoundedType):
 
     def __init__(self, name: str, digits: int, lower: int, upper: int):
+        self.number_of_digits = digits
         self.scaling_factor = 10 ** digits
         lower *= self.scaling_factor
         upper *= self.scaling_factor

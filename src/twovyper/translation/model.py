@@ -5,10 +5,12 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from itertools import chain
 from typing import List, Optional, Tuple
 
-from twovyper.ast import names
-from twovyper.ast.types import StructType
+from twovyper.ast import names, types
+from twovyper.ast.arithmetic import Decimal
+from twovyper.ast.types import StructType, DecimalType
 
 from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context
@@ -36,12 +38,15 @@ class ModelTranslator(CommonTranslator):
         old_self_var = ctx.old_self_var.local_var(ctx)
         stmts = []
         transform = {}
+        type_map = {}
 
         def add_model_var(name, var_type, rhs, components):
             new_var_name = ctx.new_local_var_name(mangled.model_var_name(*components))
-            new_var = self.viper_ast.LocalVarDecl(new_var_name, var_type, pos)
+            vtype = self.type_translator.translate(var_type, ctx)
+            new_var = self.viper_ast.LocalVarDecl(new_var_name, vtype, pos)
             ctx.new_local_vars.append(new_var)
             transform[new_var_name] = name
+            type_map[new_var_name] = var_type
             stmts.append(self.viper_ast.LocalVarAssign(new_var.localVar(), rhs, pos))
 
         def add_struct_members(struct, struct_type, components, wrapped=None):
@@ -64,7 +69,7 @@ class ModelTranslator(CommonTranslator):
                     if wrapped:
                         name = wrapped(name)
 
-                    add_model_var(name, mtype, get, new_components)
+                    add_model_var(name, member_type, get, new_components)
 
         add_struct_members(self_var, ctx.program.type, [names.SELF])
         add_struct_members(old_self_var, ctx.program.type, [names.SELF], lambda n: f'{names.OLD}({n})')
@@ -72,26 +77,42 @@ class ModelTranslator(CommonTranslator):
             issued_self_var = ctx.pre_self_var.local_var(ctx)
             add_struct_members(issued_self_var, ctx.program.type, [names.SELF], lambda n: f'{names.ISSUED}({n})')
 
-        for arg_name, arg_var in ctx.args.items():
-            transform[arg_var.name()] = arg_name
-
-        for local_name, local_var in ctx.locals.items():
-            transform[local_var.name()] = local_name
+        for var in chain(ctx.args.values(), ctx.locals.values()):
+            if isinstance(var.type, StructType):
+                add_struct_members(var.local_var(ctx), var.type, [var.name])
+            else:
+                transform[var.mangled_name] = var.name
+                type_map[var.mangled_name] = var.type
 
         transform[ctx.success_var.name()] = f'{names.SUCCESS}()'
+        type_map[ctx.success_var.name()] = types.VYPER_BOOL
         if ctx.result_var:
             transform[ctx.result_var.name()] = f'{names.RESULT}()'
+            type_map[ctx.result_var.name()] = ctx.function.type.return_type
 
         transform[mangled.OUT_OF_GAS] = f'{names.SUCCESS_OUT_OF_GAS}()'
+        type_map[mangled.OUT_OF_GAS] = types.VYPER_BOOL
         transform[mangled.MSG_SENDER_CALL_FAIL] = f'{names.SUCCESS_SENDER_FAILED}()'
+        type_map[mangled.MSG_SENDER_CALL_FAIL] = types.VYPER_BOOL
         transform[mangled.OVERFLOW] = f'{names.SUCCESS_OVERFLOW}()'
+        type_map[mangled.OVERFLOW] = types.VYPER_BOOL
+
+        def transform_value(type, value):
+            if isinstance(type, DecimalType):
+                assert isinstance(value, int)
+                return str(Decimal[type.number_of_digits](scaled_value=value))
+            elif type == types.VYPER_ADDRESS:
+                assert isinstance(value, int)
+                return f'{value:#0{40}x}'
+            else:
+                return value
 
         def model_transformation(name: str, value) -> Optional[Tuple[str, str]]:
             transformed_name = transform.get(name)
             if transformed_name is None:
                 return None
             else:
-                # TODO: use type information to map values to correct outputs (mostly for decimals and byte literals)
-                return transformed_name, value
+                transformed_value = transform_value(type_map[name], value)
+                return transformed_name, transformed_value
 
         return stmts, model_transformation

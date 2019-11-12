@@ -10,6 +10,7 @@ import ast
 from typing import List, Dict, Any
 
 from twovyper.ast import names
+from twovyper.ast.arithmetic import div, mod
 from twovyper.exceptions import UnsupportedException
 
 
@@ -40,29 +41,6 @@ def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
         constants[name] = _parse_value(value)
 
     return constants
-
-
-def sign(a: int) -> int:
-    if a > 0:
-        return 1
-    elif a < 0:
-        return -1
-    else:
-        return 0
-
-
-def div(a: int, b: int) -> int:
-    """
-    Truncating division of two integers.
-    """
-    return sign(a) * sign(b) * (abs(a) // abs(b))
-
-
-def mod(a, b):
-    """
-    Truncating modulo of two integers.
-    """
-    return sign(a) * (abs(a) % abs(b))
 
 
 class ConstantInterpreter(ast.NodeVisitor):

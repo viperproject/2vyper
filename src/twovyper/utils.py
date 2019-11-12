@@ -80,6 +80,12 @@ def list_to_seq(lst, jvm):
     return seq
 
 
+class Subscriptable(type):
+
+    def __getitem__(cls, val):
+        return cls._subscript(val)
+
+
 def pprint(node: ast.AST) -> str:
     res = astunparse.unparse(node)
     res = res.replace('\n', '')
