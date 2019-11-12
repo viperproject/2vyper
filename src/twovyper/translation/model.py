@@ -31,6 +31,9 @@ class ModelTranslator(CommonTranslator):
         self.type_translator = TypeTranslator(viper_ast)
 
     def save_variables(self, ctx: Context, pos=None) -> Tuple[List[Stmt], ModelTransformation]:
+        # Viper only gives a model for variables, therefore we save all important expressions
+        # in variables and provide a mapping back to the Vyper expression. Also, we give a value
+        # transformation to change, e.g., 12 to 0.0000000012 for decimals.
         if not ctx.options.create_model:
             return [], None
 
@@ -107,6 +110,8 @@ class ModelTranslator(CommonTranslator):
             else:
                 return value
 
+        # The model transformation transforms the name back to the Vyper expression ($succ --> success())
+        # It also transforms the parsed value (which can be an int, bool or name).
         def model_transformation(name: str, value) -> Optional[Tuple[str, str]]:
             transformed_name = transform.get(name)
             if transformed_name is None:

@@ -42,6 +42,10 @@ class Model:
 
 
 def _parse_value(val: str):
+    """
+    Parses a model expression to a list of strings expressions.
+    Example: (- (- 12)) --> [[-, [-, 12]]]
+    """
     it = iter(val)
 
     def parse(it):
@@ -83,6 +87,12 @@ def _eval_func(val):
 
 
 def _eval_value(val):
+    """
+    Evaluates a previously parsed expression. Suported are:
+       - Constants: true, false, 0, 1, ...
+       - Names: $succ, ...
+       - Unary operations: +, -
+    """
     if isinstance(val, str):
         if val == 'true':
             return True
