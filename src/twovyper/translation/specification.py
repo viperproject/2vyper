@@ -184,7 +184,10 @@ class SpecificationTranslator(ExpressionTranslator):
             self_address = helpers.self_address(self.viper_ast, pos)
             eq = self.viper_ast.EqCmp(arg, self_address)
             self_var = ctx.self_var.local_var(ctx, pos)
-            return stmts, self.viper_ast.CondExp(eq, self_var, get_storage, pos)
+            if ctx.inside_trigger:
+                return stmts, get_storage
+            else:
+                return stmts, self.viper_ast.CondExp(eq, self_var, get_storage, pos)
         elif name == names.RECEIVED:
             self_var = ctx.self_var.local_var(ctx)
             if node.args:
