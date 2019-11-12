@@ -112,6 +112,7 @@ def set_self_simple_val():
 
 #@ ensures: implies(success(), result() == 42)
 #@ ensures: _inc_val(simple(at)) >= old(_inc_val(simple(at)))
+#@ ensures: storage(self) == old(storage(self))
 @public
 def set_and_get_simple_val(at: address) -> int128:
     simple(at).set_val(42)

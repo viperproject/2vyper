@@ -63,6 +63,7 @@ def get_val() -> int128:
 
 
 #@ ensures: implies(success(), _val(self) == new_val)
+#@ ensures: storage(msg.sender) == old(storage(msg.sender))
 @public
 def set_val(new_val: int128):
     raise "Not implemented"

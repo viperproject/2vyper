@@ -176,14 +176,15 @@ class SpecificationTranslator(ExpressionTranslator):
             args = node.args
             # We translate storage(self) just as the self variable, otherwise we look up
             # the struct in the contract state map
-            if isinstance(args[0], ast.Name) and args[0].id == names.SELF:
-                return [], ctx.self_var.local_var(ctx, pos)
-            else:
-                stmts, arg = self.translate(args[0], ctx)
-                contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
-                key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
-                value_type = helpers.struct_type(self.viper_ast)
-                return stmts, helpers.map_get(self.viper_ast, contracts, arg, key_type, value_type)
+            stmts, arg = self.translate(args[0], ctx)
+            contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
+            key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
+            value_type = helpers.struct_type(self.viper_ast)
+            get_storage = helpers.map_get(self.viper_ast, contracts, arg, key_type, value_type)
+            self_address = helpers.self_address(self.viper_ast, pos)
+            eq = self.viper_ast.EqCmp(arg, self_address)
+            self_var = ctx.self_var.local_var(ctx, pos)
+            return stmts, self.viper_ast.CondExp(eq, self_var, get_storage, pos)
         elif name == names.RECEIVED:
             self_var = ctx.self_var.local_var(ctx)
             if node.args:
