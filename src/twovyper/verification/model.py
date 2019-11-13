@@ -38,7 +38,7 @@ class Model:
         return res
 
     def __str__(self):
-        return "\n".join(f"   {name} = {value}" for name, value in self.values().items())
+        return "\n".join(f"   {name} = {value}" for name, value in sorted(self.values().items()))
 
 
 def _parse_value(val: str):
