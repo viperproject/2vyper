@@ -242,8 +242,7 @@ class SpecificationTranslator(ExpressionTranslator):
             # Using the current msg_var is ok since we don't use msg.gas, but always return fresh values,
             # therefore msg is constant
             variables = [ctx.issued_self_var, ctx.msg_var, *ctx.args.values()]
-            var_decls = [var.var_decl(ctx, pos) for var in variables]
-            low_variables = [self.viper_ast.Low(var.localVar()) for var in var_decls]
+            low_variables = [self.viper_ast.Low(var.local_var(ctx)) for var in variables]
             cond = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_variables)
             implies = self.viper_ast.Implies(cond, self.viper_ast.Low(arg, pos), pos)
             return stmts, implies
