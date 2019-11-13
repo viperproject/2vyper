@@ -163,5 +163,14 @@ class ConstantTransformer(ast.NodeTransformer):
     def __init__(self, constants: Dict[str, ast.AST]):
         self.constants = constants
 
+    def _copy_pos(self, to: ast.AST, node: ast.AST) -> ast.AST:
+        to.lineno = node.lineno
+        to.col_offset = node.col_offset
+        to.end_lineno = node.end_lineno
+        to.end_col_offset = node.end_col_offset
+        for child in ast.iter_child_nodes(to):
+            self._copy_pos(child, node)
+        return to
+
     def visit_Name(self, node: ast.Name):
-        return ast.copy_location(self.constants.get(node.id) or node, node)
+        return self._copy_pos(self.constants.get(node.id) or node, node)

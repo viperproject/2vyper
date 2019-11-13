@@ -658,11 +658,8 @@ class ViperAST:
     def to_position(self, expr, id: str, file: str):
         path = self.java.nio.file.Paths.get(file, [])
         start = self.ast.LineColumnPosition(expr.lineno, expr.col_offset)
-        if hasattr(expr, 'end_lineno') and hasattr(expr, 'end_col_offset'):
-            end = self.ast.LineColumnPosition(expr.end_lineno, expr.end_col_offset)
-            end = self.scala.Some(end)
-        else:
-            end = self.None_
+        end = self.ast.LineColumnPosition(expr.end_lineno, expr.end_col_offset)
+        end = self.scala.Some(end)
         return self.ast.IdentifierPosition(path, start, end, id)
 
     def is_heap_dependent(self, expr) -> bool:

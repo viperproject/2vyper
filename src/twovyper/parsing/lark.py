@@ -32,6 +32,8 @@ def copy_pos(function):
         node = function(self, children, meta)
         node.lineno = meta.line
         node.col_offset = meta.column
+        node.end_lineno = meta.end_line
+        node.end_col_offset = meta.end_column
         return node
 
     return with_pos
@@ -40,6 +42,8 @@ def copy_pos(function):
 def copy_pos_from(node: ast.AST, to: ast.AST):
     to.lineno = node.lineno
     to.col_offset = node.col_offset
+    to.end_lineno = node.end_lineno
+    to.end_col_offset = node.end_col_offset
 
 
 def copy_pos_between(node: ast.AST, left: ast.AST, right: ast.AST):
@@ -48,6 +52,8 @@ def copy_pos_between(node: ast.AST, left: ast.AST, right: ast.AST):
 
     node.lineno = left.lineno
     node.col_offset = left.col_offset
+    node.end_lineno = right.end_lineno
+    node.end_col_offset = right.end_col_offset
 
 
 @v_args(meta=True)

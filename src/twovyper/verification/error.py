@@ -33,7 +33,7 @@ class Position:
     @property
     def file_name(self) -> str:
         """Return ``file``."""
-        return self._position.file().toString()
+        return str(self._position.file())
 
     @property
     def line(self) -> int:
