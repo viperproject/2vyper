@@ -32,15 +32,12 @@ from twovyper.exceptions import InvalidProgramException
 def parse(path: str, root: Optional[str], as_interface=False, name=None) -> VyperProgram:
     with open(path, 'r') as file:
         contract = file.read()
-    try:
-        preprocessed_contract = preprocess(contract)
-        contract_ast = lark.parse(preprocessed_contract)
-        contract_ast = transform(contract_ast)
-        program_builder = ProgramBuilder(path, root, as_interface, name)
-        return program_builder.build(contract_ast)
-    except SyntaxError as err:
-        err.text = contract.splitlines()[err.lineno - 1]
-        raise err
+
+    preprocessed_contract = preprocess(contract)
+    contract_ast = lark.parse(preprocessed_contract)
+    contract_ast = transform(contract_ast)
+    program_builder = ProgramBuilder(path, root, as_interface, name)
+    return program_builder.build(contract_ast)
 
 
 class ProgramBuilder(ast.NodeVisitor):
