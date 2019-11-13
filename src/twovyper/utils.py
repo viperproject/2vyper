@@ -81,6 +81,10 @@ def list_to_seq(lst, jvm):
 
 
 class Subscriptable(type):
+    """
+    A metaclass to add dictionary lookup functionality to a class.
+    The class needs to implement the `_subscript(_)` method.
+    """
 
     def __getitem__(cls, val):
         return cls._subscript(val)

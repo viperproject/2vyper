@@ -39,6 +39,11 @@ class Decimal(object, metaclass=Subscriptable):
     _cache = {}
 
     def _subscript(number_of_digits: int):
+        # This is the function that gets called when using dictionary lookup syntax.
+        # For example, Decimal[10] returns a class of decimals with 10 digits. The class
+        # is cached so that Decimal[10] always returns the same class, which means that
+        # type(Decimal[10](1)) == type(Decimal[10](2)).
+
         cached_class = Decimal._cache.get(number_of_digits)
         if cached_class:
             return cached_class
