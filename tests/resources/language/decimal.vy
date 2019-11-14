@@ -28,6 +28,11 @@ def invert_fail(a: decimal) -> decimal:
 #@ ensures: 2.0 / 2.0 == 1.0
 #@ ensures: 0.0 < 1.0 / 2.0 and 1.0 / 2.0 < 1.0
 #@ ensures: 2.0 + 1.0 / 2.0 - 3.0 / 2.0 == 1.0
+#@ ensures: 2.1 + 0.9 == 3.0
+#@ ensures: convert(2.0, int128) == 2
+#@ ensures: convert(3.1, int128) == 3
+#@ ensures: 2.123456789 + 3.987654321 < 7.0
+#@ ensures: convert(2.1234 * 10000.0, uint256) == 21234
 @public
 def check():
     pass

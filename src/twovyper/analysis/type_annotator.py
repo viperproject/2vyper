@@ -13,6 +13,7 @@ from twovyper.utils import first_index, NodeVisitor, switch
 
 from twovyper.ast import names
 from twovyper.ast import types
+from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.types import (
     TypeBuilder, VyperType, MapType, ArrayType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
 )
@@ -573,7 +574,7 @@ class TypeAnnotator(NodeVisitor):
                 tps = [types.VYPER_INT128]
             nodes = [node]
             return tps, nodes
-        elif isinstance(node.n, float):
+        elif isinstance(node.n, Decimal):
             return [types.VYPER_DECIMAL], [node]
         else:
             assert False

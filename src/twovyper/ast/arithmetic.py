@@ -48,7 +48,7 @@ class Decimal(object, metaclass=Subscriptable):
         if cached_class:
             return cached_class
 
-        class _Decimal:
+        class _Decimal(Decimal):
 
             def __init__(self, value: int = None, scaled_value: int = None):
                 assert (value is None) != (scaled_value is None)

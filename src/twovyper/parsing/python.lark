@@ -90,6 +90,7 @@ suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
      | "{" [dictlist | testlist] "}"  -> dictset
      | var
      | number
+     | float
      | string+ -> strings
      | "(" test ")"
      | "..." -> ellipsis
@@ -106,7 +107,8 @@ arguments: [argvalue ("," argvalue)*]
 ?argvalue: test | NAME "=" test
 
 
-number: DEC_NUMBER | HEX_NUMBER | BIN_NUMBER | OCT_NUMBER | FLOAT_NUMBER
+number: DEC_NUMBER | HEX_NUMBER | BIN_NUMBER | OCT_NUMBER
+float: FLOAT_NUMBER
 string: STRING | LONG_STRING
 
 // Tokens

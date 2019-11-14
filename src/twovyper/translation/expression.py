@@ -15,6 +15,7 @@ from twovyper.exceptions import UnsupportedException
 
 from twovyper.ast import names
 from twovyper.ast import types
+from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.nodes import VyperFunction, VyperInterface, VyperVar
 from twovyper.ast.types import MapType, ArrayType, ContractType, InterfaceType
 
@@ -84,19 +85,9 @@ class ExpressionTranslator(NodeTranslator):
                 elems = [self.viper_ast.IntLit(b, pos) for b in bts]
                 return [], self.viper_ast.ExplicitSeq(elems, pos)
             else:
-                lit = self.viper_ast.IntLit(node.n, pos)
-                return [], lit
-        elif isinstance(node.n, float):
-            # We only allow decimal literals that are small integers so we know that there
-            # has not been a rounding error in the float
-            # TODO: changes this with python 3.8
-            if node.n.is_integer() and -1000 <= node.n <= 1000:
-                value = int(node.n)
-                scaling_factor = node.type.scaling_factor
-                lit = self.viper_ast.IntLit(value * scaling_factor, pos)
-                return [], lit
-            else:
-                raise UnsupportedException(node, "Float not yet supported")
+                return [], self.viper_ast.IntLit(node.n, pos)
+        elif isinstance(node.n, Decimal):
+            return [], self.viper_ast.IntLit(node.n.scaled_value, pos)
         else:
             assert False
 

@@ -8,9 +8,14 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from lark import Lark
-from lark.visitors import Transformer, v_args
+from lark.exceptions import VisitError
 from lark.indenter import Indenter
 from lark.tree import Meta
+from lark.visitors import Transformer, v_args
+
+from twovyper.ast.arithmetic import Decimal
+
+from twovyper.exceptions import InvalidProgramException
 
 
 class PythonIndenter(Indenter):
@@ -482,6 +487,17 @@ class _PythonTransformer(Transformer):
         return ast.Num(n)
 
     @copy_pos
+    def float(self, children, meta):
+        assert 'e' not in children[0]
+
+        first, second = children[0].split('.')
+        if len(second) > 10:
+            node = self.number(children, meta)
+            raise InvalidProgramException(node, 'invalid.decimal.literal')
+        int_value = int(first) * 10 ** 10 + int(second.ljust(10, '0'))
+        return ast.Num(Decimal[10](scaled_value=int_value))
+
+    @copy_pos
     def string(self, children, meta):
         s = eval(children[0])
         if isinstance(s, str):
@@ -494,4 +510,7 @@ class _PythonTransformer(Transformer):
 
 def parse(text, file) -> ast.Module:
     tree = _python_parser3.parse(text + '\n')
-    return _PythonTransformer().transform_tree(tree, file)
+    try:
+        return _PythonTransformer().transform_tree(tree, file)
+    except VisitError as e:
+        raise e.orig_exc
