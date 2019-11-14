@@ -298,6 +298,11 @@ class TypeAnnotator(NodeVisitor):
                 elif case(names.OLD) or case(names.ISSUED):
                     _check_number_of_arguments(node, 1)
                     return self.pass_through(node.args[0], node)
+                elif case(names.INDEPENDENT):
+                    _check_number_of_arguments(node, 2)
+                    self.annotate(node.args[0])
+                    self.annotate(node.args[1])
+                    return [types.VYPER_BOOL], [node]
                 elif case(names.REORDER_INDEPENDENT):
                     _check_number_of_arguments(node, 1)
                     self.annotate(node.args[0])
