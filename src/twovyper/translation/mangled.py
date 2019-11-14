@@ -122,7 +122,11 @@ def ghost_function_name(vyper_name: str) -> str:
 
 
 def axiom_name(viper_name: str) -> str:
-    return f'{viper_name}_ax'
+    return f'{viper_name}$ax'
+
+
+def ghost_axiom_name(vyper_name: str):
+    return axiom_name(ghost_function_name(vyper_name))
 
 
 def event_name(vyper_name: str) -> str:

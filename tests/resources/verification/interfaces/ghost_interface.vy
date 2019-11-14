@@ -11,6 +11,7 @@
 
 #@ ghost:
     #@ def _some_val() -> int128: ...
+    #@ def _some_uval() -> uint256: ...
 
 
 @public

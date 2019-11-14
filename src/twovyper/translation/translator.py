@@ -201,6 +201,7 @@ class ProgramTranslator(CommonTranslator):
     def _translate_ghost_functions(self, program: VyperProgram, ctx: Context):
         domain = mangled.GHOST_FUNCTION_DOMAIN
         functions = []
+        axioms = []
         for function in program.ghost_functions.values():
             fname = mangled.ghost_function_name(function.name)
             self_var = self.viper_ast.LocalVarDecl('$self', helpers.struct_type(self.viper_ast))
@@ -212,8 +213,16 @@ class ProgramTranslator(CommonTranslator):
                 args.append(arg_decl)
             type = self.type_translator.translate(function.type.return_type, ctx)
             functions.append(self.viper_ast.DomainFunc(fname, args, type, False, domain))
+            args_locals = [arg.localVar() for arg in args]
+            application = self.viper_ast.DomainFuncApp(fname, args_locals, type, None, None, domain)
+            tas = self.type_translator.type_assumptions(application, function.type.return_type, ctx)
+            trigger = self.viper_ast.Trigger([application])
+            quants = [self.viper_ast.Forall(args, [trigger], ta) for ta in tas]
+            for idx, quant in enumerate(quants):
+                axiom_name = mangled.ghost_axiom_name(function.name)
+                axioms.append(self.viper_ast.DomainAxiom(axiom_name, quant, domain))
 
-        return self.viper_ast.Domain(domain, functions, [], [])
+        return self.viper_ast.Domain(domain, functions, axioms, [])
 
     def _translate_event(self, event: VyperEvent, ctx: Context):
         name = mangled.event_name(event.name)
