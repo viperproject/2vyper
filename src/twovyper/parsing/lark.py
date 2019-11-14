@@ -490,12 +490,13 @@ class _PythonTransformer(Transformer):
     def float(self, children, meta):
         assert 'e' not in children[0]
 
+        numd = 10
         first, second = children[0].split('.')
-        if len(second) > 10:
+        if len(second) > numd:
             node = self.number(children, meta)
             raise InvalidProgramException(node, 'invalid.decimal.literal')
-        int_value = int(first) * 10 ** 10 + int(second.ljust(10, '0'))
-        return ast.Num(Decimal[10](scaled_value=int_value))
+        int_value = int(first) * 10 ** numd + int(second.ljust(numd, '0'))
+        return ast.Num(Decimal[numd](scaled_value=int_value))
 
     @copy_pos
     def string(self, children, meta):
