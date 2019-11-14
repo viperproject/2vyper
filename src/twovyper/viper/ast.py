@@ -655,8 +655,8 @@ class ViperAST:
     def ConsInfo(self, head, tail):
         return self.ast.ConsInfo(head, tail)
 
-    def to_position(self, expr, id: str, file: str):
-        path = self.java.nio.file.Paths.get(file, [])
+    def to_position(self, expr, id: str):
+        path = self.java.nio.file.Paths.get(expr.file, [])
         start = self.ast.LineColumnPosition(expr.lineno, expr.col_offset)
         end = self.ast.LineColumnPosition(expr.end_lineno, expr.end_col_offset)
         end = self.scala.Some(end)

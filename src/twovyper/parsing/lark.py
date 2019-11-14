@@ -30,6 +30,7 @@ def copy_pos(function):
 
     def with_pos(self, children: ast.AST, meta: Meta):
         node = function(self, children, meta)
+        node.file = self.file
         node.lineno = meta.line
         node.col_offset = meta.column
         node.end_lineno = meta.end_line
@@ -40,6 +41,7 @@ def copy_pos(function):
 
 
 def copy_pos_from(node: ast.AST, to: ast.AST):
+    to.file = node.file
     to.lineno = node.lineno
     to.col_offset = node.col_offset
     to.end_lineno = node.end_lineno
@@ -47,9 +49,11 @@ def copy_pos_from(node: ast.AST, to: ast.AST):
 
 
 def copy_pos_between(node: ast.AST, left: ast.AST, right: ast.AST):
+    assert left.file == right.file
     assert left.lineno <= right.lineno
     assert left.col_offset < right.col_offset
 
+    node.file = left.file
     node.lineno = left.lineno
     node.col_offset = left.col_offset
     node.end_lineno = right.end_lineno
@@ -58,6 +62,12 @@ def copy_pos_between(node: ast.AST, left: ast.AST, right: ast.AST):
 
 @v_args(meta=True)
 class _PythonTransformer(Transformer):
+
+    def transform_tree(self, tree, file):
+        self.file = file
+        transformed = self.transform(tree)
+        self.file = None
+        return transformed
 
     def file_input(self, children, meta):
         return ast.Module(children)
@@ -482,6 +492,6 @@ class _PythonTransformer(Transformer):
             assert False
 
 
-def parse(text) -> ast.Module:
+def parse(text, file) -> ast.Module:
     tree = _python_parser3.parse(text + '\n')
-    return _PythonTransformer().transform(tree)
+    return _PythonTransformer().transform_tree(tree, file)

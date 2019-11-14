@@ -164,6 +164,7 @@ class ConstantTransformer(ast.NodeTransformer):
         self.constants = constants
 
     def _copy_pos(self, to: ast.AST, node: ast.AST) -> ast.AST:
+        to.file = node.file
         to.lineno = node.lineno
         to.col_offset = node.col_offset
         to.end_lineno = node.end_lineno

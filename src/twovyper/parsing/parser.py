@@ -34,7 +34,7 @@ def parse(path: str, root: Optional[str], as_interface=False, name=None) -> Vype
         contract = file.read()
 
     preprocessed_contract = preprocess(contract)
-    contract_ast = lark.parse(preprocessed_contract)
+    contract_ast = lark.parse(preprocessed_contract, path)
     contract_ast = transform(contract_ast)
     program_builder = ProgramBuilder(path, root, as_interface, name)
     return program_builder.build(contract_ast)
