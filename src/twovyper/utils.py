@@ -7,10 +7,10 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import abc
 import ast
-import astunparse
 
-from typing import Iterable
 from contextlib import contextmanager
+from itertools import chain
+from typing import Iterable
 
 
 _ = object()
@@ -90,17 +90,54 @@ class Subscriptable(type):
         return cls._subscript(val)
 
 
-def pprint(node: ast.AST) -> str:
-    res = astunparse.unparse(node)
-    res = res.replace('\n', '')
-    return res
+def _split_lines(source):
+    idx = 0
+    lines = []
+    next_line = ''
+    while idx < len(source):
+        c = source[idx]
+        idx += 1
+        if c == '\r' and idx < len(source) and source[idx] == '\n':
+            idx += 1
+        if c in '\r\n':
+            lines.append(next_line)
+            next_line = ''
+        else:
+            next_line += c
+
+    if next_line:
+        lines.append(next_line)
+    return lines
+
+
+def pprint(node: ast.AST, preserve_newlines: bool = False) -> str:
+    with open(node.file, 'r') as file:
+        source = file.read()
+
+    lines = _split_lines(source)
+
+    lineno = node.lineno - 1
+    end_lineno = node.end_lineno - 1
+    col_offset = node.col_offset - 1
+    end_col_offset = node.end_col_offset - 1
+
+    if end_lineno == lineno:
+        res = lines[lineno].encode()[col_offset:end_col_offset].decode()
+    else:
+        first = lines[lineno].encode()[col_offset:].decode()
+        middle = lines[lineno + 1:end_lineno]
+        last = lines[min(end_lineno, len(lines) - 1)].encode()[:end_col_offset].decode()
+        sep = '\n' if preserve_newlines else ' '
+        res = sep.join(chain([first], middle, [last]))
+
+    return res if preserve_newlines else f'({res})'
 
 
 class NodeVisitor(abc.ABC):
 
     @abc.abstractproperty
     def method_name(self) -> str:
-        return None
+        pass
 
     def visit(self, node, *args):
         method = f'{self.method_name}_' + node.__class__.__name__

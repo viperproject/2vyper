@@ -208,7 +208,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
         duration = end - start
         print(f"Verification took {duration:.2f} seconds.")
     except (InvalidProgramException, UnsupportedException) as e:
-        print(e.error_string(vyper_file))
+        print(e.error_string())
     except ConsistencyException as e:
         print(e.program)
         print(e.message)

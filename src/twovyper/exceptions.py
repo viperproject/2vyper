@@ -6,7 +6,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 import ast
-import astunparse
+import os
+
+from twovyper.utils import pprint
 
 
 class InvalidVyperException(Exception):
@@ -23,10 +25,11 @@ class TranslationException(Exception):
         self.message = message
         self.node = node
 
-    def error_string(self, file: str) -> str:
-        line = str(self.node.lineno)
-        col = str(self.node.col_offset)
-        return f"{self.message} ({file}@{line}.{col})"
+    def error_string(self) -> str:
+        file_name = os.path.basename(self.node.file)
+        line = self.node.lineno
+        col = self.node.col_offset
+        return f"{self.message} ({file_name}@{line}.{col})"
 
 
 class UnsupportedException(TranslationException):
@@ -38,7 +41,7 @@ class UnsupportedException(TranslationException):
     def __init__(self, node: ast.AST, message: str = None):
         self.node = node
         if not message:
-            message = astunparse.unparse(node)
+            message = pprint(node)
         super().__init__(node, f"Not supported: {message}")
 
 
@@ -52,8 +55,8 @@ class InvalidProgramException(TranslationException):
         self.code = 'invalid.program'
         self.reason_code = reason_code
         if not message:
-            node_msg = astunparse.unparse(node)
-            message = f"Node {node_msg} not allowed here."
+            node_msg = pprint(node, True)
+            message = f"Node\n{node_msg}\nnot allowed here."
         super().__init__(node, f"Invalid program ({self.reason_code}): {message}")
 
 
