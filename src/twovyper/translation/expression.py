@@ -731,5 +731,5 @@ class ExpressionTranslator(NodeTranslator):
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
-        name = ctx.inline_prefix + mangled.local_var_name(var.name)
+        name = mangled.local_var_name(ctx.inline_prefix, var.name)
         return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)

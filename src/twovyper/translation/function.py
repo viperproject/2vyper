@@ -61,7 +61,8 @@ class FunctionTranslator(CommonTranslator):
             is_init = (function.name == names.INIT)
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
-            locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
+            # Local variables will be added when translating.
+            locals = {}
             # The block variable
             locals[names.BLOCK] = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             # The msg variable
@@ -516,12 +517,6 @@ class FunctionTranslator(CommonTranslator):
                 ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
                 body.append(self.viper_ast.LocalVarAssign(translated_arg.local_var(ctx), arg, apos))
 
-            # Add prefixed locals to local vars
-            for name, var in function.local_vars.items():
-                translated_var = self._translate_var(var, ctx)
-                ctx.locals[name] = translated_var
-                ctx.new_local_vars.append(translated_var.var_decl(ctx))
-
             # Define return var
             if function.type.return_type:
                 ret_name = ctx.inline_prefix + mangled.RESULT_VAR
@@ -545,7 +540,7 @@ class FunctionTranslator(CommonTranslator):
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
-        name = ctx.inline_prefix + mangled.local_var_name(var.name)
+        name = mangled.local_var_name(ctx.inline_prefix, var.name)
         return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)
 
     def _assume_non_negative(self, var, ctx: Context) -> Stmt:

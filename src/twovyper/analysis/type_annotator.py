@@ -17,7 +17,7 @@ from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.types import (
     TypeBuilder, VyperType, MapType, ArrayType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
 )
-from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperVar
+from twovyper.ast.nodes import VyperProgram, VyperFunction
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
@@ -75,7 +75,6 @@ class TypeAnnotator(NodeVisitor):
         self.current_func = func
         old_variables = self.variables.copy()
         self.variables.update({k: [v.type] for k, v in func.args.items()})
-        self.variables.update({k: [v.type] for k, v in func.local_vars.items()})
 
         yield
 
@@ -204,6 +203,12 @@ class TypeAnnotator(NodeVisitor):
         self.annotate(node.target, node.value)
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
+        # This is a variable declaration so we add it to the type map. Since Vyper
+        # doesn't allow shadowing, we can just override the previous value.
+        variable_name = node.target.id
+        variable_type = self.type_builder.build(node.annotation)
+        self.variables[variable_name] = [variable_type]
+
         if node.value:
             self.annotate(node.target, node.value)
         else:
@@ -212,12 +217,12 @@ class TypeAnnotator(NodeVisitor):
     def visit_For(self, node: ast.For):
         self.annotate_expected(node.iter, lambda t: isinstance(t, ArrayType))
 
+        # Add the loop variable to the type map
         var_name = node.target.id
         var_type = node.iter.type.element_type
-        self.current_func.local_vars[var_name] = VyperVar(var_name, var_type, node.target)
         self.variables[var_name] = [var_type]
-        # Vyper does not support else branches in loops
-        assert not node.orelse
+
+        self.annotate_expected(node.target, var_type)
         for stmt in node.body:
             self.visit(stmt)
 
