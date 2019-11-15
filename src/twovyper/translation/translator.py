@@ -219,7 +219,7 @@ class ProgramTranslator(CommonTranslator):
             trigger = self.viper_ast.Trigger([application])
             quants = [self.viper_ast.Forall(args, [trigger], ta) for ta in tas]
             for idx, quant in enumerate(quants):
-                axiom_name = mangled.ghost_axiom_name(function.name)
+                axiom_name = mangled.ghost_axiom_name(function.name, idx)
                 axioms.append(self.viper_ast.DomainAxiom(axiom_name, quant, domain))
 
         return self.viper_ast.Domain(domain, functions, axioms, [])

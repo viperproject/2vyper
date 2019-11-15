@@ -12,9 +12,28 @@ from . import ghost_interface
 ghost: ghost_interface
 
 
-#@ ensures: _some_uval(self.ghost) >= 0
-#:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: _some_val(self.ghost) >= 0
 @public
 def __init__():
     self.ghost = ghost_interface(msg.sender)
+
+
+#@ ensures: _some_uval(self.ghost) >= 0
+#@ ensures: len(_some_uarr(self.ghost)) == 5
+#@ ensures: _some_uarr(self.ghost)[4] >= 0
+@public
+def check():
+    pass
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: _some_val(self.ghost) >= 0
+@public
+def check0_fail():
+    pass
+
+
+#:: ExpectedOutput(not.wellformed:seq.index.length)
+#@ ensures: _some_uarr(self.ghost)[5] >= 0
+@public
+def check1_fail():
+    pass
