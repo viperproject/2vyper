@@ -100,9 +100,9 @@ class FunctionTranslator(CommonTranslator):
             pre_self_var = ctx.pre_self_var.local_var(ctx)
             issued_self_var = ctx.issued_self_var.local_var(ctx)
 
-            ctx.success_var = helpers.success_var(self.viper_ast)
+            ctx.success_var = TranslatedVar(names.SUCCESS, mangled.SUCCESS_VAR, types.VYPER_BOOL, self.viper_ast)
             rets = [ctx.success_var]
-            success_var = ctx.success_var.localVar()
+            success_var = ctx.success_var.local_var(ctx)
 
             end_label = self.viper_ast.Label(mangled.END_LABEL)
             return_label = self.viper_ast.Label(mangled.RETURN_LABEL)
@@ -112,10 +112,8 @@ class FunctionTranslator(CommonTranslator):
             ctx.revert_label = mangled.REVERT_LABEL
 
             if function.type.return_type:
-                ret_type = self.type_translator.translate(function.type.return_type, ctx)
-                ret_var = helpers.ret_var(self.viper_ast, ret_type, pos)
-                rets.append(ret_var)
-                ctx.result_var = ret_var
+                ctx.result_var = TranslatedVar(names.RESULT, mangled.RESULT_VAR, function.type.return_type, self.viper_ast)
+                rets.append(ctx.result_var)
 
             body = []
 
@@ -286,8 +284,9 @@ class FunctionTranslator(CommonTranslator):
             body.append(returnBool(False))
             # Havoc the return value
             if function.type.return_type:
-                havoc = self._havoc_var(ctx.result_var.typ(), ctx)
-                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.localVar(), havoc))
+                result_type = self.type_translator.translate(ctx.result_var.type, ctx)
+                havoc = self._havoc_var(result_type, ctx)
+                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ctx), havoc))
             # Revert self and old_self to the state before the function
             copy_present = self.state_translator.copy_state(ctx.pre_state, ctx.present_state, ctx)
             copy_old = self.state_translator.copy_state(ctx.pre_state, ctx.old_state, ctx)
@@ -483,9 +482,10 @@ class FunctionTranslator(CommonTranslator):
             args_list = [arg.var_decl(ctx) for arg in args.values()]
             locals_list = [local.var_decl(ctx) for local in chain(locals.values(), state)]
             locals_list = [*locals_list, *ctx.new_local_vars]
+            ret_list = [ret.var_decl(ctx) for ret in rets]
 
             viper_name = mangled.method_name(function.name)
-            method = self.viper_ast.Method(viper_name, args_list, rets, [], [], locals_list, body, pos)
+            method = self.viper_ast.Method(viper_name, args_list, ret_list, [], [], locals_list, body, pos)
             return method
 
     def inline(self, call: ast.Call, args: List[Expr], ctx: Context) -> StmtsAndExpr:
@@ -524,12 +524,10 @@ class FunctionTranslator(CommonTranslator):
 
             # Define return var
             if function.type.return_type:
-                ret_type = self.type_translator.translate(function.type.return_type, ctx)
                 ret_name = ctx.inline_prefix + mangled.RESULT_VAR
-                ret_var_decl = self.viper_ast.LocalVarDecl(ret_name, ret_type, pos)
-                ctx.new_local_vars.append(ret_var_decl)
-                ctx.result_var = ret_var_decl
-                ret_var = ret_var_decl.localVar()
+                ctx.result_var = TranslatedVar(names.RESULT, ret_name, function.type.return_type, self.viper_ast, pos)
+                ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, pos))
+                ret_var = ctx.result_var.local_var(ctx, pos)
             else:
                 ret_var = None
 

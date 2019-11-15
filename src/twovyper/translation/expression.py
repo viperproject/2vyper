@@ -701,22 +701,17 @@ class ExpressionTranslator(NodeTranslator):
 
             # Add result variable
             if function.type.return_type:
-                ret_name = ctx.inline_prefix + mangled.RESULT_VAR
-                ret_var_decl = self.viper_ast.LocalVarDecl(ret_name, res.typ(), res.pos())
-                ctx.new_local_vars.append(ret_var_decl)
-                ctx.result_var = ret_var_decl
-                ret_var = ret_var_decl.localVar()
-                body.append(self.viper_ast.LocalVarAssign(ret_var, res, res.pos()))
-            else:
-                ret_var = None
+                res_name = ctx.inline_prefix + mangled.RESULT_VAR
+                ctx.result_var = TranslatedVar(names.RESULT, res_name, function.type.return_type, self.viper_ast, res.pos())
+                ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, res.pos()))
+                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(res.pos()), res, res.pos()))
 
             # Add success variable
             succ_name = ctx.inline_prefix + mangled.SUCCESS_VAR
-            succ_var_decl = self.viper_ast.LocalVarDecl(succ_name, succ.typ(), succ.pos())
-            ctx.new_local_vars.append(succ_var_decl)
-            ctx.success_var = succ_var_decl
-            succ_var = succ_var_decl.localVar()
-            body.append(self.viper_ast.LocalVarAssign(succ_var, succ, succ.pos()))
+            succ_var = TranslatedVar(names.SUCCESS, succ_name, types.VYPER_BOOL, self.viper_ast, succ.pos())
+            ctx.new_local_vars.append(succ_var.var_decl(ctx))
+            ctx.success_var = succ_var
+            body.append(self.viper_ast.LocalVarAssign(succ_var.local_var(ctx), succ, succ.pos()))
 
             translate = self.spec_translator.translate_postcondition
             pos = self.to_position(node, ctx, rules.INHALE_INTERFACE_FAIL)

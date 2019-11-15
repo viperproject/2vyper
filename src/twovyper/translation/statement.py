@@ -126,8 +126,7 @@ class StatementTranslator(NodeTranslator):
 
         if node.value:
             stmts, expr = self.expression_translator.translate(node.value, ctx)
-            result_var = ctx.result_var
-            assign = self.viper_ast.LocalVarAssign(result_var.localVar(), expr, pos)
+            assign = self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ctx, pos), expr, pos)
             return stmts + [assign, jmp_to_return]
         else:
             return [jmp_to_return]

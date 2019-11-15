@@ -117,17 +117,14 @@ class SpecificationTranslator(ExpressionTranslator):
 
                 return [], self.viper_ast.Forall(quants, triggers, expr, pos)
         elif name == names.RESULT:
-            var = ctx.result_var
-            local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
-            return [], local_var
+            return [], ctx.result_var.local_var(ctx, pos)
         elif name == names.SUCCESS:
             # The syntax for success is either
             #   - success()
             # or
             #   - success(if_not=expr)
             # where expr can be a disjunction of conditions
-            var = ctx.success_var
-            success = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
+            success = ctx.success_var.local_var(ctx, pos)
 
             conds = set()
 
