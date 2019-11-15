@@ -271,6 +271,17 @@ class ExpressionTranslator(NodeTranslator):
                 comp = op(lhs, rhs, pos)
                 stmts = lhs_stmts + rhs_stmts
                 return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
+            elif name == names.ADDMOD or name == names.MULMOD:
+                op1_stmts, op1 = self.translate(node.args[0], ctx)
+                op2_stmts, op2 = self.translate(node.args[1], ctx)
+                mod_stmts, mod = self.translate(node.args[2], ctx)
+
+                cond = self.viper_ast.EqCmp(mod, self.viper_ast.IntLit(0, pos), pos)
+                mod_stmts.append(self.fail_if(cond, [], ctx, pos))
+
+                operation = self.viper_ast.Add if name == names.ADDMOD else self.viper_ast.Mul
+                op_res = operation(op1, op2, pos)
+                return op1_stmts + op2_stmts + mod_stmts, helpers.mod(self.viper_ast, op_res, mod, pos)
             elif name == names.SQRT:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 zero = self.viper_ast.IntLit(0, pos)

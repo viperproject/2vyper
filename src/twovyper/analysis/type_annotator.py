@@ -291,6 +291,11 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[0], types.is_numeric)
                     self.annotate_expected(node.args[1], types.is_numeric)
                     return self.combine(node.args[0], node.args[1], node)
+                elif case(names.ADDMOD) or case(names.MULMOD):
+                    _check_number_of_arguments(node, 3)
+                    for arg in node.args:
+                        self.annotate_expected(arg, types.VYPER_UINT256)
+                    return [types.VYPER_UINT256], [node]
                 elif case(names.SQRT):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], types.VYPER_DECIMAL)

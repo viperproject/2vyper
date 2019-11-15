@@ -93,6 +93,8 @@ ETHER_UNITS = {
 # Built-in functions
 MIN = 'min'
 MAX = 'max'
+ADDMOD = 'uint256_addmod'
+MULMOD = 'uint256_mulmod'
 SQRT = 'sqrt'
 FLOOR = 'floor'
 CEIL = 'ceil'
