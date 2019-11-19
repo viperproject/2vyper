@@ -678,3 +678,8 @@ class ViperAST:
         position = position or self.NoPosition
         info = info or self.NoInfo
         return self.ast_extensions.SIFLowExp(expr, self.None_, position, info, self.NoTrafos)
+
+    def LowEvent(self, position=None, info=None):
+        position = position or self.NoPosition
+        info = info or self.NoInfo
+        return self.ast_extensions.SIFLowEventExp(position, info, self.NoTrafos)
