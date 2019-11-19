@@ -196,6 +196,8 @@ class TypeAnnotator(NodeVisitor):
 
     def visit_Return(self, node: ast.Return):
         if node.value:
+            # Interfaces are allowed to just have `pass` as a body instead of a correct return,
+            # therefore we don't check for the correct return type.
             if self.program.is_interface():
                 self.annotate(node.value)
             else:
