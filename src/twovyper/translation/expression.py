@@ -495,7 +495,7 @@ class ExpressionTranslator(NodeTranslator):
                     amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
                     stmts.extend(amount_stmts)
                 else:
-                    amount = self.viper_ast.IntLit(0, pos)
+                    amount = None
 
                 if isinstance(rec_type, ContractType):
                     const = rec_type.function_modifiers[node.func.attr] == names.CONSTANT
@@ -510,9 +510,9 @@ class ExpressionTranslator(NodeTranslator):
                     # If the function is not payable, but ether is sent, revert
                     zero = self.viper_ast.IntLit(0, pos)
                     if function.is_payable():
-                        cond = self.viper_ast.LeCmp(amount, zero, pos)
+                        cond = self.viper_ast.LeCmp(amount, zero, pos) if amount else self.viper_ast.TrueLit(pos)
                     else:
-                        cond = self.viper_ast.NeCmp(amount, zero, pos)
+                        cond = self.viper_ast.NeCmp(amount, zero, pos) if amount else self.viper_ast.FalseLit(pos)
 
                     stmts.append(self.fail_if(cond, [], ctx, pos))
                     known = (interface, function, args)
@@ -533,7 +533,7 @@ class ExpressionTranslator(NodeTranslator):
     def _translate_external_call(self,
                                  node: ast.Call,
                                  to: Expr,
-                                 amount: Expr,
+                                 amount: Optional[Expr],
                                  constant: bool,
                                  ctx: Context,
                                  known: Tuple[VyperInterface, VyperFunction, List[Expr]] = []) -> Tuple[List[Stmt], Expr, Expr]:
@@ -554,13 +554,15 @@ class ExpressionTranslator(NodeTranslator):
         #    - In the case of an interface call: Assume postconditions
 
         pos = self.to_position(node, ctx)
-
         self_var = ctx.self_var.local_var(ctx)
-        check = self.balance_translator.check_balance(amount, ctx, pos)
-        sent = self.balance_translator.increase_sent(to, amount, ctx, pos)
-        sub = self.balance_translator.decrease_balance(amount, ctx, pos)
 
-        stmts = [check, sent, sub]
+        if amount:
+            check = self.balance_translator.check_balance(amount, ctx, pos)
+            sent = self.balance_translator.increase_sent(to, amount, ctx, pos)
+            sub = self.balance_translator.decrease_balance(amount, ctx, pos)
+            stmts = [check, sent, sub]
+        else:
+            stmts = []
 
         # In init set the old self state to the current self state, if this is the
         # first public state.
@@ -653,6 +655,7 @@ class ExpressionTranslator(NodeTranslator):
         if known:
             interface, function, args = known
             assume_itf = self._assume_interface_specifications
+            amount = amount or self.viper_ast.IntLit(0)
             itf = assume_itf(node, interface, function, args, to, amount, success, return_value, ctx)
         else:
             itf = []
