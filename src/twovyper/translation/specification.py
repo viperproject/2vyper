@@ -278,7 +278,7 @@ class SpecificationTranslator(ExpressionTranslator):
             # If we are not inside a trigger and the ghost function in question has an
             # implementation, we pass the self struct to it if the argument is the self address,
             # as the verifier does not know that $contracts[self] is equal to the self struct.
-            if not ctx.inside_trigger and name in ctx.main_program.ghost_function_implementations:
+            if not ctx.inside_trigger and name in ctx.program.ghost_function_implementations:
                 self_address = helpers.self_address(self.viper_ast, pos)
                 eq = self.viper_ast.EqCmp(args[0], self_address)
                 self_var = ctx.self_var.local_var(ctx, pos)

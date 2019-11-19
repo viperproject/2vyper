@@ -16,8 +16,10 @@ from twovyper.utils import DicitionaryView
 class Context:
 
     def __init__(self):
-        self.main_program = None
         self.program = None
+        # The program whose code is currently being translated, i.e., a VyperProgram
+        # normally, and a VyperInterface when we translate interface specifications.
+        self.current_program = None
         self.options = None
         # The translated types of all fields
         self.field_types = {}
@@ -327,12 +329,12 @@ def interface_call_scope(ctx: Context):
 
 @contextmanager
 def program_scope(program, ctx: Context):
-    old_program = ctx.program
-    ctx.program = program
+    old_program = ctx.current_program
+    ctx.current_program = program
 
     yield
 
-    ctx.program = old_program
+    ctx.current_program = old_program
 
 
 @contextmanager

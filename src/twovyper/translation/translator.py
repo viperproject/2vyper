@@ -98,8 +98,8 @@ class ProgramTranslator(CommonTranslator):
         vyper_program.fields.type.add_member(mangled.SELFDESTRUCT_FIELD, selfdestruct_type)
 
         ctx = Context()
-        ctx.main_program = vyper_program
         ctx.program = vyper_program
+        ctx.current_program = vyper_program
         ctx.options = options
 
         # Translate self
