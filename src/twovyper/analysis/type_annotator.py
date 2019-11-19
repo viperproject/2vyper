@@ -8,6 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from contextlib import contextmanager
+from typing import Union
 
 from twovyper.utils import first_index, NodeVisitor, switch
 
@@ -17,7 +18,7 @@ from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.types import (
     TypeBuilder, VyperType, MapType, ArrayType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
 )
-from twovyper.ast.nodes import VyperProgram, VyperFunction
+from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
@@ -70,7 +71,7 @@ class TypeAnnotator(NodeVisitor):
         }
 
     @contextmanager
-    def _function_scope(self, func: VyperFunction):
+    def _function_scope(self, func: Union[VyperFunction, GhostFunction]):
         old_func = self.current_func
         self.current_func = func
         old_variables = self.variables.copy()
@@ -102,6 +103,10 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(post, types.VYPER_BOOL)
                 for check in function.checks:
                     self.annotate_expected(check, types.VYPER_BOOL)
+
+        for ghost_function in self.program.ghost_function_implementations.values():
+            with self._function_scope(ghost_function):
+                self.annotate_expected(ghost_function.node.body[0].value, ghost_function.type.return_type)
 
         for inv in self.program.invariants:
             self.annotate_expected(inv, types.VYPER_BOOL)

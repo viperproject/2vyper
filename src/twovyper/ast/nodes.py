@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from twovyper.ast import names
 from twovyper.ast.types import (
@@ -112,11 +112,12 @@ class VyperProgram:
                  structs: Dict[str, VyperStruct],
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
-                 invariants: List[ast.Expr],
-                 general_postconditions: List[ast.Expr],
-                 transitive_postconditions: List[ast.Expr],
-                 general_checks: List[ast.Expr],
-                 implements: List[InterfaceType]):
+                 invariants: List[ast.expr],
+                 general_postconditions: List[ast.expr],
+                 transitive_postconditions: List[ast.expr],
+                 general_checks: List[ast.expr],
+                 implements: List[InterfaceType],
+                 ghost_function_implementations: Dict[str, ast.expr]):
         self.file = file
         self.config = config
         self.fields = fields
@@ -131,14 +132,15 @@ class VyperProgram:
         self.general_checks = general_checks
         self.implements = implements
         self.ghost_functions = dict(self._ghost_functions())
+        self.ghost_function_implementations = ghost_function_implementations
         self.type = fields.type
-        # Gets set in the analyzer
+        # Is set in the analyzer
         self.analysis = None
 
     def is_interface(self) -> bool:
         return False
 
-    def _ghost_functions(self) -> Dict[str, GhostFunction]:
+    def _ghost_functions(self) -> Iterable[Tuple[str, GhostFunction]]:
         for interface in self.interfaces.values():
             for name, func in interface.ghost_functions.items():
                 yield name, func
@@ -164,7 +166,7 @@ class VyperInterface(VyperProgram):
                          {}, {}, {}, {},
                          [],
                          general_postconditions,
-                         [], [], [])
+                         [], [], [], {})
         self.name = name
         self.ghost_functions = ghost_functions
         self.type = type

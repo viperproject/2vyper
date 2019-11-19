@@ -275,6 +275,15 @@ class SpecificationTranslator(ExpressionTranslator):
             value_type = helpers.struct_type(self.viper_ast)
             struct = helpers.map_get(self.viper_ast, contracts, args[0], key_type, value_type)
 
+            # If we are not inside a trigger and the ghost function in question has an
+            # implementation, we pass the self struct to it if the argument is the self address,
+            # as the verifier does not know that $contracts[self] is equal to the self struct.
+            if not ctx.inside_trigger and name in ctx.main_program.ghost_function_implementations:
+                self_address = helpers.self_address(self.viper_ast, pos)
+                eq = self.viper_ast.EqCmp(args[0], self_address)
+                self_var = ctx.self_var.local_var(ctx, pos)
+                struct = self.viper_ast.CondExp(eq, self_var, struct, pos)
+
             return_type = self.type_translator.translate(function.type.return_type, ctx)
 
             return stmts, helpers.ghost_function(self.viper_ast, name, struct, args[1:], return_type, pos)

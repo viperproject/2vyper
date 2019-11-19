@@ -11,6 +11,13 @@ from tests.resources.language.interfaces import interface
 implements: interface
 
 
+mp: map(int128, int128)
+
+#@ ghost:
+    #@ @implements
+    #@ def _mapval(j: int128) -> int128: self.mp[j]
+
+
 @public
 def foo(i: int128) -> int128:
     assert i > 0
@@ -21,3 +28,8 @@ def foo(i: int128) -> int128:
 @public
 def bar(u: uint256) -> uint256:
     return u + 1
+
+
+@public
+def get_val(j: int128) -> int128:
+    return self.mp[j]

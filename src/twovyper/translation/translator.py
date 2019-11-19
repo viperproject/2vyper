@@ -14,6 +14,7 @@ from twovyper.utils import flatten, seq_to_list
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction
+from twovyper.ast.types import AnyStructType
 
 from twovyper.exceptions import ConsistencyException
 
@@ -97,6 +98,7 @@ class ProgramTranslator(CommonTranslator):
         vyper_program.fields.type.add_member(mangled.SELFDESTRUCT_FIELD, selfdestruct_type)
 
         ctx = Context()
+        ctx.main_program = vyper_program
         ctx.program = vyper_program
         ctx.options = options
 
@@ -199,28 +201,41 @@ class ProgramTranslator(CommonTranslator):
         return self.viper_ast.Domain(domain, [init_f, eq_f], [init_axiom, eq_axiom], [])
 
     def _translate_ghost_functions(self, program: VyperProgram, ctx: Context):
+        # We translate a ghost function as a domain function where the first argument is the
+        # self struct usually obtained through the contracts map
         domain = mangled.GHOST_FUNCTION_DOMAIN
         functions = []
         axioms = []
         for function in program.ghost_functions.values():
             fname = mangled.ghost_function_name(function.name)
-            self_var = self.viper_ast.LocalVarDecl('$self', helpers.struct_type(self.viper_ast))
+            self_var = TranslatedVar(names.SELF, '$self', AnyStructType(), self.viper_ast)
             args = [self_var]
             for idx, var in enumerate(function.args.values()):
-                arg_name = f'$arg_{idx}'
-                arg_type = self.type_translator.translate(var.type, ctx)
-                arg_decl = self.viper_ast.LocalVarDecl(arg_name, arg_type)
-                args.append(arg_decl)
+                args.append(TranslatedVar(var.name, f'$arg_{idx}', var.type, self.viper_ast))
+            args_var_decls = [arg.var_decl(ctx) for arg in args]
             type = self.type_translator.translate(function.type.return_type, ctx)
-            functions.append(self.viper_ast.DomainFunc(fname, args, type, False, domain))
-            args_locals = [arg.localVar() for arg in args]
+            functions.append(self.viper_ast.DomainFunc(fname, args_var_decls, type, False, domain))
+            args_locals = [arg.local_var(ctx) for arg in args]
             application = self.viper_ast.DomainFuncApp(fname, args_locals, type, None, None, domain)
             tas = self.type_translator.type_assumptions(application, function.type.return_type, ctx)
             trigger = self.viper_ast.Trigger([application])
-            quants = [self.viper_ast.Forall(args, [trigger], ta) for ta in tas]
+            quants = [self.viper_ast.Forall(args_var_decls, [trigger], ta) for ta in tas]
             for idx, quant in enumerate(quants):
                 axiom_name = mangled.ghost_axiom_name(function.name, idx)
                 axioms.append(self.viper_ast.DomainAxiom(axiom_name, quant, domain))
+
+            # If the ghost function has an implementation we add an axiom for that
+            implementation = program.ghost_function_implementations.get(function.name)
+            if implementation:
+                with function_scope(ctx):
+                    ctx.args = {arg.name: arg for arg in args}
+                    expr = implementation.node.body[0].value
+                    stmts, definition = self.specification_translator.translate(expr, ctx)
+                    assert not stmts
+                    func_def = self.viper_ast.EqCmp(application, definition)
+                    quant = self.viper_ast.Forall(args_var_decls, [trigger], func_def)
+                    axiom_name = mangled.ghost_axiom_name(function.name, idx + 1)
+                    axioms.append(self.viper_ast.DomainAxiom(axiom_name, quant, domain))
 
         return self.viper_ast.Domain(domain, functions, axioms, [])
 

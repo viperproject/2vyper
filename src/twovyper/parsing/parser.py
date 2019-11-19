@@ -70,6 +70,7 @@ class ProgramBuilder(ast.NodeVisitor):
         self.general_checks = []
         self.implements = []
         self.ghost_functions = {}
+        self.ghost_function_implementations = {}
 
         self.postconditions = []
         self.checks = []
@@ -124,7 +125,8 @@ class ProgramBuilder(ast.NodeVisitor):
                                 self.general_postconditions,
                                 self.transitive_postconditions,
                                 self.general_checks,
-                                self.implements)
+                                self.implements,
+                                self.ghost_function_implementations)
 
     def _check_no_local_spec(self):
         """
@@ -289,17 +291,29 @@ class ProgramBuilder(ast.NodeVisitor):
             check_ghost(isinstance(func, ast.FunctionDef))
             check_ghost(len(func.body) == 1)
             check_ghost(isinstance(func.body[0], ast.Expr))
-            check_ghost(isinstance(func.body[0].value, ast.Ellipsis))
             check_ghost(func.returns)
 
+            decorators = self._decorators(func)
             name = func.name
             args = LocalProgramBuilder(self.type_builder).build(func)
             arg_types = [arg.type for arg in args.values()]
             return_type = None if func.returns is None else self.type_builder.build(func.returns)
             type = FunctionType(arg_types, return_type)
-            if name in self.ghost_functions:
+
+            if names.IMPLEMENTS in decorators:
+                check_ghost(len(decorators) == 1)
+
+                ghost_functions = self.ghost_function_implementations
+            else:
+                check_ghost(not decorators)
+                check_ghost(isinstance(func.body[0].value, ast.Ellipsis))
+
+                ghost_functions = self.ghost_functions
+
+            if name in ghost_functions:
                 raise InvalidProgramException(func, 'duplicate.ghost')
-            self.ghost_functions[name] = GhostFunction(name, args, type, func)
+
+            ghost_functions[name] = GhostFunction(name, args, type, func)
 
     def _decorators(self, node: ast.FunctionDef) -> List[str]:
         return [dec.id for dec in node.decorator_list if isinstance(dec, ast.Name)]
