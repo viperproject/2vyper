@@ -150,12 +150,11 @@ class FunctionTranslator(CommonTranslator):
             # Assume type assumptions for msg
             msg_var = ctx.msg_var.local_var(ctx)
             msg_conds = self.type_translator.type_assumptions(msg_var, types.MSG_TYPE, ctx)
-            # We additionally know that msg.sender != 0 and msg.sender != self
+            # We additionally know that msg.sender != 0
             zero = self.viper_ast.IntLit(0)
             msg_sender = helpers.msg_sender(self.viper_ast, ctx)
             neq0 = self.viper_ast.NeCmp(msg_sender, zero)
-            neqSelf = self.viper_ast.NeCmp(msg_sender, helpers.self_address(self.viper_ast))
-            msg_assumes = [self.viper_ast.Inhale(c) for c in chain(msg_conds, [neq0, neqSelf])]
+            msg_assumes = [self.viper_ast.Inhale(c) for c in chain(msg_conds, [neq0])]
             msg_info_msg = "Assume type assumptions for msg"
             body.extend(self.seqn_with_info(msg_assumes, msg_info_msg))
 
