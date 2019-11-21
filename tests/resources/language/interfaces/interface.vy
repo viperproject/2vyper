@@ -13,6 +13,9 @@
     #@ def _mapval(j: int128) -> int128: ...
 
 
+#@ always ensures: _mapval(self, 0) == 0
+
+
 #@ ensures: implies(i <= 0, not success())
 #@ ensures: implies(success(), result() == i)
 @public

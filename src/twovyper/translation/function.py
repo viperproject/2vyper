@@ -340,17 +340,20 @@ class FunctionTranslator(CommonTranslator):
                         post_stmts.append(self.viper_ast.Assert(cond, func_pos))
 
                 # The postconditions of the interface the contract is supposed to implement
-                # TODO: extend to include invariants, checks, etc.
                 for itype in ctx.program.implements:
                     interface = ctx.program.interfaces[itype.name]
-                    if function.name not in interface.functions:
-                        continue
-                    ifunc = interface.functions[function.name]
-                    pos_node = function.node or ctx.program.node
-                    for post in ifunc.postconditions:
-                        post_pos = self.to_position(pos_node, ctx, rules.INTERFACE_POSTCONDITION_FAIL)
+                    ifunc = interface.functions.get(function.name)
+                    if ifunc:
+                        postconditions = chain(ifunc.postconditions, interface.general_postconditions)
+                    else:
+                        postconditions = interface.general_postconditions
+
+                    for post in postconditions:
+                        post_pos = self.to_position(function.node or post, ctx, rules.INTERFACE_POSTCONDITION_FAIL)
                         with program_scope(interface, ctx):
                             stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
+                            if is_init:
+                                cond = self.viper_ast.Implies(success_var, cond, post_pos)
                         post_assert = self.viper_ast.Assert(cond, post_pos)
                         post_stmts.extend(stmts)
                         post_stmts.append(post_assert)

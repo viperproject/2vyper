@@ -13,6 +13,10 @@ implements: interface
 
 mp: map(int128, int128)
 
+
+#:: Label(ZERO)
+#@ invariant: forall({i: int128}, {self.mp[i]}, self.mp[i] == 0)
+
 #@ ghost:
     #@ @implements
     #@ def _mapval(j: int128) -> int128: self.mp[j]
@@ -33,3 +37,9 @@ def bar(u: uint256) -> uint256:
 @public
 def get_val(j: int128) -> int128:
     return self.mp[j]
+
+
+#:: ExpectedOutput(postcondition.not.implemented:assertion.false) | ExpectedOutput(carbon)(invariant.violated:assertion.false, ZERO)
+@public
+def set_val(j: int128, k: int128):
+    self.mp[j] = k
