@@ -33,19 +33,19 @@ class BalanceTranslator(CommonTranslator):
         return helpers.struct_set(self.viper_ast, self_var, value, names.SELF_BALANCE, balance_type, ctx.self_type, pos, info)
 
     def check_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
-        self_var = ctx.self_var.localVar()
+        self_var = ctx.self_var.local_var(ctx)
         get_balance = self.get_balance(self_var, ctx, pos)
         return self.fail_if(self.viper_ast.LtCmp(get_balance, amount), [], ctx, pos, info)
 
     def increase_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
-        self_var = ctx.self_var.localVar()
+        self_var = ctx.self_var.local_var(ctx)
         get_balance = self.get_balance(self_var, ctx, pos)
         inc_sum = self.viper_ast.Add(get_balance, amount, pos)
         inc = self.set_balance(self_var, inc_sum, ctx, pos)
         return self.viper_ast.LocalVarAssign(self_var, inc, pos, info)
 
     def decrease_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
-        self_var = ctx.self_var.localVar()
+        self_var = ctx.self_var.local_var(ctx)
         get_balance = self.get_balance(self_var, ctx, pos)
         diff = self.viper_ast.Sub(get_balance, amount)
         sub = self.set_balance(self_var, diff, ctx, pos)
@@ -68,7 +68,7 @@ class BalanceTranslator(CommonTranslator):
         return helpers.map_get(self.viper_ast, sent, address, self.viper_ast.Int, self.viper_ast.Int, pos)
 
     def increase_received(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
-        self_var = ctx.self_var.localVar()
+        self_var = ctx.self_var.local_var(ctx)
         # TODO: pass this as an argument
         msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
         rec_type = ctx.field_types[mangled.RECEIVED_FIELD]
@@ -80,7 +80,7 @@ class BalanceTranslator(CommonTranslator):
         return self.viper_ast.LocalVarAssign(self_var, self_set, pos, info)
 
     def increase_sent(self, to: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
-        self_var = ctx.self_var.localVar()
+        self_var = ctx.self_var.local_var(ctx)
         sent_type = ctx.field_types[mangled.SENT_FIELD]
         sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
         sent_to = helpers.map_get(self.viper_ast, sent, to, self.viper_ast.Int, self.viper_ast.Int, pos)

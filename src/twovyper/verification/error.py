@@ -7,12 +7,13 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import List
+from typing import List, Optional
 
 from twovyper.viper.typedefs import Node, AbstractSourcePosition
 from twovyper.viper.typedefs import AbstractVerificationError, AbstractErrorReason
 
 from twovyper.verification.messages import ERRORS, REASONS, VAGUE_REASONS
+from twovyper.verification.model import Model, ModelTransformation
 from twovyper.verification.rules import Rules
 
 
@@ -32,7 +33,7 @@ class Position:
     @property
     def file_name(self) -> str:
         """Return ``file``."""
-        return self._position.file().toString()
+        return str(self._position.file())
 
     @property
     def line(self) -> int:
@@ -57,10 +58,16 @@ class Via:
 
 class ErrorInfo:
 
-    def __init__(self, function: str, node: ast.AST, vias: List[Via], reason_string: str):
+    def __init__(self,
+                 function: str,
+                 node: ast.AST,
+                 vias: List[Via],
+                 model_transformation: Optional[ModelTransformation],
+                 reason_string: str):
         self.function = function
         self.node = node
         self.vias = vias
+        self.model_transformation = model_transformation
         self.reason_string = reason_string
 
 
@@ -113,6 +120,10 @@ class Error:
         self.identifier = error_id
         self._error_info = error_item
         self.reason = Reason(reason_id, viper_reason, reason_item)
+        if error.parsedModel().isDefined():
+            self.model = Model(error, error_item.model_transformation)
+        else:
+            self._model = None
         self.position = Position(error.pos())
 
     def pos(self) -> AbstractSourcePosition:
@@ -147,7 +158,7 @@ class Error:
         """
         Full error position as a string.
         """
-        vias = self.reason._reason_info.vias or self._error_info.vias or []
+        vias = self._error_info.vias or self.reason._reason_info.vias or []
         vias_string = "".join(f", via {via.origin} at {via.position}" for via in vias)
         return f"{self.position}{vias_string}"
 
@@ -161,7 +172,7 @@ class Error:
     def __str__(self) -> str:
         return self.string(False, False)
 
-    def string(self, ide_mode: bool, show_viper_errors: bool) -> str:
+    def string(self, ide_mode: bool, show_viper_errors: bool, include_model: bool = False) -> str:
         """
         Format error.
 
@@ -173,6 +184,8 @@ class Error:
         The second parameter determines if the message may show Viper-level error
         explanations if no Python-level explanation is available.
         """
+        assert not (ide_mode and include_model)
+
         if ide_mode:
             file_name = self.position.file_name
             line = self.position.line
@@ -184,4 +197,8 @@ class Error:
             msg = self.message
             reason = self.reason.string(show_viper_errors)
             pos = self.position_string
-            return f"{msg} {reason} ({pos})"
+            error_msg = f"{msg} {reason} ({pos})"
+            if include_model and self.model:
+                return f"{error_msg}\nCounterexample:\n{self.model}"
+            else:
+                return error_msg

@@ -18,17 +18,17 @@ MODIFYING = 'modifying'
 
 # Types
 BOOL = 'bool'
-WEI_VALUE = 'wei_value'
-TIMESTAMP = 'timestamp'
-TIMEDELTA = 'timedelta'
 INT128 = 'int128'
 UINT256 = 'uint256'
 DECIMAL = 'decimal'
+WEI_VALUE = 'wei_value'
+TIMESTAMP = 'timestamp'
+TIMEDELTA = 'timedelta'
 ADDRESS = 'address'
-MAP = 'map'
 BYTE = 'bytes'
 BYTES32 = 'bytes32'
 STRING = 'string'
+MAP = 'map'
 EVENT = 'event'
 
 # Functions
@@ -87,27 +87,33 @@ ETHER_UNITS = {
     ('microether', 'szabo'): 10 ** 12,
     ('milliether', 'finney'): 10 ** 15,
     ('ether'): 10 ** 18,
-    ('kether', 'grand'): 10 ** 21,
+    ('kether', 'grand'): 10 ** 21
 }
 
 # Built-in functions
-RANGE = 'range'
 MIN = 'min'
 MAX = 'max'
+ADDMOD = 'uint256_addmod'
+MULMOD = 'uint256_mulmod'
 SQRT = 'sqrt'
 FLOOR = 'floor'
 CEIL = 'ceil'
-CLEAR = 'clear'
-SEND = 'send'
+
 AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 CONVERT = 'convert'
+
+RANGE = 'range'
 LEN = 'len'
 CONCAT = 'concat'
+
 KECCAK256 = 'keccak256'
 SHA256 = 'sha256'
+
 ASSERT_MODIFIABLE = 'assert_modifiable'
+CLEAR = 'clear'
 SELFDESTRUCT = 'selfdestruct'
+SEND = 'send'
 
 RAW_CALL = 'raw_call'
 RAW_CALL_OUTSIZE = 'outsize'
@@ -125,19 +131,25 @@ CHECK = 'check'
 CONFIG = 'config'
 CONFIG_NO_GAS = 'no_gas'
 CONFIG_NO_OVERFLOWS = 'no_overflows'
+CONFIG_TRUST_CASTS = 'trust_casts'
+CONFIG_OPTIONS = [CONFIG_NO_GAS, CONFIG_NO_OVERFLOWS, CONFIG_TRUST_CASTS]
+
+INTERFACE = 'interface'
 
 IMPLIES = 'implies'
 FORALL = 'forall'
+SUM = 'sum'
 RESULT = 'result'
+STORAGE = 'storage'
 OLD = 'old'
 ISSUED = 'issued'
-SUM = 'sum'
 SENT = 'sent'
 RECEIVED = 'received'
 ACCESSIBLE = 'accessible'
 REORDER_INDEPENDENT = 'reorder_independent'
 EVENT = 'event'
 SELFDESTRUCT = 'selfdestruct'
+IMPLEMENTS = 'implements'
 
 SUCCESS = 'success'
 SUCCESS_IF_NOT = 'if_not'
@@ -151,6 +163,7 @@ NOT_ALLOWED_IN_INVARIANT = [*NOT_ALLOWED_IN_SPEC, SUCCESS, RESULT, ISSUED, REORD
 NOT_ALLOWED_IN_CHECK = [*NOT_ALLOWED_IN_SPEC, ACCESSIBLE, RESULT]
 NOT_ALLOWED_IN_POSTCONDITION = [*NOT_ALLOWED_IN_SPEC, ACCESSIBLE, EVENT]
 NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION = [*NOT_ALLOWED_IN_INVARIANT, REORDER_INDEPENDENT, ACCESSIBLE]
+NOT_ALLOWED_IN_GHOST_FUNCTION = [*NOT_ALLOWED_IN_SPEC, SUCCESS, RESULT, STORAGE, OLD, ISSUED, ACCESSIBLE, REORDER_INDEPENDENT]
 
 # Heuristics
 WITHDRAW = 'withdraw'

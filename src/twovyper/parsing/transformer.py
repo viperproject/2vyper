@@ -10,6 +10,7 @@ import ast
 from typing import List, Dict, Any
 
 from twovyper.ast import names
+from twovyper.ast.arithmetic import div, mod
 from twovyper.exceptions import UnsupportedException
 
 
@@ -70,10 +71,9 @@ class ConstantInterpreter(ast.NodeVisitor):
         elif isinstance(op, ast.Mult):
             return lhs * rhs
         elif isinstance(op, ast.Div):
-            # Note that contrary to Python Vyper does a floor division
-            return lhs // rhs
+            return div(lhs, rhs)
         elif isinstance(op, ast.Mod):
-            return lhs % rhs
+            return mod(lhs, rhs)
         elif isinstance(op, ast.Pow):
             return lhs ** rhs
         else:
@@ -118,6 +118,8 @@ class ConstantInterpreter(ast.NodeVisitor):
         raise UnsupportedException(node)
 
     def visit_Num(self, node: ast.Num):
+        # TODO: handle decimals
+        assert isinstance(node.n, int)
         return node.n
 
     def visit_NameConstant(self, node: ast.NameConstant):
@@ -161,5 +163,15 @@ class ConstantTransformer(ast.NodeTransformer):
     def __init__(self, constants: Dict[str, ast.AST]):
         self.constants = constants
 
+    def _copy_pos(self, to: ast.AST, node: ast.AST) -> ast.AST:
+        to.file = node.file
+        to.lineno = node.lineno
+        to.col_offset = node.col_offset
+        to.end_lineno = node.end_lineno
+        to.end_col_offset = node.end_col_offset
+        for child in ast.iter_child_nodes(to):
+            self._copy_pos(child, node)
+        return to
+
     def visit_Name(self, node: ast.Name):
-        return ast.copy_location(self.constants.get(node.id) or node, node)
+        return self._copy_pos(self.constants.get(node.id) or node, node)

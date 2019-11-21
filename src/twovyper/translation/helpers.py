@@ -9,7 +9,7 @@ import ast
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.types import FunctionType, StructType, BoundedType
+from twovyper.ast.types import FunctionType, MapType, StructType, AnyStructType
 from twovyper.ast.nodes import VyperFunction
 
 from twovyper.analysis.analyzer import FunctionAnalysis
@@ -19,34 +19,16 @@ from twovyper.viper.ast import ViperAST
 from twovyper.translation import mangled
 from twovyper.translation.context import Context
 
+from twovyper.utils import first_index
+
 
 # Helper functions
 
 def init_function() -> ast.FunctionDef:
     type = FunctionType([], None)
-    function = VyperFunction(mangled.INIT, {}, {}, type, [], [], [names.PUBLIC], None)
+    function = VyperFunction(mangled.INIT, {}, type, [], [], [names.PUBLIC], None)
     function.analysis = FunctionAnalysis()
     return function
-
-
-def self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
-    type = struct_type(viper_ast)
-    return viper_ast.LocalVarDecl(mangled.SELF, type, pos, info)
-
-
-def old_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
-    type = struct_type(viper_ast)
-    return viper_ast.LocalVarDecl(mangled.OLD_SELF, type, pos, info)
-
-
-def pre_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
-    type = struct_type(viper_ast)
-    return viper_ast.LocalVarDecl(mangled.PRE_SELF, type, pos, info)
-
-
-def issued_self_var(viper_ast: ViperAST, self_type: StructType, pos=None, info=None):
-    type = struct_type(viper_ast)
-    return viper_ast.LocalVarDecl(mangled.ISSUED_SELF, type, pos, info)
 
 
 def msg_var(viper_ast: ViperAST, pos=None, info=None):
@@ -54,13 +36,13 @@ def msg_var(viper_ast: ViperAST, pos=None, info=None):
 
 
 def msg_sender(viper_ast: ViperAST, ctx: Context, pos=None, info=None):
-    msg_var = ctx.msg_var.localVar()
+    msg_var = ctx.msg_var.local_var(ctx)
     type = types.MSG_TYPE
     return struct_get(viper_ast, msg_var, names.MSG_SENDER, viper_ast.Int, type, pos, info)
 
 
 def msg_value(viper_ast: ViperAST, ctx: Context, pos=None, info=None):
-    msg_var = ctx.msg_var.localVar()
+    msg_var = ctx.msg_var.local_var(ctx)
     type = types.MSG_TYPE
     return struct_get(viper_ast, msg_var, names.MSG_VALUE, viper_ast.Int, type, pos, info)
 
@@ -77,28 +59,6 @@ def overflow_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.OVERFLOW, viper_ast.Bool, pos, info)
 
 
-def check_overflow(viper_ast: ViperAST, arg, type: BoundedType, ctx: Context, pos=None, info=None):
-    lower = viper_ast.IntLit(type.lower, pos)
-    upper = viper_ast.IntLit(type.upper, pos)
-
-    lt = viper_ast.LtCmp(arg, lower, pos)
-    gt = viper_ast.GtCmp(arg, upper, pos)
-
-    # If the no_overflows config option is enabled, we only check non-negativity for uints
-    if ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
-        if types.is_unsigned(type):
-            cond = lt
-        else:
-            cond = viper_ast.FalseLit(pos)
-    else:
-        cond = viper_ast.Or(lt, gt, pos)
-    overflow = overflow_var(viper_ast, pos).localVar()
-    set_overflow = viper_ast.LocalVarAssign(overflow, viper_ast.TrueLit(pos), pos)
-    revert = viper_ast.Goto(ctx.revert_label, pos)
-    body = [set_overflow, revert]
-    return viper_ast.If(cond, body, [], pos, info)
-
-
 def out_of_gas_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.OUT_OF_GAS, viper_ast.Bool, pos, info)
 
@@ -111,20 +71,21 @@ def first_public_state_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.FIRST_PUBLIC_STATE, viper_ast.Bool, pos, info)
 
 
-def check_first_public_state(viper_ast: ViperAST, ctx: Context, set_false: bool, pos=None, info=None):
-    self_var = ctx.self_var.localVar()
-    old_self_var = ctx.old_self_var.localVar()
-    first_public_state = first_public_state_var(viper_ast, pos).localVar()
-    old_assign = viper_ast.LocalVarAssign(old_self_var, self_var)
-    var_assign = viper_ast.LocalVarAssign(first_public_state, viper_ast.FalseLit(pos), pos)
-    stmts = [old_assign, var_assign] if set_false else [old_assign]
-    return viper_ast.If(first_public_state, stmts, [], pos, info)
+def contracts_type():
+    return MapType(types.VYPER_ADDRESS, AnyStructType())
 
 
 def self_address(viper_ast: ViperAST, pos=None, info=None):
     address = mangled.SELF_ADDRESS
     domain = mangled.CONTRACT_DOMAIN
     return viper_ast.DomainFuncApp(address, [], viper_ast.Int, pos, info, domain)
+
+
+def implements(viper_ast: ViperAST, address, interface: str, ctx: Context, pos=None, info=None):
+    impl = mangled.IMPLEMENTS
+    domain = mangled.CONTRACT_DOMAIN
+    intf = viper_ast.IntLit(first_index(lambda i: i == interface, ctx.program.interfaces), pos)
+    return viper_ast.DomainFuncApp(impl, [address, intf], viper_ast.Bool, pos, info, domain)
 
 
 def div(viper_ast: ViperAST, dividend, divisor, pos=None, info=None):
@@ -328,3 +289,9 @@ def range(viper_ast: ViperAST, start, end, pos=None, info=None):
     range_type = viper_ast.SeqType(viper_ast.Int)
     domain = mangled.RANGE_DOMAIN
     return viper_ast.DomainFuncApp(range_func, [start, end], range_type, pos, info, domain)
+
+
+def ghost_function(viper_ast: ViperAST, name, address, args, return_type, pos=None, info=None):
+    domain = mangled.GHOST_FUNCTION_DOMAIN
+    ghost_func = mangled.ghost_function_name(name)
+    return viper_ast.DomainFuncApp(ghost_func, [address, *args], return_type, pos, info, domain)

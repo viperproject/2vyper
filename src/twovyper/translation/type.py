@@ -12,19 +12,19 @@ from typing import Optional, List
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.types import (
-    VyperType, PrimitiveType, MapType, ArrayType, StructType, ContractType
+    VyperType, PrimitiveType, MapType, ArrayType, AnyStructType, StructType, ContractType, InterfaceType
 )
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr, Type
 
-from twovyper.translation.abstract import PositionTranslator, CommonTranslator
+from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.context import Context, quantified_var_scope
 
 from twovyper.translation import helpers
 
 
-class TypeTranslator(PositionTranslator, CommonTranslator):
+class TypeTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
@@ -47,9 +47,9 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
         elif isinstance(type, ArrayType):
             element_type = self.translate(type.element_type, ctx)
             return helpers.array_type(self.viper_ast, element_type)
-        elif isinstance(type, StructType):
+        elif isinstance(type, (AnyStructType, StructType)):
             return helpers.struct_type(self.viper_ast)
-        elif isinstance(type, ContractType):
+        elif isinstance(type, (ContractType, InterfaceType)):
             return self.translate(types.VYPER_ADDRESS, ctx)
         else:
             assert False
@@ -85,7 +85,7 @@ class TypeTranslator(PositionTranslator, CommonTranslator):
                 stmts.extend(default_stmts)
             args = [init_args[i] for i in range(len(init_args))]
             return stmts, helpers.struct_init(self.viper_ast, args, type, pos)
-        elif isinstance(type, ContractType):
+        elif isinstance(type, (ContractType, InterfaceType)):
             return self.default_value(node, types.VYPER_ADDRESS, ctx)
         else:
             assert False

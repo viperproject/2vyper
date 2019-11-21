@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from typing import Dict, Tuple
 
 
-"""Conversion rules from Silver level errors to Nagini errors."""
+"""Conversion rules from Silver level errors to 2vyper errors."""
 Rules = Dict[Tuple[str, str], Tuple[str, str]]
 
 
@@ -32,6 +32,11 @@ POSTCONDITION_FAIL = {
         ('not.wellformed', 'seq.index.length'),
     ('assert.failed', 'seq.index.negative'):
         ('not.wellformed', 'seq.index.negative')
+}
+
+INTERFACE_POSTCONDITION_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('postcondition.not.implemented', 'assertion.false')
 }
 
 CHECK_FAIL = {
@@ -71,6 +76,15 @@ INHALE_POSTCONDITION_FAIL = {
         ('postcondition.not.wellformed', 'seq.index.length'),
     ('inhale.failed', 'seq.index.negative'):
         ('postcondition.not.wellformed', 'seq.index.negative')
+}
+
+INHALE_INTERFACE_FAIL = {
+    ('inhale.failed', 'division.by.zero'):
+        ('interface.postcondition.not.wellformed', 'division.by.zero'),
+    ('inhale.failed', 'seq.index.length'):
+        ('interface.postcondition.not.wellformed', 'seq.index.length'),
+    ('inhale.failed', 'seq.index.negative'):
+        ('interface.postcondition.not.wellformed', 'seq.index.negative')
 }
 
 INVARIANT_TRANSITIVITY_VIOLATED = {

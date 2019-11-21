@@ -37,6 +37,8 @@ ERRORS = {
         lambda i: "Assert might fail.",
     'postcondition.violated':
         lambda i: f"Postcondition of {i.function} might not hold.",
+    'postcondition.not.implemented':
+        lambda i: f"Function {i.function} might not correctly implement an interface.",
     'invariant.violated':
         lambda i: f"Invariant not preserved by {i.function}.",
     'check.violated':
@@ -45,6 +47,8 @@ ERRORS = {
         lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
     'postcondition.not.wellformed':
         lambda i: f"General postcondition {pprint(i.node)} might not be well-formed.",
+    'interface.postcondition.not.wellformed':
+        lambda i: f"Postcondition of {pprint(i.node)} might not be well-formed.",
     'fold.failed':
         lambda i: "Fold might fail.",
     'unfold.failed':

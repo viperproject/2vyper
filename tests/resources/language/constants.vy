@@ -13,36 +13,46 @@ c5: constant(bool) = not True or False or True
 c6: constant(bool) = True and False
 c7: constant(int128) = min(c1, c2)
 c8: constant(int128) = max(c7, 1 + 3)
+c9: constant(int128) = 12 / -5
 
 
 @public
-def foo() -> int128:
+def sum_c1_c2() -> int128:
     return c1 + c2
 
+#@ ensures: success() ==> result() == 12 / 5
 @public
-def bar() -> int128:
+def get_c3() -> int128:
     return c3
 
+#@ ensures: success() ==> result() == 12 / -5
 @public
-def some() -> bool:
+def get_c9() -> int128:
+    return c9
+
+@public
+def bool_ops() -> bool:
     b: bool = c6
     b = c5
     b = c4
     return b
 
+#@ ensures: success() ==> result() == 0x0000000000000000000000000000000000000000
 @public
 def zero_add() -> address:
     return ZERO_ADDRESS
 
+#@ ensures: success() ==> len(result()) == 32
 @public
 def empty_bytes() -> bytes32:
     return EMPTY_BYTES32
 
+#@ ensures: success() ==> result() == 0
 @public
 def zero_wei() -> wei_value:
     return ZERO_WEI
 
-#@ ensures: implies(success(), result() == 170141183460469231731687303715884105727)
+#@ ensures: success() ==> result() == 170141183460469231731687303715884105727
 @public
 def max_int128() -> int128:
     return MAX_INT128

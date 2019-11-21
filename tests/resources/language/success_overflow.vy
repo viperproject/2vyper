@@ -20,3 +20,16 @@ def add_numbers(a: int128, b: int128) -> int128:
 @public
 def add_numbers_fail(a: int128, b: int128) -> int128:
     return a + b
+
+
+#@ ensures: success(if_not=overflow)
+@public
+def sub_signed_numbers(a: int128, b: int128) -> int128:
+    return a - b
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: success(if_not=overflow)
+@public
+def sub_unsigned_numbers_fail(a: uint256, b: uint256) -> uint256:
+    return a - b

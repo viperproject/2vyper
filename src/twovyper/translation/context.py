@@ -6,16 +6,21 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
+from collections import defaultdict
 
 from twovyper.ast import names
 from twovyper.translation import mangled
+from twovyper.utils import DicitionaryView
 
 
 class Context:
 
     def __init__(self):
-        self.file = None
         self.program = None
+        # The program whose code is currently being translated, i.e., a VyperProgram
+        # normally, and a VyperInterface when we translate interface specifications.
+        self.current_program = None
+        self.options = None
         # The translated types of all fields
         self.field_types = {}
         # Invariants that are known to be true and therefore don't need to be checked
@@ -23,10 +28,21 @@ class Context:
 
         self.function = None
 
-        self.all_vars = {}
         self.args = {}
         self.locals = {}
+        # The state which is currently regarded as 'present'
+        self.current_state = {}
+        # The state which is currently regarded as 'old'
+        self.current_old_state = {}
         self.quantified_vars = {}
+
+        # The actual preset, old, pre, and issued states
+        self.present_state = {}
+        self.old_state = {}
+        self.pre_state = {}
+        self.issued_state = {}
+
+        self.self_address = None
 
         self._break_label_counter = -1
         self._continue_label_counter = -1
@@ -40,12 +56,18 @@ class Context:
 
         self.inside_trigger = False
 
-        self._local_var_counter = -1
+        self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
 
         self._quantified_var_counter = -1
         self._inline_counter = -1
         self._current_inline = -1
+        self.inline_vias = []
+
+    @property
+    def all_vars(self):
+        var_dicts = [self.quantified_vars, self.current_state, self.locals, self.args]
+        return DicitionaryView(var_dicts)
 
     @property
     def self_type(self):
@@ -53,19 +75,31 @@ class Context:
 
     @property
     def self_var(self):
-        return self.all_vars[names.SELF]
+        """
+        The variable declaration to which `self` currently refers.
+        """
+        return self.current_state[names.SELF]
 
     @property
     def old_self_var(self):
-        return self.all_vars[mangled.OLD_SELF]
+        """
+        The variable declaration to which `old(self)` currently refers.
+        """
+        return self.current_old_state[names.SELF]
 
     @property
     def pre_self_var(self):
-        return self.all_vars[mangled.PRE_SELF]
+        """
+        The state of `self` before the function call.
+        """
+        return self.pre_state[names.SELF]
 
     @property
     def issued_self_var(self):
-        return self.all_vars[mangled.ISSUED_SELF]
+        """
+        The state of `self` when issuing the transaction.
+        """
+        return self.issued_state[names.SELF]
 
     @property
     def msg_var(self):
@@ -79,9 +113,14 @@ class Context:
     def tx_var(self):
         return self.all_vars[names.TX]
 
-    def new_local_var_name(self, name: str = 'local') -> str:
-        self._local_var_counter += 1
-        return f'${name}_{self._local_var_counter}'
+    def new_local_var_name(self, name: str) -> str:
+        full_name = mangled.local_var_name(self.inline_prefix, name)
+        self._local_var_counter[full_name] += 1
+        new_count = self._local_var_counter[full_name]
+        if new_count == 0:
+            return full_name
+        else:
+            return f'{full_name}${new_count}'
 
     def new_quantified_var_name(self) -> str:
         self._quantified_var_counter += 1
@@ -113,10 +152,18 @@ def function_scope(ctx: Context):
 
     function = ctx.function
 
-    all_vars = ctx.all_vars
     args = ctx.args
     locals = ctx.locals
+    current_state = ctx.current_state
+    current_old_state = ctx.current_old_state
     quantified_vars = ctx.quantified_vars
+
+    present_state = ctx.present_state
+    old_state = ctx.old_state
+    pre_state = ctx.pre_state
+    issued_state = ctx.issued_state
+
+    self_address = ctx.self_address
 
     _break_label_counter = ctx._break_label_counter
     _continue_label_counter = ctx._continue_label_counter
@@ -136,13 +183,20 @@ def function_scope(ctx: Context):
     quantified_var_counter = ctx._quantified_var_counter
     inline_counter = ctx._inline_counter
     current_inline = ctx._current_inline
+    inline_vias = ctx.inline_vias.copy()
 
     ctx.function = None
 
-    ctx.all_vars = {}
     ctx.args = {}
     ctx.locals = {}
+    ctx.current_state = {}
+    ctx.current_old_state = {}
     ctx.quantified_vars = {}
+
+    ctx.present_state = {}
+    ctx.old_state = {}
+    ctx.pre_state = {}
+    ctx.issued_state = {}
 
     ctx._break_label_counter = -1
     ctx._continue_label_counter = -1
@@ -156,7 +210,7 @@ def function_scope(ctx: Context):
 
     ctx.inside_trigger = False
 
-    ctx._local_var_counter = -1
+    ctx._local_var_counter = defaultdict(lambda: -1)
     ctx.new_local_vars = []
 
     ctx._quantified_var_counter = -1
@@ -167,10 +221,18 @@ def function_scope(ctx: Context):
 
     ctx.function = function
 
-    ctx.all_vars = all_vars
     ctx.args = args
     ctx.locals = locals
+    ctx.current_state = current_state
+    ctx.current_old_state = current_old_state
     ctx.quantified_vars = quantified_vars
+
+    ctx.present_state = present_state
+    ctx.old_state = old_state
+    ctx.pre_state = pre_state
+    ctx.issued_state = issued_state
+
+    ctx.self_address = self_address
 
     ctx._break_label_counter = _break_label_counter
     ctx._continue_label_counter = _continue_label_counter
@@ -190,18 +252,17 @@ def function_scope(ctx: Context):
     ctx._quantified_var_counter = quantified_var_counter
     ctx._inline_counter = inline_counter
     ctx._current_inline = current_inline
+    ctx.inline_vias = inline_vias
 
 
 @contextmanager
 def quantified_var_scope(ctx: Context):
-    all_vars = ctx.all_vars.copy()
     quantified_vars = ctx.quantified_vars.copy()
     quantified_var_counter = ctx._quantified_var_counter
     ctx.quantified_var_counter = -1
 
     yield
 
-    ctx.all_vars = all_vars
     ctx.quantified_vars = quantified_vars
     ctx._quantified_var_counter = quantified_var_counter
 
@@ -217,14 +278,42 @@ def inside_trigger_scope(ctx: Context):
 
 
 @contextmanager
-def inline_scope(ctx: Context):
+def inline_scope(via, ctx: Context):
     result_var = ctx.result_var
     ctx.result_var = None
 
     return_label = ctx.return_label
     ctx.return_label = None
 
-    all_vars = ctx.all_vars.copy()
+    local_vars = ctx.locals.copy()
+    args = ctx.args.copy()
+    old_inline = ctx._current_inline
+    ctx._inline_counter += 1
+    ctx._current_inline = ctx._inline_counter
+
+    inline_vias = ctx.inline_vias.copy()
+    ctx.inline_vias.append(via)
+
+    yield
+
+    ctx.result_var = result_var
+    ctx.return_label = return_label
+
+    ctx.locals = local_vars
+    ctx.args = args
+    ctx._current_inline = old_inline
+
+    ctx.inline_vias = inline_vias
+
+
+@contextmanager
+def interface_call_scope(ctx: Context):
+    result_var = ctx.result_var
+    ctx.result_var = None
+    success_var = ctx.success_var
+    ctx.success_var = None
+
+    local_vars = ctx.locals.copy()
     old_inline = ctx._current_inline
     ctx._inline_counter += 1
     ctx._current_inline = ctx._inline_counter
@@ -232,25 +321,43 @@ def inline_scope(ctx: Context):
     yield
 
     ctx.result_var = result_var
-    ctx.return_label = return_label
+    ctx.success_var = success_var
 
-    ctx.all_vars = all_vars
+    ctx.locals = local_vars
     ctx._current_inline = old_inline
 
 
 @contextmanager
-def self_scope(self_var, old_self_var, ctx: Context):
-    all_vars = ctx.all_vars.copy()
-    local_vars = ctx.locals.copy()
-    ctx.all_vars[names.SELF] = self_var
-    ctx.locals[names.SELF] = self_var
-    ctx.all_vars[mangled.OLD_SELF] = old_self_var
-    ctx.locals[mangled.OLD_SELF] = old_self_var
+def program_scope(program, ctx: Context):
+    old_program = ctx.current_program
+    ctx.current_program = program
 
     yield
 
-    ctx.all_vars = all_vars
-    ctx.locals = local_vars
+    ctx.current_program = old_program
+
+
+@contextmanager
+def state_scope(present_state, old_state, ctx: Context):
+    current_state = ctx.current_state.copy()
+    current_old_state = ctx.current_old_state.copy()
+    ctx.current_state = present_state
+    ctx.current_old_state = old_state
+
+    yield
+
+    ctx.current_state = current_state
+    ctx.current_old_state = current_old_state
+
+
+@contextmanager
+def self_address_scope(address, ctx: Context):
+    old_self_address = ctx.self_address
+    ctx.self_address = address
+
+    yield
+
+    ctx.self_address = old_self_address
 
 
 @contextmanager

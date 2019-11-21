@@ -16,6 +16,11 @@ OLD_SELF = f'$old_{names.SELF}'
 PRE_SELF = f'$pre_{names.SELF}'
 ISSUED_SELF = f'$issued_{names.SELF}'
 
+CONTRACTS = '$contracts'
+OLD_CONTRACTS = '$old_contracts'
+PRE_CONTRACTS = '$pre_contracts'
+ISSUED_CONTRACTS = '$issued_contracts'
+
 MSG = names.MSG
 BLOCK = names.BLOCK
 TX = names.TX
@@ -39,6 +44,7 @@ REVERT_LABEL = 'revert'
 
 CONTRACT_DOMAIN = '$Contract'
 SELF_ADDRESS = '$self_address'
+IMPLEMENTS = '$implements'
 
 MATH_DOMAIN = '$Math'
 MATH_SIGN = '$sign'
@@ -81,6 +87,8 @@ STRUCT_INIT_DOMAIN = '$StructInit'
 RANGE_DOMAIN = '$Range'
 RANGE_RANGE = '$range'
 
+GHOST_FUNCTION_DOMAIN = '$Ghost'
+
 TRANSITIVITY_CHECK = '$transitivity_check'
 FORCED_ETHER_CHECK = '$forced_ether_check'
 
@@ -101,8 +109,24 @@ def struct_eq_name(vyper_struct_name: str) -> str:
     return f'{struct_name(vyper_struct_name)}$eq'
 
 
+def interface_name(vyper_interface_name: str) -> str:
+    return f'i${vyper_interface_name}'
+
+
+def interface_function_name(vyper_iname: str, vyper_fname: str) -> str:
+    return f'{interface_name(vyper_iname)}${vyper_fname}'
+
+
+def ghost_function_name(vyper_name: str) -> str:
+    return f'g${vyper_name}'
+
+
 def axiom_name(viper_name: str) -> str:
-    return f'{viper_name}_ax'
+    return f'{viper_name}$ax'
+
+
+def ghost_axiom_name(vyper_name: str, idx: int):
+    return axiom_name(f'{ghost_function_name(vyper_name)}${idx}')
 
 
 def event_name(vyper_name: str) -> str:
@@ -113,12 +137,17 @@ def accessible_name(vyper_name: str) -> str:
     return f'$accessible${vyper_name}'
 
 
-def local_var_name(vyper_name: str) -> str:
+def local_var_name(inline_prefix: str, vyper_name: str) -> str:
     if vyper_name in {names.SELF, names.MSG, names.BLOCK}:
-        return vyper_name
+        prefix = ''
     else:
-        return f'l${vyper_name}'
+        prefix = 'l$'
+    return f'{prefix}{inline_prefix}{vyper_name}'
 
 
 def quantifier_var_name(vyper_name: str) -> str:
     return f'q${vyper_name}'
+
+
+def model_var_name(*components: str) -> str:
+    return f'm${"$".join(components)}'

@@ -45,7 +45,7 @@ class ErrorManager:
             self,
             errors: List[AbstractVerificationError],
             jvm: Optional[JVM]) -> List[Error]:
-        """Convert Viper errors into Nagini errors.
+        """Convert Viper errors into 2vyper errors.
 
         It does that by wrapping in ``Error`` subclasses.
         """

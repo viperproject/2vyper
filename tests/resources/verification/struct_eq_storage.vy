@@ -23,13 +23,13 @@ def __init__():
     self.p = Person({age: 12, _name: "Anakin", money: 0})
 
 
-#@ ensures: self == old(self)
+#@ ensures: storage(self) == old(storage(self))
 @public
 def no_change():
     pass
 
 
-#@ ensures: self == old(self)
+#@ ensures: storage(self) == old(storage(self))
 @public
 def no_effective_change():
     old_name: string[100] = self.name
@@ -37,7 +37,7 @@ def no_effective_change():
     self.name = old_name
 
 
-#@ ensures: self == old(self)
+#@ ensures: storage(self) == old(storage(self))
 @public
 def no_effective_changes():
     old_name: string[100] = self.name
@@ -51,7 +51,7 @@ def no_effective_changes():
     self.name = old_name
 
 
-#@ ensures: self == old(self)
+#@ ensures: storage(self) == old(storage(self))
 @public
 def struct_no_effective_changes():
     assert self.p.age == 12 and self.p.money == 0
@@ -75,14 +75,14 @@ def change_fail():
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: self == old(self)
+#@ ensures: storage(self) == old(storage(self))
 @public
 def self_change_fail():
     self.name = "Luke Skywalker"
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: self == old(self)
+#@ ensures: storage(self) == old(storage(self))
 @public
 def changes_fail():
     self.p.age = 13

@@ -12,6 +12,7 @@ from twovyper.ast.nodes import VyperProgram, VyperFunction
 
 from twovyper.analysis import heuristics
 from twovyper.analysis.structure_checker import check_structure
+from twovyper.analysis.symbol_checker import check_symbols
 from twovyper.analysis.type_annotator import TypeAnnotator
 
 from twovyper.exceptions import UnsupportedException
@@ -24,6 +25,7 @@ def analyze(program: VyperProgram):
     """
     check_structure(program)
     TypeAnnotator(program).annotate_program()
+    check_symbols(program)
 
     for function in program.functions.values():
         function.analysis = FunctionAnalysis()

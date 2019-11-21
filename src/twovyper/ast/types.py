@@ -75,6 +75,18 @@ class StructType(VyperType):
         self.member_indices[name] = len(self.member_indices)
 
 
+class AnyStructType(VyperType):
+
+    def __init__(self):
+        super().__init__('$AnyStruct')
+
+
+class SelfType(StructType):
+
+    def __init__(self, member_types: Dict[str, VyperType]):
+        super().__init__(names.SELF, member_types)
+
+
 class ContractType(VyperType):
 
     def __init__(self,
@@ -86,6 +98,14 @@ class ContractType(VyperType):
         self.name = name
         self.function_types = function_types
         self.function_modifiers = function_modifiers
+
+
+class InterfaceType(VyperType):
+
+    def __init__(self, name: str):
+        id = f'interface {name}'
+        super().__init__(id)
+        self.name = name
 
 
 class StringType(ArrayType):
@@ -113,6 +133,7 @@ class BoundedType(PrimitiveType):
 class DecimalType(BoundedType):
 
     def __init__(self, name: str, digits: int, lower: int, upper: int):
+        self.number_of_digits = digits
         self.scaling_factor = 10 ** digits
         lower *= self.scaling_factor
         upper *= self.scaling_factor
@@ -208,6 +229,8 @@ def matches(t, m):
     elif is_integer(t) and is_integer(m):
         return True
     elif isinstance(t, ContractType) and m == VYPER_ADDRESS:
+        return True
+    elif isinstance(t, InterfaceType) and m == VYPER_ADDRESS:
         return True
     else:
         return t == m

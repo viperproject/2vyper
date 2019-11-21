@@ -11,11 +11,12 @@ import os
 import glob
 
 from conftest import option
-from tests import _init_jvm, _test
+from tests import _init_jvm, _init_model, _test
 
 
 def setup_module(module):
     _init_jvm(option.verifier)
+    _init_model(option.model)
 
 
 def get_tests():

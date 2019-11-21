@@ -70,9 +70,16 @@ def _init_jvm(verifier):
     VERIFIER = verifier
 
 
+def _init_model(model):
+    global OPTIONS_MODEL
+    OPTIONS_MODEL = model
+
+
 _BACKEND_SILICON = 'silicon'
 _BACKEND_CARBON = 'carbon'
 _BACKEND_ANY = 'ANY'
+
+OPTIONS_MODEL = False
 
 
 def _consume(key: str, dictionary: Dict[str, Any], check: bool = False) -> Any:
@@ -140,15 +147,15 @@ class VerificationError(Error):
         return self._error.position.line
 
     def get_vias(self) -> List[int]:
+        error_pos = self._error.position
+        if error_pos.node_id:
+            vias = error_manager.get_vias(error_pos.node_id)
+            return [via.position.line() for via in vias]
         reason_pos = self._error.reason.position
         if reason_pos.node_id:
             vias = error_manager.get_vias(reason_pos.node_id)
             if vias:
                 return [via.position.line() for via in vias]
-        error_pos = self._error.position
-        if error_pos.node_id:
-            vias = error_manager.get_vias(error_pos.node_id)
-            return [via.position.line() for via in vias]
         return []
 
 
@@ -548,7 +555,7 @@ class TwoVyperTest(AnnotatedTest):
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         path = os.path.abspath(path)
-        tw = TwoVyper(jvm)
+        tw = TwoVyper(jvm, OPTIONS_MODEL)
         try:
             prog = tw.translate(path, vyper_root=VYPER_ROOT)
         except InvalidProgramException as e:

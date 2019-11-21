@@ -8,13 +8,17 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from contextlib import contextmanager
+from typing import Union
 
 from twovyper.utils import first_index, NodeVisitor, switch
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.types import TypeBuilder, VyperType, MapType, ArrayType
-from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperVar
+from twovyper.ast.arithmetic import Decimal
+from twovyper.ast.types import (
+    TypeBuilder, VyperType, MapType, ArrayType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
+)
+from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
@@ -55,22 +59,23 @@ class TypeAnnotator(NodeVisitor):
 
         self.program = program
         self.current_func = None
+
+        self_type = self.program.fields.type
         # Contains the possible types a variable can have
         self.variables = {
             names.BLOCK: [types.BLOCK_TYPE],
             names.TX: [types.TX_TYPE],
             names.MSG: [types.MSG_TYPE],
-            names.SELF: [self.program.fields.type, types.VYPER_ADDRESS],
+            names.SELF: [types.VYPER_ADDRESS, self_type],
             names.LOG: [None]
         }
 
     @contextmanager
-    def _function_scope(self, func: VyperFunction):
+    def _function_scope(self, func: Union[VyperFunction, GhostFunction]):
         old_func = self.current_func
         self.current_func = func
         old_variables = self.variables.copy()
         self.variables.update({k: [v.type] for k, v in func.args.items()})
-        self.variables.update({k: [v.type] for k, v in func.local_vars.items()})
 
         yield
 
@@ -93,10 +98,15 @@ class TypeAnnotator(NodeVisitor):
         for function in self.program.functions.values():
             with self._function_scope(function):
                 self.visit(function.node)
+
                 for post in function.postconditions:
                     self.annotate_expected(post, types.VYPER_BOOL)
                 for check in function.checks:
                     self.annotate_expected(check, types.VYPER_BOOL)
+
+        for ghost_function in self.program.ghost_function_implementations.values():
+            with self._function_scope(ghost_function):
+                self.annotate_expected(ghost_function.node.body[0].value, ghost_function.type.return_type)
 
         for inv in self.program.invariants:
             self.annotate_expected(inv, types.VYPER_BOOL)
@@ -186,7 +196,12 @@ class TypeAnnotator(NodeVisitor):
 
     def visit_Return(self, node: ast.Return):
         if node.value:
-            self.annotate_expected(node.value, self.current_func.type.return_type)
+            # Interfaces are allowed to just have `pass` as a body instead of a correct return,
+            # therefore we don't check for the correct return type.
+            if self.program.is_interface():
+                self.annotate(node.value)
+            else:
+                self.annotate_expected(node.value, self.current_func.type.return_type)
 
     def visit_Assign(self, node: ast.Assign):
         self.annotate(node.targets[0], node.value)
@@ -195,6 +210,12 @@ class TypeAnnotator(NodeVisitor):
         self.annotate(node.target, node.value)
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
+        # This is a variable declaration so we add it to the type map. Since Vyper
+        # doesn't allow shadowing, we can just override the previous value.
+        variable_name = node.target.id
+        variable_type = self.type_builder.build(node.annotation)
+        self.variables[variable_name] = [variable_type]
+
         if node.value:
             self.annotate(node.target, node.value)
         else:
@@ -203,12 +224,12 @@ class TypeAnnotator(NodeVisitor):
     def visit_For(self, node: ast.For):
         self.annotate_expected(node.iter, lambda t: isinstance(t, ArrayType))
 
+        # Add the loop variable to the type map
         var_name = node.target.id
         var_type = node.iter.type.element_type
-        self.current_func.local_vars[var_name] = VyperVar(var_name, var_type, node.target)
         self.variables[var_name] = [var_type]
-        # Vyper does not support else branches in loops
-        assert not node.orelse
+
+        self.annotate_expected(node.target, var_type)
         for stmt in node.body:
             self.visit(stmt)
 
@@ -282,6 +303,11 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[0], types.is_numeric)
                     self.annotate_expected(node.args[1], types.is_numeric)
                     return self.combine(node.args[0], node.args[1], node)
+                elif case(names.ADDMOD) or case(names.MULMOD):
+                    _check_number_of_arguments(node, 3)
+                    for arg in node.args:
+                        self.annotate_expected(arg, types.VYPER_UINT256)
+                    return [types.VYPER_UINT256], [node]
                 elif case(names.SQRT):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], types.VYPER_DECIMAL)
@@ -301,6 +327,15 @@ class TypeAnnotator(NodeVisitor):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], lambda t: isinstance(t, types.ArrayType))
                     return [types.VYPER_INT128], [node]
+                elif case(names.STORAGE):
+                    _check_number_of_arguments(node, 1)
+                    self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                    # We know that storage(self) has the self-type
+                    if isinstance(node.args[0], ast.Name) and node.args[0].id == names.SELF:
+                        return [self.program.type], [node]
+                    # Otherwise it is just some struct, which we don't know anything about
+                    else:
+                        return [AnyStructType()], [node]
                 elif case(names.ASSERT_MODIFIABLE):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], types.VYPER_BOOL)
@@ -388,21 +423,51 @@ class TypeAnnotator(NodeVisitor):
                     else:
                         self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                         return [types.VYPER_WEI_VALUE], [node]
+                elif case(names.IMPLEMENTS):
+                    _check_number_of_arguments(node, 2)
+                    address = node.args[0]
+                    interface = node.args[1]
+                    is_interface = isinstance(interface, ast.Name) and interface.id in self.program.interfaces
+                    _check(is_interface, node, 'invalid.interface')
+                    self.annotate_expected(address, types.VYPER_ADDRESS)
+                    return [types.VYPER_BOOL], [node]
                 elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                     # This is a struct inizializer
-                    _check_number_of_arguments(node, 0, 1)
+                    _check_number_of_arguments(node, 1)
 
                     return self._visit_struct_init(node)
                 elif name in self.program.contracts:
                     # This is a contract initializer
-                    _check_number_of_arguments(node, 0, 1)
+                    _check_number_of_arguments(node, 1)
 
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     return [self.program.contracts[name].type], [node]
+                elif name in self.program.interfaces:
+                    # This is an interface initializer
+                    _check_number_of_arguments(node, 1)
+
+                    self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                    return [self.program.interfaces[name].type], [node]
+                elif name in self.program.ghost_functions:
+                    function = self.program.ghost_functions[name]
+                    _check_number_of_arguments(node, len(function.args) + 1)
+
+                    arg_types = [types.VYPER_ADDRESS, *[arg.type for arg in function.args.values()]]
+                    for type, arg in zip(arg_types, node.args):
+                        self.annotate_expected(arg, type)
+
+                    return [function.type.return_type], [node]
                 else:
                     raise UnsupportedException(node, "Unsupported function call")
         elif isinstance(node.func, ast.Attribute):
-            self.annotate(node.func.value)
+
+            def expected(t):
+                is_self_call = isinstance(t, SelfType)
+                is_external_call = isinstance(t, (ContractType, InterfaceType))
+                is_log = t is None
+                return is_self_call or is_external_call or is_log
+
+            self.annotate_expected(node.func.value, expected)
             receiver_type = node.func.value.type
 
             # We don't have to type check calls as they are not allowed in specifications
@@ -417,14 +482,19 @@ class TypeAnnotator(NodeVisitor):
                 return [None], [node]
 
             # A self call
-            if isinstance(receiver_type, types.StructType):
+            if isinstance(receiver_type, SelfType):
                 name = node.func.attr
                 function = self.program.functions[name]
                 return [function.type.return_type], [node]
             # A contract call
-            elif isinstance(receiver_type, types.ContractType):
+            elif isinstance(receiver_type, ContractType):
                 name = node.func.attr
                 return [receiver_type.function_types[name].return_type], [node]
+            elif isinstance(receiver_type, InterfaceType):
+                name = node.func.attr
+                interface = self.program.interfaces[receiver_type.name]
+                function = interface.functions[name]
+                return [function.type.return_type], [node]
         else:
             assert False
 
@@ -521,22 +591,24 @@ class TypeAnnotator(NodeVisitor):
                 tps = [types.VYPER_INT128]
             nodes = [node]
             return tps, nodes
-        elif isinstance(node.n, float):
+        elif isinstance(node.n, Decimal):
             return [types.VYPER_DECIMAL], [node]
         else:
             assert False
 
     def visit_NameConstant(self, node: ast.NameConstant):
-        assert node.value is not None
+        _check(node.value is not None, node, 'use.of.none')
         return [types.VYPER_BOOL], [node]
 
     def visit_Attribute(self, node: ast.Attribute):
-        self.annotate(node.value)
-        ntype = node.value.type.member_types[node.attr]
+        self.annotate_expected(node.value, lambda t: isinstance(t, StructType))
+        ntype = node.value.type.member_types.get(node.attr)
+        if not ntype:
+            raise InvalidProgramException(node, 'invalid.storage.var')
         return [ntype], [node]
 
     def visit_Subscript(self, node: ast.Subscript):
-        self.annotate(node.value)
+        self.annotate_expected(node.value, lambda t: isinstance(t, (ArrayType, MapType)))
         if isinstance(node.value.type, MapType):
             key_type = node.value.type.key_type
             self.annotate_expected(node.slice.value, key_type)

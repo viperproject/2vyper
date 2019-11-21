@@ -9,6 +9,8 @@ domain $Contract {
 
     function $self_address(): Int
 
+    function $implements($a: Int, $i: Int): Bool
+
     axiom $self_address_ax {
         $self_address() != 0
     }

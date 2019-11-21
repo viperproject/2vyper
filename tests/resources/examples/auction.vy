@@ -37,33 +37,33 @@ ended: public(bool)
 pendingReturns: public(map(address, wei_value))
 
 
-#@ invariant: implies(self.highestBidder == ZERO_ADDRESS, self.highestBid == 0)
+#@ invariant: self.highestBidder == ZERO_ADDRESS ==> self.highestBid == 0
 #@ invariant: self.beneficiary == old(self.beneficiary)
 
-#@ invariant: implies(old(self.ended), self.ended)
+#@ invariant: old(self.ended) ==> self.ended
 
-#@ invariant: implies(not self.ended, sum(self.pendingReturns) + self.highestBid <= self.balance)
-#@ invariant: implies(not self.ended, sum(self.pendingReturns) + self.highestBid == sum(received()) - sum(sent()))
-#@ invariant: implies(self.ended, sum(self.pendingReturns) <= self.balance)
+#@ invariant: not self.ended ==> sum(self.pendingReturns) + self.highestBid <= self.balance
+#@ invariant: not self.ended ==> sum(self.pendingReturns) + self.highestBid == sum(received()) - sum(sent())
+#@ invariant: self.ended ==> sum(self.pendingReturns) <= self.balance
 
 #@ invariant: self.highestBid >= old(self.highestBid)
-#@ invariant: implies(old(self.ended), self.highestBid == old(self.highestBid) and self.highestBidder == old(self.highestBidder))
-#@ always ensures: implies(success() and msg.value > old(self.highestBid) and self.highestBidder != ZERO_ADDRESS, msg.sender == self.highestBidder)
+#@ invariant: old(self.ended) ==> self.highestBid == old(self.highestBid) and self.highestBidder == old(self.highestBidder)
+#@ always ensures: success() and msg.value > old(self.highestBid) and self.highestBidder != ZERO_ADDRESS ==> msg.sender == self.highestBidder
 
 #@ invariant: self.beneficiary != ZERO_ADDRESS
 #@ invariant: self.highestBidder != self.beneficiary
 #@ invariant: self.pendingReturns[self.beneficiary] == 0
-#@ invariant: implies(not self.ended, sent(self.beneficiary) == 0)
-#@ invariant: implies(self.ended, sent(self.beneficiary) == self.highestBid)
+#@ invariant: not self.ended ==> sent(self.beneficiary) == 0
+#@ invariant: self.ended ==> sent(self.beneficiary) == self.highestBid
 
 #@ invariant: sent(self.highestBidder) + self.highestBid + self.pendingReturns[self.highestBidder] == received(self.highestBidder)
-#@ invariant: forall({a: address}, {received(a)}, implies(a != self.highestBidder and a != self.beneficiary, sent(a) + self.pendingReturns[a] == received(a)))
+#@ invariant: forall({a: address}, {received(a)}, a != self.highestBidder and a != self.beneficiary ==> sent(a) + self.pendingReturns[a] == received(a))
 
 #@ invariant: sent(ZERO_ADDRESS) == 0
-#@ invariant: forall({a: address}, {self.pendingReturns[a]}, implies(self.pendingReturns[a] != 0, received(a) != 0))
-#@ invariant: forall({a: address}, {received(a)}, implies(a != self.beneficiary and received(a) == 0, sent(a) == 0))
+#@ invariant: forall({a: address}, {self.pendingReturns[a]}, self.pendingReturns[a] != 0 ==> received(a) != 0)
+#@ invariant: forall({a: address}, {received(a)}, a != self.beneficiary and received(a) == 0 ==> sent(a) == 0)
 
-#@ invariant: forall({a: address, v: wei_value}, {accessible(a, v)}, implies(v == self.pendingReturns[a], accessible(a, v)))
+#@ invariant: forall({a: address, v: wei_value}, {accessible(a, v)}, v == self.pendingReturns[a] ==> accessible(a, v))
 
 
 @public
@@ -75,7 +75,7 @@ def __init__(_beneficiary: address, _bidding_time: timedelta):
     self.auctionEnd = self.auctionStart + _bidding_time
 
 
-#@ ensures: implies(success(), self.highestBid > old(self.highestBid))
+#@ ensures: success() ==> self.highestBid > old(self.highestBid)
 @public
 @payable
 def bid():
@@ -97,7 +97,7 @@ def withdraw():
     send(msg.sender, pending_amount)
 
 
-#@ ensures: implies(not self.ended, sum(sent()) == old(sum(sent())))
+#@ ensures: not self.ended ==> sum(sent()) == old(sum(sent()))
 @public
 def endAuction():
     assert block.timestamp >= self.auctionEnd

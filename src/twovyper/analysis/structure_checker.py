@@ -21,6 +21,7 @@ def _assert(cond: bool, node: ast.AST, error_code: str):
 
 def check_structure(program: VyperProgram):
     ProgramChecker(program).check()
+    GhostFunctionChecker(program).check()
     InvariantChecker(program).check()
     CheckChecker(program).check()
     PostconditionChecker(program).check()
@@ -44,6 +45,29 @@ class ProgramChecker(ast.NodeVisitor):
                     raise UnsupportedException(node, 'Delegate calls are not supported.')
 
         self.generic_visit(node)
+
+
+class GhostFunctionChecker(ast.NodeVisitor):
+
+    def __init__(self, program: VyperProgram):
+        self.program = program
+
+    def check(self):
+        for func in self.program.ghost_function_implementations.values():
+            self.visit(func.node)
+
+    def visit_Name(self, node: ast.Name):
+        if node.id in [names.MSG, names.BLOCK, names.TX]:
+            raise InvalidProgramException(node, 'invalid.ghost')
+
+    def visit_Call(self, node: ast.Call):
+        if isinstance(node.func, ast.Name):
+            name = node.func.id
+
+            if name in names.NOT_ALLOWED_IN_GHOST_FUNCTION:
+                raise InvalidProgramException(node, 'invalid.ghost')
+        else:
+            raise InvalidProgramException(node, 'invalid.ghost')
 
 
 class SpecStructureChecker(ast.NodeVisitor):
@@ -118,7 +142,8 @@ class InvariantChecker(SpecStructureChecker):
 
     def visit_Call(self, node: ast.Call):
         super().visit_Call(node)
-        _assert(node.func.id not in names.NOT_ALLOWED_IN_INVARIANT, node, 'invariant.call')
+        if isinstance(node.func, ast.Name):
+            _assert(node.func.id not in names.NOT_ALLOWED_IN_INVARIANT, node, 'invariant.call')
 
 
 class CheckChecker(SpecStructureChecker):

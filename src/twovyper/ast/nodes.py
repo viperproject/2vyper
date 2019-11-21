@@ -7,11 +7,11 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from twovyper.ast import names
 from twovyper.ast.types import (
-    VyperType, FunctionType, StructType, ContractType, EventType
+    VyperType, FunctionType, StructType, ContractType, EventType, InterfaceType
 )
 
 
@@ -37,7 +37,6 @@ class VyperFunction:
     def __init__(self,
                  name: str,
                  args: Dict[str, VyperVar],
-                 local_vars: Dict[str, VyperVar],
                  type: FunctionType,
                  postconditions: List[ast.Expr],
                  checks: List[ast.Expr],
@@ -45,7 +44,6 @@ class VyperFunction:
                  node: Optional[ast.FunctionDef]):
         self.name = name
         self.args = args
-        self.local_vars = local_vars
         self.type = type
         self.postconditions = postconditions
         self.checks = checks
@@ -62,6 +60,22 @@ class VyperFunction:
 
     def is_payable(self) -> bool:
         return names.PAYABLE in self.decorators
+
+    def is_constant(self) -> bool:
+        return names.CONSTANT in self.decorators
+
+
+class GhostFunction:
+
+    def __init__(self,
+                 name: str,
+                 args: Dict[str, VyperVar],
+                 type: FunctionType,
+                 node: ast.FunctionDef):
+        self.name = name
+        self.args = args
+        self.type = type
+        self.node = node
 
 
 class VyperStruct:
@@ -90,19 +104,25 @@ class VyperEvent:
 class VyperProgram:
 
     def __init__(self,
+                 file: str,
                  config: VyperConfig,
                  fields: VyperStruct,
                  functions: Dict[str, VyperFunction],
+                 interfaces: Dict[str, 'VyperInterface'],
                  structs: Dict[str, VyperStruct],
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
-                 invariants: List[ast.Expr],
-                 general_postconditions: List[ast.Expr],
-                 transitive_postconditions: List[ast.Expr],
-                 general_checks: List[ast.Expr]):
+                 invariants: List[ast.expr],
+                 general_postconditions: List[ast.expr],
+                 transitive_postconditions: List[ast.expr],
+                 general_checks: List[ast.expr],
+                 implements: List[InterfaceType],
+                 ghost_function_implementations: Dict[str, ast.expr]):
+        self.file = file
         self.config = config
         self.fields = fields
         self.functions = functions
+        self.interfaces = interfaces
         self.structs = structs
         self.contracts = contracts
         self.events = events
@@ -110,5 +130,46 @@ class VyperProgram:
         self.general_postconditions = general_postconditions
         self.transitive_postconditions = transitive_postconditions
         self.general_checks = general_checks
-        # Gets set in the analyzer
+        self.implements = implements
+        self.ghost_functions = dict(self._ghost_functions())
+        self.ghost_function_implementations = ghost_function_implementations
+        self.type = fields.type
+        # Is set in the analyzer
         self.analysis = None
+
+    def is_interface(self) -> bool:
+        return False
+
+    def _ghost_functions(self) -> Iterable[Tuple[str, GhostFunction]]:
+        for interface in self.interfaces.values():
+            for name, func in interface.ghost_functions.items():
+                yield name, func
+
+
+class VyperInterface(VyperProgram):
+
+    def __init__(self,
+                 file: str,
+                 name: Optional[str],
+                 config: VyperConfig,
+                 functions: Dict[str, VyperFunction],
+                 ghost_functions: Dict[str, GhostFunction],
+                 general_postconditions: List[ast.expr],
+                 type: InterfaceType):
+        struct_name = f'{name}$self'
+        empty_struct_type = StructType(struct_name, {})
+        empty_struct = VyperStruct(struct_name, empty_struct_type, None)
+        super().__init__(file,
+                         config,
+                         empty_struct,
+                         functions,
+                         {}, {}, {}, {},
+                         [],
+                         general_postconditions,
+                         [], [], [], {})
+        self.name = name
+        self.ghost_functions = ghost_functions
+        self.type = type
+
+    def is_interface(self) -> bool:
+        return True

@@ -9,18 +9,20 @@ import ast
 
 from typing import List
 
-from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Stmt
-from twovyper.viper.typedefs import Position, Info
-
 from twovyper.translation.context import Context
 
+from twovyper.utils import NodeVisitor
+
 from twovyper.verification import error_manager
-from twovyper.verification.error import ErrorInfo, Via
+from twovyper.verification.error import ErrorInfo, ModelTransformation, Via
 from twovyper.verification.rules import Rules
 
+from twovyper.viper.ast import ViperAST
+from twovyper.viper.typedefs import Stmt, StmtsAndExpr
+from twovyper.viper.typedefs import Position, Info
 
-class PositionTranslator:
+
+class CommonTranslator:
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
@@ -30,9 +32,14 @@ class PositionTranslator:
                                   ctx: Context,
                                   rules: Rules = None,
                                   vias: List[Via] = [],
+                                  modelt: ModelTransformation = None,
                                   error_string: str = None) -> str:
         name = None if not ctx.function else ctx.function.name
-        error_info = ErrorInfo(name, node, vias, error_string)
+        # Inline vias are in reverse order, as the outermost is first,
+        # and successive vias are appended. For the error output, changing
+        # the order makes more sense.
+        inline_vias = list(reversed(ctx.inline_vias))
+        error_info = ErrorInfo(name, node, inline_vias + vias, modelt, error_string)
         id = error_manager.add_error_information(error_info, rules)
         return id
 
@@ -41,13 +48,14 @@ class PositionTranslator:
                     ctx: Context,
                     rules: Rules = None,
                     vias: List[Via] = [],
+                    modelt: ModelTransformation = None,
                     error_string: str = None) -> Position:
         """
         Extracts the position from a node, assigns an ID to the node and stores
         the node and the position in the context for it.
         """
-        id = self._register_potential_error(node, ctx, rules, vias, error_string)
-        return self.viper_ast.to_position(node, id, ctx.file)
+        id = self._register_potential_error(node, ctx, rules, vias, modelt, error_string)
+        return self.viper_ast.to_position(node, id)
 
     def no_position(self, error_string: str = None) -> Position:
         return self.viper_ast.NoPosition
@@ -64,30 +72,36 @@ class PositionTranslator:
     def no_info(self) -> Info:
         return self.to_info([])
 
-
-class CommonTranslator:
+    def collect(self, se: List[StmtsAndExpr]):
+        stmts = []
+        exprs = []
+        for stmt, expr in se:
+            stmts.extend(stmt)
+            exprs.append(expr)
+        return stmts, exprs
 
     def fail_if(self, cond, stmts, ctx: Context, pos=None, info=None) -> Stmt:
         body = [*stmts, self.viper_ast.Goto(ctx.revert_label, pos)]
         return self.viper_ast.If(cond, body, [], pos, info)
 
-    def _seqn_with_info(self, stmts: [Stmt], comment: str) -> [Stmt]:
+    def seqn_with_info(self, stmts: [Stmt], comment: str) -> List[Stmt]:
         if not stmts:
             return stmts
         info = self.to_info([comment])
         return [self.viper_ast.Seqn(stmts, info=info)]
 
 
-class NodeTranslator(PositionTranslator, CommonTranslator):
+class NodeTranslator(NodeVisitor, CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
 
-    def translate(self, node, ctx):
-        """Translate a node."""
-        method = 'translate_' + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_translate)
-        return visitor(node, ctx)
+    @property
+    def method_name(self) -> str:
+        return 'translate'
 
-    def generic_translate(self, node, ctx):
+    def translate(self, node, ctx):
+        return self.visit(node, ctx)
+
+    def generic_visit(self, node, ctx):
         raise AssertionError(f"Node of type {type(node)} not supported.")

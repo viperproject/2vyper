@@ -10,6 +10,9 @@ import abc
 from enum import Enum
 
 from twovyper import config
+
+from twovyper.utils import list_to_seq
+
 from twovyper.viper.typedefs import Program
 from twovyper.viper.jvmaccess import JVM
 
@@ -19,12 +22,12 @@ from twovyper.verification.result import VerificationResult, Success, Failure
 class AbstractVerifier(abc.ABC):
 
     @abc.abstractmethod
-    def initialize(self, jvm: JVM, file: str):
+    def initialize(self, jvm: JVM, file: str, get_model: bool = False):
         pass
 
     @abc.abstractmethod
     def verify(self, program: Program) -> VerificationResult:
-        return None
+        pass
 
 
 class Silicon(AbstractVerifier):
@@ -32,18 +35,21 @@ class Silicon(AbstractVerifier):
     Provides access to the Silicon verifier
     """
 
-    def initialize(self, jvm: JVM, filename: str):
+    def initialize(self, jvm: JVM, filename: str, get_model: bool = False):
         self.jvm = jvm
         self.silver = jvm.viper.silver
         if not jvm.is_known_class(jvm.viper.silicon.Silicon):
             raise Exception('Silicon backend not found on classpath.')
         self.silicon = jvm.viper.silicon.Silicon()
-        args = jvm.scala.collection.mutable.ArraySeq(4)
-        args.update(0, '--z3Exe')
-        args.update(1, config.z3_path)
-        args.update(2, '--disableCatchingExceptions')
-        args.update(3, filename)
-        self.silicon.parseCommandLine(args)
+
+        args = [
+            '--z3Exe', config.z3_path,
+            '--disableCatchingExceptions',
+            *(['--model=variables'] if get_model else []),
+            filename
+        ]
+
+        self.silicon.parseCommandLine(list_to_seq(args, jvm))
         self.silicon.start()
         self.ready = True
 
@@ -74,20 +80,22 @@ class Carbon:
     Provides access to the Carbon verifier
     """
 
-    def initialize(self, jvm: JVM, filename: str):
+    def initialize(self, jvm: JVM, filename: str, get_model: bool = False):
         self.silver = jvm.viper.silver
         if not jvm.is_known_class(jvm.viper.carbon.CarbonVerifier):
             raise Exception('Carbon backend not found on classpath.')
         if config.boogie_path is None:
             raise Exception('Boogie not found.')
         self.carbon = jvm.viper.carbon.CarbonVerifier()
-        args = jvm.scala.collection.mutable.ArraySeq(5)
-        args.update(0, '--boogieExe')
-        args.update(1, config.boogie_path)
-        args.update(2, '--z3Exe')
-        args.update(3, config.z3_path)
-        args.update(4, filename)
-        self.carbon.parseCommandLine(args)
+
+        args = [
+            '--boogieExe', config.boogie_path,
+            '--z3Exe', config.z3_path,
+            *(['--model=variables'] if get_model else []),
+            filename
+        ]
+
+        self.carbon.parseCommandLine(list_to_seq(args, jvm))
         self.carbon.start()
         self.ready = True
         self.jvm = jvm
