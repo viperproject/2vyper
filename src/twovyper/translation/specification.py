@@ -27,6 +27,8 @@ from twovyper.translation.variable import TranslatedVar
 from twovyper.translation import mangled
 from twovyper.translation import helpers
 
+from twovyper.verification import rules
+
 
 class SpecificationTranslator(ExpressionTranslator):
 
@@ -269,11 +271,12 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name in ctx.program.ghost_functions:
             function = ctx.program.ghost_functions[name]
             stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+            address = args[0]
 
             contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
             key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
             value_type = helpers.struct_type(self.viper_ast)
-            struct = helpers.map_get(self.viper_ast, contracts, args[0], key_type, value_type)
+            struct = helpers.map_get(self.viper_ast, contracts, address, key_type, value_type)
 
             # If we are not inside a trigger and the ghost function in question has an
             # implementation, we pass the self struct to it if the argument is the self address,
@@ -286,7 +289,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
             return_type = self.type_translator.translate(function.type.return_type, ctx)
 
-            return stmts, helpers.ghost_function(self.viper_ast, name, struct, args[1:], return_type, pos)
+            rpos = self.to_position(node, ctx, rules.PRECONDITION_IMPLEMENTS_INTERFACE)
+            return stmts, helpers.ghost_function(self.viper_ast, name, address, struct, args[1:], return_type, rpos)
         elif name not in names.NOT_ALLOWED_IN_SPEC:
             return super().translate_Call(node, ctx)
         else:

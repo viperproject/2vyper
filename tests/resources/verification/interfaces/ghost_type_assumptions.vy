@@ -9,6 +9,9 @@
 from . import ghost_interface
 
 
+#@ config: trust_casts
+
+
 ghost: ghost_interface
 
 

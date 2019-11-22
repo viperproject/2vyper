@@ -15,6 +15,7 @@
     #@ def _some_uarr() -> uint256[5]: ...
 
 
+#@ ensures: success() ==> result() == _some_val(self)
 @public
-def some_func():
-    pass
+def some_func() -> int128:
+    raise "Not implemented"

@@ -291,7 +291,6 @@ def range(viper_ast: ViperAST, start, end, pos=None, info=None):
     return viper_ast.DomainFuncApp(range_func, [start, end], range_type, pos, info, domain)
 
 
-def ghost_function(viper_ast: ViperAST, name, address, args, return_type, pos=None, info=None):
-    domain = mangled.GHOST_FUNCTION_DOMAIN
+def ghost_function(viper_ast: ViperAST, name, address, struct, args, return_type, pos=None, info=None):
     ghost_func = mangled.ghost_function_name(name)
-    return viper_ast.DomainFuncApp(ghost_func, [address, *args], return_type, pos, info, domain)
+    return viper_ast.FuncApp(ghost_func, [address, struct, *args], pos, info, return_type)

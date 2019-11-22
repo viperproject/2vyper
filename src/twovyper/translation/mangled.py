@@ -87,7 +87,7 @@ STRUCT_INIT_DOMAIN = '$StructInit'
 RANGE_DOMAIN = '$Range'
 RANGE_RANGE = '$range'
 
-GHOST_FUNCTION_DOMAIN = '$Ghost'
+IMPLEMENTS_DOMAIN = '$Implements'
 
 TRANSITIVITY_CHECK = '$transitivity_check'
 FORCED_ETHER_CHECK = '$forced_ether_check'
