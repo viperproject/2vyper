@@ -556,6 +556,9 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
         self_var = ctx.self_var.local_var(ctx)
 
+        if known:
+            interface, function, args = known
+
         if amount:
             check = self.balance_translator.check_balance(amount, ctx, pos)
             sent = self.balance_translator.increase_sent(to, amount, ctx, pos)
@@ -613,11 +616,11 @@ class ExpressionTranslator(NodeTranslator):
                     save_vars.append(self.viper_ast.LocalVarAssign(var_decl.localVar(), var))
                     return var_decl.localVar()
 
-                _, _, args = known
                 to = new_var(to, 'to')
                 if amount:
                     amount = new_var(amount, 'amount')
-                args = map(new_var, args)
+                # Force evaluation at this point
+                args = list(map(new_var, args))
 
             # Havoc state
             havocs = self.state_translator.havoc_state(ctx.current_state, ctx, pos)
@@ -670,7 +673,6 @@ class ExpressionTranslator(NodeTranslator):
         success = self.viper_ast.Not(fail_cond, pos)
 
         if known:
-            interface, function, args = known
             assume_itf = self._assume_interface_specifications
             amount = amount or self.viper_ast.IntLit(0)
             itf = assume_itf(node, interface, function, args, to, amount, success, return_value, ctx)
