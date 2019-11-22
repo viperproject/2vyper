@@ -602,10 +602,27 @@ class ExpressionTranslator(NodeTranslator):
         fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
 
         if not constant:
+            # Save the values of to, amount, and args, as self could be changed by reentrancy
+            save_vars = []
+            if known:
+
+                def new_var(var, name='v'):
+                    var_name = ctx.new_local_var_name(name)
+                    var_decl = self.viper_ast.LocalVarDecl(var_name, var.typ(), pos)
+                    ctx.new_local_vars.append(var_decl)
+                    save_vars.append(self.viper_ast.LocalVarAssign(var_decl.localVar(), var))
+                    return var_decl.localVar()
+
+                _, _, args = known
+                to = new_var(to, 'to')
+                if amount:
+                    amount = new_var(amount, 'amount')
+                args = map(new_var, args)
+
             # Havoc state
             havocs = self.state_translator.havoc_state(ctx.current_state, ctx, pos)
 
-            call = [*copy_old, fail, *havocs]
+            call = [*copy_old, fail, *save_vars, *havocs]
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
