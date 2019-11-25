@@ -332,7 +332,7 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     # We know that storage(self) has the self-type
                     if isinstance(node.args[0], ast.Name) and node.args[0].id == names.SELF:
-                        return [self.program.type], [node]
+                        return [self.program.type, AnyStructType()], [node]
                     # Otherwise it is just some struct, which we don't know anything about
                     else:
                         return [AnyStructType()], [node]
