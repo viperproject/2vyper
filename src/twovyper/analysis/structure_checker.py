@@ -131,13 +131,16 @@ class SpecStructureChecker(ast.NodeVisitor):
             self.visit(node.args[0])
 
             def check_allowed(arg):
+                if isinstance(arg, ast.Call):
+                    is_old = len(arg.args) == 1 and isinstance(arg.func, ast.Name) and arg.func.id == names.OLD
+                    _assert(is_old, node, 'spec.independent')
+                    return check_allowed(arg.args[0])
                 if isinstance(arg, ast.Attribute):
-                    return check_allowed(arg)
+                    return check_allowed(arg.value)
+                elif isinstance(arg, ast.Name):
+                    _assert(arg.id in [names.SELF, names.BLOCK, names.TX, *self.func.args], node, 'spec.independent')
                 else:
-                    is_self = lambda a: isinstance(a, ast.Name) and a.id == names.SELF
-                    is_old_self = lambda a: isinstance(a, ast.Call) and len(a.args) == 1 and is_self(a.args[0])
-                    is_allowed_var = lambda a: isinstance(a, ast.Name) and a.id in [names.MSG, names.BLOCK, *self.func.args]
-                    _assert(is_allowed_var(arg) or is_old_self(arg), node, 'spec.independent')
+                    _assert(False, node, 'spec.independent')
 
             check_allowed(node.args[1])
         else:

@@ -8,10 +8,15 @@
 #@ config: no_gas
 
 
+val0: int128
+val1: int128
+
+
 @public
 @payable
-def __init__():
-    pass
+def __init__(v: int128):
+    self.val0 = v
+    self.val1 = v
 
 
 #@ ensures: independent(result(), a)
@@ -43,3 +48,33 @@ def self_independent(a: int128) -> int128:
 @public
 def self_independent_fail(a: int128) -> int128:
     return a + convert(as_unitless_number(self.balance), int128)
+
+
+#@ ensures: success() ==> independent(result() % 2, old(self))
+#@ ensures: success() ==> independent(result() % 2, old(self.val0))
+#@ ensures: success() ==> independent(result(), old(self.val1))
+@public
+def self_val_independent(a: int128) -> int128:
+    if self.val0 % 2 == 0:
+        return 2 * a
+    else:
+        return 2 * (a + 1)
+
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: success() ==> independent(result(), old(self.val0))
+@public
+def self_val0_independent_fail(a: int128) -> int128:
+    if self.val0 % 2 == 0:
+        return 2 * a
+    else:
+        return 2 * (a + 1)
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: success() ==> independent(result(), old(self.val1))
+@public
+def self_val1_independent_fail(a: int128) -> int128:
+    self.val0 += self.val1
+    return a * self.val0

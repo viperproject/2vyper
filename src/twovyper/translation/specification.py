@@ -238,10 +238,28 @@ class SpecificationTranslator(ExpressionTranslator):
                 return stmts, self.viper_ast.PredicateAccessPredicate(pred_acc, full_perm, pos)
         elif name == names.INDEPENDENT:
             stmts, res = self.translate(node.args[0], ctx)
-            unless = node.args[1].id if isinstance(node.args[1], ast.Name) else node.args[1].args[0].id
-            variables = [ctx.old_self_var, ctx.msg_var, ctx.block_var, ctx.tx_var, *ctx.args.values()]
-            low_vars = [self.viper_ast.Low(var.local_var(ctx, pos), pos) for var in variables if var.name != unless]
-            lhs = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_vars)
+
+            def unless(node):
+                if isinstance(node, ast.Call):
+                    # An old expression
+                    with state_scope(ctx.current_old_state, ctx.current_old_state, ctx):
+                        return unless(node.args[0])
+                elif isinstance(node, ast.Attribute):
+                    struct_type = node.value.type
+                    stmts, ref = self.translate(node.value, ctx)
+                    assert not stmts
+                    tt = lambda t: self.type_translator.translate(t, ctx)
+                    get = lambda m, t: helpers.struct_get(self.viper_ast, ref, m, tt(t), struct_type, pos)
+                    members = struct_type.member_types.items()
+                    gets = [get(member, member_type) for member, member_type in members if member != node.attr]
+                    lows = [self.viper_ast.Low(get) for get in gets]
+                    return unless(node.value) + lows
+                elif isinstance(node, ast.Name):
+                    variables = [ctx.old_self_var, ctx.msg_var, ctx.block_var, ctx.tx_var, *ctx.args.values()]
+                    return [self.viper_ast.Low(var.local_var(ctx, pos), pos) for var in variables if var.name != node.id]
+
+            lows = unless(node.args[1])
+            lhs = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), lows)
             rhs = self.viper_ast.Low(res, pos)
             return stmts, self.viper_ast.Implies(lhs, rhs, pos)
         elif name == names.REORDER_INDEPENDENT:
