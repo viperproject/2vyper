@@ -26,7 +26,8 @@ def use_ghost() -> int128:
     return self.ghost.some_func()
 
 
-#:: ExpectedOutput(application.precondition:not.implements.interface)
+#@ ensures: msg.sender == self ==> self == old(self)
+#:: ExpectedOutput(application.precondition:not.implements.interface) | ExpectedOutput(carbon)(postcondition.violated:assertion.false)
 #@ ensures: success() ==> result() == _some_val(self.ghost)
 @public
 def use_ghost_fail() -> int128:
