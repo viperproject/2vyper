@@ -23,6 +23,7 @@ from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.model import ModelTranslator
 from twovyper.translation.type import TypeTranslator
+from twovyper.translation.variable import TranslatedVar
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Stmt
@@ -43,6 +44,8 @@ class StatementTranslator(NodeTranslator):
 
     def translate_AnnAssign(self, node: ast.AnnAssign, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
+
+        self._add_local_var(node.target, ctx)
 
         # An annotated assignment can only have a local variable on the lhs,
         # therefore we can simply use the expression translator
@@ -126,8 +129,7 @@ class StatementTranslator(NodeTranslator):
 
         if node.value:
             stmts, expr = self.expression_translator.translate(node.value, ctx)
-            result_var = ctx.result_var
-            assign = self.viper_ast.LocalVarAssign(result_var.localVar(), expr, pos)
+            assign = self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ctx, pos), expr, pos)
             return stmts + [assign, jmp_to_return]
         else:
             return [jmp_to_return]
@@ -143,6 +145,8 @@ class StatementTranslator(NodeTranslator):
 
     def translate_For(self, node: ast.For, ctx: Context) -> List[Stmt]:
         pos = self.to_position(node, ctx)
+
+        self._add_local_var(node.target, ctx)
 
         with break_scope(ctx):
             loop_var = ctx.all_vars[node.target.id].local_var(ctx)
@@ -177,6 +181,17 @@ class StatementTranslator(NodeTranslator):
 
     def translate_Pass(self, node: ast.Pass, ctx: Context) -> List[Stmt]:
         return []
+
+    def _add_local_var(self, node: ast.Name, ctx: Context):
+        """
+        Adds the local variable to the context.
+        """
+        pos = self.to_position(node, ctx)
+        variable_name = node.id
+        mangled_name = ctx.new_local_var_name(variable_name)
+        var = TranslatedVar(variable_name, mangled_name, node.type, self.viper_ast, pos)
+        ctx.locals[variable_name] = var
+        ctx.new_local_vars.append(var.var_decl(ctx))
 
 
 class _AssignmentTranslator(NodeVisitor, CommonTranslator):

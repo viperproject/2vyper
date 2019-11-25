@@ -6,8 +6,10 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
+from collections import defaultdict
 
 from twovyper.ast import names
+from twovyper.translation import mangled
 from twovyper.utils import DicitionaryView
 
 
@@ -15,6 +17,9 @@ class Context:
 
     def __init__(self):
         self.program = None
+        # The program whose code is currently being translated, i.e., a VyperProgram
+        # normally, and a VyperInterface when we translate interface specifications.
+        self.current_program = None
         self.options = None
         # The translated types of all fields
         self.field_types = {}
@@ -44,7 +49,6 @@ class Context:
         self.break_label = None
         self.continue_label = None
 
-        # TODO: change success_var and result_var to TranslatedVar
         self.success_var = None
         self.revert_label = None
         self.result_var = None
@@ -52,7 +56,7 @@ class Context:
 
         self.inside_trigger = False
 
-        self._local_var_counter = -1
+        self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
 
         self._quantified_var_counter = -1
@@ -109,9 +113,14 @@ class Context:
     def tx_var(self):
         return self.all_vars[names.TX]
 
-    def new_local_var_name(self, name: str = 'local') -> str:
-        self._local_var_counter += 1
-        return f'${name}_{self._local_var_counter}'
+    def new_local_var_name(self, name: str) -> str:
+        full_name = mangled.local_var_name(self.inline_prefix, name)
+        self._local_var_counter[full_name] += 1
+        new_count = self._local_var_counter[full_name]
+        if new_count == 0:
+            return full_name
+        else:
+            return f'{full_name}${new_count}'
 
     def new_quantified_var_name(self) -> str:
         self._quantified_var_counter += 1
@@ -201,7 +210,7 @@ def function_scope(ctx: Context):
 
     ctx.inside_trigger = False
 
-    ctx._local_var_counter = -1
+    ctx._local_var_counter = defaultdict(lambda: -1)
     ctx.new_local_vars = []
 
     ctx._quantified_var_counter = -1
@@ -320,12 +329,12 @@ def interface_call_scope(ctx: Context):
 
 @contextmanager
 def program_scope(program, ctx: Context):
-    old_program = ctx.program
-    ctx.program = program
+    old_program = ctx.current_program
+    ctx.current_program = program
 
     yield
 
-    ctx.program = old_program
+    ctx.current_program = old_program
 
 
 @contextmanager

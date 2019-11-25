@@ -70,6 +70,7 @@ class ProgramBuilder(ast.NodeVisitor):
         self.general_checks = []
         self.implements = []
         self.ghost_functions = {}
+        self.ghost_function_implementations = {}
 
         self.postconditions = []
         self.checks = []
@@ -124,7 +125,8 @@ class ProgramBuilder(ast.NodeVisitor):
                                 self.general_postconditions,
                                 self.transitive_postconditions,
                                 self.general_checks,
-                                self.implements)
+                                self.implements,
+                                self.ghost_function_implementations)
 
     def _check_no_local_spec(self):
         """
@@ -289,30 +291,41 @@ class ProgramBuilder(ast.NodeVisitor):
             check_ghost(isinstance(func, ast.FunctionDef))
             check_ghost(len(func.body) == 1)
             check_ghost(isinstance(func.body[0], ast.Expr))
-            check_ghost(isinstance(func.body[0].value, ast.Ellipsis))
             check_ghost(func.returns)
 
+            decorators = self._decorators(func)
             name = func.name
-            args, _ = LocalProgramBuilder(self.type_builder).build(func)
+            args = LocalProgramBuilder(self.type_builder).build(func)
             arg_types = [arg.type for arg in args.values()]
             return_type = None if func.returns is None else self.type_builder.build(func.returns)
             type = FunctionType(arg_types, return_type)
-            if name in self.ghost_functions:
+
+            if names.IMPLEMENTS in decorators:
+                check_ghost(len(decorators) == 1)
+
+                ghost_functions = self.ghost_function_implementations
+            else:
+                check_ghost(not decorators)
+                check_ghost(isinstance(func.body[0].value, ast.Ellipsis))
+
+                ghost_functions = self.ghost_functions
+
+            if name in ghost_functions:
                 raise InvalidProgramException(func, 'duplicate.ghost')
-            self.ghost_functions[name] = GhostFunction(name, args, type, func)
+
+            ghost_functions[name] = GhostFunction(name, args, type, func)
 
     def _decorators(self, node: ast.FunctionDef) -> List[str]:
         return [dec.id for dec in node.decorator_list if isinstance(dec, ast.Name)]
 
     def visit_FunctionDef(self, node):
         local = LocalProgramBuilder(self.type_builder)
-        args, local_vars = local.build(node)
+        args = local.build(node)
         arg_types = [arg.type for arg in args.values()]
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
         decs = self._decorators(node)
-        function = VyperFunction(node.name, args, local_vars, type,
-                                 self.postconditions, self.checks, decs, node)
+        function = VyperFunction(node.name, args, type, self.postconditions, self.checks, decs, node)
         self.functions[node.name] = function
         # Reset local specs
         self.postconditions = []
@@ -323,26 +336,15 @@ class LocalProgramBuilder(ast.NodeVisitor):
 
     def __init__(self, type_builder: TypeBuilder):
         self.args = {}
-        self.local_vars = {}
 
         self.type_builder = type_builder
 
     def build(self, node: ast.AST):
         self.visit(node)
-        return self.args, self.local_vars
+        return self.args
 
     def visit_arg(self, node: ast.arg):
         arg_name = node.arg
         arg_type = self.type_builder.build(node.annotation)
         var = VyperVar(arg_name, arg_type, node)
         self.args[arg_name] = var
-
-    def visit_AnnAssign(self, node: ast.AnnAssign):
-        variable_name = node.target.id
-        variable_type = self.type_builder.build(node.annotation)
-        var = VyperVar(variable_name, variable_type, node)
-        self.local_vars[variable_name] = var
-
-    def visit_For(self, node: ast.For):
-        # We ignore these variables as they are added in the type annotator
-        self.generic_visit(node)

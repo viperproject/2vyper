@@ -28,6 +28,7 @@ def set_value(new_value: int128):
 
 
 #@ ensures: forall({a: address}, {storage(a)}, storage(a) == old(storage(a)))
+#@ ensures: storage(msg.sender) == old(storage(msg.sender))   # Needed for Carbon
 @public
 def change_nothing():
     raise "Not implemented"

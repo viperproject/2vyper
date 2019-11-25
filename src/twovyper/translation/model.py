@@ -87,11 +87,11 @@ class ModelTranslator(CommonTranslator):
                 transform[var.mangled_name] = var.name
                 type_map[var.mangled_name] = var.type
 
-        transform[ctx.success_var.name()] = f'{names.SUCCESS}()'
-        type_map[ctx.success_var.name()] = types.VYPER_BOOL
+        transform[ctx.success_var.mangled_name] = f'{names.SUCCESS}()'
+        type_map[ctx.success_var.mangled_name] = ctx.success_var.type
         if ctx.result_var:
-            transform[ctx.result_var.name()] = f'{names.RESULT}()'
-            type_map[ctx.result_var.name()] = ctx.function.type.return_type
+            transform[ctx.result_var.mangled_name] = f'{names.RESULT}()'
+            type_map[ctx.result_var.mangled_name] = ctx.result_var.type
 
         transform[mangled.OUT_OF_GAS] = f'{names.SUCCESS_OUT_OF_GAS}()'
         type_map[mangled.OUT_OF_GAS] = types.VYPER_BOOL

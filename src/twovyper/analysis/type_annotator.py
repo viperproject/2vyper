@@ -8,6 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from contextlib import contextmanager
+from typing import Union
 
 from twovyper.utils import first_index, NodeVisitor, switch
 
@@ -17,7 +18,7 @@ from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.types import (
     TypeBuilder, VyperType, MapType, ArrayType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
 )
-from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperVar
+from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
@@ -70,12 +71,11 @@ class TypeAnnotator(NodeVisitor):
         }
 
     @contextmanager
-    def _function_scope(self, func: VyperFunction):
+    def _function_scope(self, func: Union[VyperFunction, GhostFunction]):
         old_func = self.current_func
         self.current_func = func
         old_variables = self.variables.copy()
         self.variables.update({k: [v.type] for k, v in func.args.items()})
-        self.variables.update({k: [v.type] for k, v in func.local_vars.items()})
 
         yield
 
@@ -103,6 +103,10 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(post, types.VYPER_BOOL)
                 for check in function.checks:
                     self.annotate_expected(check, types.VYPER_BOOL)
+
+        for ghost_function in self.program.ghost_function_implementations.values():
+            with self._function_scope(ghost_function):
+                self.annotate_expected(ghost_function.node.body[0].value, ghost_function.type.return_type)
 
         for inv in self.program.invariants:
             self.annotate_expected(inv, types.VYPER_BOOL)
@@ -192,6 +196,8 @@ class TypeAnnotator(NodeVisitor):
 
     def visit_Return(self, node: ast.Return):
         if node.value:
+            # Interfaces are allowed to just have `pass` as a body instead of a correct return,
+            # therefore we don't check for the correct return type.
             if self.program.is_interface():
                 self.annotate(node.value)
             else:
@@ -204,6 +210,12 @@ class TypeAnnotator(NodeVisitor):
         self.annotate(node.target, node.value)
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
+        # This is a variable declaration so we add it to the type map. Since Vyper
+        # doesn't allow shadowing, we can just override the previous value.
+        variable_name = node.target.id
+        variable_type = self.type_builder.build(node.annotation)
+        self.variables[variable_name] = [variable_type]
+
         if node.value:
             self.annotate(node.target, node.value)
         else:
@@ -212,12 +224,12 @@ class TypeAnnotator(NodeVisitor):
     def visit_For(self, node: ast.For):
         self.annotate_expected(node.iter, lambda t: isinstance(t, ArrayType))
 
+        # Add the loop variable to the type map
         var_name = node.target.id
         var_type = node.iter.type.element_type
-        self.current_func.local_vars[var_name] = VyperVar(var_name, var_type, node.target)
         self.variables[var_name] = [var_type]
-        # Vyper does not support else branches in loops
-        assert not node.orelse
+
+        self.annotate_expected(node.target, var_type)
         for stmt in node.body:
             self.visit(stmt)
 
@@ -291,6 +303,11 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[0], types.is_numeric)
                     self.annotate_expected(node.args[1], types.is_numeric)
                     return self.combine(node.args[0], node.args[1], node)
+                elif case(names.ADDMOD) or case(names.MULMOD):
+                    _check_number_of_arguments(node, 3)
+                    for arg in node.args:
+                        self.annotate_expected(arg, types.VYPER_UINT256)
+                    return [types.VYPER_UINT256], [node]
                 elif case(names.SQRT):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], types.VYPER_DECIMAL)
@@ -320,7 +337,7 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     # We know that storage(self) has the self-type
                     if isinstance(node.args[0], ast.Name) and node.args[0].id == names.SELF:
-                        return [self.program.type], [node]
+                        return [self.program.type, AnyStructType()], [node]
                     # Otherwise it is just some struct, which we don't know anything about
                     else:
                         return [AnyStructType()], [node]

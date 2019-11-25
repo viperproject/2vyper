@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from functools import reduce
 from typing import List
 
 from twovyper import resources
@@ -13,7 +14,8 @@ from twovyper.utils import flatten, seq_to_list
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction
+from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction
+from twovyper.ast.types import AnyStructType
 
 from twovyper.exceptions import ConsistencyException
 
@@ -98,6 +100,7 @@ class ProgramTranslator(CommonTranslator):
 
         ctx = Context()
         ctx.program = vyper_program
+        ctx.current_program = vyper_program
         ctx.options = options
 
         # Translate self
@@ -125,7 +128,8 @@ class ProgramTranslator(CommonTranslator):
         domains.extend(self._translate_struct(struct, ctx) for struct in structs)
 
         # Ghost functions
-        domains.append(self._translate_ghost_functions(vyper_program, ctx))
+        functions.extend(self._translate_ghost_function(func, ctx) for func in vyper_program.ghost_functions.values())
+        domains.append(self._translate_implements(vyper_program, ctx))
 
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
@@ -198,22 +202,60 @@ class ProgramTranslator(CommonTranslator):
 
         return self.viper_ast.Domain(domain, [init_f, eq_f], [init_axiom, eq_axiom], [])
 
-    def _translate_ghost_functions(self, program: VyperProgram, ctx: Context):
-        domain = mangled.GHOST_FUNCTION_DOMAIN
-        functions = []
-        for function in program.ghost_functions.values():
-            fname = mangled.ghost_function_name(function.name)
-            self_var = self.viper_ast.LocalVarDecl('$self', helpers.struct_type(self.viper_ast))
-            args = [self_var]
-            for idx, var in enumerate(function.args.values()):
-                arg_name = f'$arg_{idx}'
-                arg_type = self.type_translator.translate(var.type, ctx)
-                arg_decl = self.viper_ast.LocalVarDecl(arg_name, arg_type)
-                args.append(arg_decl)
-            type = self.type_translator.translate(function.type.return_type, ctx)
-            functions.append(self.viper_ast.DomainFunc(fname, args, type, False, domain))
+    def _translate_ghost_function(self, function: GhostFunction, ctx: Context):
+        # We translate a ghost function as a function where the first argument is the
+        # self struct usually obtained through the contracts map
 
-        return self.viper_ast.Domain(domain, functions, [], [])
+        pos = self.to_position(function.node, ctx)
+
+        fname = mangled.ghost_function_name(function.name)
+        addr_var = TranslatedVar(names.ADDRESS, '$addr', types.VYPER_ADDRESS, self.viper_ast, pos)
+        self_var = TranslatedVar(names.SELF, '$self', AnyStructType(), self.viper_ast, pos)
+        self_address = helpers.self_address(self.viper_ast, pos)
+        args = [addr_var, self_var]
+        for idx, var in enumerate(function.args.values()):
+            args.append(TranslatedVar(var.name, f'$arg_{idx}', var.type, self.viper_ast, pos))
+        args_var_decls = [arg.var_decl(ctx) for arg in args]
+        type = self.type_translator.translate(function.type.return_type, ctx)
+
+        if ctx.program.config.has_option(names.CONFIG_TRUST_CASTS):
+            pres = []
+        else:
+            ifs = filter(lambda i: function.name in i.ghost_functions, ctx.program.interfaces.values())
+            interface = next(ifs)
+            addr = addr_var.local_var(ctx)
+            implements = helpers.implements(self.viper_ast, addr, interface.name, ctx, pos)
+            pres = [implements]
+
+        result = self.viper_ast.Result(type)
+        posts = self.type_translator.type_assumptions(result, function.type.return_type, ctx)
+
+        # If the ghost function has an implementation we add a postcondition for that
+        implementation = ctx.program.ghost_function_implementations.get(function.name)
+        if implementation:
+            with function_scope(ctx):
+                ctx.args = {arg.name: arg for arg in args}
+                expr = implementation.node.body[0].value
+                stmts, impl_expr = self.specification_translator.translate(expr, ctx)
+                definition = self.viper_ast.EqCmp(result, impl_expr, pos)
+                assert not stmts
+                # The implementation is only defined for the self address
+                is_self = self.viper_ast.EqCmp(addr_var.local_var(ctx), self_address, pos)
+                posts.append(self.viper_ast.Implies(is_self, definition, pos))
+
+        return self.viper_ast.Function(fname, args_var_decls, type, pres, posts, None, pos)
+
+    def _translate_implements(self, program: VyperProgram, ctx: Context):
+        domain = mangled.IMPLEMENTS_DOMAIN
+        self_address = helpers.self_address(self.viper_ast)
+        implements = []
+        for interface in program.implements:
+            implements.append(helpers.implements(self.viper_ast, self_address, interface.name, ctx))
+
+        axiom_name = mangled.axiom_name(domain)
+        axiom_body = reduce(self.viper_ast.And, implements, self.viper_ast.TrueLit())
+        axiom = self.viper_ast.DomainAxiom(axiom_name, axiom_body, domain)
+        return self.viper_ast.Domain(domain, [], [axiom], {})
 
     def _translate_event(self, event: VyperEvent, ctx: Context):
         name = mangled.event_name(event.name)

@@ -14,6 +14,10 @@ i: interface
 s: simple
 
 
+#@ invariant: self.i == old(self.i)
+#@ invariant: self.s == old(self.s)
+
+
 @public
 def __init__():
     self.i = interface(msg.sender)

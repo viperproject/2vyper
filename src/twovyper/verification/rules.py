@@ -101,3 +101,8 @@ POSTCONDITION_CONSTANT_BALANCE = {
     ('assert.failed', 'assertion.false'):
         ('postcondition.not.wellformed', 'constant.balance')
 }
+
+PRECONDITION_IMPLEMENTS_INTERFACE = {
+    ('application.precondition', 'assertion.false'):
+        ('application.precondition', 'not.implements.interface')
+}

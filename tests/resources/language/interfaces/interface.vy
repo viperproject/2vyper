@@ -9,6 +9,13 @@
 #@ interface
 
 
+#@ ghost:
+    #@ def _mapval(j: int128) -> int128: ...
+
+
+#@ always ensures: _mapval(self, 0) == 0
+
+
 #@ ensures: implies(i <= 0, not success())
 #@ ensures: implies(success(), result() == i)
 @public
@@ -19,4 +26,10 @@ def foo(i: int128) -> int128:
 #@ ensures: implies(success(), result() == u)
 @public
 def bar(u: uint256) -> uint256:
+    raise "Not implemented"
+
+
+#@ ensures: implies(success(), result() == _mapval(self, j))
+@public
+def get_val(j: int128) -> int128:
     raise "Not implemented"

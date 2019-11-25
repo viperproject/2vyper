@@ -27,6 +27,8 @@ from twovyper.translation.variable import TranslatedVar
 from twovyper.translation import mangled
 from twovyper.translation import helpers
 
+from twovyper.verification import rules
+
 
 class SpecificationTranslator(ExpressionTranslator):
 
@@ -117,17 +119,14 @@ class SpecificationTranslator(ExpressionTranslator):
 
                 return [], self.viper_ast.Forall(quants, triggers, expr, pos)
         elif name == names.RESULT:
-            var = ctx.result_var
-            local_var = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
-            return [], local_var
+            return [], ctx.result_var.local_var(ctx, pos)
         elif name == names.SUCCESS:
             # The syntax for success is either
             #   - success()
             # or
             #   - success(if_not=expr)
             # where expr can be a disjunction of conditions
-            var = ctx.success_var
-            success = self.viper_ast.LocalVar(var.name(), var.typ(), pos)
+            success = ctx.success_var.local_var(ctx, pos)
 
             conds = set()
 
@@ -249,7 +248,7 @@ class SpecificationTranslator(ExpressionTranslator):
             stmts, arg = self.translate(node.args[0], ctx)
             # Using the current msg_var is ok since we don't use msg.gas, but always return fresh values,
             # therefore msg is constant
-            variables = [ctx.issued_self_var, ctx.msg_var, *ctx.args.values()]
+            variables = [ctx.issued_self_var, ctx.tx_var, ctx.msg_var, *ctx.args.values()]
             low_variables = [self.viper_ast.Low(var.local_var(ctx)) for var in variables]
             cond = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_variables)
             implies = self.viper_ast.Implies(cond, self.viper_ast.Low(arg, pos), pos)
@@ -280,15 +279,26 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name in ctx.program.ghost_functions:
             function = ctx.program.ghost_functions[name]
             stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+            address = args[0]
 
             contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
             key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
             value_type = helpers.struct_type(self.viper_ast)
-            struct = helpers.map_get(self.viper_ast, contracts, args[0], key_type, value_type)
+            struct = helpers.map_get(self.viper_ast, contracts, address, key_type, value_type)
+
+            # If we are not inside a trigger and the ghost function in question has an
+            # implementation, we pass the self struct to it if the argument is the self address,
+            # as the verifier does not know that $contracts[self] is equal to the self struct.
+            if not ctx.inside_trigger and name in ctx.program.ghost_function_implementations:
+                self_address = helpers.self_address(self.viper_ast, pos)
+                eq = self.viper_ast.EqCmp(args[0], self_address)
+                self_var = ctx.self_var.local_var(ctx, pos)
+                struct = self.viper_ast.CondExp(eq, self_var, struct, pos)
 
             return_type = self.type_translator.translate(function.type.return_type, ctx)
 
-            return stmts, helpers.ghost_function(self.viper_ast, name, struct, args[1:], return_type, pos)
+            rpos = self.to_position(node, ctx, rules.PRECONDITION_IMPLEMENTS_INTERFACE)
+            return stmts, helpers.ghost_function(self.viper_ast, name, address, struct, args[1:], return_type, rpos)
         elif name not in names.NOT_ALLOWED_IN_SPEC:
             return super().translate_Call(node, ctx)
         else:

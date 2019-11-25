@@ -87,7 +87,7 @@ STRUCT_INIT_DOMAIN = '$StructInit'
 RANGE_DOMAIN = '$Range'
 RANGE_RANGE = '$range'
 
-GHOST_FUNCTION_DOMAIN = '$Ghost'
+IMPLEMENTS_DOMAIN = '$Implements'
 
 TRANSITIVITY_CHECK = '$transitivity_check'
 FORCED_ETHER_CHECK = '$forced_ether_check'
@@ -122,7 +122,11 @@ def ghost_function_name(vyper_name: str) -> str:
 
 
 def axiom_name(viper_name: str) -> str:
-    return f'{viper_name}_ax'
+    return f'{viper_name}$ax'
+
+
+def ghost_axiom_name(vyper_name: str, idx: int):
+    return axiom_name(f'{ghost_function_name(vyper_name)}${idx}')
 
 
 def event_name(vyper_name: str) -> str:
@@ -133,11 +137,12 @@ def accessible_name(vyper_name: str) -> str:
     return f'$accessible${vyper_name}'
 
 
-def local_var_name(vyper_name: str) -> str:
+def local_var_name(inline_prefix: str, vyper_name: str) -> str:
     if vyper_name in {names.SELF, names.MSG, names.BLOCK}:
-        return vyper_name
+        prefix = ''
     else:
-        return f'l${vyper_name}'
+        prefix = 'l$'
+    return f'{prefix}{inline_prefix}{vyper_name}'
 
 
 def quantifier_var_name(vyper_name: str) -> str:

@@ -61,7 +61,8 @@ class FunctionTranslator(CommonTranslator):
             is_init = (function.name == names.INIT)
 
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
-            locals = {name: self._translate_var(var, ctx) for name, var in function.local_vars.items()}
+            # Local variables will be added when translating.
+            locals = {}
             # The block variable
             locals[names.BLOCK] = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             # The msg variable
@@ -100,9 +101,9 @@ class FunctionTranslator(CommonTranslator):
             pre_self_var = ctx.pre_self_var.local_var(ctx)
             issued_self_var = ctx.issued_self_var.local_var(ctx)
 
-            ctx.success_var = helpers.success_var(self.viper_ast)
+            ctx.success_var = TranslatedVar(names.SUCCESS, mangled.SUCCESS_VAR, types.VYPER_BOOL, self.viper_ast)
             rets = [ctx.success_var]
-            success_var = ctx.success_var.localVar()
+            success_var = ctx.success_var.local_var(ctx)
 
             end_label = self.viper_ast.Label(mangled.END_LABEL)
             return_label = self.viper_ast.Label(mangled.RETURN_LABEL)
@@ -112,10 +113,8 @@ class FunctionTranslator(CommonTranslator):
             ctx.revert_label = mangled.REVERT_LABEL
 
             if function.type.return_type:
-                ret_type = self.type_translator.translate(function.type.return_type, ctx)
-                ret_var = helpers.ret_var(self.viper_ast, ret_type, pos)
-                rets.append(ret_var)
-                ctx.result_var = ret_var
+                ctx.result_var = TranslatedVar(names.RESULT, mangled.RESULT_VAR, function.type.return_type, self.viper_ast)
+                rets.append(ctx.result_var)
 
             body = []
 
@@ -151,12 +150,11 @@ class FunctionTranslator(CommonTranslator):
             # Assume type assumptions for msg
             msg_var = ctx.msg_var.local_var(ctx)
             msg_conds = self.type_translator.type_assumptions(msg_var, types.MSG_TYPE, ctx)
-            # We additionally know that msg.sender != 0 and msg.sender != self
+            # We additionally know that msg.sender != 0
             zero = self.viper_ast.IntLit(0)
             msg_sender = helpers.msg_sender(self.viper_ast, ctx)
             neq0 = self.viper_ast.NeCmp(msg_sender, zero)
-            neqSelf = self.viper_ast.NeCmp(msg_sender, helpers.self_address(self.viper_ast))
-            msg_assumes = [self.viper_ast.Inhale(c) for c in chain(msg_conds, [neq0, neqSelf])]
+            msg_assumes = [self.viper_ast.Inhale(c) for c in chain(msg_conds, [neq0])]
             msg_info_msg = "Assume type assumptions for msg"
             body.extend(self.seqn_with_info(msg_assumes, msg_info_msg))
 
@@ -286,8 +284,9 @@ class FunctionTranslator(CommonTranslator):
             body.append(returnBool(False))
             # Havoc the return value
             if function.type.return_type:
-                havoc = self._havoc_var(ctx.result_var.typ(), ctx)
-                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.localVar(), havoc))
+                result_type = self.type_translator.translate(ctx.result_var.type, ctx)
+                havoc = self._havoc_var(result_type, ctx)
+                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ctx), havoc))
             # Revert self and old_self to the state before the function
             copy_present = self.state_translator.copy_state(ctx.pre_state, ctx.present_state, ctx)
             copy_old = self.state_translator.copy_state(ctx.pre_state, ctx.old_state, ctx)
@@ -341,17 +340,20 @@ class FunctionTranslator(CommonTranslator):
                         post_stmts.append(self.viper_ast.Assert(cond, func_pos))
 
                 # The postconditions of the interface the contract is supposed to implement
-                # TODO: extend to include invariants, checks, etc.
                 for itype in ctx.program.implements:
                     interface = ctx.program.interfaces[itype.name]
-                    if function.name not in interface.functions:
-                        continue
-                    ifunc = interface.functions[function.name]
-                    pos_node = function.node or ctx.program.node
-                    for post in ifunc.postconditions:
-                        post_pos = self.to_position(pos_node, ctx, rules.INTERFACE_POSTCONDITION_FAIL)
+                    ifunc = interface.functions.get(function.name)
+                    if ifunc:
+                        postconditions = chain(ifunc.postconditions, interface.general_postconditions)
+                    else:
+                        postconditions = interface.general_postconditions
+
+                    for post in postconditions:
+                        post_pos = self.to_position(function.node or post, ctx, rules.INTERFACE_POSTCONDITION_FAIL)
                         with program_scope(interface, ctx):
                             stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
+                            if is_init:
+                                cond = self.viper_ast.Implies(success_var, cond, post_pos)
                         post_assert = self.viper_ast.Assert(cond, post_pos)
                         post_stmts.extend(stmts)
                         post_stmts.append(post_assert)
@@ -483,9 +485,10 @@ class FunctionTranslator(CommonTranslator):
             args_list = [arg.var_decl(ctx) for arg in args.values()]
             locals_list = [local.var_decl(ctx) for local in chain(locals.values(), state)]
             locals_list = [*locals_list, *ctx.new_local_vars]
+            ret_list = [ret.var_decl(ctx) for ret in rets]
 
             viper_name = mangled.method_name(function.name)
-            method = self.viper_ast.Method(viper_name, args_list, rets, [], [], locals_list, body, pos)
+            method = self.viper_ast.Method(viper_name, args_list, ret_list, [], [], locals_list, body, pos)
             return method
 
     def inline(self, call: ast.Call, args: List[Expr], ctx: Context) -> StmtsAndExpr:
@@ -516,20 +519,12 @@ class FunctionTranslator(CommonTranslator):
                 ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
                 body.append(self.viper_ast.LocalVarAssign(translated_arg.local_var(ctx), arg, apos))
 
-            # Add prefixed locals to local vars
-            for name, var in function.local_vars.items():
-                translated_var = self._translate_var(var, ctx)
-                ctx.locals[name] = translated_var
-                ctx.new_local_vars.append(translated_var.var_decl(ctx))
-
             # Define return var
             if function.type.return_type:
-                ret_type = self.type_translator.translate(function.type.return_type, ctx)
                 ret_name = ctx.inline_prefix + mangled.RESULT_VAR
-                ret_var_decl = self.viper_ast.LocalVarDecl(ret_name, ret_type, pos)
-                ctx.new_local_vars.append(ret_var_decl)
-                ctx.result_var = ret_var_decl
-                ret_var = ret_var_decl.localVar()
+                ctx.result_var = TranslatedVar(names.RESULT, ret_name, function.type.return_type, self.viper_ast, pos)
+                ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, pos))
+                ret_var = ctx.result_var.local_var(ctx, pos)
             else:
                 ret_var = None
 
@@ -547,7 +542,7 @@ class FunctionTranslator(CommonTranslator):
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
-        name = ctx.inline_prefix + mangled.local_var_name(var.name)
+        name = mangled.local_var_name(ctx.inline_prefix, var.name)
         return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)
 
     def _assume_non_negative(self, var, ctx: Context) -> Stmt:

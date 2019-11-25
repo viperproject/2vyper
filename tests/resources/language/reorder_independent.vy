@@ -28,3 +28,9 @@ def set_val_msg():
 @public
 def inc_val():
     self.val += 1
+
+
+#@ ensures: reorder_independent(result())
+@public
+def get_tx_origin() -> address:
+    return tx.origin
