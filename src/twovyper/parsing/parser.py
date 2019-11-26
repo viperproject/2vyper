@@ -15,7 +15,6 @@ from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
 
 from twovyper.ast import names
-from twovyper.ast import types
 
 from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
@@ -106,10 +105,6 @@ class ProgramBuilder(ast.NodeVisitor):
                                   self.general_postconditions,
                                   interface_type)
         else:
-            # Add self.balance
-            assert not self.field_types.get(names.SELF_BALANCE)
-            self.field_types[names.SELF_BALANCE] = types.VYPER_WEI_VALUE
-
             # Create the self-type
             self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)

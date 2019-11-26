@@ -84,6 +84,9 @@ class AnyStructType(VyperType):
 class SelfType(StructType):
 
     def __init__(self, member_types: Dict[str, VyperType]):
+        # Add self.balance
+        assert not member_types.get(names.SELF_BALANCE)
+        member_types[names.SELF_BALANCE] = VYPER_WEI_VALUE
         super().__init__(names.SELF, member_types)
 
 
