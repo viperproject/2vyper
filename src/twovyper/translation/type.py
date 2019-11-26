@@ -21,7 +21,7 @@ from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr, Type
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.context import Context, quantified_var_scope
 
-from twovyper.translation import helpers
+from twovyper.translation import helpers, mangled
 
 
 class TypeTranslator(CommonTranslator):
@@ -213,6 +213,18 @@ class TypeTranslator(CommonTranslator):
         le = self.viper_ast.LtCmp(index, self.viper_ast.SeqLength(array))
         cond = self.viper_ast.Not(self.viper_ast.And(leq, le))
         return self.fail_if(cond, [], ctx)
+
+    def comparator(self, type: VyperType, ctx: Context):
+        # For msg, block, tx we don't generate an equality function, as they are immutable anyway
+        if isinstance(type, StructType) and type not in [types.MSG_TYPE, types.BLOCK_TYPE, types.TX_TYPE]:
+            return mangled.struct_eq_name(type.name), {}
+        elif isinstance(type, MapType):
+            key_type = self.translate(type.key_type, ctx)
+            value_type = self.translate(type.value_type, ctx)
+            type_map = helpers._map_type_var_map(self.viper_ast, key_type, value_type)
+            return mangled.MAP_EQ, type_map
+        else:
+            return None
 
     def eq(self, node: Optional[ast.AST], left, right, type: VyperType, ctx: Context) -> Expr:
         pos = self.no_position() if node is None else self.to_position(node, ctx)

@@ -12,20 +12,19 @@ from functools import reduce
 
 from twovyper.ast import names
 from twovyper.ast import types
+from twovyper.ast.types import VyperType
 
 from twovyper.utils import switch
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import StmtsAndExpr
 
+from twovyper.translation import helpers, mangled
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.context import (
     Context, quantified_var_scope, state_scope, inside_trigger_scope
 )
 from twovyper.translation.variable import TranslatedVar
-
-from twovyper.translation import mangled
-from twovyper.translation import helpers
 
 from twovyper.verification import rules
 
@@ -252,24 +251,24 @@ class SpecificationTranslator(ExpressionTranslator):
                     get = lambda m, t: helpers.struct_get(self.viper_ast, ref, m, tt(t), struct_type, pos)
                     members = struct_type.member_types.items()
                     gets = [get(member, member_type) for member, member_type in members if member != node.attr]
-                    lows = [self.viper_ast.Low(get) for get in gets]
+                    lows = [self.viper_ast.Low(get, position=pos) for get in gets]
                     return unless(node.value) + lows
                 elif isinstance(node, ast.Name):
                     variables = [ctx.old_self_var, ctx.msg_var, ctx.block_var, ctx.tx_var, *ctx.args.values()]
-                    return [self.viper_ast.Low(var.local_var(ctx, pos), pos) for var in variables if var.name != node.id]
+                    return [self.viper_ast.Low(var.local_var(ctx, pos), position=pos) for var in variables if var.name != node.id]
 
             lows = unless(node.args[1])
             lhs = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), lows)
-            rhs = self.viper_ast.Low(res, pos)
+            rhs = self._low(res, node.args[0].type, ctx, pos)
             return stmts, self.viper_ast.Implies(lhs, rhs, pos)
         elif name == names.REORDER_INDEPENDENT:
             stmts, arg = self.translate(node.args[0], ctx)
             # Using the current msg_var is ok since we don't use msg.gas, but always return fresh values,
             # therefore msg is constant
             variables = [ctx.issued_self_var, ctx.tx_var, ctx.msg_var, *ctx.args.values()]
-            low_variables = [self.viper_ast.Low(var.local_var(ctx)) for var in variables]
+            low_variables = [self.viper_ast.Low(var.local_var(ctx), position=pos) for var in variables]
             cond = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_variables)
-            implies = self.viper_ast.Implies(cond, self.viper_ast.Low(arg, pos), pos)
+            implies = self.viper_ast.Implies(cond, self._low(arg, node.args[0].type, ctx, pos), pos)
             return stmts, implies
         elif name == names.EVENT:
             event = node.args[0]
@@ -321,3 +320,10 @@ class SpecificationTranslator(ExpressionTranslator):
             return super().translate_Call(node, ctx)
         else:
             assert False
+
+    def _low(self, expr, type: VyperType, ctx: Context, pos=None, info=None):
+        comp = self.type_translator.comparator(type, ctx)
+        if comp:
+            return self.viper_ast.Low(expr, *comp, pos, info)
+        else:
+            return self.viper_ast.Low(expr, position=pos, info=info)

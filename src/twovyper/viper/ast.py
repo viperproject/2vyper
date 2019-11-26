@@ -674,10 +674,12 @@ class ViperAST:
 
     # SIF extension AST nodes
 
-    def Low(self, expr, position=None, info=None):
+    def Low(self, expr, comparator: str = '', type_vars_map={}, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        return self.ast_extensions.SIFLowExp(expr, self.None_, position, info, self.NoTrafos)
+        comp = self.scala.Some(comparator) if comparator else self.None_
+        type_vars_map = self.to_map(type_vars_map)
+        return self.ast_extensions.SIFLowExp(expr, comp, type_vars_map, position, info, self.NoTrafos)
 
     def LowEvent(self, position=None, info=None):
         position = position or self.NoPosition
