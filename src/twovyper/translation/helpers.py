@@ -47,14 +47,6 @@ def msg_value(viper_ast: ViperAST, ctx: Context, pos=None, info=None):
     return struct_get(viper_ast, msg_var, names.MSG_VALUE, viper_ast.Int, type, pos, info)
 
 
-def ret_var(viper_ast: ViperAST, ret_type, pos=None, info=None):
-    return viper_ast.LocalVarDecl(mangled.RESULT_VAR, ret_type, pos, info)
-
-
-def success_var(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.LocalVarDecl(mangled.SUCCESS_VAR, viper_ast.Bool, pos, info)
-
-
 def overflow_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.OVERFLOW, viper_ast.Bool, pos, info)
 
