@@ -39,7 +39,7 @@ def _add(a: uint256, b: uint256) -> uint256:
 def _div(a: uint256, b: uint256) -> uint256:
     return a / (b + 1)
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def fail(a: uint256, b: uint256) -> uint256:
     assert a > b

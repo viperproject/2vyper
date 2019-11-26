@@ -20,8 +20,8 @@ def balance_of(a: address) -> uint256:
     raise "Not implemented"
 
 
-# ensures: implies(msg.sender == to or to == ZERO_ADDRESS, not success())
-# ensures: implies(_balance_of(self, msg.sender) < amount, not success())
+# ensures: implies(msg.sender == to or to == ZERO_ADDRESS, revert())
+# ensures: implies(_balance_of(self, msg.sender) < amount, revert())
 # ensures: _balance_of(self, msg.sender) == old(self.balance_of(msg.sender)) - amount
 # ensures: _balance_of(self, to) == old(_balance_of(self, msg.sender)) + amount
 @public

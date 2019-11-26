@@ -24,14 +24,14 @@ def __init__():
     self.s = simple(msg.sender)
 
 
-#@ ensures: implies(arg <= 0, not success())
+#@ ensures: implies(arg <= 0, revert())
 #@ ensures: implies(success(), result() == arg + 1)
 @public
 def use_simple(at: address, arg: int128) -> int128:
     return simple(at).positive(arg) + 1
 
 
-#@ ensures: implies(arg <= 0, not success())
+#@ ensures: implies(arg <= 0, revert())
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: implies(success(), result() > arg)
 @public
@@ -57,13 +57,13 @@ def use_simple_msg_value(at: address):
     assert amount == as_wei_value(1, "ether"), UNREACHABLE
 
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def use_simple_msg_sender_with_ether(at: address):
     simple(at).use_msg_sender(value=as_wei_value(1, "ether"))
 
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def use_simple_msg_value_without_ether(at: address):
     simple(at).use_msg_value(value=ZERO_WEI)

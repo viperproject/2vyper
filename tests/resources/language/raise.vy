@@ -5,13 +5,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def test_raise():
     raise "Error"
 
 
-#@ ensures: implies(a, not success())
+#@ ensures: implies(a, revert())
 @public
 def test_raise_conditional(a: bool):
     if a:

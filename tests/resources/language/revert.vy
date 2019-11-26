@@ -5,12 +5,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+
 f1: int128
 f2: int128
 f3: int128
 
 b1: bool
 b2: bool
+
 
 #@ invariant: self.b1 or self.f1 == self.f2
 #@ invariant: self.f3 == 42
@@ -44,3 +46,15 @@ def if_fail_3():
         self.f3 = 42
     elif self.f1 == self.f2:
         assert not self.b1
+
+
+#@ ensures: revert()
+@public
+def always_fail():
+    assert False
+
+
+#@ ensures: revert() == (revert())
+@public
+def check():
+    pass

@@ -15,7 +15,7 @@ def func(a: int128):
     pass
 
 
-#@ ensures: b == 0 ==> not success()
+#@ ensures: b == 0 ==> revert()
 #@ ensures: success() ==> result() == a / b
 @public
 def divide(a: int128, b: int128) -> int128:

@@ -46,19 +46,19 @@ def test_convert():
     assert convert(i, uint256) == u + 1, UNREACHABLE
 
 
-#@ ensures: implies(i < 0, not success())
+#@ ensures: implies(i < 0, revert())
 @public
 def test_convert_revert(i: int128):
     u: uint256 = convert(i, uint256)
 
 
-#@ ensures: implies(u >= 170141183460469231731687303715884105728, not success())
+#@ ensures: implies(u >= 170141183460469231731687303715884105728, revert())
 @public
 def test_convert_overflow(u: uint256):
     i: int128 = convert(u, int128)
 
 
-#@ ensures: implies(u >= 170141183460469231731687303715884105728, not success())
+#@ ensures: implies(u >= 170141183460469231731687303715884105728, revert())
 @public
 def test_convert_decimal_overflow(u: uint256):
     d: decimal = convert(u, decimal)

@@ -37,7 +37,7 @@ def _add(a: wei_value, b: wei_value) -> wei_value:
 def _div(a: wei_value, b: wei_value) -> uint256:
     return a / (b + 1)
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def fail(a: wei_value, b: wei_value) -> wei_value:
     assert a > b
@@ -50,7 +50,7 @@ def fail(a: wei_value, b: wei_value) -> wei_value:
 def transform(i: int128) -> wei_value:
     return as_wei_value(i, "lovelace")
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def transform_negative(i: int128) -> wei_value:
     if i < 0:

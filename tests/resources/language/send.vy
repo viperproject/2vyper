@@ -13,7 +13,7 @@ money: wei_value
 #@ invariant: self.money <= self.balance
 
 
-#@ ensures: implies(not success(), self.balance == old(self.balance))
+#@ ensures: implies(revert(), self.balance == old(self.balance))
 @public
 def send_balance(to: address):
     self.money = 0
@@ -30,7 +30,7 @@ def send_balance_fail(to: address):
 # This function always fails when sending money to a contract, but no when sending money
 # to a wallet
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def send_zero_fail(to: address):
     send(to, as_wei_value(0, "wei"))

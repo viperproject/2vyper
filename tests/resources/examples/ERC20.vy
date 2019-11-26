@@ -93,7 +93,7 @@ def allowance(_owner: address, _spender: address) -> uint256:
     return self.allowances[_owner][_spender]
 
 
-#@ ensures: implies(_value > old(self.balanceOf[msg.sender]), not success())
+#@ ensures: implies(_value > old(self.balanceOf[msg.sender]), revert())
 #@ check: implies(success(), event(Transfer(msg.sender, _to, _value)))
 @public
 def transfer(_to: address, _value: uint256) -> bool:
@@ -110,7 +110,7 @@ def transfer(_to: address, _value: uint256) -> bool:
     return True
 
 
-#@ ensures: implies(_value > old(self.allowances[_from][msg.sender]), not success())
+#@ ensures: implies(_value > old(self.allowances[_from][msg.sender]), revert())
 #@ check: implies(success(), event(Transfer(_from, _to, _value)))
 @public
 def transferFrom(_from : address, _to: address, _value: uint256) -> bool:

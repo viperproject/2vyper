@@ -48,8 +48,8 @@ def transfer(_to : address, _value : uint256) -> bool:
     return True
 
 
-#@ ensures: implies(old(self.balanceOf[_from]) < _value, not success())
-#@ ensures: implies(old(self.allowances[_from][msg.sender]) < _value, not success())
+#@ ensures: implies(old(self.balanceOf[_from]) < _value, revert())
+#@ ensures: implies(old(self.allowances[_from][msg.sender]) < _value, revert())
 #@ ensures: self.total_supply == old(self.total_supply)
 #@ ensures: forall({a: address}, {self.balanceOf[a]}, implies(a != _from and a != _to, old(self.balanceOf[a]) == self.balanceOf[a]))
 #@ ensures: implies(success(), sum(self.allowances[_from]) + _value == old(sum(self.allowances[_from])))
@@ -91,7 +91,7 @@ def burn(_value: uint256):
 
 #@ ensures: implies(success(), self.total_supply == old(self.total_supply) - _value)
 #@ ensures: forall({a: address}, {self.balanceOf[a]}, implies(a != _to, old(self.balanceOf[a]) == self.balanceOf[a]))
-#@ ensures: implies(_value > old(self.allowances[_to][msg.sender]), not success())
+#@ ensures: implies(_value > old(self.allowances[_to][msg.sender]), revert())
 @public
 def burnFrom(_to: address, _value: uint256):
     self.allowances[_to][msg.sender] -= _value

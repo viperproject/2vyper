@@ -151,6 +151,7 @@ REORDER_INDEPENDENT = 'reorder_independent'
 EVENT = 'event'
 SELFDESTRUCT = 'selfdestruct'
 IMPLEMENTS = 'implements'
+REVERT = 'revert'
 
 SUCCESS = 'success'
 SUCCESS_IF_NOT = 'if_not'

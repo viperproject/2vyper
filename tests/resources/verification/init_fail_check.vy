@@ -7,7 +7,7 @@
 
 #@ always check: False
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def __init__():
     assert False

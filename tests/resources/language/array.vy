@@ -64,14 +64,14 @@ def matrix_write_fail() -> int128:
     return self.matrix[1][2]
 
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def out_of_bounds_read():
     i: int128 = 42
     a: int128 = self.array[i]
 
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def out_of_bounds_write():
     i: int128 = 42
@@ -104,7 +104,7 @@ def acc_map():
     self.mp[1][2] = 5
 
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def acc_bounds() -> int128:
     i: int128 = 1000

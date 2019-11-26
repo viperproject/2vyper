@@ -38,7 +38,7 @@ def transfer_stmts():
     log.Transfer(msg.sender, self.inc_val(), self.weis)
 
 
-#@ ensures: not success()
+#@ ensures: revert()
 @public
 def transfer_not_success(idx: int128):
     assert idx > 10
@@ -52,7 +52,7 @@ def transfer_twice(idx: int128):
     log.Transfer(msg.sender, self.ads[idx], self.weis)
 
 
-#@ ensures: not success()
+#@ ensures: revert()
 #:: ExpectedOutput(check.violated:assertion.false)
 #@ check: event(Transfer(msg.sender, self.ad, self.weis))
 @public

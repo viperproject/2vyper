@@ -16,7 +16,7 @@
 #@ always ensures: _mapval(self, 0) == 0
 
 
-#@ ensures: implies(i <= 0, not success())
+#@ ensures: implies(i <= 0, revert())
 #@ ensures: implies(success(), result() == i)
 @public
 def foo(i: int128) -> int128:

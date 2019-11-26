@@ -22,7 +22,7 @@ def do_stuff():
     raise "Not implemented"
 
 
-#@ ensures: implies(i <= 0, not success())
+#@ ensures: implies(i <= 0, revert())
 #@ ensures: implies(success(), result() == i)
 @public
 def positive(i: int128) -> int128:

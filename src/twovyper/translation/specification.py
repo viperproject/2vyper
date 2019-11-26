@@ -159,6 +159,9 @@ class SpecificationTranslator(ExpressionTranslator):
                 return [], self.viper_ast.Implies(not_or_op, success, pos)
             else:
                 return [], success
+        elif name == names.REVERT:
+            success = ctx.success_var.local_var(ctx, pos)
+            return [], self.viper_ast.Not(success, pos)
         elif name == names.OLD or name == names.ISSUED:
             self_state = ctx.current_old_state if name == names.OLD else ctx.issued_state
             with state_scope(self_state, self_state, ctx):

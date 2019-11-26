@@ -6,7 +6,7 @@
 #
 
 
-#@ ensures: implies(d < 0.0, not success())
+#@ ensures: implies(d < 0.0, revert())
 #:: ExpectedOutput(postcondition.violated:assertion.false)
 #@ ensures: success(if_not=out_of_gas)
 @public

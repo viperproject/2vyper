@@ -286,7 +286,7 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate(node.args[0])
                     ntype = self.type_builder.build(node.args[1])
                     return [ntype], [node]
-                elif case(names.SUCCESS):
+                elif case(names.SUCCESS) or case(names.REVERT):
                     return [types.VYPER_BOOL], [node]
                 elif case(names.FORALL):
                     return self._visit_forall(node)
