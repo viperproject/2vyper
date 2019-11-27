@@ -68,6 +68,14 @@ def test_convert_decimal_overflow(u: uint256):
     d: decimal = convert(u, decimal)
 
 
+@public
+def test_convert_bytes(bb: bytes[3], bc: bytes[3]):
+    assert convert(bc, bool) == False
+    assert convert(bb, bool) == True
+    sc: bytes[6] = concat(bc, bb)
+    assert convert(sc, bool) == True, UNREACHABLE
+
+
 #@ ensures: forall({i: int128}, implies(i != 0, convert(i, bool)))
 #@ ensures: not convert(0, bool)
 #@ ensures: forall({i: int128}, convert(convert(i, decimal), int128) == i)

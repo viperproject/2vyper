@@ -300,6 +300,16 @@ def convert_unsigned_int_to_bytes32(viper_ast: ViperAST, i, pos=None, info=None)
     return viper_ast.DomainFuncApp(function, [i], viper_ast.SeqType(viper_ast.Int), pos, info, domain)
 
 
+def pad32(viper_ast: ViperAST, bytes, pos=None, info=None):
+    """
+    Left-pads a byte array shorter than 32 bytes with 0s so that its resulting length is 32.
+    Left-crops a byte array longer than 32 bytes so that its resulting length is 32.
+    """
+    domain = mangled.CONVERT_DOMAIN
+    function = mangled.CONVERT_PAD32
+    return viper_ast.DomainFuncApp(function, [bytes], viper_ast.SeqType(viper_ast.Int), pos, info, domain)
+
+
 def range(viper_ast: ViperAST, start, end, pos=None, info=None):
     range_func = mangled.RANGE_RANGE
     range_type = viper_ast.SeqType(viper_ast.Int)

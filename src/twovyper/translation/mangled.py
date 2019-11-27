@@ -92,6 +92,7 @@ CONVERT_BYTES32_TO_SIGNED_INT = '$bytes32_to_signed_int'
 CONVERT_BYTES32_TO_UNSIGNED_INT = '$bytes32_to_unsigned_int'
 CONVERT_SIGNED_INT_TO_BYTES32 = '$signed_int_to_bytes32'
 CONVERT_UNSIGNED_INT_TO_BYTES32 = '$unsigned_int_to_bytes32'
+CONVERT_PAD32 = '$pad32'
 
 IMPLEMENTS_DOMAIN = '$Implements'
 

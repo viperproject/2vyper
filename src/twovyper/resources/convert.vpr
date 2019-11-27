@@ -21,6 +21,8 @@ domain $Convert {
 
     function $unsigned_int_to_bytes32($i: Int): Seq[Int]
 
+    function $pad32($bb: Seq[Int]): Seq[Int]
+
     axiom $bytes32_to_signed_int_ax {
         forall $bb: Seq[Int] :: { $bytes32_to_signed_int($bb) }
             |$bb| <= 32 ==> MIN_INT <= $bytes32_to_signed_int($bb) && $bytes32_to_signed_int($bb) <= MAX_INT
@@ -39,6 +41,15 @@ domain $Convert {
     axiom $unsigned_int_to_bytes32_ax {
         forall $i: Int :: { $unsigned_int_to_bytes32($i) }
             MIN_INT <= $i && $i <= MAX_INT ==> |$unsigned_int_to_bytes32($i)| == 32
+    }
+
+    axiom $pad32_len_ax {
+        forall $bb: Seq[Int] :: { $pad32($bb) } |$pad32($bb)| == 32
+    }
+
+    axiom $pad32_vals_ax {
+        forall $bb: Seq[Int], $i: Int :: { $pad32($bb)[$i] } let diff == (32 - |$bb|) in
+            0 <= $i && $i < |$pad32($bb)| ==> $pad32($bb)[$i] == ($i < diff ? 0 : $bb[$i - diff])
     }
 
 }

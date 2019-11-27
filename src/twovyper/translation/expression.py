@@ -345,17 +345,16 @@ class ExpressionTranslator(NodeTranslator):
                 from_type = node.args[0].type
                 to_type = node.type
 
-                supported_types = [
-                    types.VYPER_BOOL,
-                    types.VYPER_INT128,
-                    types.VYPER_UINT256,
-                    types.VYPER_DECIMAL,
-                    types.VYPER_BYTES32
-                ]
-                if from_type not in supported_types or to_type not in supported_types:
-                    raise UnsupportedException(node, "Unsupported conversion type")
-
                 arg_stmts, arg = self.translate(node.args[0], ctx)
+
+                if isinstance(from_type, ArrayType) and from_type.element_type == types.VYPER_BYTE:
+                    if from_type.size > 32:
+                        raise UnsupportedException(node, 'Unsupported type converison.')
+
+                    # If we convert a byte array to some type, we simply pad it to a bytes32 and
+                    # proceed as if we had been given a bytes32
+                    arg = helpers.pad32(self.viper_ast, arg, pos)
+                    from_type = types.VYPER_BYTES32
 
                 stmts = arg_stmts
                 zero = self.viper_ast.IntLit(0, pos)
