@@ -11,6 +11,8 @@ import "array.vpr"
 import "map.vpr"
 import "struct.vpr"
 
+import "convert.vpr"
+
 import "range.vpr"
 
 import "contract.vpr"

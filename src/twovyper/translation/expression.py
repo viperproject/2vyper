@@ -349,7 +349,8 @@ class ExpressionTranslator(NodeTranslator):
                     types.VYPER_BOOL,
                     types.VYPER_INT128,
                     types.VYPER_UINT256,
-                    types.VYPER_DECIMAL
+                    types.VYPER_DECIMAL,
+                    types.VYPER_BYTES32
                 ]
                 if from_type not in supported_types or to_type not in supported_types:
                     raise UnsupportedException(node, "Unsupported conversion type")
@@ -360,22 +361,34 @@ class ExpressionTranslator(NodeTranslator):
                 zero = self.viper_ast.IntLit(0, pos)
                 one = self.viper_ast.IntLit(1, pos)
 
+                zero_list = [0] * 32
+                one_list = [0] * 31 + [1]
+                zero_array = self.viper_ast.ExplicitSeq([self.viper_ast.IntLit(i, pos) for i in zero_list], pos)
+                one_array = self.viper_ast.ExplicitSeq([self.viper_ast.IntLit(i, pos) for i in one_list], pos)
+
                 with switch(from_type, to_type) as case:
                     from twovyper.utils import _
                     # If both types are equal (e.g. if we convert a literal) we simply
                     # return the argument
                     if case(_, _, where=from_type == to_type):
                         return stmts, arg
+                    # --------------------- bool -> ? ---------------------
                     # If we convert from a bool we translate True as 1 and False as 0
                     elif case(types.VYPER_BOOL, types.VYPER_DECIMAL):
                         d_one = 1 * types.VYPER_DECIMAL.scaling_factor
                         d_one_lit = self.viper_ast.IntLit(d_one, pos)
                         return stmts, self.viper_ast.CondExp(arg, d_one_lit, zero, pos)
+                    elif case(types.VYPER_BOOL, types.VYPER_BYTES32):
+                        return stmts, self.viper_ast.CondExp(arg, one_array, zero_array, pos)
                     elif case(types.VYPER_BOOL, _):
                         return stmts, self.viper_ast.CondExp(arg, one, zero, pos)
+                    # --------------------- ? -> bool ---------------------
                     # If we convert to a bool we check for zero
+                    elif case(types.VYPER_BYTES32, types.VYPER_BOOL):
+                        return stmts, self.viper_ast.NeCmp(arg, zero_array, pos)
                     elif case(_, types.VYPER_BOOL):
                         return stmts, self.viper_ast.NeCmp(arg, zero, pos)
+                    # --------------------- decimal -> ? ---------------------
                     elif case(types.VYPER_DECIMAL, types.VYPER_INT128):
                         s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
                         return stmts, helpers.div(self.viper_ast, arg, s, pos)
@@ -385,27 +398,44 @@ class ExpressionTranslator(NodeTranslator):
                         uc = self.arithmetic_translator.check_underflow(res, to_type, ctx, pos)
                         stmts.extend(uc)
                         return stmts, res
+                    elif case(types.VYPER_DECIMAL, types.VYPER_BYTES32):
+                        return stmts, helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
+                    # --------------------- int128 -> ? ---------------------
                     elif case(types.VYPER_INT128, types.VYPER_DECIMAL):
                         s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
                         return stmts, self.viper_ast.Mul(arg, s, pos)
-                    elif case(types.VYPER_UINT256, types.VYPER_DECIMAL):
-                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                        res = self.viper_ast.Mul(arg, s, pos)
-                        oc = self.arithmetic_translator.check_overflow(res, to_type, ctx, pos)
-                        stmts.extend(oc)
-                        return stmts, res
                     # When converting a signed number to an unsigned number we revert if
                     # the argument is negative
                     elif case(types.VYPER_INT128, types.VYPER_UINT256):
                         uc = self.arithmetic_translator.check_underflow(arg, to_type, ctx, pos)
                         stmts.extend(uc)
                         return stmts, arg
+                    elif case(types.VYPER_INT128, types.VYPER_BYTES32):
+                        return stmts, helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
+                    # --------------------- uint256 -> ? ---------------------
+                    elif case(types.VYPER_UINT256, types.VYPER_DECIMAL):
+                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+                        res = self.viper_ast.Mul(arg, s, pos)
+                        oc = self.arithmetic_translator.check_overflow(res, to_type, ctx, pos)
+                        stmts.extend(oc)
+                        return stmts, res
                     # If we convert an unsigned to a signed value we simply return
                     # the argument, given that it fits
                     elif case(types.VYPER_UINT256, types.VYPER_INT128):
                         oc = self.arithmetic_translator.check_overflow(arg, to_type, ctx, pos)
                         stmts.extend(oc)
                         return stmts, arg
+                    elif case(types.VYPER_UINT256, types.VYPER_BYTES32):
+                        return stmts, helpers.convert_unsigned_int_to_bytes32(self.viper_ast, arg, pos)
+                    # --------------------- bytes32 -> ? ---------------------
+                    elif case(types.VYPER_BYTES32, types.VYPER_DECIMAL) or case(types.VYPER_BYTES32, types.VYPER_INT128):
+                        res = helpers.convert_bytes32_to_signed_int(self.viper_ast, arg, pos)
+                        oc = self.arithmetic_translator.check_under_overflow(res, to_type, ctx, pos)
+                        stmts.extend(oc)
+                        return stmts, res
+                    elif case(types.VYPER_BYTES32, types.VYPER_UINT256):
+                        # uint256 and bytes32 have the same size, so no overflow check is necessary
+                        return stmts, helpers.convert_bytes32_to_unsigned_int(self.viper_ast, arg, pos)
                     else:
                         raise UnsupportedException(node, 'Unsupported type converison.')
             elif name == names.KECCAK256:

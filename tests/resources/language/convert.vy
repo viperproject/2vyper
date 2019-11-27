@@ -26,6 +26,10 @@ def test_convert():
     assert convert(True, decimal) == 1.0, UNREACHABLE
     assert convert(False, decimal) == 0.0, UNREACHABLE
 
+    assert convert(True, bytes32) == 0x0000000000000000000000000000000000000000000000000000000000000001
+    assert convert(False, bytes32) == 0x0000000000000000000000000000000000000000000000000000000000000000
+    assert convert(False, bytes32) == EMPTY_BYTES32
+
     assert convert(3, bool) == True, UNREACHABLE
     assert convert(u, bool) == True, UNREACHABLE
     assert convert(i, bool) == True, UNREACHABLE
@@ -67,6 +71,22 @@ def test_convert_decimal_overflow(u: uint256):
 #@ ensures: forall({i: int128}, implies(i != 0, convert(i, bool)))
 #@ ensures: not convert(0, bool)
 #@ ensures: forall({i: int128}, convert(convert(i, decimal), int128) == i)
+#@ ensures: convert(1, bytes32) == convert(0.0000000001, bytes32)
 @public
 def check():
     pass
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: convert(convert(1, int128), bytes32) == convert(convert(1, uint256), bytes32)
+@public
+def check_fail():
+    pass
+
+
+#@ ensures: success(if_not=out_of_gas or overflow)
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: success(if_not=out_of_gas)
+@public
+def convert_int_fail(bb: bytes32) -> int128:
+    return convert(bb, int128)

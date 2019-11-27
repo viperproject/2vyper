@@ -276,6 +276,30 @@ def struct_set(viper_ast: ViperAST, ref, val, member: str, member_type, type: St
     return viper_ast.DomainFuncApp(setter, [ref, idx, val], s_type, pos, info, domain, type_map)
 
 
+def convert_bytes32_to_signed_int(viper_ast: ViperAST, bytes, pos=None, info=None):
+    domain = mangled.CONVERT_DOMAIN
+    function = mangled.CONVERT_BYTES32_TO_SIGNED_INT
+    return viper_ast.DomainFuncApp(function, [bytes], viper_ast.Int, pos, info, domain)
+
+
+def convert_bytes32_to_unsigned_int(viper_ast: ViperAST, bytes, pos=None, info=None):
+    domain = mangled.CONVERT_DOMAIN
+    function = mangled.CONVERT_BYTES32_TO_UNSIGNED_INT
+    return viper_ast.DomainFuncApp(function, [bytes], viper_ast.Int, pos, info, domain)
+
+
+def convert_signed_int_to_bytes32(viper_ast: ViperAST, i, pos=None, info=None):
+    domain = mangled.CONVERT_DOMAIN
+    function = mangled.CONVERT_SIGNED_INT_TO_BYTES32
+    return viper_ast.DomainFuncApp(function, [i], viper_ast.SeqType(viper_ast.Int), pos, info, domain)
+
+
+def convert_unsigned_int_to_bytes32(viper_ast: ViperAST, i, pos=None, info=None):
+    domain = mangled.CONVERT_DOMAIN
+    function = mangled.CONVERT_UNSIGNED_INT_TO_BYTES32
+    return viper_ast.DomainFuncApp(function, [i], viper_ast.SeqType(viper_ast.Int), pos, info, domain)
+
+
 def range(viper_ast: ViperAST, start, end, pos=None, info=None):
     range_func = mangled.RANGE_RANGE
     range_type = viper_ast.SeqType(viper_ast.Int)

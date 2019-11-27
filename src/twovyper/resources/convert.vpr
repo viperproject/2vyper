@@ -1,0 +1,44 @@
+ /*
+  Copyright (c) 2019 ETH Zurich
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+define MIN_INT -57896044618658097711785492504343953926634992332820282019728792003956564819968  // -2^255
+define MAX_INT  57896044618658097711785492504343953926634992332820282019728792003956564819967  //  2^255 - 1
+
+define MIN_UINT 0
+define MAX_UINT 115792089237316195423570985008687907853269984665640564039457584007913129639935 //  2^256 - 1
+
+domain $Convert {
+
+    function $bytes32_to_signed_int($bb: Seq[Int]): Int
+
+    function $bytes32_to_unsigned_int($bb: Seq[Int]): Int
+
+    function $signed_int_to_bytes32($i: Int): Seq[Int]
+
+    function $unsigned_int_to_bytes32($i: Int): Seq[Int]
+
+    axiom $bytes32_to_signed_int_ax {
+        forall $bb: Seq[Int] :: { $bytes32_to_signed_int($bb) }
+            |$bb| <= 32 ==> MIN_INT <= $bytes32_to_signed_int($bb) && $bytes32_to_signed_int($bb) <= MAX_INT
+    }
+
+    axiom $bytes32_to_unsigned_int_ax {
+        forall $bb: Seq[Int] :: { $bytes32_to_unsigned_int($bb) }
+            |$bb| <= 32 ==> MIN_UINT <= $bytes32_to_unsigned_int($bb) && $bytes32_to_unsigned_int($bb) <= MAX_UINT
+    }
+
+    axiom $signed_int_to_bytes32_ax {
+        forall $i: Int :: { $signed_int_to_bytes32($i) }
+            MIN_INT <= $i && $i <= MAX_INT ==> |$signed_int_to_bytes32($i)| == 32
+    }
+
+    axiom $unsigned_int_to_bytes32_ax {
+        forall $i: Int :: { $unsigned_int_to_bytes32($i) }
+            MIN_INT <= $i && $i <= MAX_INT ==> |$unsigned_int_to_bytes32($i)| == 32
+    }
+
+}
