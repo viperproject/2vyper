@@ -141,7 +141,7 @@ class TypeAnnotator(NodeVisitor):
                 arrays = [t for t in lst if is_array(t) and t.element_type == matching.element_type]
                 return max(arrays, key=lambda t: t.size)
             except ValueError:
-                raise InvalidProgramException(matching, 'invalid.type')
+                raise InvalidProgramException(node if node is not None else node2, 'invalid.type')
 
         def intersect(l1, l2):
             for e in l1:
