@@ -229,12 +229,13 @@ class FunctionTranslator(CommonTranslator):
                 body.extend(self._havoc_balance(ctx))
 
             msg_value = helpers.msg_value(self.viper_ast, ctx)
-            # If a function is not payable and money is sent, revert
             if not function.is_payable():
+                # If the function is not payable we assume that msg.value == 0
+                # Technically speaking it is possible to send ether to a non-payable function
+                # which leads to a revert, however, we implicitly require all function calls
+                # to adhere to the Vyper function call interface (i.e., that they have the
+                # correct types and ether).
                 zero = self.viper_ast.IntLit(0)
-                # TODO: how to handle this case?
-                # is_not_zero = self.viper_ast.NeCmp(value_acc, zero)
-                # body.append(self.fail_if(is_not_zero, ctx))
                 is_zero = self.viper_ast.EqCmp(msg_value, zero)
                 payable_info = self.to_info(["Function is not payable"])
                 assume = self.viper_ast.Inhale(is_zero, info=payable_info)
