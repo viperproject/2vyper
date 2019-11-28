@@ -654,7 +654,7 @@ class ExpressionTranslator(NodeTranslator):
             # Havoc state
             havocs = self.state_translator.havoc_state(ctx.current_state, ctx, pos)
 
-            call = [*copy_old, fail, *save_vars, *havocs]
+            call = [fail, *copy_old, *save_vars, *havocs]
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
@@ -684,7 +684,7 @@ class ExpressionTranslator(NodeTranslator):
 
             new_state = [*type_seq, *post_seq, *inv_seq]
         else:
-            call = [fail]
+            call = [fail, *copy_old]
             new_state = []
 
         if node.type:
