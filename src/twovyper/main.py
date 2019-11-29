@@ -117,7 +117,7 @@ def main() -> None:
     )
     parser.add_argument(
         '--vyper-root',
-        help='import root directory for the Vyper compiler',
+        help='import root directory for the Vyper contract',
         default=None
     )
     parser.add_argument(
