@@ -633,6 +633,19 @@ class ExpressionTranslator(NodeTranslator):
         assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
         fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
 
+        event_exhales = []
+        for event in ctx.program.events.values():
+            event_name = mangled.event_name(event.name)
+            types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+            args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos) for idx, type in enumerate(types)]
+            local_args = [arg.localVar() for arg in args]
+            pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
+            perm = self.viper_ast.CurrentPerm(pa, pos)
+            pap = self.viper_ast.PredicateAccessPredicate(pa, perm, pos)
+            trigger = self.viper_ast.Trigger([pa], pos)
+            forall = self.viper_ast.Forall(args, [trigger], pap, pos)
+            event_exhales.append(self.viper_ast.Exhale(forall, pos))
+
         if not constant:
             # Save the values of to, amount, and args, as self could be changed by reentrancy
             save_vars = []
@@ -654,7 +667,7 @@ class ExpressionTranslator(NodeTranslator):
             # Havoc state
             havocs = self.state_translator.havoc_state(ctx.current_state, ctx, pos)
 
-            call = [fail, *copy_old, *save_vars, *havocs]
+            call = [fail, *copy_old, *event_exhales, *save_vars, *havocs]
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
@@ -684,7 +697,7 @@ class ExpressionTranslator(NodeTranslator):
 
             new_state = [*type_seq, *post_seq, *inv_seq]
         else:
-            call = [fail, *copy_old]
+            call = [fail, *copy_old, *event_exhales]
             new_state = []
 
         if node.type:

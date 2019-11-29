@@ -59,3 +59,81 @@ def transfer_twice(idx: int128):
 def transfer_revert_fail(idx: int128):
     log.Transfer(msg.sender, self.ad, self.weis)
     assert False
+
+
+#@ check: success() ==> self.val > old(self.val) ==> event(Transfer(msg.sender, self.ad, self.weis))
+@public
+def transfer_send(idx: int128):
+    self.val += 1
+    log.Transfer(msg.sender, self.ad, self.weis)
+    send(msg.sender, self.balance)
+    self.val += 1
+    log.Transfer(msg.sender, self.ad, self.weis)
+
+
+#@ check: success() ==> self.val > old(self.val) ==> event(Transfer(msg.sender, self.ad, self.weis))
+@public
+def transfer_conditional_send(idx: int128):
+    self.val += 1
+    log.Transfer(msg.sender, self.ad, self.weis)
+    if idx > 12:
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
+
+
+#@ check: success() ==> self.val > old(self.val) ==> event(Transfer(msg.sender, self.ad, self.weis))
+@public
+def transfer_multiple_conditional_sends(idx: int128):
+    self.val += 1
+    log.Transfer(msg.sender, self.ad, self.weis)
+    if idx > 12:
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
+
+    if idx > 18:
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
+    else:
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
+
+    if idx > 24:
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
+
+
+#:: ExpectedOutput(check.violated:assertion.false) 
+#@ check: success() ==> self.val > old(self.val) ==> event(Transfer(msg.sender, self.ad, self.weis))
+@public
+def transfer_multiple_conditional_sends_fail(idx: int128):
+    self.val += 1
+    log.Transfer(msg.sender, self.ad, self.weis)
+    if idx > 12:
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
+
+    if idx > 18:
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
+    else:
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
+        send(msg.sender, self.balance)
+        self.val += 1
+        # Forget to fire event
+
+    if idx > 24:
+        send(msg.sender, self.balance)
+        self.val += 1
+        log.Transfer(msg.sender, self.ad, self.weis)
