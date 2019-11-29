@@ -14,7 +14,7 @@ from twovyper.parsing import lark
 from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
 
-from twovyper.ast import names
+from twovyper.ast import interfaces, names
 
 from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
@@ -164,7 +164,20 @@ class ProgramBuilder(ast.NodeVisitor):
         module = node.module or ''
         components = module.split('.')
 
-        if self.is_interface or (components and components[0] == 'vyper'):
+        if self.is_interface:
+            return
+
+        if components and components[0] == interfaces.VYPER_INTERFACES[0]:
+            assert len(components) == 2
+            assert components[1] == interfaces.VYPER_INTERFACES[1]
+
+            for alias in node.names:
+                name = alias.name
+                if name == interfaces.ERC20:
+                    self.contracts[name] = VyperContract(name, interfaces.ERC20_TYPE, None)
+                else:
+                    assert False
+
             return
 
         if node.level == 0:
@@ -203,8 +216,7 @@ class ProgramBuilder(ast.NodeVisitor):
 
         variable_name = node.target.id
         if variable_name == names.IMPLEMENTS:
-            # TODO: handle ERC20
-            if node.annotation.id not in ['ERC20', 'ERC721']:
+            if node.annotation.id not in [interfaces.ERC20, interfaces.ERC721]:
                 interface_type = InterfaceType(node.annotation.id)
                 self.implements.append(interface_type)
         # We ignore the units declarations
