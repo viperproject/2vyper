@@ -91,7 +91,7 @@ class ArithmeticTranslator(CommonTranslator):
         return stmts, res
 
     # Overflows and underflow checks can be disabled with the config flag 'no_overflows'.
-    # If it is not enabled, we revert if on an overflow. Additionally, we set the overflows
+    # If it is not enabled, we revert if an overflow happens. Additionally, we set the overflows
     # variable to true, which is used for success(if_not=overflow).
     #
     # Note that we only treat 'arbitary' bounds due to limited bit size as overflows,
@@ -125,6 +125,8 @@ class ArithmeticTranslator(CommonTranslator):
             return [self.fail_if(gt, stmts, ctx, pos, info)]
 
     def check_under_overflow(self, arg, type: BoundedType, ctx: Context, pos=None, info=None) -> List[Stmt]:
+        # For unsigned types we need to check over and underflow separately as we treat underflows
+        # as normal reverts
         if types.is_unsigned(type) and not self.no_reverts:
             underflow = self.check_underflow(arg, type, ctx, pos, info)
             overflow = self.check_overflow(arg, type, ctx, pos, info)
@@ -132,6 +134,8 @@ class ArithmeticTranslator(CommonTranslator):
         elif self.no_reverts or ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
             return []
         else:
+            # Checking for overflow and undeflow in the same if-condition is more efficient than
+            # introducing two branches
             lower = self.viper_ast.IntLit(type.lower, pos)
             upper = self.viper_ast.IntLit(type.upper, pos)
 
