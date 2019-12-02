@@ -292,6 +292,10 @@ class SpecificationTranslator(ExpressionTranslator):
             type = self.type_translator.translate(self_type.member_types[member], ctx)
             sget = helpers.struct_get(self.viper_ast, self_var, member, type, self_type, pos)
             return [], sget
+        elif name == names.OVERFLOW:
+            return [], helpers.overflow_var(self.viper_ast, pos).localVar()
+        elif name == names.OUT_OF_GAS:
+            return [], helpers.out_of_gas_var(self.viper_ast, pos).localVar()
         elif name == names.IMPLEMENTS:
             stmts, address = self.translate(node.args[0], ctx)
             interface = node.args[1].id

@@ -208,6 +208,12 @@ class FunctionTranslator(CommonTranslator):
             # If we do not encounter an exception we will return success
             body.append(returnBool(True))
 
+            # Add variable for success(if_not=overflow) that tracks whether an overflow happened
+            overflow_var = helpers.overflow_var(self.viper_ast)
+            ctx.new_local_vars.append(overflow_var)
+            overflow_var_assign = self.viper_ast.LocalVarAssign(overflow_var.localVar(), self.viper_ast.FalseLit())
+            body.append(overflow_var_assign)
+
             # Add variable for whether we need to set old_self to current self
             # In the beginning, it is True as the first public state needs to
             # be checked against itself
@@ -258,10 +264,6 @@ class FunctionTranslator(CommonTranslator):
             # If we reach this point we either jumped to it by returning or got threre directly
             # because we didn't revert (yet)
             body.append(return_label)
-
-            # Add variable for success(if_not=overflow) that tracks whether an overflow happened
-            overflow_var = helpers.overflow_var(self.viper_ast)
-            ctx.new_local_vars.append(overflow_var)
 
             # Add variable for success(if_not=out_of_gas) that tracks whether the contract ran out of gas
             out_of_gas_var = helpers.out_of_gas_var(self.viper_ast)

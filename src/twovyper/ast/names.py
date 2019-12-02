@@ -153,6 +153,9 @@ SELFDESTRUCT = 'selfdestruct'
 IMPLEMENTS = 'implements'
 REVERT = 'revert'
 
+OVERFLOW = 'overflow'
+OUT_OF_GAS = 'out_of_gas'
+
 SUCCESS = 'success'
 SUCCESS_IF_NOT = 'if_not'
 SUCCESS_OVERFLOW = 'overflow'
