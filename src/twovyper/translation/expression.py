@@ -633,6 +633,11 @@ class ExpressionTranslator(NodeTranslator):
         assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
         fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
 
+        # We forget about events by exhaling all permissions to the event predicates, i.e.
+        # for all event predicates e we do
+        #   exhale forall arg0, arg1, ... :: perm(e(arg0, arg1, ...)) > none ==> acc(e(...), perm(e(...)))
+        # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
+        # to exhale no permissions under a quantifier.
         event_exhales = []
         for event in ctx.program.events.values():
             event_name = mangled.event_name(event.name)
@@ -642,8 +647,10 @@ class ExpressionTranslator(NodeTranslator):
             pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
             perm = self.viper_ast.CurrentPerm(pa, pos)
             pap = self.viper_ast.PredicateAccessPredicate(pa, perm, pos)
+            none = self.viper_ast.NoPerm(pos)
+            impl = self.viper_ast.Implies(self.viper_ast.GtCmp(perm, none, pos), pap)
             trigger = self.viper_ast.Trigger([pa], pos)
-            forall = self.viper_ast.Forall(args, [trigger], pap, pos)
+            forall = self.viper_ast.Forall(args, [trigger], impl, pos)
             event_exhales.append(self.viper_ast.Exhale(forall, pos))
 
         if not constant:
