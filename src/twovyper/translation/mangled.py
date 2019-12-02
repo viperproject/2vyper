@@ -34,7 +34,7 @@ SUCCESS_VAR = '$succ'
 
 OVERFLOW = '$overflow'
 OUT_OF_GAS = '$out_of_gas'
-MSG_SENDER_CALL_FAIL = '$msg_sender_call_fail'
+FAILED = '$failed'
 
 FIRST_PUBLIC_STATE = '$first_public_state'
 

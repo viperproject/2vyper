@@ -627,11 +627,8 @@ class ExpressionTranslator(NodeTranslator):
         send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
         ctx.new_local_vars.append(send_fail)
         fail_cond = send_fail.localVar()
-        msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-        msg_sender_eq = self.viper_ast.EqCmp(to, msg_sender)
-        msg_sender_call_failed = helpers.msg_sender_call_fail_var(self.viper_ast).localVar()
-        assume_msg_sender_call_failed = self.viper_ast.Inhale(self.viper_ast.Implies(msg_sender_eq, msg_sender_call_failed))
-        fail = self.fail_if(fail_cond, [assume_msg_sender_call_failed], ctx, pos)
+        call_failed = helpers.call_failed(self.viper_ast, to, pos)
+        fail = self.fail_if(fail_cond, [call_failed], ctx, pos)
 
         # We forget about events by exhaling all permissions to the event predicates, i.e.
         # for all event predicates e we do

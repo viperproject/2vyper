@@ -147,7 +147,8 @@ class SpecificationTranslator(ExpressionTranslator):
                         elif case(names.SUCCESS_OUT_OF_GAS):
                             var = helpers.out_of_gas_var(self.viper_ast, pos)
                         elif case(names.SUCCESS_SENDER_FAILED):
-                            var = helpers.msg_sender_call_fail_var(self.viper_ast, pos)
+                            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+                            return helpers.check_call_failed(self.viper_ast, msg_sender, pos)
                         else:
                             assert False
 
@@ -296,6 +297,9 @@ class SpecificationTranslator(ExpressionTranslator):
             return [], helpers.overflow_var(self.viper_ast, pos).localVar()
         elif name == names.OUT_OF_GAS:
             return [], helpers.out_of_gas_var(self.viper_ast, pos).localVar()
+        elif name == names.FAILED:
+            stmts, addr = self.translate(node.args[0], ctx)
+            return stmts, helpers.check_call_failed(self.viper_ast, addr, pos)
         elif name == names.IMPLEMENTS:
             stmts, address = self.translate(node.args[0], ctx)
             interface = node.args[1].id

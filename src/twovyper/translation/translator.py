@@ -87,6 +87,8 @@ class ProgramTranslator(CommonTranslator):
         domains = seq_to_list(self.builtins.domains())
         # Add built-in functions
         functions = seq_to_list(self.builtins.functions())
+        # Add built-in predicates
+        predicates = seq_to_list(self.builtins.predicates())
 
         # Add self.$sent field
         sent_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
@@ -134,7 +136,7 @@ class ProgramTranslator(CommonTranslator):
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
         accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
-        predicates = [*events, *accs]
+        predicates.extend([*events, *accs])
 
         vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
         methods.append(self._create_transitivity_check(ctx))

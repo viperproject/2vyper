@@ -155,6 +155,7 @@ REVERT = 'revert'
 
 OVERFLOW = 'overflow'
 OUT_OF_GAS = 'out_of_gas'
+FAILED = 'failed'
 
 SUCCESS = 'success'
 SUCCESS_IF_NOT = 'if_not'

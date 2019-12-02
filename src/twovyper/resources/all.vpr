@@ -16,3 +16,5 @@ import "convert.vpr"
 import "range.vpr"
 
 import "contract.vpr"
+
+import "verification.vpr"

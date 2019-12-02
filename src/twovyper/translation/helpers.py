@@ -55,8 +55,17 @@ def out_of_gas_var(viper_ast: ViperAST, pos=None, info=None):
     return viper_ast.LocalVarDecl(mangled.OUT_OF_GAS, viper_ast.Bool, pos, info)
 
 
-def msg_sender_call_fail_var(viper_ast: ViperAST, pos=None, info=None):
-    return viper_ast.LocalVarDecl(mangled.MSG_SENDER_CALL_FAIL, viper_ast.Bool, pos, info)
+def call_failed(viper_ast: ViperAST, address, pos=None, info=None):
+    write = viper_ast.FullPerm(pos)
+    predicate = viper_ast.PredicateAccess([address], mangled.FAILED, pos)
+    predicate_acc = viper_ast.PredicateAccessPredicate(predicate, write, pos)
+    return viper_ast.Inhale(predicate_acc, pos, info)
+
+
+def check_call_failed(viper_ast: ViperAST, address, pos=None, info=None):
+    none = viper_ast.NoPerm(pos)
+    predicate = viper_ast.PredicateAccess([address], mangled.FAILED, pos)
+    return viper_ast.GtCmp(viper_ast.CurrentPerm(predicate, pos), none, pos, info)
 
 
 def first_public_state_var(viper_ast: ViperAST, pos=None, info=None):

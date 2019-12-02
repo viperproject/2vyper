@@ -431,6 +431,10 @@ class TypeAnnotator(NodeVisitor):
                 elif case(names.OVERFLOW) or case(names.OUT_OF_GAS):
                     _check_number_of_arguments(node, 0)
                     return [types.VYPER_BOOL], [node]
+                elif case(names.FAILED):
+                    _check_number_of_arguments(node, 1)
+                    self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                    return [types.VYPER_BOOL], [node]
                 elif case(names.IMPLEMENTS):
                     _check_number_of_arguments(node, 2)
                     address = node.args[0]
