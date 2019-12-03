@@ -301,6 +301,8 @@ class ProgramBuilder(ast.NodeVisitor):
             check_ghost(func.returns)
 
             decorators = self._decorator_names(func)
+            check_ghost(len(decorators) == len(func.decorator_list))
+
             name = func.name
             args = LocalProgramBuilder(self.type_builder).build(func)
             arg_types = [arg.type for arg in args.values()]
