@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from typing import List
+
 from lark import Lark
 from lark.exceptions import VisitError
 from lark.indenter import Indenter
@@ -33,7 +35,7 @@ _python_parser3 = Lark.open('python.lark', rel_to=__file__, parser='lalr', **_kw
 
 def copy_pos(function):
 
-    def with_pos(self, children: ast.AST, meta: Meta):
+    def with_pos(self, children: List[ast.AST], meta: Meta):
         node = function(self, children, meta)
         node.file = self.file
         node.lineno = meta.line
@@ -95,6 +97,12 @@ class _PythonTransformer(Transformer):
 
     def decorators(self, children, meta):
         return children
+
+    def decorator(self, children, meta):
+        if len(children) == 1:
+            return self.var(children, meta)
+        else:
+            return self.funccall(children, meta)
 
     def parameter_list(self, children, meta):
         args = []

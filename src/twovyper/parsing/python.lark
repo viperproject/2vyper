@@ -26,7 +26,7 @@ file_input: (_NEWLINE | stmt)*
 classdef: "class" NAME ":" suite
 funcdef: decorators "def" NAME "(" parameter_list ")" ["->" test] ":" suite
 decorators: decorator*
-?decorator: "@" var _NEWLINE
+decorator: "@" var ["(" arguments ")"] _NEWLINE
 
 parameter_list: [parameter ("," parameter)*]
 parameter: typedparameter ["=" test]
