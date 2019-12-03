@@ -10,7 +10,7 @@ import ast
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.types import FunctionType, MapType, StructType, AnyStructType
-from twovyper.ast.nodes import VyperFunction
+from twovyper.ast.nodes import VyperFunction, VyperDecorator
 
 from twovyper.analysis.analyzer import FunctionAnalysis
 
@@ -26,7 +26,7 @@ from twovyper.utils import first_index
 
 def init_function() -> ast.FunctionDef:
     type = FunctionType([], None)
-    function = VyperFunction(mangled.INIT, {}, type, [], [], [names.PUBLIC], None)
+    function = VyperFunction(mangled.INIT, {}, type, [], [], [VyperDecorator(names.PUBLIC, [])], None)
     function.analysis = FunctionAnalysis()
     return function
 

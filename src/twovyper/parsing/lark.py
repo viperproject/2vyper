@@ -100,7 +100,7 @@ class _PythonTransformer(Transformer):
 
     def decorator(self, children, meta):
         if len(children) == 1:
-            return self.var(children, meta)
+            return children[0]
         else:
             return self.funccall(children, meta)
 

@@ -17,7 +17,7 @@ from twovyper.parsing.transformer import transform
 from twovyper.ast import interfaces, names
 
 from twovyper.ast.nodes import (
-    VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
+    VyperProgram, VyperDecorator, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
     VyperConfig, VyperInterface, GhostFunction
 )
 
@@ -300,7 +300,7 @@ class ProgramBuilder(ast.NodeVisitor):
             check_ghost(isinstance(func.body[0], ast.Expr))
             check_ghost(func.returns)
 
-            decorators = self._decorators(func)
+            decorators = self._decorator_names(func)
             name = func.name
             args = LocalProgramBuilder(self.type_builder).build(func)
             arg_types = [arg.type for arg in args.values()]
@@ -322,8 +322,14 @@ class ProgramBuilder(ast.NodeVisitor):
 
             ghost_functions[name] = GhostFunction(name, args, type, func)
 
-    def _decorators(self, node: ast.FunctionDef) -> List[str]:
+    def _decorator_names(self, node: ast.FunctionDef) -> List[str]:
         return [dec.id for dec in node.decorator_list if isinstance(dec, ast.Name)]
+
+    def _decorator(self, node: ast.expr) -> VyperDecorator:
+        if isinstance(node, ast.Name):
+            return VyperDecorator(node.id, [])
+        else:
+            return VyperDecorator(node.func.id, node.args)
 
     def visit_FunctionDef(self, node):
         local = LocalProgramBuilder(self.type_builder)
@@ -331,7 +337,7 @@ class ProgramBuilder(ast.NodeVisitor):
         arg_types = [arg.type for arg in args.values()]
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
-        decs = self._decorators(node)
+        decs = [self._decorator(dec) for dec in node.decorator_list]
         function = VyperFunction(node.name, args, type, self.postconditions, self.checks, decs, node)
         self.functions[node.name] = function
         # Reset local specs

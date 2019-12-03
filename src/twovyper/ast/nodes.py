@@ -32,15 +32,22 @@ class VyperVar:
         self.node = node
 
 
+class VyperDecorator:
+
+    def __init__(self, name: str, args: List[ast.expr]):
+        self.name = name
+        self.args = args
+
+
 class VyperFunction:
 
     def __init__(self,
                  name: str,
                  args: Dict[str, VyperVar],
                  type: FunctionType,
-                 postconditions: List[ast.Expr],
-                 checks: List[ast.Expr],
-                 decorators: List[str],
+                 postconditions: List[ast.expr],
+                 checks: List[ast.expr],
+                 decorators: List[VyperDecorator],
                  node: Optional[ast.FunctionDef]):
         self.name = name
         self.args = args
@@ -52,17 +59,27 @@ class VyperFunction:
         # Gets set in the analyzer
         self.analysis = None
 
+    @property
+    def _decorator_names(self) -> Iterable[str]:
+        for dec in self.decorators:
+            yield dec.name
+
     def is_public(self) -> bool:
-        return names.PUBLIC in self.decorators
+        return names.PUBLIC in self._decorator_names
 
     def is_private(self) -> bool:
-        return names.PRIVATE in self.decorators
+        return names.PRIVATE in self._decorator_names
 
     def is_payable(self) -> bool:
-        return names.PAYABLE in self.decorators
+        return names.PAYABLE in self._decorator_names
 
     def is_constant(self) -> bool:
-        return names.CONSTANT in self.decorators
+        return names.CONSTANT in self._decorator_names
+
+    def nonreentrant_keys(self) -> Iterable[str]:
+        for dec in self.decorators:
+            if dec.name == names.NONREENTRANT:
+                yield dec.args[0].s
 
 
 class GhostFunction:

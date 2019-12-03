@@ -11,6 +11,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 PUBLIC = 'public'
 PRIVATE = 'private'
 PAYABLE = 'payable'
+CONSTANT = 'constant'
+NONREENTRANT = 'nonreentrant'
 
 # Modifiers
 CONSTANT = 'constant'
