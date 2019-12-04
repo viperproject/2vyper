@@ -82,7 +82,7 @@ class _ProgramAnalyzer(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call):
         if isinstance(node.func, ast.Name):
             if node.func.id == names.ISSUED:
-                for function in self.program.functions:
+                for function in self.program.functions.values():
                     function.analysis.uses_issued = True
             elif node.func.id == names.ACCESSIBLE:
                 self.program.analysis.accessible_tags[node] = self.tag
