@@ -6,6 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from functools import reduce
+from itertools import chain
 from typing import List
 
 from twovyper import resources
@@ -332,13 +333,18 @@ class ProgramTranslator(CommonTranslator):
             local_vars = [var.var_decl(ctx) for var in local_vars]
             local_vars.append(is_post)
 
+            if ctx.program.analysis.uses_issued:
+                ctx.issued_state[names.SELF] = self_var(mangled.ISSUED_SELF)
+                ctx.issued_state[mangled.CONTRACTS] = contract_var(mangled.CONTRACTS)
+                local_vars.extend(var.var_decl(ctx) for var in ctx.issued_state.values())
+                all_states = chain(states, [ctx.issued_state])
+            else:
+                all_states = states
+
             body = []
 
-            def assume_assertions(s1, s2):
-                body.extend(self._assume_assertions(s1, s2, ctx))
-
             # Assume type assumptions for all self-states
-            for state in states:
+            for state in all_states:
                 for var in state.values():
                     local = var.local_var(ctx)
                     type_assumptions = self.type_translator.type_assumptions(local, var.type, ctx)
@@ -349,8 +355,17 @@ class ProgramTranslator(CommonTranslator):
             block_assumptions = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
             body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
 
-            # Assume assertions for current state 0 and old state 0
-            assume_assertions(states[0], states[0])
+            def assume_assertions(s1, s2):
+                body.extend(self._assume_assertions(s1, s2, ctx))
+
+            if ctx.program.analysis.uses_issued:
+                # Assume assertions for issued state and issued state
+                assume_assertions(ctx.issued_state, ctx.issued_state)
+                # Assume assertions for current state 0 and issued state
+                assume_assertions(states[0], ctx.issued_state)
+            else:
+                # Assume assertions for current state 0 and old state 0
+                assume_assertions(states[0], states[0])
 
             # Assume assertions for current state 1 and old state 0
             assume_assertions(states[1], states[0])
@@ -387,12 +402,17 @@ class ProgramTranslator(CommonTranslator):
         with function_scope(ctx):
             name = mangled.FORCED_ETHER_CHECK
 
+            contracts_type = helpers.contracts_type()
+
+            issued_var = TranslatedVar(names.SELF, mangled.ISSUED_SELF, ctx.self_type, self.viper_ast)
+            issued_local = issued_var.local_var(ctx)
+            issued_contracts_var = TranslatedVar(mangled.ISSUED_CONTRACTS, mangled.ISSUED_CONTRACTS, contracts_type, self.viper_ast)
+
             self_var = TranslatedVar(names.SELF, mangled.SELF, ctx.self_type, self.viper_ast)
             self_local = self_var.local_var(ctx)
             pre_self_var = TranslatedVar(names.SELF, mangled.PRE_SELF, ctx.self_type, self.viper_ast)
             pre_self_local = pre_self_var.local_var(ctx)
 
-            contracts_type = helpers.contracts_type()
             contracts_var = TranslatedVar(mangled.CONTRACTS, mangled.CONTRACTS, contracts_type, self.viper_ast)
             contracts_local = contracts_var.local_var(ctx)
             pre_contracts_var = TranslatedVar(mangled.PRE_CONTRACTS, mangled.PRE_CONTRACTS, contracts_type, self.viper_ast)
@@ -402,31 +422,45 @@ class ProgramTranslator(CommonTranslator):
             ctx.locals[names.BLOCK] = block
             is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
             havoc = self.viper_ast.LocalVarDecl('$havoc', self.viper_ast.Int)
-            local_vars = [var.var_decl(ctx) for var in [self_var, pre_self_var, contracts_var, pre_contracts_var, block]]
+            local_vars = [var.var_decl(ctx) for var in [issued_var, issued_contracts_var, self_var, pre_self_var, contracts_var, pre_contracts_var, block]]
             local_vars.extend([is_post, havoc])
 
             body = []
 
-            def assume_assertions(s1, s2):
-                body.extend(self._assume_assertions(s1, s2, ctx))
+            if ctx.program.analysis.uses_issued:
+                ctx.issued_state[names.SELF] = issued_var
+                ctx.issued_state[mangled.CONTRACTS] = issued_contracts_var
+
+                # Assume type assumptions for issued self
+                issued_assumptions = self.type_translator.type_assumptions(issued_local, ctx.self_type, ctx)
+                body.extend(self.viper_ast.Inhale(a) for a in issued_assumptions)
 
             # Assume type assumptions for self
             type_assumptions = self.type_translator.type_assumptions(self_local, ctx.self_type, ctx)
-            body.extend([self.viper_ast.Inhale(a) for a in type_assumptions])
+            body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
 
             # Assume type assumptions for block
             block_var = block.local_var(ctx)
             block_assumptions = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
             body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
 
+            def assume_assertions(s1, s2):
+                body.extend(self._assume_assertions(s1, s2, ctx))
+
             # Assume balance increase to be non-negative
             zero = self.viper_ast.IntLit(0)
             assume_non_negative = self.viper_ast.Inhale(self.viper_ast.GeCmp(havoc.localVar(), zero))
             body.append(assume_non_negative)
 
+            issued_state = {names.SELF: issued_var, mangled.CONTRACTS: issued_contracts_var}
             self_state = {names.SELF: self_var, mangled.CONTRACTS: contracts_var}
             pre_self_state = {names.SELF: pre_self_var, mangled.CONTRACTS: pre_contracts_var}
-            assume_assertions(self_state, self_state)
+
+            if ctx.program.analysis.uses_issued:
+                assume_assertions(issued_state, issued_state)
+                assume_assertions(self_state, issued_state)
+            else:
+                assume_assertions(self_state, self_state)
 
             body.append(self.viper_ast.LocalVarAssign(pre_self_local, self_local))
             body.append(self.viper_ast.LocalVarAssign(pre_contracts_local, contracts_local))

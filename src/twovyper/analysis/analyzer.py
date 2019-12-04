@@ -40,6 +40,8 @@ def analyze(program: VyperProgram):
 class ProgramAnalysis:
 
     def __init__(self):
+        # True if and only if issued state is accessed in top-level specifications
+        self.uses_issued = False
         # The function that is used to prove accessibility if none is given
         # Is set in the heuristics computation
         # May be 'None' if the heuristics is not able to determine a suitable function
@@ -55,7 +57,7 @@ class ProgramAnalysis:
 class FunctionAnalysis:
 
     def __init__(self):
-        # True if and only if issued state is accessed in the function specification
+        # True if and only if issued state is accessed in top-level or function specifications
         self.uses_issued = False
         # The set of tags for which accessibility needs to be proven in the function
         self.accessible_tags = set()
@@ -76,12 +78,16 @@ class _ProgramAnalyzer(ast.NodeVisitor):
         for post in self.program.general_postconditions:
             self.visit(post)
 
+        for post in self.program.transitive_postconditions:
+            self.visit(post)
+
         for check in self.program.general_checks:
             self.visit(check)
 
     def visit_Call(self, node: ast.Call):
         if isinstance(node.func, ast.Name):
             if node.func.id == names.ISSUED:
+                self.program.analysis.uses_issued = True
                 for function in self.program.functions.values():
                     function.analysis.uses_issued = True
             elif node.func.id == names.ACCESSIBLE:
