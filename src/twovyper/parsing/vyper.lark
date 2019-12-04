@@ -106,7 +106,6 @@ arguments: [argvalue ("," argvalue)*]
 
 ?argvalue: test | NAME "=" test
 
-
 number: DEC_NUMBER | HEX_NUMBER | BIN_NUMBER | OCT_NUMBER
 float: FLOAT_NUMBER
 string: STRING | LONG_STRING
@@ -116,7 +115,6 @@ string: STRING | LONG_STRING
 NAME: /[a-zA-Z_]\w*/
 COMMENT: /#[^\n]*/
 _NEWLINE: (/\r?\n[\t ]*/ | COMMENT)+
-
 
 STRING : /[ubf]?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
 LONG_STRING: /[ubf]?r?(""".*?(?<!\\)(\\\\)*?"""|'''.*?(?<!\\)(\\\\)*?''')/is
