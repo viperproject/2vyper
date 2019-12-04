@@ -285,6 +285,19 @@ def struct_set(viper_ast: ViperAST, ref, val, member: str, member_type, type: St
     return viper_ast.DomainFuncApp(setter, [ref, idx, val], s_type, pos, info, domain, type_map)
 
 
+def get_lock(viper_ast: ViperAST, name: str, ctx: Context, pos=None, info=None):
+    lock_name = mangled.lock_name(name)
+    self_var = ctx.self_var.local_var(ctx)
+    return struct_get(viper_ast, self_var, lock_name, viper_ast.Bool, ctx.self_type, pos, info)
+
+
+def set_lock(viper_ast: ViperAST, name: str, val: bool, ctx: Context, pos=None, info=None):
+    lock_name = mangled.lock_name(name)
+    value = viper_ast.TrueLit(pos) if val else viper_ast.FalseLit(pos)
+    self_var = ctx.self_var.local_var(ctx)
+    return struct_set(viper_ast, self_var, value, lock_name, viper_ast.Bool, ctx.self_type, pos, info)
+
+
 def convert_bytes32_to_signed_int(viper_ast: ViperAST, bytes, pos=None, info=None):
     domain = mangled.CONVERT_DOMAIN
     function = mangled.CONVERT_BYTES32_TO_SIGNED_INT

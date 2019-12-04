@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from twovyper.ast import names
 from twovyper.ast.types import (
@@ -156,6 +156,13 @@ class VyperProgram:
 
     def is_interface(self) -> bool:
         return False
+
+    def nonreentrant_keys(self) -> Set[str]:
+        s = set()
+        for func in self.functions.values():
+            for key in func.nonreentrant_keys():
+                s.add(key)
+        return s
 
     def _ghost_functions(self) -> Iterable[Tuple[str, GhostFunction]]:
         for interface in self.interfaces.values():

@@ -99,6 +99,9 @@ class ProgramTranslator(CommonTranslator):
         # Add self.$selfdestruct field
         selfdestruct_type = types.VYPER_BOOL
         vyper_program.fields.type.add_member(mangled.SELFDESTRUCT_FIELD, selfdestruct_type)
+        # For each nonreentrant key add a boolean flag whether it is set
+        for key in vyper_program.nonreentrant_keys():
+            vyper_program.fields.type.add_member(mangled.lock_name(key), types.VYPER_BOOL)
 
         ctx = Context()
         ctx.program = vyper_program

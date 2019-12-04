@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import ast
 
+from functools import reduce
 from itertools import chain
 from typing import List
 
@@ -223,6 +224,11 @@ class FunctionTranslator(CommonTranslator):
                 var_assign = self.viper_ast.LocalVarAssign(fps, self.viper_ast.TrueLit())
                 body.append(var_assign)
 
+            # Revert if a @nonreentrant lock is set
+            body.extend(self._assert_unlocked(function, ctx))
+            # Set all @nonreentrant locks
+            body.extend(self._set_locked(function, True, ctx))
+
             # In the initializer initialize all fields to their default values
             if is_init:
                 stmts, default_self = self.type_translator.default_value(None, ctx.self_type, ctx)
@@ -260,6 +266,9 @@ class FunctionTranslator(CommonTranslator):
             if function.node:
                 body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
                 body.extend(self.seqn_with_info(body_stmts, "Function body"))
+
+            # Unset @nonreentrant locks
+            body.extend(self._set_locked(function, False, ctx))
 
             # If we reach this point we either jumped to it by returning or got threre directly
             # because we didn't revert (yet)
@@ -532,9 +541,17 @@ class FunctionTranslator(CommonTranslator):
             return_label = self.viper_ast.Label(return_label_name)
             ctx.return_label = return_label_name
 
+            # Revert if a @nonreentrant lock is set
+            body.extend(self._assert_unlocked(function, ctx))
+            # Set @nonreentrant locks
+            body.extend(self._set_locked(function, True, ctx))
+
             # Translate body
             body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
             body.extend(body_stmts)
+
+            # Unset @nonreentrant locks
+            body.extend(self._set_locked(function, False, ctx))
 
             seqn = self.seqn_with_info(body, f"Inlined call of {function.name}")
             return seqn + [return_label], ret_var
@@ -561,3 +578,18 @@ class FunctionTranslator(CommonTranslator):
         assume_pos = self._assume_non_negative(havoc, ctx)
         inc = self.balance_translator.increase_balance(havoc, ctx)
         return [assume_pos, inc]
+
+    def _assert_unlocked(self, function: VyperFunction, ctx: Context) -> List[Stmt]:
+        keys = function.nonreentrant_keys()
+        locked = [helpers.get_lock(self.viper_ast, key, ctx) for key in keys]
+        if locked:
+            cond = reduce(self.viper_ast.Or, locked)
+            return [self.fail_if(cond, [], ctx)]
+        else:
+            return []
+
+    def _set_locked(self, function: VyperFunction, value: bool, ctx: Context) -> List[Stmt]:
+        keys = function.nonreentrant_keys()
+        self_var = ctx.self_var.local_var(ctx)
+        set_lock = lambda key: helpers.set_lock(self.viper_ast, key, value, ctx)
+        return [self.viper_ast.LocalVarAssign(self_var, set_lock(key)) for key in keys]

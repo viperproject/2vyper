@@ -26,19 +26,34 @@ def deposit():
     self.pending_returns[msg.sender] += msg.value
 
 
+@private
+@nonreentrant('lock')
+def _withdraw(a: address):
+    C(a).pay(value=self.pending_returns[a])
+    self.pending_returns[a] = 0
+
+
 #@ ensures: old(locked('lock')) ==> revert()
 #@ ensures: success() ==> sent(msg.sender) - old(sent(msg.sender)) == old(self.pending_returns[msg.sender])
 @public
-@nonreentrant('lock')
 def withdraw():
-    C(msg.sender).pay(value=self.pending_returns[msg.sender])
-    self.pending_returns[msg.sender] = 0
+    self._withdraw(msg.sender)
+
+
+#@ ensures: revert()
+@public
+@nonreentrant('lock')
+def withdraw_revert():
+    self._withdraw(msg.sender)
+
+
+@private
+def _withdraw_fail(a: address):
+    C(a).pay(value=self.pending_returns[a])
+    self.pending_returns[a] = 0
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false, CONSTANT_SENT)
 @public
-@nonreentrant('lck')
 def withdraw_fail():
-    amount: wei_value = self.pending_returns[msg.sender]
-    self.pending_returns[msg.sender] = 0
-    C(msg.sender).pay(value=amount)
+    self._withdraw_fail(msg.sender)

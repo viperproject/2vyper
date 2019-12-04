@@ -174,6 +174,9 @@ class SpecificationTranslator(ExpressionTranslator):
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
             return stmts, helpers.map_sum(self.viper_ast, expr, key_type, pos)
+        elif name == names.LOCKED:
+            lock_name = node.args[0].s
+            return [], helpers.get_lock(self.viper_ast, lock_name, ctx, pos)
         elif name == names.STORAGE:
             args = node.args
             # We translate storage(self) just as the self variable, otherwise we look up

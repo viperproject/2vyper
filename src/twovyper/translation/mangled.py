@@ -144,6 +144,10 @@ def accessible_name(vyper_name: str) -> str:
     return f'$accessible${vyper_name}'
 
 
+def lock_name(vyper_name: str) -> str:
+    return f'r${vyper_name}'
+
+
 def local_var_name(inline_prefix: str, vyper_name: str) -> str:
     if vyper_name in {names.SELF, names.MSG, names.BLOCK}:
         prefix = ''
