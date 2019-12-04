@@ -37,9 +37,9 @@ def foo(i: uint256):
     self.large += i
 
 
-#@ ensures: implies(i < old(self.small), success(if_not=sender_failed))
+#@ ensures: implies(i < old(self.small), success(if_not=out_of_gas or sender_failed))
 #:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: implies(i < issued(self.small), success(if_not=sender_failed))
+#@ ensures: implies(i < issued(self.small), success(if_not=out_of_gas or sender_failed))
 @public
 def bar(i: uint256):
     self.small -= i

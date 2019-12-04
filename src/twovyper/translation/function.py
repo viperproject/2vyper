@@ -443,7 +443,7 @@ class FunctionTranslator(CommonTranslator):
             # and checking in the end that if it has been inhaled (i.e. if we want to prove
             # that some amount is a accessible) the amount has been sent to msg.sender
             # forall a: wei_value :: perm(accessible(tag, msg.sender, a, <args>)) > 0 ==>
-            #   success(if_not=sender_failed) and
+            #   success(if_not=out_of_gas or sender_failed) and
             #   success() ==> sent(msg.sender) - old(sent(msg.sender)) >= a
             # The tag is used to differentiate between the different invariants the accessible
             # expressions occur in
