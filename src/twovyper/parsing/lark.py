@@ -30,7 +30,7 @@ class PythonIndenter(Indenter):
 
 
 _kwargs = dict(postlex=PythonIndenter(), start='file_input', propagate_positions=True)
-_python_parser3 = Lark.open('python.lark', rel_to=__file__, parser='lalr', **_kwargs)
+_python_parser3 = Lark.open('vyper.lark', rel_to=__file__, parser='lalr', **_kwargs)
 
 
 def copy_pos(function):

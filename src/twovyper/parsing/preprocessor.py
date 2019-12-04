@@ -9,11 +9,6 @@ import re
 
 
 def preprocess(program: str) -> str:
-    # Change structs to classes
-    program = re.sub(r'(?<=^)struct(?=\s.*:\s*$)', r'class ', program, flags=re.MULTILINE)
-    # Change contracts to classes
-    program = re.sub(r'(?<=^)contract(?=\s.*:\s*$)', r'class   ', program, flags=re.MULTILINE)
-
     # Make specifications valid python statements. We use assignments instead of variable
     # declarations because we could have contract variables called 'ensures'.
     # Padding with spaces is used to keep the column numbers correct in the preprocessed program.

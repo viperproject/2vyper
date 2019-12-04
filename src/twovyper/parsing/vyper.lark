@@ -23,7 +23,7 @@
 
 file_input: (_NEWLINE | stmt)*
 
-classdef: "class" NAME ":" suite
+classdef: ("struct" | "contract") NAME ":" suite
 funcdef: decorators "def" NAME "(" parameter_list ")" ["->" test] ":" suite
 decorators: decorator*
 decorator: "@" var ["(" arguments ")"] _NEWLINE
