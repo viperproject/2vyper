@@ -24,7 +24,7 @@ def __default__():
     pass
 
 
-#@ ensures: implies(msg.sender == old(self.owner), success(if_not=sender_failed))
+#@ ensures: implies(msg.sender == old(self.owner), success(if_not=out_of_gas or sender_failed))
 #@ ensures: implies(success(), implies(msg.sender == old(self.owner), sent(msg.sender) - old(sent(msg.sender)) >= old(self.balance)))
 @public
 def withdraw():

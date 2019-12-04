@@ -6,6 +6,9 @@
 #
 
 
+#@ config: no_gas
+
+
 #@ always ensures: implies(success(), success(if_not=sender_failed))
 
 

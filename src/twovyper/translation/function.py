@@ -280,9 +280,7 @@ class FunctionTranslator(CommonTranslator):
             # Fail, if we ran out of gas
             # If the no_gas option is set, ignore it
             if not ctx.program.config.has_option(names.CONFIG_NO_GAS):
-                msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-                assume_msg_sender_call_fail = helpers.call_failed(self.viper_ast, msg_sender, pos)
-                body.append(self.fail_if(out_of_gas_var.localVar(), [assume_msg_sender_call_fail], ctx))
+                body.append(self.fail_if(out_of_gas_var.localVar(), [], ctx))
 
             # If we reach this point do not revert the state
             body.append(self.viper_ast.Goto(mangled.END_LABEL))
@@ -472,8 +470,9 @@ class FunctionTranslator(CommonTranslator):
                 acc_perm = self.viper_ast.CurrentPerm(acc_pred, inv_pos)
                 pos_perm = self.viper_ast.GtCmp(acc_perm, self.viper_ast.NoPerm(inv_pos), inv_pos)
 
-                sender_failed = helpers.check_call_failed(self.viper_ast, msg_sender, pos)
-                not_sender_failed = self.viper_ast.Not(sender_failed, inv_pos)
+                sender_failed = helpers.check_call_failed(self.viper_ast, msg_sender, inv_pos)
+                out_of_gas = helpers.out_of_gas_var(self.viper_ast, inv_pos).localVar()
+                not_sender_failed = self.viper_ast.Not(self.viper_ast.Or(sender_failed, out_of_gas, inv_pos), inv_pos)
                 succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var, inv_pos)
 
                 sent_to = self.balance_translator.get_sent(self_var, msg_sender, ctx, inv_pos)
