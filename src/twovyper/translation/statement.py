@@ -102,7 +102,7 @@ class StatementTranslator(NodeTranslator):
             save_vars, modelt = self.model_translator.save_variables(ctx, pos)
             mpos = self.to_position(node, ctx, modelt=modelt)
             false = self.viper_ast.FalseLit(pos)
-            return [self.viper_ast.Assert(false, mpos)]
+            return [*save_vars, self.viper_ast.Assert(false, mpos)]
         else:
             return [self.viper_ast.Goto(ctx.revert_label, pos)]
 

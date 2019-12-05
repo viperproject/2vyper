@@ -145,7 +145,7 @@ class NodeVisitor(abc.ABC):
         return visitor(node, *args)
 
     def generic_visit(self, node, *args):
-        for field, value in ast.iter_fields(node):
+        for _, value in ast.iter_fields(node):
             if isinstance(value, list):
                 for item in value:
                     if isinstance(item, ast.AST):

@@ -95,8 +95,6 @@ class ModelTranslator(CommonTranslator):
 
         transform[mangled.OUT_OF_GAS] = f'{names.SUCCESS_OUT_OF_GAS}()'
         type_map[mangled.OUT_OF_GAS] = types.VYPER_BOOL
-        transform[mangled.MSG_SENDER_CALL_FAIL] = f'{names.SUCCESS_SENDER_FAILED}()'
-        type_map[mangled.MSG_SENDER_CALL_FAIL] = types.VYPER_BOOL
         transform[mangled.OVERFLOW] = f'{names.SUCCESS_OVERFLOW}()'
         type_map[mangled.OVERFLOW] = types.VYPER_BOOL
 
