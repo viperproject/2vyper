@@ -175,6 +175,8 @@ class ProgramBuilder(ast.NodeVisitor):
                 name = alias.name
                 if name == interfaces.ERC20:
                     self.contracts[name] = VyperContract(name, interfaces.ERC20_TYPE, None)
+                elif name == interfaces.ERC721:
+                    self.contracts[name] = VyperContract(name, interfaces.ERC721_TYPE, None)
                 else:
                     assert False
 
