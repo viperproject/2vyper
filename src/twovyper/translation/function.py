@@ -572,7 +572,7 @@ class FunctionTranslator(CommonTranslator):
         return havoc.localVar()
 
     def _havoc_balance(self, ctx: Context):
-        balance_type = ctx.field_types[names.SELF_BALANCE]
+        balance_type = ctx.field_types[names.ADDRESS_BALANCE]
         havoc = self._havoc_var(balance_type, ctx)
         assume_pos = self._assume_non_negative(havoc, ctx)
         inc = self.balance_translator.increase_balance(havoc, ctx)

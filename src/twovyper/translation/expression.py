@@ -17,7 +17,7 @@ from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.nodes import VyperFunction, VyperInterface, VyperVar
-from twovyper.ast.types import MapType, ArrayType, ContractType, InterfaceType
+from twovyper.ast.types import MapType, ArrayType, StructType, AddressType, ContractType, InterfaceType
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
@@ -198,9 +198,20 @@ class ExpressionTranslator(NodeTranslator):
 
         stmts, expr = self.translate(node.value, ctx)
 
-        struct_type = node.value.type
+        if isinstance(node.value.type, StructType):
+            # The value is a struct
+            struct_type = node.value.type
+            struct = expr
+        else:
+            # The value is an address
+            struct_type = AddressType()
+            contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
+            key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
+            value_type = helpers.struct_type(self.viper_ast)
+            struct = helpers.map_get(self.viper_ast, contracts, expr, key_type, value_type)
+
         type = self.type_translator.translate(node.type, ctx)
-        get = helpers.struct_get(self.viper_ast, expr, node.attr, type, struct_type, pos)
+        get = helpers.struct_get(self.viper_ast, struct, node.attr, type, struct_type, pos)
         return stmts, get
 
     def translate_Subscript(self, node: ast.Subscript, ctx: Context) -> StmtsAndExpr:

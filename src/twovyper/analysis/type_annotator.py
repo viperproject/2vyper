@@ -167,9 +167,10 @@ class TypeAnnotator(NodeVisitor):
         for node in nodes:
             node.type = combined[0]
 
-    def annotate_expected(self, node, expected):
+    def annotate_expected(self, node, expected, orelse=None):
         """
-        Checks that node has type expected (or matches the predicate expected).
+        Checks that node has type `expected` (or matches the predicate `expected`) or, if that isn't the case,
+        that is has type `orelse` (or matches the predicate `orelse`).
         """
         tps, nodes = self.visit(node)
 
@@ -188,7 +189,10 @@ class TypeAnnotator(NodeVisitor):
                     annotate_nodes(t)
                     return
 
-        raise InvalidProgramException(node, 'invalid.type')
+        if orelse:
+            self.annotate_expected(node, orelse)
+        else:
+            raise InvalidProgramException(node, 'invalid.type')
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         for stmt in node.body:
@@ -618,8 +622,9 @@ class TypeAnnotator(NodeVisitor):
         return [types.VYPER_BOOL], [node]
 
     def visit_Attribute(self, node: ast.Attribute):
-        self.annotate_expected(node.value, lambda t: isinstance(t, StructType))
-        ntype = node.value.type.member_types.get(node.attr)
+        self.annotate_expected(node.value, lambda t: isinstance(t, StructType), types.VYPER_ADDRESS)
+        struct_type = node.value.type if isinstance(node.value.type, StructType) else types.AddressType()
+        ntype = struct_type.member_types.get(node.attr)
         if not ntype:
             raise InvalidProgramException(node, 'invalid.storage.var')
         return [ntype], [node]

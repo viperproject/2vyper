@@ -25,12 +25,12 @@ class BalanceTranslator(CommonTranslator):
         self.type_translator = TypeTranslator(viper_ast)
 
     def get_balance(self, self_var: Expr, ctx: Context, pos=None, info=None) -> Expr:
-        balance_type = ctx.field_types[names.SELF_BALANCE]
-        return helpers.struct_get(self.viper_ast, self_var, names.SELF_BALANCE, balance_type, ctx.self_type, pos, info)
+        balance_type = ctx.field_types[names.ADDRESS_BALANCE]
+        return helpers.struct_get(self.viper_ast, self_var, names.ADDRESS_BALANCE, balance_type, ctx.self_type, pos, info)
 
     def set_balance(self, self_var: Expr, value: Expr, ctx: Context, pos=None, info=None) -> Expr:
-        balance_type = ctx.field_types[names.SELF_BALANCE]
-        return helpers.struct_set(self.viper_ast, self_var, value, names.SELF_BALANCE, balance_type, ctx.self_type, pos, info)
+        balance_type = ctx.field_types[names.ADDRESS_BALANCE]
+        return helpers.struct_set(self.viper_ast, self_var, value, names.ADDRESS_BALANCE, balance_type, ctx.self_type, pos, info)
 
     def check_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
         self_var = ctx.self_var.local_var(ctx)

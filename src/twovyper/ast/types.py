@@ -81,12 +81,28 @@ class AnyStructType(VyperType):
         super().__init__('$AnyStruct')
 
 
-class SelfType(StructType):
+class AnyAddressType(StructType):
+
+    def __init__(self, name: str, member_types: Dict[str, VyperType]):
+        assert names.ADDRESS_BALANCE not in member_types
+        assert names.ADDRESS_CODESIZE not in member_types
+        assert names.ADDRESS_IS_CONTRACT not in member_types
+
+        member_types[names.ADDRESS_BALANCE] = VYPER_WEI_VALUE
+        member_types[names.ADDRESS_CODESIZE] = VYPER_INT128
+        member_types[names.ADDRESS_IS_CONTRACT] = VYPER_BOOL
+        super().__init__(name, member_types)
+
+
+class AddressType(AnyAddressType):
+
+    def __init__(self):
+        super().__init__(names.ADDRESS, {})
+
+
+class SelfType(AnyAddressType):
 
     def __init__(self, member_types: Dict[str, VyperType]):
-        # Add self.balance
-        assert not member_types.get(names.SELF_BALANCE)
-        member_types[names.SELF_BALANCE] = VYPER_WEI_VALUE
         super().__init__(names.SELF, member_types)
 
 

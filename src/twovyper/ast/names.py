@@ -37,8 +37,10 @@ EVENT = 'event'
 INIT = '__init__'
 
 # Variables
+ADDRESS_BALANCE = 'balance'
+ADDRESS_CODESIZE = 'codesize'
+ADDRESS_IS_CONTRACT = 'is_contract'
 SELF = 'self'
-SELF_BALANCE = 'balance'
 MSG = 'msg'
 MSG_SENDER = 'sender'
 MSG_VALUE = 'value'
