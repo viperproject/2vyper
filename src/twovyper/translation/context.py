@@ -259,7 +259,7 @@ def function_scope(ctx: Context):
 def quantified_var_scope(ctx: Context):
     quantified_vars = ctx.quantified_vars.copy()
     quantified_var_counter = ctx._quantified_var_counter
-    ctx.quantified_var_counter = -1
+    ctx._quantified_var_counter = -1
 
     yield
 
