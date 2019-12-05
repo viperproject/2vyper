@@ -15,6 +15,7 @@ import "convert.vpr"
 
 import "range.vpr"
 
+import "blockchain.vpr"
 import "contract.vpr"
 
 import "verification.vpr"

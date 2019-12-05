@@ -1,0 +1,24 @@
+ /*
+  Copyright (c) 2019 ETH Zurich
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+domain $Blockchain {
+
+    function $blockhash($no: Int, $curr: Int): Seq[Int]
+
+    function $method_id($bb: Seq[Int], $l: Int): Seq[Int]
+
+    axiom $blockhash_ax {
+        forall $no: Int, $curr: Int :: { $blockhash($no, $curr) }
+            |$blockhash($no, $curr)| == 32
+    }
+
+    axiom $method_id_ax {
+        forall $bb: Seq[Int], $l: Int :: { $method_id($bb, $l) }
+            |$method_id($bb, $l)| == $l
+    }
+
+}

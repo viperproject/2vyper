@@ -16,7 +16,7 @@ from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.types import (
-    TypeBuilder, VyperType, MapType, ArrayType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
+    TypeBuilder, VyperType, MapType, ArrayType, StringType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
 )
 from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction
 
@@ -406,6 +406,20 @@ class TypeAnnotator(NodeVisitor):
 
                     self.annotate_expected(node.args[0], is_bytes_array)
                     return [types.VYPER_BYTES32], [node]
+                elif case(names.BLOCKHASH):
+                    _check_number_of_arguments(node, 1)
+
+                    self.annotate_expected(node.args[0], types.VYPER_UINT256)
+                    return [types.VYPER_BYTES32], [node]
+                elif case(names.METHOD_ID):
+                    _check_number_of_arguments(node, 2)
+
+                    self.annotate_expected(node.args[0], lambda t: isinstance(t, StringType))
+                    ntype = self.type_builder.build(node.args[1])
+                    is_bytes32 = lambda t: t == types.VYPER_BYTES32
+                    is_bytes4 = lambda t: isinstance(ntype, ArrayType) and ntype.element_type == types.VYPER_BYTE and ntype.size == 4
+                    _check(is_bytes32(ntype) or is_bytes4(ntype), node.args[1], 'invalid.method_id')
+                    return [ntype], [node]
                 elif case(names.IMPLIES):
                     _check_number_of_arguments(node, 2)
 
@@ -591,7 +605,7 @@ class TypeAnnotator(NodeVisitor):
 
     def visit_Str(self, node: ast.Str):
         string_bytes = bytes(node.s, 'utf-8')
-        ntype = types.StringType(len(string_bytes))
+        ntype = StringType(len(string_bytes))
         return [ntype], [node]
 
     # Sets occur in trigger expressions

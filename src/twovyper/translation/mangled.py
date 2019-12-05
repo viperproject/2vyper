@@ -42,6 +42,10 @@ END_LABEL = 'end'
 RETURN_LABEL = 'return'
 REVERT_LABEL = 'revert'
 
+BLOCKCHAIN_DOMAIN = '$Blockchain'
+BLOCKCHAIN_BLOCKHASH = '$blockhash'
+BLOCKCHAIN_METHOD_ID = '$method_id'
+
 CONTRACT_DOMAIN = '$Contract'
 SELF_ADDRESS = '$self_address'
 IMPLEMENTS = '$implements'

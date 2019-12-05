@@ -454,6 +454,12 @@ class ExpressionTranslator(NodeTranslator):
             elif name == names.SHA256:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, helpers.array_sha256(self.viper_ast, arg, pos)
+            elif name == names.BLOCKHASH:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                return arg_stmts, helpers.blockhash(self.viper_ast, arg, ctx, pos)
+            elif name == names.METHOD_ID:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                return arg_stmts, helpers.method_id(self.viper_ast, arg, node.type.size, pos)
             elif name == names.SELFDESTRUCT:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
 
