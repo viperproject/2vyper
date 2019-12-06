@@ -6,6 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 import abc
+import logging
 
 from enum import Enum
 
@@ -53,6 +54,8 @@ class Silicon(AbstractVerifier):
         self.silicon.start()
         self.ready = True
 
+        logging.info("Initialized Silicon.")
+
     def verify(self, program: Program) -> VerificationResult:
         """
         Verifies the given program using Silicon
@@ -62,12 +65,14 @@ class Silicon(AbstractVerifier):
         result = self.silicon.verify(program)
         self.ready = False
         if isinstance(result, self.silver.verifier.Failure):
+            logging.info("Silicon returned with: Failure.")
             it = result.errors().toIterator()
             errors = []
             while it.hasNext():
                 errors += [it.next()]
             return Failure(errors, self.jvm)
         else:
+            logging.info("Silicon returned with: Success.")
             return Success()
 
     def __del__(self):
@@ -100,6 +105,8 @@ class Carbon:
         self.ready = True
         self.jvm = jvm
 
+        logging.info("Initialized Carbon.")
+
     def verify(self, program: Program) -> VerificationResult:
         """
         Verifies the given program using Carbon
@@ -109,12 +116,14 @@ class Carbon:
         result = self.carbon.verify(program)
         self.ready = False
         if isinstance(result, self.silver.verifier.Failure):
+            logging.info("Carbon returned with: Failure.")
             it = result.errors().toIterator()
             errors = []
             while it.hasNext():
                 errors += [it.next()]
             return Failure(errors)
         else:
+            logging.info("Carbon returned with: Success.")
             return Success()
 
 

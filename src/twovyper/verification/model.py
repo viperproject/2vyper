@@ -5,6 +5,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+import logging
+
 from typing import Callable, Dict, Optional, Tuple
 
 from twovyper.utils import seq_to_list
@@ -29,6 +31,9 @@ class Model:
             for name_entry in seq_to_list(entries):
                 name = str(name_entry._1())
                 value = str(name_entry._2())
+
+                logging.debug(f"Parsing '{name}': {value}")
+
                 py_value = _eval_value(_parse_value(value))
                 transformation = self._transform(name, py_value)
                 if transformation:

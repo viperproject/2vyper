@@ -50,21 +50,40 @@ class TwoVyper:
         if not skip_vyper:
             vyper.check(path, vyper_root)
 
+        logging.debug("Start parsing.")
+
         vyper_program = parser.parse(path, vyper_root)
+
+        logging.info("Finished parsing.")
+        logging.debug("Start analyzing.")
+
         for interface in vyper_program.interfaces.values():
             analyzer.analyze(interface)
         analyzer.analyze(vyper_program)
 
+        logging.info("Finished analyzing.")
+        logging.debug("Start translating.")
+
         options = TranslationOptions(self.get_model)
-        return translator.translate(vyper_program, options, self.jvm)
+        translated = translator.translate(vyper_program, options, self.jvm)
+
+        logging.info("Finished translating.")
+
+        return translated
 
     def verify(self, program: Program, path: str, backend: str) -> VerificationResult:
         """
         Verifies the given Viper program
         """
+        logging.debug("Start verifying.")
+
         verifier = ViperVerifier[backend].value
         verifier.initialize(self.jvm, path, self.get_model)
-        return verifier.verify(program)
+        result = verifier.verify(program)
+
+        logging.info("Finished verifying.")
+
+        return result
 
 
 def _parse_log_level(log_level_string: str) -> int:
@@ -174,7 +193,10 @@ def main() -> None:
     if args.verifier == 'carbon' and not config.boogie_path:
         parser.error('missing argument: --boogie')
 
-    logging.basicConfig(level=args.log)
+    formatter = logging.Formatter()
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    logging.basicConfig(level=args.log, handlers=[handler])
 
     jvm = JVM(config.classpath)
     translate_and_verify(args.vyper_file, jvm, args)
