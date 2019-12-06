@@ -58,7 +58,7 @@ def copy_pos_from(node: ast.AST, to: ast.AST):
 def copy_pos_between(node: ast.AST, left: ast.AST, right: ast.AST):
     assert left.file == right.file
     assert left.lineno <= right.lineno
-    assert left.col_offset < right.col_offset
+    assert left.lineno != right.lineno or left.col_offset < right.col_offset
 
     node.file = left.file
     node.lineno = left.lineno
