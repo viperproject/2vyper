@@ -159,18 +159,13 @@ class ProgramBuilder(ast.NodeVisitor):
             self.interfaces[name] = interface
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
-        # TODO: check for ERC20
-
         module = node.module or ''
         components = module.split('.')
 
         if self.is_interface:
             return
 
-        if components and components[0] == interfaces.VYPER_INTERFACES[0]:
-            assert len(components) == 2
-            assert components[1] == interfaces.VYPER_INTERFACES[1]
-
+        if components == interfaces.VYPER_INTERFACES:
             for alias in node.names:
                 name = alias.name
                 if name == interfaces.ERC20:
