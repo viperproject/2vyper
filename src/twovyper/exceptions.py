@@ -11,18 +11,29 @@ import os
 from twovyper.utils import pprint
 
 
-class InvalidVyperException(Exception):
+class TwoVyperException(Exception):
+
+    def __init__(self, message: str):
+        self.message = message
+
+
+class InvalidVyperException(TwoVyperException):
 
     def __init__(self, vyper_output: str):
-        self.message = f"Not a valid Vyper contract:\n{vyper_output}"
-        super().__init__(self.message)
+        message = f"Not a valid Vyper contract:\n{vyper_output}"
+        super().__init__(message)
 
 
-class TranslationException(Exception):
+class ParseException(TwoVyperException):
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class TranslationException(TwoVyperException):
 
     def __init__(self, node: ast.AST, message: str):
         super().__init__(message)
-        self.message = message
         self.node = node
 
     def error_string(self) -> str:
@@ -60,7 +71,7 @@ class InvalidProgramException(TranslationException):
         super().__init__(node, f"Invalid program ({self.reason_code}): {message}")
 
 
-class ConsistencyException(Exception):
+class ConsistencyException(TwoVyperException):
     """
     Exception reporting that the translated AST has a consistency error
     """
@@ -68,5 +79,4 @@ class ConsistencyException(Exception):
     def __init__(self, program, message: str, errors):
         super().__init__(message)
         self.program = program
-        self.message = message
         self.errors = errors

@@ -10,14 +10,14 @@ import ast
 from typing import List
 
 from lark import Lark
-from lark.exceptions import VisitError
+from lark.exceptions import ParseError, UnexpectedInput, VisitError
 from lark.indenter import Indenter
 from lark.tree import Meta
 from lark.visitors import Transformer, v_args
 
 from twovyper.ast.arithmetic import Decimal
 
-from twovyper.exceptions import InvalidProgramException
+from twovyper.exceptions import ParseException, InvalidProgramException
 
 
 class PythonIndenter(Indenter):
@@ -518,7 +518,10 @@ class _PythonTransformer(Transformer):
 
 
 def parse(text, file) -> ast.Module:
-    tree = _python_parser3.parse(text + '\n')
+    try:
+        tree = _python_parser3.parse(text + '\n')
+    except (ParseError, UnexpectedInput) as e:
+        raise ParseException(str(e))
     try:
         return _PythonTransformer().transform_tree(tree, file)
     except VisitError as e:

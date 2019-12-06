@@ -32,7 +32,7 @@ from twovyper.verification.verifier import (
 )
 
 from twovyper.exceptions import (
-    InvalidVyperException, UnsupportedException, InvalidProgramException, ConsistencyException
+    InvalidVyperException, ParseException, UnsupportedException, InvalidProgramException, ConsistencyException
 )
 
 
@@ -223,7 +223,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
         print(e.message)
         for error in e.errors:
             print(error.toString())
-    except InvalidVyperException as e:
+    except (InvalidVyperException, ParseException) as e:
         print(e.message)
     except JException as e:
         print(e.stacktrace())
