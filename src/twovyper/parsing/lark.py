@@ -477,8 +477,9 @@ class _PythonTransformer(Transformer):
             if isinstance(c, ast.keyword):
                 kwargs.append(c)
             else:
-                # TODO: handle
-                assert not kwargs
+                # kwargs cannot come before normal args
+                if kwargs:
+                    raise InvalidProgramException(kwargs[0], 'invalid.kwargs')
                 args.append(c)
 
         return args, kwargs
