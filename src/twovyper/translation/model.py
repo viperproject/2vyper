@@ -93,9 +93,9 @@ class ModelTranslator(CommonTranslator):
             transform[ctx.result_var.mangled_name] = f'{names.RESULT}()'
             type_map[ctx.result_var.mangled_name] = ctx.result_var.type
 
-        transform[mangled.OUT_OF_GAS] = f'{names.SUCCESS_OUT_OF_GAS}()'
+        transform[mangled.OUT_OF_GAS] = f'{names.OUT_OF_GAS}()'
         type_map[mangled.OUT_OF_GAS] = types.VYPER_BOOL
-        transform[mangled.OVERFLOW] = f'{names.SUCCESS_OVERFLOW}()'
+        transform[mangled.OVERFLOW] = f'{names.OVERFLOW}()'
         type_map[mangled.OVERFLOW] = types.VYPER_BOOL
 
         def transform_value(type, value):
