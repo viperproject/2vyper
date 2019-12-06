@@ -301,7 +301,7 @@ class ProgramBuilder(ast.NodeVisitor):
             check_ghost(len(decorators) == len(func.decorator_list))
 
             name = func.name
-            args = LocalProgramBuilder(self.type_builder).build(func)
+            args = {arg.arg: self._arg(arg) for arg in func.args.args}
             arg_types = [arg.type for arg in args.values()]
             return_type = None if func.returns is None else self.type_builder.build(func.returns)
             type = FunctionType(arg_types, return_type)
@@ -330,9 +330,13 @@ class ProgramBuilder(ast.NodeVisitor):
         else:
             return VyperDecorator(node.func.id, node.args)
 
+    def _arg(self, node: ast.arg) -> VyperVar:
+        arg_name = node.arg
+        arg_type = self.type_builder.build(node.annotation)
+        return VyperVar(arg_name, arg_type, node)
+
     def visit_FunctionDef(self, node):
-        local = LocalProgramBuilder(self.type_builder)
-        args = local.build(node)
+        args = {arg.arg: self._arg(arg) for arg in node.args.args}
         arg_types = [arg.type for arg in args.values()]
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
@@ -342,21 +346,3 @@ class ProgramBuilder(ast.NodeVisitor):
         # Reset local specs
         self.postconditions = []
         self.checks = []
-
-
-class LocalProgramBuilder(ast.NodeVisitor):
-
-    def __init__(self, type_builder: TypeBuilder):
-        self.args = {}
-
-        self.type_builder = type_builder
-
-    def build(self, node: ast.AST):
-        self.visit(node)
-        return self.args
-
-    def visit_arg(self, node: ast.arg):
-        arg_name = node.arg
-        arg_type = self.type_builder.build(node.annotation)
-        var = VyperVar(arg_name, arg_type, node)
-        self.args[arg_name] = var
