@@ -86,19 +86,6 @@ class TwoVyper:
         return result
 
 
-def _parse_log_level(log_level_string: str) -> int:
-    """ Parses the log level provided by the user.
-    """
-    LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
-
-    log_level_string_upper = log_level_string.upper()
-    if log_level_string_upper in LOG_LEVELS:
-        return getattr(logging, log_level_string_upper, logging.WARNING)
-    else:
-        msg = f'Invalid logging level {log_level_string} (expected one of: {LOG_LEVELS})'
-        raise argparse.ArgumentTypeError(msg)
-
-
 def main() -> None:
     """
     Entry point for the verifier.
@@ -161,7 +148,7 @@ def main() -> None:
     )
     parser.add_argument(
         '--log',
-        type=_parse_log_level,
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
         help='log level',
         default='WARNING'
     )
@@ -174,7 +161,7 @@ def main() -> None:
     parser.add_argument(
         '--ide-mode',
         action='store_true',
-        help='Output errors in IDE format'
+        help='output errors in IDE format'
     )
 
     args = parser.parse_args()
