@@ -104,6 +104,46 @@ ERC165_INTERFACE_ID: constant(bytes32) = 0x0000000000000000000000000000000000000
 ERC721_INTERFACE_ID: constant(bytes32) = 0x0000000000000000000000000000000000000000000000000000000080ac58cd
 
 
+#@ invariant: self.supportedInterfaces[ERC165_INTERFACE_ID] and self.supportedInterfaces[ERC721_INTERFACE_ID]
+#@ invariant: forall({id: uint256}, {self.idToOwner[id]}, {self.idToApprovals[id]},
+    #@ self.idToOwner[id] == ZERO_ADDRESS ==> self.idToApprovals[id] == ZERO_ADDRESS)
+
+#@ invariant: self.ownerToNFTokenCount[ZERO_ADDRESS] == 0
+#@ invariant: forall({a: address}, {self.ownerToOperators[ZERO_ADDRESS][a]}, not self.ownerToOperators[ZERO_ADDRESS][a])
+
+#@ invariant: self.minter == old(self.minter)
+#@ always check: msg.sender != self.minter ==> forall({id: uint256}, {self.idToOwner[id]},
+    #@ old(self.idToOwner[id]) == ZERO_ADDRESS ==> self.idToOwner[id] == ZERO_ADDRESS)
+
+#@ always check: forall({a: address}, {self.ownerToOperators[a]},
+    #@ self.ownerToOperators[a] != old(self.ownerToOperators[a]) ==> a == msg.sender)
+
+#@ always check: forall({id: uint256}, {self.idToApprovals[id]}, {self.idToOwner[id]}, {self.ownerToOperators[self.idToOwner[id]][msg.sender]},
+    #@ self.idToApprovals[id] != ZERO_ADDRESS and self.idToApprovals[id] != old(self.idToApprovals[id]) ==>
+        #@ msg.sender == old(self.idToOwner[id]) or
+        #@ old(self.ownerToOperators[self.idToOwner[id]][msg.sender]))
+
+#@ always check: forall({id: uint256}, {self.idToOwner[id]}, {self.idToApprovals[id]}, {self.ownerToOperators[self.idToOwner[id]][msg.sender]},
+    #@ self.idToOwner[id] != old(self.idToOwner[id]) ==>
+        #@ old(self.idToOwner[id]) == ZERO_ADDRESS or
+        #@ msg.sender == old(self.idToOwner[id]) or
+        #@ msg.sender == old(self.idToApprovals[id]) or
+        #@ old(self.ownerToOperators[self.idToOwner[id]][msg.sender]))
+
+#@ always check: forall({id: uint256}, {self.idToOwner[id]},
+    #@ self.idToOwner[id] != old(self.idToOwner[id]) ==>
+        #@ event(Transfer(old(self.idToOwner[id]), self.idToOwner[id], id)))
+
+#@ always check: forall({id: uint256}, {self.idToApprovals[id]},
+    #@ self.idToApprovals[id] != old(self.idToApprovals[id]) ==>
+        #@ self.idToApprovals[id] == ZERO_ADDRESS or
+        #@ event(Approval(self.idToOwner[id], self.idToApprovals[id], id)))
+
+#@ always check: forall({owner: address, operator: address}, {self.ownerToOperators[owner][operator]},
+    #@ self.ownerToOperators[owner][operator] != old(self.ownerToOperators[owner][operator]) ==>
+        #@ event(ApprovalForAll(owner, operator, self.ownerToOperators[owner][operator])))
+
+
 @public
 def __init__():
     """
