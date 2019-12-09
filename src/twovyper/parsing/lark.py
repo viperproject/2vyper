@@ -30,7 +30,7 @@ class PythonIndenter(Indenter):
 
 
 _kwargs = dict(postlex=PythonIndenter(), start='file_input', maybe_placeholders=False)
-_python_parser3 = Lark.open('vyper.lark', rel_to=__file__, parser='lalr', **_kwargs)
+_vyper_parser = Lark.open('vyper.lark', rel_to=__file__, parser='lalr', **_kwargs)
 
 
 def copy_pos(function):
@@ -520,7 +520,7 @@ class _PythonTransformer(Transformer):
 
 def parse(text, file) -> ast.Module:
     try:
-        tree = _python_parser3.parse(text + '\n')
+        tree = _vyper_parser.parse(text + '\n')
     except (ParseError, UnexpectedInput) as e:
         raise ParseException(str(e))
     try:
