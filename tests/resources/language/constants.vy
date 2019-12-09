@@ -49,7 +49,7 @@ def empty_bytes() -> bytes32:
 
 #@ ensures: success() ==> result() == 0
 @public
-def zero_wei() -> wei_value:
+def _zero_wei() -> wei_value:
     return ZERO_WEI
 
 #@ ensures: success() ==> result() == 170141183460469231731687303715884105727
