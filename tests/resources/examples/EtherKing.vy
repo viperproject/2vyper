@@ -60,7 +60,6 @@ def __init__(starting_claim_price: wei_value):
     self.current_monarch = Monarch({addr: msg.sender, name: "<Vacant>", claim_price: 0, coronation_time: block.timestamp})
 
 
-#@ ensures: success() ==> sent(msg.sender) >= old(sent(msg.sender) + self.pending_returns[msg.sender])
 @public
 def withdraw():
     amount: wei_value = self.pending_returns[msg.sender]
