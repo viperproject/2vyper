@@ -20,7 +20,7 @@ ERC20_FUNCTIONS = {
     'balanceOf': FunctionType([types.VYPER_ADDRESS], types.VYPER_UINT256),
     'allowance': FunctionType([types.VYPER_ADDRESS, types.VYPER_ADDRESS], types.VYPER_UINT256),
     'transfer': FunctionType([types.VYPER_ADDRESS, types.VYPER_UINT256], types.VYPER_BOOL),
-    'transferForm': FunctionType([types.VYPER_ADDRESS, types.VYPER_ADDRESS, types.VYPER_UINT256], types.VYPER_BOOL),
+    'transferFrom': FunctionType([types.VYPER_ADDRESS, types.VYPER_ADDRESS, types.VYPER_UINT256], types.VYPER_BOOL),
     'approve': FunctionType([types.VYPER_ADDRESS, types.VYPER_UINT256], types.VYPER_BOOL)
 }
 
@@ -29,7 +29,7 @@ ERC20_MODIFIERS = {
     'balanceOf': names.CONSTANT,
     'allowance': names.MODIFYING,
     'transfer': names.MODIFYING,
-    'transferForm': names.MODIFYING,
+    'transferFrom': names.MODIFYING,
     'approve': names.MODIFYING
 }
 
