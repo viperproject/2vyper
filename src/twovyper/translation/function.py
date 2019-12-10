@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 
 from functools import reduce
-from itertools import chain
+from itertools import chain, zip_longest
 from typing import List
 
 from twovyper.ast import names
@@ -518,12 +518,15 @@ class FunctionTranslator(CommonTranslator):
             ctx.locals[names.MSG] = msg_var
             ctx.new_local_vars.append(msg_var.var_decl(ctx))
 
-            # Add arguments to local vars, assign passed args
-            for (name, var), arg in zip(function.args.items(), args):
+            # Add arguments to local vars, assign passed args or default argument
+            for (name, var), arg in zip_longest(function.args.items(), args):
                 apos = self.to_position(var.node, ctx)
                 translated_arg = self._translate_var(var, ctx)
                 ctx.args[name] = translated_arg
                 ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
+                if not arg:
+                    default_stmts, arg = self.expression_translator.translate(function.defaults[name], ctx)
+                    body.extend(default_stmts)
                 body.append(self.viper_ast.LocalVarAssign(translated_arg.local_var(ctx), arg, apos))
 
             # Define return var

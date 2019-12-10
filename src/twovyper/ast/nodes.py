@@ -44,6 +44,7 @@ class VyperFunction:
     def __init__(self,
                  name: str,
                  args: Dict[str, VyperVar],
+                 defaults: Dict[str, Optional[ast.expr]],
                  type: FunctionType,
                  postconditions: List[ast.expr],
                  checks: List[ast.expr],
@@ -51,6 +52,7 @@ class VyperFunction:
                  node: Optional[ast.FunctionDef]):
         self.name = name
         self.args = args
+        self.defaults = defaults
         self.type = type
         self.postconditions = postconditions
         self.checks = checks

@@ -99,6 +99,10 @@ class TypeAnnotator(NodeVisitor):
             with self._function_scope(function):
                 self.visit(function.node)
 
+                for name, default in function.defaults.items():
+                    if default:
+                        self.annotate_expected(default, function.args[name].type)
+
                 for post in function.postconditions:
                     self.annotate_expected(post, types.VYPER_BOOL)
                 for check in function.checks:

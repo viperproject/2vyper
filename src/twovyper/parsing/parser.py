@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import ast
 import os
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from twovyper.parsing import lark
 from twovyper.parsing.preprocessor import preprocess
@@ -335,13 +335,18 @@ class ProgramBuilder(ast.NodeVisitor):
         arg_type = self.type_builder.build(node.annotation)
         return VyperVar(arg_name, arg_type, node)
 
+    def _args(self, node: ast.arguments) -> Tuple[List[VyperVar], List[ast.expr]]:
+        args = {arg.arg: self._arg(arg) for arg in node.args}
+        defaults = {arg.arg: default for arg, default in zip(reversed(node.args), reversed(node.defaults))}
+        return args, defaults
+
     def visit_FunctionDef(self, node):
-        args = {arg.arg: self._arg(arg) for arg in node.args.args}
+        args, defaults = self._args(node.args)
         arg_types = [arg.type for arg in args.values()]
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
         decs = [self._decorator(dec) for dec in node.decorator_list]
-        function = VyperFunction(node.name, args, type, self.postconditions, self.checks, decs, node)
+        function = VyperFunction(node.name, args, defaults, type, self.postconditions, self.checks, decs, node)
         self.functions[node.name] = function
         # Reset local specs
         self.postconditions = []
