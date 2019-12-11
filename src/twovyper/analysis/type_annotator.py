@@ -151,8 +151,12 @@ class TypeAnnotator(NodeVisitor):
             for e in l1:
                 if is_array(e):
                     yield longest_array(e, l2)
-                elif any(types.matches(t, e) and types.matches(e, t) for t in l2):
-                    yield e
+                else:
+                    for t in l2:
+                        if types.matches(e, t):
+                            yield e
+                        elif types.matches(t, e):
+                            yield t
 
         intersection = list(intersect(types1, types2))
         if not intersection:
