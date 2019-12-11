@@ -321,6 +321,9 @@ class _PythonTransformer(Transformer):
             ops.append(c)
             comparators.append(next(it))
 
+        if len(ops) > 1:
+            raise InvalidProgramException(ops[1], 'invalid.comparison')
+
         return ast.Compare(left, ops, comparators)
 
     @copy_pos
