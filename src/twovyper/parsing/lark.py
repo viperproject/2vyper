@@ -135,6 +135,7 @@ class _PythonTransformer(Transformer):
 
     def assign(self, children, meta):
         if len(children[0]) > 1:
+            # Used for config
             value = self._tuple(children[0], meta)
         else:
             value = children[0][0]
