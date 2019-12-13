@@ -7,14 +7,14 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import logging
 
-from typing import Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from twovyper.utils import seq_to_list
 
 from twovyper.viper.typedefs import AbstractVerificationError
 
 
-ModelTransformation = Callable[[str, str], Tuple[str, str]]
+ModelTransformation = Callable[[str, Any], Optional[Tuple[str, str]]]
 
 
 class Model:

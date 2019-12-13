@@ -5,12 +5,11 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import Optional, List, Dict
 
-from twovyper.utils import NodeVisitor
-from twovyper.ast import names
+from twovyper.ast import ast_nodes as ast, names
+from twovyper.ast.visitors import NodeVisitor
+
 from twovyper.exceptions import UnsupportedException
 
 
@@ -286,7 +285,7 @@ class TypeBuilder(NodeVisitor):
             modifiers = {}
             for f in node.body:
                 name = f.name
-                arg_types = [self.visit(arg.annotation) for arg in f.args.args]
+                arg_types = [self.visit(arg.annotation) for arg in f.args]
                 return_type = None if f.returns is None else self.visit(f.returns)
                 functions[name] = FunctionType(arg_types, return_type)
                 modifiers[name] = f.body[0].value.id
@@ -319,5 +318,5 @@ class TypeBuilder(NodeVisitor):
         element_type = self.visit(node.value)
         # Array size has to be an int or a constant
         # (which has already been replaced by an int)
-        size = node.slice.value.n
+        size = node.index.n
         return ArrayType(element_type, size, has_strict_array_size(element_type))

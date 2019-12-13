@@ -5,10 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
-from twovyper.ast import names
+from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.nodes import VyperProgram, VyperFunction
+from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.analysis import heuristics
 from twovyper.analysis.structure_checker import check_structure
@@ -63,7 +62,7 @@ class FunctionAnalysis:
         self.accessible_tags = set()
 
 
-class _ProgramAnalyzer(ast.NodeVisitor):
+class _ProgramAnalyzer(NodeVisitor):
 
     def __init__(self, program: VyperProgram):
         self.program = program
@@ -104,7 +103,7 @@ class _ProgramAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-class _FunctionAnalyzer(ast.NodeVisitor):
+class _FunctionAnalyzer(NodeVisitor):
 
     def __init__(self, function: VyperFunction):
         self.function = function

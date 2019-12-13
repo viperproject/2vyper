@@ -5,14 +5,11 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from functools import reduce
 from itertools import chain, zip_longest
 from typing import List
 
-from twovyper.ast import names
-from twovyper.ast import types
+from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.nodes import VyperFunction, VyperVar
 
 from twovyper.viper.ast import ViperAST

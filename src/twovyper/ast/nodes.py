@@ -5,11 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-from twovyper.ast import names
+from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.types import (
     VyperType, FunctionType, StructType, ContractType, EventType, InterfaceType
 )
@@ -32,23 +30,16 @@ class VyperVar:
         self.node = node
 
 
-class VyperDecorator:
-
-    def __init__(self, name: str, args: List[ast.expr]):
-        self.name = name
-        self.args = args
-
-
 class VyperFunction:
 
     def __init__(self,
                  name: str,
                  args: Dict[str, VyperVar],
-                 defaults: Dict[str, Optional[ast.expr]],
+                 defaults: Dict[str, Optional[ast.Expr]],
                  type: FunctionType,
-                 postconditions: List[ast.expr],
-                 checks: List[ast.expr],
-                 decorators: List[VyperDecorator],
+                 postconditions: List[ast.Expr],
+                 checks: List[ast.Expr],
+                 decorators: List[ast.Decorator],
                  node: Optional[ast.FunctionDef]):
         self.name = name
         self.args = args
@@ -131,12 +122,12 @@ class VyperProgram:
                  structs: Dict[str, VyperStruct],
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
-                 invariants: List[ast.expr],
-                 general_postconditions: List[ast.expr],
-                 transitive_postconditions: List[ast.expr],
-                 general_checks: List[ast.expr],
+                 invariants: List[ast.Expr],
+                 general_postconditions: List[ast.Expr],
+                 transitive_postconditions: List[ast.Expr],
+                 general_checks: List[ast.Expr],
                  implements: List[InterfaceType],
-                 ghost_function_implementations: Dict[str, ast.expr]):
+                 ghost_function_implementations: Dict[str, ast.Expr]):
         self.file = file
         self.config = config
         self.fields = fields
@@ -180,7 +171,7 @@ class VyperInterface(VyperProgram):
                  config: VyperConfig,
                  functions: Dict[str, VyperFunction],
                  ghost_functions: Dict[str, GhostFunction],
-                 general_postconditions: List[ast.expr],
+                 general_postconditions: List[ast.Expr],
                  type: InterfaceType):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})

@@ -5,9 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import List, Optional
+
+from twovyper.ast import ast_nodes as ast
 
 from twovyper.viper.typedefs import Node, AbstractSourcePosition
 from twovyper.viper.typedefs import AbstractVerificationError, AbstractErrorReason
@@ -60,7 +60,7 @@ class ErrorInfo:
 
     def __init__(self,
                  function: str,
-                 node: ast.AST,
+                 node: ast.Node,
                  vias: List[Via],
                  model_transformation: Optional[ModelTransformation],
                  reason_string: str):
@@ -191,7 +191,7 @@ class Error:
             line = self.position.line
             col = self.position.column
             msg = self.message
-            reason = self.reason
+            reason = self.reason.string(False)
             return f"{file_name}:{line}:{col}: error: {msg} {reason}"
         else:
             msg = self.message

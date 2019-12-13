@@ -5,25 +5,23 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from contextlib import contextmanager
 from typing import Union
 
-from twovyper.utils import first_index, NodeVisitor, switch
+from twovyper.utils import first_index, switch
 
-from twovyper.ast import names
-from twovyper.ast import types
+from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.types import (
     TypeBuilder, VyperType, MapType, ArrayType, StringType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
 )
 from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction
+from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
 
-def _check(condition: bool, node: ast.AST, reason_code: str):
+def _check(condition: bool, node: ast.Node, reason_code: str):
     if not condition:
         raise InvalidProgramException(node, reason_code)
 
@@ -124,7 +122,7 @@ class TypeAnnotator(NodeVisitor):
         for check in self.program.general_checks:
             self.annotate_expected(check, types.VYPER_BOOL)
 
-    def generic_visit(self, node: ast.AST):
+    def generic_visit(self, node: ast.Node):
         assert False
 
     def pass_through(self, node1, node=None):
@@ -216,7 +214,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.value, self.current_func.type.return_type)
 
     def visit_Assign(self, node: ast.Assign):
-        self.annotate(node.targets[0], node.value)
+        self.annotate(node.target, node.value)
 
     def visit_AugAssign(self, node: ast.AugAssign):
         self.annotate(node.target, node.value)
@@ -251,13 +249,13 @@ class TypeAnnotator(NodeVisitor):
             self.visit(stmt)
 
     def visit_Raise(self, node: ast.Raise):
-        if not (isinstance(node.exc, ast.Name) and node.exc.id == names.UNREACHABLE):
-            self.annotate(node.exc)
+        if not (isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE):
+            self.annotate(node.msg)
 
     def visit_Assert(self, node: ast.Assert):
         self.annotate_expected(node.test, types.VYPER_BOOL)
 
-    def visit_Expr(self, node: ast.Expr):
+    def visit_ExprStmt(self, node: ast.ExprStmt):
         self.annotate(node.value)
 
     def visit_Pass(self, node: ast.Pass):
@@ -285,7 +283,7 @@ class TypeAnnotator(NodeVisitor):
         return self.combine(node.body, node.orelse, node)
 
     def visit_Compare(self, node: ast.Compare):
-        self.annotate(node.left, node.comparators[0])
+        self.annotate(node.left, node.right)
         return [types.VYPER_BOOL], [node]
 
     def visit_Call(self, node: ast.Call):
@@ -382,7 +380,7 @@ class TypeAnnotator(NodeVisitor):
                     for kwarg in node.keywords:
                         self.annotate(kwarg.value)
 
-                    idx = first_index(lambda n: n.arg == names.RAW_CALL_OUTSIZE, node.keywords)
+                    idx = first_index(lambda n: n.name == names.RAW_CALL_OUTSIZE, node.keywords)
                     size = node.keywords[idx].value.n
                     return [ArrayType(types.VYPER_BYTE, size, False)], [node]
                 elif case(names.AS_WEI_VALUE):
@@ -655,10 +653,10 @@ class TypeAnnotator(NodeVisitor):
         self.annotate_expected(node.value, lambda t: isinstance(t, (ArrayType, MapType)))
         if isinstance(node.value.type, MapType):
             key_type = node.value.type.key_type
-            self.annotate_expected(node.slice.value, key_type)
+            self.annotate_expected(node.index, key_type)
             ntype = node.value.type.value_type
         elif isinstance(node.value.type, ArrayType):
-            self.annotate_expected(node.slice.value, types.is_integer)
+            self.annotate_expected(node.index, types.is_integer)
             ntype = node.value.type.element_type
         else:
             assert False

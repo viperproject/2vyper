@@ -5,13 +5,15 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import List, Dict, Any
 
-from twovyper.ast import names
+from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.arithmetic import div, mod
+from twovyper.ast.visitors import NodeVisitor, NodeTransformer, descendants
+
 from twovyper.exceptions import UnsupportedException
+
+from twovyper.parsing import lark
 
 
 def transform(ast: ast.Module) -> ast.Module:
@@ -22,7 +24,7 @@ def transform(ast: ast.Module) -> ast.Module:
 
 
 def _parse_value(val):
-    return ast.parse(f'{val}', mode='eval').body
+    return lark.parse_expr(f'{val}', None)
 
 
 def _builtin_constants():
@@ -31,7 +33,7 @@ def _builtin_constants():
     return values, constants
 
 
-def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
+def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.Node]:
     env, constants = _builtin_constants()
     interpreter = ConstantInterpreter(env)
     for node in nodes:
@@ -43,7 +45,7 @@ def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.AST]:
     return constants
 
 
-class ConstantInterpreter(ast.NodeVisitor):
+class ConstantInterpreter(NodeVisitor):
     """
     Determines the value of all constants in the AST.
     """
@@ -90,8 +92,8 @@ class ConstantInterpreter(ast.NodeVisitor):
 
     def visit_Compare(self, node: ast.Compare):
         lhs = self.visit(node.left)
-        rhs = self.visit(node.comparators[0])
-        op = self.ops[0]
+        rhs = self.visit(node.right)
+        op = node.op
         if isinstance(op, ast.Eq):
             return lhs == rhs
         elif isinstance(op, ast.NotEq):
@@ -129,7 +131,7 @@ class ConstantInterpreter(ast.NodeVisitor):
         return self.constants[node.id]
 
 
-class ConstantCollector(ast.NodeTransformer):
+class ConstantCollector(NodeTransformer):
     """
     Collects constants and deletes their declarations from the AST.
     """
@@ -155,21 +157,21 @@ class ConstantCollector(ast.NodeTransformer):
         return node
 
 
-class ConstantTransformer(ast.NodeTransformer):
+class ConstantTransformer(NodeTransformer):
     """
     Replaces all constants in the AST by their value.
     """
 
-    def __init__(self, constants: Dict[str, ast.AST]):
+    def __init__(self, constants: Dict[str, ast.Node]):
         self.constants = constants
 
-    def _copy_pos(self, to: ast.AST, node: ast.AST) -> ast.AST:
+    def _copy_pos(self, to: ast.Node, node: ast.Node) -> ast.Node:
         to.file = node.file
         to.lineno = node.lineno
         to.col_offset = node.col_offset
         to.end_lineno = node.end_lineno
         to.end_col_offset = node.end_col_offset
-        for child in ast.iter_child_nodes(to):
+        for child in descendants(to):
             self._copy_pos(child, node)
         return to
 

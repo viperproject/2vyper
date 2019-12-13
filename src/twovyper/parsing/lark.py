@@ -5,8 +5,6 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import List
 
 from lark import Lark
@@ -15,6 +13,7 @@ from lark.indenter import Indenter
 from lark.tree import Meta
 from lark.visitors import Transformer, v_args
 
+from twovyper.ast import ast_nodes as ast
 from twovyper.ast.arithmetic import Decimal
 
 from twovyper.exceptions import ParseException, InvalidProgramException
@@ -29,13 +28,14 @@ class PythonIndenter(Indenter):
     tab_len = 8
 
 
-_kwargs = dict(postlex=PythonIndenter(), start='file_input', maybe_placeholders=False)
-_vyper_parser = Lark.open('vyper.lark', rel_to=__file__, parser='lalr', **_kwargs)
+_kwargs = dict(postlex=PythonIndenter(), parser='lalr', maybe_placeholders=False)
+_vyper_module_parser = Lark.open('vyper.lark', rel_to=__file__, start='file_input', **_kwargs)
+_vyper_expr_parser = Lark.open('vyper.lark', rel_to=__file__, start='test', **_kwargs)
 
 
 def copy_pos(function):
 
-    def with_pos(self, children: List[ast.AST], meta: Meta):
+    def with_pos(self, children: List[ast.Node], meta: Meta):
         node = function(self, children, meta)
         node.file = self.file
         node.lineno = meta.line
@@ -47,7 +47,7 @@ def copy_pos(function):
     return with_pos
 
 
-def copy_pos_from(node: ast.AST, to: ast.AST):
+def copy_pos_from(node: ast.Node, to: ast.Node):
     to.file = node.file
     to.lineno = node.lineno
     to.col_offset = node.col_offset
@@ -55,7 +55,7 @@ def copy_pos_from(node: ast.AST, to: ast.AST):
     to.end_col_offset = node.end_col_offset
 
 
-def copy_pos_between(node: ast.AST, left: ast.AST, right: ast.AST):
+def copy_pos_between(node: ast.Node, left: ast.Node, right: ast.Node):
     assert left.file == right.file
     assert left.lineno <= right.lineno
     assert left.lineno != right.lineno or left.col_offset < right.col_offset
@@ -83,7 +83,7 @@ class _PythonTransformer(Transformer):
     def classdef(self, children, meta):
         name = str(children[0])
         body = children[1]
-        return ast.ClassDef(name, [], [], body, [])
+        return ast.ClassDef(name, body)
 
     @copy_pos
     def funcdef(self, children, meta):
@@ -98,31 +98,29 @@ class _PythonTransformer(Transformer):
     def decorators(self, children, meta):
         return children
 
+    @copy_pos
     def decorator(self, children, meta):
+        name = str(children[0])
+
         if len(children) == 1:
-            return children[0]
+            args = []
         else:
-            return self.funccall(children, meta)
+            args, kwargs = children[1]
+
+            if kwargs:
+                raise InvalidProgramException(kwargs[0], 'invalid.decorator')
+
+        return ast.Decorator(name, args)
 
     def parameter_list(self, children, meta):
-        args = []
-        defaults = []
-        for arg, default in children:
-            args.append(arg)
-            defaults.append(default)
-
-        return ast.arguments(args, None, [], [], None, defaults)
-
-    def parameter(self, children, meta):
-        arg = children[0]
-        default = children[1] if len(children) == 2 else None
-        return arg, default
+        return children
 
     @copy_pos
-    def typedparameter(self, children, meta):
+    def parameter(self, children, meta):
         name = str(children[0])
         annotation = children[1]
-        return ast.arg(name, annotation)
+        default = children[2] if len(children) == 3 else None
+        return ast.Arg(name, annotation, default)
 
     @copy_pos
     def expr_stmt(self, children, meta):
@@ -131,7 +129,7 @@ class _PythonTransformer(Transformer):
             assign_builder = children[1]
             return assign_builder(target)
         else:
-            return ast.Expr(target)
+            return ast.ExprStmt(target)
 
     def assign(self, children, meta):
         if len(children[0]) > 1:
@@ -140,16 +138,16 @@ class _PythonTransformer(Transformer):
         else:
             value = children[0][0]
 
-        return lambda target: ast.Assign([target], value)
+        return lambda target: ast.Assign(target, value)
 
     @copy_pos
     def _tuple(self, children, meta):
-        return ast.Tuple(children, None)
+        return ast.Tuple(children)
 
     def annassign(self, children, meta):
         annotation = children[0]
         value = children[1] if len(children) == 2 else None
-        return lambda target: ast.AnnAssign(target, annotation, value, 1)
+        return lambda target: ast.AnnAssign(target, annotation, value)
 
     def augassign(self, children, meta):
         op = children[0]
@@ -188,7 +186,7 @@ class _PythonTransformer(Transformer):
     @copy_pos
     def raise_stmt(self, children, meta):
         exc = children[0] if children else None
-        return ast.Raise(exc, None)
+        return ast.Raise(exc)
 
     @copy_pos
     def import_name(self, children, meta):
@@ -223,7 +221,7 @@ class _PythonTransformer(Transformer):
     def alias(self, children, meta):
         name = children[0]
         asname = children[1] if len(children) == 2 else None
-        return ast.alias(name, asname)
+        return ast.Alias(name, asname)
 
     def dotted_name_list(self, children, meta):
         return children
@@ -264,13 +262,13 @@ class _PythonTransformer(Transformer):
         target = children[0]
         iter = children[1]
         body = children[2]
-        return ast.For(target, iter, body, [])
+        return ast.For(target, iter, body)
 
     @copy_pos
     def with_stmt(self, children, meta):
         body = children[1]
         # We ignore the items, as we don't need them
-        return ast.With([], body)
+        return ast.Ghost(body)
 
     def suite(self, children, meta):
         return children
@@ -293,7 +291,7 @@ class _PythonTransformer(Transformer):
                 return l
             else:
                 r = impl(r)
-                ret = ast.BinOp(l, ast.MatMult(), r)
+                ret = ast.BinOp(l, ast.Implies(), r)
                 copy_pos_between(ret, l, r)
                 return ret
 
@@ -325,7 +323,11 @@ class _PythonTransformer(Transformer):
         if len(ops) > 1:
             raise InvalidProgramException(ops[1], 'invalid.comparison')
 
-        return ast.Compare(left, ops, comparators)
+        # TODO: improve
+
+        assert len(ops) == 1 and len(comparators) == 1
+
+        return ast.Compare(left, ops[0], comparators[0])
 
     @copy_pos
     def arith_expr(self, children, meta):
@@ -412,20 +414,18 @@ class _PythonTransformer(Transformer):
     @copy_pos
     def getitem(self, children, meta):
         value = children[0]
-        idx = children[1]
-        index = ast.Index(idx)
-        copy_pos_from(idx, to=index)
-        return ast.Subscript(value, index, None)
+        index = children[1]
+        return ast.Subscript(value, index)
 
     @copy_pos
     def getattr(self, children, meta):
         value = children[0]
         attr = str(children[1])
-        return ast.Attribute(value, attr, None)
+        return ast.Attribute(value, attr)
 
     @copy_pos
     def list(self, children, meta):
-        return ast.List(children[0], None)
+        return ast.List(children[0])
 
     @copy_pos
     def dictset(self, children, meta):
@@ -478,7 +478,7 @@ class _PythonTransformer(Transformer):
         args = []
         kwargs = []
         for c in children:
-            if isinstance(c, ast.keyword):
+            if isinstance(c, ast.Keyword):
                 kwargs.append(c)
             else:
                 # kwargs cannot come before normal args
@@ -492,7 +492,7 @@ class _PythonTransformer(Transformer):
     def argvalue(self, children, meta):
         identifier = str(children[0])
         value = children[1]
-        return ast.keyword(identifier, value)
+        return ast.Keyword(identifier, value)
 
     @copy_pos
     def number(self, children, meta):
@@ -522,12 +522,20 @@ class _PythonTransformer(Transformer):
             assert False
 
 
-def parse(text, file) -> ast.Module:
+def parse(parser, text, file):
     try:
-        tree = _vyper_parser.parse(text + '\n')
+        tree = parser.parse(text)
     except (ParseError, UnexpectedInput) as e:
         raise ParseException(str(e))
     try:
         return _PythonTransformer().transform_tree(tree, file)
     except VisitError as e:
         raise e.orig_exc
+
+
+def parse_module(text, file) -> ast.Module:
+    return parse(_vyper_module_parser, text + '\n', file)
+
+
+def parse_expr(text, file) -> ast.Expr:
+    return parse(_vyper_expr_parser, text, file)

@@ -5,9 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
 import os
 
+from twovyper.ast import ast_nodes as ast
 from twovyper.utils import pprint
 
 
@@ -32,7 +32,7 @@ class ParseException(TwoVyperException):
 
 class TranslationException(TwoVyperException):
 
-    def __init__(self, node: ast.AST, message: str):
+    def __init__(self, node: ast.Node, message: str):
         super().__init__(message)
         self.node = node
 
@@ -49,7 +49,7 @@ class UnsupportedException(TranslationException):
     currently supported
     """
 
-    def __init__(self, node: ast.AST, message: str = None):
+    def __init__(self, node: ast.Node, message: str = None):
         self.node = node
         if not message:
             message = pprint(node)
@@ -61,7 +61,7 @@ class InvalidProgramException(TranslationException):
     Signals that the input program is invalid and cannot be translated
     """
 
-    def __init__(self, node: ast.AST, reason_code: str, message: str = None):
+    def __init__(self, node: ast.Node, reason_code: str, message: str = None):
         self.node = node
         self.code = 'invalid.program'
         self.reason_code = reason_code

@@ -5,12 +5,11 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import abc
-import ast
-
 from contextlib import contextmanager
 from itertools import chain
-from typing import Iterable
+from typing import Callable, Iterable, List, Optional, TypeVar
+
+from twovyper.ast import ast_nodes as ast
 
 
 _ = object()
@@ -27,20 +26,23 @@ def switch(*values):
     yield match
 
 
-def first(iterable: Iterable):
+T = TypeVar('T')
+
+
+def first(iterable: Iterable[T]) -> Optional[T]:
     return next(iter(iterable), None)
 
 
-def first_index(statisfying, l):
+def first_index(statisfying: Callable[[T], bool], l) -> int:
     return next((i for i, v in enumerate(l) if statisfying(v)), -1)
 
 
-def flatten(iterables: Iterable[Iterable]):
+def flatten(iterables: Iterable[Iterable[T]]) -> List[T]:
     return [item for subiterable in iterables for item in subiterable]
 
 
-def unique(eq, iterable: Iterable):
-    unique_iterable = []
+def unique(eq, iterable: Iterable[T]) -> List[T]:
+    unique_iterable: List[T] = []
     for elem in iterable:
         for uelem in unique_iterable:
             if eq(elem, uelem):
@@ -110,7 +112,8 @@ def _split_lines(source):
     return lines
 
 
-def pprint(node: ast.AST, preserve_newlines: bool = False) -> str:
+# TODO: move to ast package
+def pprint(node: ast.Node, preserve_newlines: bool = False) -> str:
     with open(node.file, 'r') as file:
         source = file.read()
 
@@ -131,25 +134,3 @@ def pprint(node: ast.AST, preserve_newlines: bool = False) -> str:
         res = sep.join(chain([first], middle, [last]))
 
     return res if preserve_newlines else f'({res})'
-
-
-class NodeVisitor(abc.ABC):
-
-    @abc.abstractproperty
-    def method_name(self) -> str:
-        pass
-
-    def visit(self, node, *args):
-        method = f'{self.method_name}_' + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_visit)
-        return visitor(node, *args)
-
-    def generic_visit(self, node, *args):
-        for _, value in ast.iter_fields(node):
-            if isinstance(value, list):
-                for item in value:
-                    if isinstance(item, ast.AST):
-                        self.visit(item, *args)
-            elif isinstance(value, ast.AST):
-                self.visit(value, *args)
-        return None

@@ -5,13 +5,12 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import List
 
-from twovyper.translation.context import Context
+from twovyper.ast import ast_nodes as ast
+from twovyper.ast.visitors import NodeVisitor
 
-from twovyper.utils import NodeVisitor
+from twovyper.translation.context import Context
 
 from twovyper.verification import error_manager
 from twovyper.verification.error import ErrorInfo, ModelTransformation, Via
@@ -44,7 +43,7 @@ class CommonTranslator:
         return id
 
     def to_position(self,
-                    node: ast.AST,
+                    node: ast.Node,
                     ctx: Context,
                     rules: Rules = None,
                     vias: List[Via] = [],

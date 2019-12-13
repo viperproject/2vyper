@@ -5,12 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import Optional, List
 
-from twovyper.ast import names
-from twovyper.ast import types
+from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.types import (
     VyperType, PrimitiveType, MapType, ArrayType, AnyStructType, StructType, ContractType, InterfaceType
 )
@@ -54,7 +51,7 @@ class TypeTranslator(CommonTranslator):
         else:
             assert False
 
-    def default_value(self, node: Optional[ast.AST], type: VyperType, ctx: Context) -> StmtsAndExpr:
+    def default_value(self, node: Optional[ast.Node], type: VyperType, ctx: Context) -> StmtsAndExpr:
         pos = self.no_position() if node is None else self.to_position(node, ctx)
         if type is types.VYPER_BOOL:
             return [], self.viper_ast.FalseLit(pos)
@@ -226,7 +223,7 @@ class TypeTranslator(CommonTranslator):
         else:
             return None
 
-    def eq(self, node: Optional[ast.AST], left, right, type: VyperType, ctx: Context) -> Expr:
+    def eq(self, node: Optional[ast.Node], left, right, type: VyperType, ctx: Context) -> Expr:
         pos = self.no_position() if node is None else self.to_position(node, ctx)
         if isinstance(type, StructType):
             return helpers.struct_eq(self.viper_ast, left, right, type, pos)
@@ -237,7 +234,7 @@ class TypeTranslator(CommonTranslator):
         else:
             return self.viper_ast.EqCmp(left, right, pos)
 
-    def neq(self, node: Optional[ast.AST], left, right, type: VyperType, ctx: Context) -> Expr:
+    def neq(self, node: Optional[ast.Node], left, right, type: VyperType, ctx: Context) -> Expr:
         pos = self.no_position() if node is None else self.to_position(node, ctx)
         if isinstance(type, StructType):
             return self.viper_ast.Not(helpers.struct_eq(self.viper_ast, left, right, type, pos), pos)

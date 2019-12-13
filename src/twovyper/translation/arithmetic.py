@@ -5,12 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import List
 
-from twovyper.ast import names
-from twovyper.ast import types
+from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.types import PrimitiveType, BoundedType
 
 from twovyper.translation import helpers
@@ -38,8 +35,7 @@ class ArithmeticTranslator(CommonTranslator):
             ast.Div: lambda l, r, pos, info: helpers.div(viper_ast, l, r, pos, info),
             ast.Mod: lambda l, r, pos, info: helpers.mod(viper_ast, l, r, pos, info),
             ast.Pow: lambda l, r, pos, info: helpers.pow(viper_ast, l, r, pos, info),
-            # We use matrix multiplication to mean implication
-            ast.MatMult: self.viper_ast.Implies
+            ast.Implies: self.viper_ast.Implies
         }
 
     def uop(self, op, arg, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:
@@ -69,7 +65,7 @@ class ArithmeticTranslator(CommonTranslator):
         mult = self.viper_ast.Mul(lhs, scaling_factor, pos)
         return helpers.div(self.viper_ast, mult, rhs, pos, info)
 
-    def binop(self, lhs, op: ast.operator, rhs, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:
+    def binop(self, lhs, op: ast.ArithmeticOperator, rhs, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:
         stmts = []
         with switch(type(op), otype) as case:
             from twovyper.utils import _

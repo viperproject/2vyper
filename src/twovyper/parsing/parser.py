@@ -5,19 +5,19 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
 import os
 
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from twovyper.parsing import lark
 from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
 
-from twovyper.ast import interfaces, names
+from twovyper.ast import ast_nodes as ast, interfaces, names
+from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.ast.nodes import (
-    VyperProgram, VyperDecorator, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
+    VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
     VyperConfig, VyperInterface, GhostFunction
 )
 
@@ -33,13 +33,13 @@ def parse(path: str, root: Optional[str], as_interface=False, name=None) -> Vype
         contract = file.read()
 
     preprocessed_contract = preprocess(contract)
-    contract_ast = lark.parse(preprocessed_contract, path)
+    contract_ast = lark.parse_module(preprocessed_contract, path)
     contract_ast = transform(contract_ast)
     program_builder = ProgramBuilder(path, root, as_interface, name)
     return program_builder.build(contract_ast)
 
 
-class ProgramBuilder(ast.NodeVisitor):
+class ProgramBuilder(NodeVisitor):
     """
     The program builder creates a Vyper program out of the AST. It collects contract
     state variables and functions. It should only be used by calling the build method once.
@@ -139,11 +139,11 @@ class ProgramBuilder(ast.NodeVisitor):
             return
         raise InvalidProgramException(node, 'local.spec', f"{cond} only allowed before function")
 
-    def generic_visit(self, node: ast.AST):
+    def generic_visit(self, node: ast.Node, *args):
         raise InvalidProgramException(node, 'invalid.spec')
 
     def visit_Module(self, node: ast.Module):
-        for stmt in node.body:
+        for stmt in node.stmts:
             self.visit(stmt)
 
     def visit_Import(self, node: ast.Import):
@@ -229,8 +229,7 @@ class ProgramBuilder(ast.NodeVisitor):
         # This is for invariants and postconditions which get translated to
         # assignments during preprocessing.
 
-        assert len(node.targets) == 1
-        name = node.targets[0].id
+        name = node.target.id
 
         if name == names.CONFIG:
             if isinstance(node.value, ast.Name):
@@ -283,9 +282,12 @@ class ProgramBuilder(ast.NodeVisitor):
             self.visit(stmt)
         self.is_preserves = False
 
-    def visit_With(self, node: ast.With):
-        # This is a ghost clause, since we replace all ghost clauses with with statements
-        # when preprocessing
+    def _arg(self, node: ast.Arg) -> VyperVar:
+        arg_name = node.name
+        arg_type = self.type_builder.build(node.annotation)
+        return VyperVar(arg_name, arg_type, node)
+
+    def visit_Ghost(self, node: ast.Ghost):
         for func in node.body:
 
             def check_ghost(cond):
@@ -294,14 +296,14 @@ class ProgramBuilder(ast.NodeVisitor):
 
             check_ghost(isinstance(func, ast.FunctionDef))
             check_ghost(len(func.body) == 1)
-            check_ghost(isinstance(func.body[0], ast.Expr))
+            check_ghost(isinstance(func.body[0], ast.ExprStmt))
             check_ghost(func.returns)
 
-            decorators = self._decorator_names(func)
-            check_ghost(len(decorators) == len(func.decorator_list))
+            decorators = [dec.name for dec in func.decorators]
+            check_ghost(len(decorators) == len(func.decorators))
 
             name = func.name
-            args = {arg.arg: self._arg(arg) for arg in func.args.args}
+            args = {arg.name: self._arg(arg) for arg in func.args}
             arg_types = [arg.type for arg in args.values()]
             return_type = None if func.returns is None else self.type_builder.build(func.returns)
             type = FunctionType(arg_types, return_type)
@@ -321,31 +323,13 @@ class ProgramBuilder(ast.NodeVisitor):
 
             ghost_functions[name] = GhostFunction(name, args, type, func)
 
-    def _decorator_names(self, node: ast.FunctionDef) -> List[str]:
-        return [dec.id for dec in node.decorator_list if isinstance(dec, ast.Name)]
-
-    def _decorator(self, node: ast.expr) -> VyperDecorator:
-        if isinstance(node, ast.Name):
-            return VyperDecorator(node.id, [])
-        else:
-            return VyperDecorator(node.func.id, node.args)
-
-    def _arg(self, node: ast.arg) -> VyperVar:
-        arg_name = node.arg
-        arg_type = self.type_builder.build(node.annotation)
-        return VyperVar(arg_name, arg_type, node)
-
-    def _args(self, node: ast.arguments) -> Tuple[List[VyperVar], List[ast.expr]]:
-        args = {arg.arg: self._arg(arg) for arg in node.args}
-        defaults = {arg.arg: default for arg, default in zip(reversed(node.args), reversed(node.defaults))}
-        return args, defaults
-
     def visit_FunctionDef(self, node):
-        args, defaults = self._args(node.args)
+        args = {arg.name: self._arg(arg) for arg in node.args}
+        defaults = {arg.name: arg.default for arg in node.args}
         arg_types = [arg.type for arg in args.values()]
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
-        decs = [self._decorator(dec) for dec in node.decorator_list]
+        decs = node.decorators
         function = VyperFunction(node.name, args, defaults, type, self.postconditions, self.checks, decs, node)
         self.functions[node.name] = function
         # Reset local specs

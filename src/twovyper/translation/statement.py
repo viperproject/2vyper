@@ -5,16 +5,15 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import List
 
-from twovyper.ast import names
+from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.types import MapType, ArrayType, StructType
+from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import UnsupportedException
 
-from twovyper.utils import flatten, NodeVisitor
+from twovyper.utils import flatten
 
 from twovyper.translation import helpers
 from twovyper.translation.context import Context, break_scope, continue_scope
@@ -61,9 +60,8 @@ class StatementTranslator(NodeTranslator):
 
     def translate_Assign(self, node: ast.Assign, ctx: Context) -> List[Stmt]:
         # We only support single assignments for now
-        left = node.targets[0]
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
-        assign_stmts, assign = self.assignment_translator.assign_to(left, rhs, ctx)
+        assign_stmts, assign = self.assignment_translator.assign_to(node.target, rhs, ctx)
         return assign_stmts + rhs_stmts + [assign]
 
     def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
@@ -78,7 +76,7 @@ class StatementTranslator(NodeTranslator):
         assign_stmts, assign = self.assignment_translator.assign_to(node.target, value, ctx)
         return [*lhs_stmts, *rhs_stmts, *value_stmts, *assign_stmts, assign]
 
-    def translate_Expr(self, node: ast.Expr, ctx: Context) -> List[Stmt]:
+    def translate_ExprStmt(self, node: ast.ExprStmt, ctx: Context) -> List[Stmt]:
         # Check if we are translating a call to clear
         # We handle clear in the StatementTranslator because it is essentially an assignment
         is_call = lambda n: isinstance(n, ast.Call)
@@ -98,7 +96,7 @@ class StatementTranslator(NodeTranslator):
 
         # If UNREACHABLE is used, we assert that the exception is unreachable,
         # i.e., that it never happens; else, we revert
-        if isinstance(node.exc, ast.Name) and node.exc.id == names.UNREACHABLE:
+        if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
             save_vars, modelt = self.model_translator.save_variables(ctx, pos)
             mpos = self.to_position(node, ctx, modelt=modelt)
             false = self.viper_ast.FalseLit(pos)
@@ -230,11 +228,11 @@ class _AssignmentTranslator(NodeVisitor, CommonTranslator):
             assign = self.viper_ast.FieldAssign(lhs, value, pos)
             return lhs_stmts, assign
 
-    def assign_to_Subscript(self, node: ast.Attribute, value, ctx: Context):
+    def assign_to_Subscript(self, node: ast.Subscript, value, ctx: Context):
         pos = self.to_position(node, ctx)
 
         receiver_stmts, receiver = self.expression_translator.translate(node.value, ctx)
-        index_stmts, index = self.expression_translator.translate(node.slice.value, ctx)
+        index_stmts, index = self.expression_translator.translate(node.index, ctx)
         stmts = []
 
         type = node.value.type

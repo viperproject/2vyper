@@ -26,11 +26,10 @@ file_input: (_NEWLINE | stmt)*
 classdef: ("struct" | "contract") NAME ":" suite
 funcdef: decorators "def" NAME "(" parameter_list ")" ["->" test] ":" suite
 decorators: decorator*
-decorator: "@" var ["(" arguments ")"] _NEWLINE
+decorator: "@" NAME ["(" arguments ")"] _NEWLINE
 
 parameter_list: [parameter ("," parameter)*]
-parameter: typedparameter ["=" test]
-typedparameter: NAME ":" test
+parameter: NAME ":" test ["=" test]
 
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt _NEWLINE
@@ -115,8 +114,8 @@ NAME: /[a-zA-Z_]\w*/
 COMMENT: /#[^\n]*/
 _NEWLINE: (/\r?\n[\t ]*/ | COMMENT)+
 
-STRING : /[ubf]?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
-LONG_STRING: /[ubf]?r?(""".*?(?<!\\)(\\\\)*?"""|'''.*?(?<!\\)(\\\\)*?''')/is
+STRING : /b?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
+LONG_STRING: /b?r?(""".*?(?<!\\)(\\\\)*?"""|'''.*?(?<!\\)(\\\\)*?''')/is
 
 DEC_NUMBER: /0(_?0)*|[1-9](_?\d)*/i
 HEX_NUMBER.2: /0x(_?[\da-f])+/i

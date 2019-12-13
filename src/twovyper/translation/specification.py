@@ -5,13 +5,10 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from contextlib import contextmanager
 from functools import reduce
 
-from twovyper.ast import names
-from twovyper.ast import types
+from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.types import VyperType
 
 from twovyper.utils import switch
@@ -46,10 +43,10 @@ class SpecificationTranslator(ExpressionTranslator):
 
         del self._ignore_accessible
 
-    def translate_postcondition(self, post: ast.AST, ctx: Context):
+    def translate_postcondition(self, post: ast.Node, ctx: Context):
         return self.translate(post, ctx)
 
-    def translate_check(self, check: ast.AST, ctx: Context, is_fail=False):
+    def translate_check(self, check: ast.Node, ctx: Context, is_fail=False):
         stmts, expr = self.translate(check, ctx)
         if is_fail:
             # We evaluate the check on failure in the old heap because events didn't
@@ -59,11 +56,11 @@ class SpecificationTranslator(ExpressionTranslator):
         else:
             return stmts, expr
 
-    def translate_invariant(self, inv: ast.AST, ctx: Context, ignore_accessible=False):
+    def translate_invariant(self, inv: ast.Node, ctx: Context, ignore_accessible=False):
         with self._ignore_accessible_scope(ignore_accessible):
             return self.translate(inv, ctx)
 
-    def _translate_spec(self, node: ast.AST, ctx: Context):
+    def _translate_spec(self, node: ast.Node, ctx: Context):
         stmts, expr = self.translate(node, ctx)
         assert not stmts
         return expr

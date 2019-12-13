@@ -5,20 +5,18 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
+from twovyper.ast import ast_nodes as ast, names, types
+from twovyper.ast.nodes import VyperProgram, VyperFunction
+from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.utils import first
-
-from twovyper.ast import names
-from twovyper.ast import types
-from twovyper.ast.nodes import VyperProgram, VyperFunction
 
 
 def compute(program: VyperProgram):
     _AccessibleHeuristics().compute(program)
 
 
-class _AccessibleHeuristics(ast.NodeVisitor):
+class _AccessibleHeuristics(NodeVisitor):
 
     def __init__(self):
         self.send_functions = []
@@ -61,7 +59,7 @@ class _AccessibleHeuristics(ast.NodeVisitor):
 
         is_send = node.func.id == names.SEND
         is_rawcall = node.func.id == names.RAW_CALL
-        is_raw_send = names.RAW_CALL_VALUE in [kw.arg for kw in node.keywords]
+        is_raw_send = names.RAW_CALL_VALUE in [kw.name for kw in node.keywords]
         if is_send or (is_rawcall and is_raw_send):
             self.send_functions.append(self.current_function)
 

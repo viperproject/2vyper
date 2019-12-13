@@ -30,7 +30,7 @@ class ModelTranslator(CommonTranslator):
 
         self.type_translator = TypeTranslator(viper_ast)
 
-    def save_variables(self, ctx: Context, pos=None) -> Tuple[List[Stmt], ModelTransformation]:
+    def save_variables(self, ctx: Context, pos=None) -> Tuple[List[Stmt], Optional[ModelTransformation]]:
         # Viper only gives a model for variables, therefore we save all important expressions
         # in variables and provide a mapping back to the Vyper expression. Also, we give a value
         # transformation to change, e.g., 12 to 0.0000000012 for decimals.

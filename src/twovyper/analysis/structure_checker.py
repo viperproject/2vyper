@@ -5,16 +5,16 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from typing import List, Optional
 
-from twovyper.ast import names
+from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.nodes import VyperProgram, VyperFunction
+from twovyper.ast.visitors import NodeVisitor
+
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
 
-def _assert(cond: bool, node: ast.AST, error_code: str):
+def _assert(cond: bool, node: ast.Node, error_code: str):
     if not cond:
         raise InvalidProgramException(node, error_code)
 
@@ -27,7 +27,7 @@ def check_structure(program: VyperProgram):
     PostconditionChecker(program).check()
 
 
-class ProgramChecker(ast.NodeVisitor):
+class ProgramChecker(NodeVisitor):
 
     def __init__(self, program: VyperProgram):
         self.program = program
@@ -41,13 +41,13 @@ class ProgramChecker(ast.NodeVisitor):
             name = node.func.id
 
             if name == names.RAW_CALL:
-                if names.RAW_CALL_DELEGATE_CALL in [kw.arg for kw in node.keywords]:
+                if names.RAW_CALL_DELEGATE_CALL in [kw.name for kw in node.keywords]:
                     raise UnsupportedException(node, 'Delegate calls are not supported.')
 
         self.generic_visit(node)
 
 
-class GhostFunctionChecker(ast.NodeVisitor):
+class GhostFunctionChecker(NodeVisitor):
 
     def __init__(self, program: VyperProgram):
         self.program = program
@@ -70,7 +70,7 @@ class GhostFunctionChecker(ast.NodeVisitor):
             raise InvalidProgramException(node, 'invalid.ghost')
 
 
-class SpecStructureChecker(ast.NodeVisitor):
+class SpecStructureChecker(NodeVisitor):
 
     def __init__(self, program: VyperProgram):
         self.program = program
@@ -78,7 +78,7 @@ class SpecStructureChecker(ast.NodeVisitor):
 
         self._inside_old = False
 
-    def _check(self, nodes: List[ast.AST], func: Optional[VyperFunction] = None):
+    def _check(self, nodes: List[ast.Node], func: Optional[VyperFunction] = None):
         self.func = func
         for node in nodes:
             self.visit(node)
@@ -102,7 +102,7 @@ class SpecStructureChecker(ast.NodeVisitor):
 
             _assert(len(node.keywords) <= 1, node, 'spec.success')
             if node.keywords:
-                _assert(node.keywords[0].arg == names.SUCCESS_IF_NOT, node, 'spec.success')
+                _assert(node.keywords[0].name == names.SUCCESS_IF_NOT, node, 'spec.success')
                 check_success_args(node.keywords[0].value)
         # Accessible is of the form accessible(to, amount, self.some_func(args...))
         elif name == names.ACCESSIBLE:

@@ -5,16 +5,13 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import ast
-
 from itertools import chain
 from typing import List, Optional, Tuple
 
 from twovyper.utils import switch, flatten, first_index
 from twovyper.exceptions import UnsupportedException
 
-from twovyper.ast import names
-from twovyper.ast import types
+from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.nodes import VyperFunction, VyperInterface, VyperVar
 from twovyper.ast.types import MapType, ArrayType, StructType, AddressType, ContractType, InterfaceType
@@ -160,11 +157,9 @@ class ExpressionTranslator(NodeTranslator):
     def translate_Compare(self, node: ast.Compare, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
-        assert len(node.ops) == 1
-
         left = node.left
-        operator = node.ops[0]
-        right = node.comparators[0]
+        operator = node.op
+        right = node.right
 
         lhs_stmts, lhs = self.translate(left, ctx)
         op = self.translate_operator(operator)
@@ -218,7 +213,7 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         value_stmts, value = self.translate(node.value, ctx)
-        index_stmts, index = self.translate(node.slice.value, ctx)
+        index_stmts, index = self.translate(node.index, ctx)
         stmts = []
 
         node_type = node.value.type
@@ -501,7 +496,7 @@ class ExpressionTranslator(NodeTranslator):
                 amount = self.viper_ast.IntLit(0, pos)
                 for kw in node.keywords:
                     arg_stmts, arg = self.translate(kw.value, ctx)
-                    if kw.arg == names.RAW_CALL_VALUE:
+                    if kw.name == names.RAW_CALL_VALUE:
                         amount = arg
                     args_stmts.extend(arg_stmts)
 
@@ -536,7 +531,7 @@ class ExpressionTranslator(NodeTranslator):
             elif isinstance(rec_type, (ContractType, InterfaceType)):
                 to_stmts, to = self.translate(node.func.value, ctx)
 
-                val_idx = first_index(lambda n: n.arg == names.RAW_CALL_VALUE, node.keywords)
+                val_idx = first_index(lambda n: n.name == names.RAW_CALL_VALUE, node.keywords)
                 if val_idx >= 0:
                     amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
                     stmts.extend(amount_stmts)
@@ -745,7 +740,7 @@ class ExpressionTranslator(NodeTranslator):
         return stmts + assertions + call + new_state + return_stmts + itf + copy_old, success, return_value
 
     def _assume_interface_specifications(self,
-                                         node: ast.AST,
+                                         node: ast.Node,
                                          interface: VyperInterface,
                                          function: VyperFunction,
                                          args: List[Expr],

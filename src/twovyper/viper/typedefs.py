@@ -5,40 +5,40 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 
 # AST abstract
-Node = 'silver.ast.Node'
-Stmt = 'silver.ast.Stmt'
-Expr = 'silver.ast.Exp'
+Node = Any  # 'silver.ast.Node'
+Stmt = Any  # 'silver.ast.Stmt'
+Expr = Any  # 'silver.ast.Exp'
 StmtsAndExpr = Tuple[List[Stmt], Expr]
 
 # AST
-Program = 'silver.ast.Program'
-Field = 'silver.ast.Field'
-Method = 'silver.ast.Method'
+Program = Any  # 'silver.ast.Program'
+Field = Any  # 'silver.ast.Field'
+Method = Any  # 'silver.ast.Method'
 
-Domain = 'silver.ast.Domain'
-DomainAxiom = 'silver.ast.DomainAxiom'
-DomainFunc = 'silver.ast.DomainFunc'
-DomainFuncApp = 'silver.ast.DomainFuncApp'
-DomainType = 'silver.ast.DomainType'
+Domain = Any  # 'silver.ast.Domain'
+DomainAxiom = Any  # 'silver.ast.DomainAxiom'
+DomainFunc = Any  # 'silver.ast.DomainFunc'
+DomainFuncApp = Any  # 'silver.ast.DomainFuncApp'
+DomainType = Any  # 'silver.ast.DomainType'
 
-TypeVar = 'silver.ast.TypeVar'
-Type = 'silver.ast.Type'
+TypeVar = Any  # 'silver.ast.TypeVar'
+Type = Any  # 'silver.ast.Type'
 
-Seqn = 'silver.ast.Seqn'
+Seqn = Any  # 'silver.ast.Seqn'
 
-Var = 'silver.ast.LocalVar'
-VarDecl = 'silver.ast.LocalVarDecl'
-VarAssign = 'silver.ast.LocalVarAssign'
+Var = Any  # 'silver.ast.LocalVar'
+VarDecl = Any  # 'silver.ast.LocalVarDecl'
+VarAssign = Any  # 'silver.ast.LocalVarAssign'
 
 # Error handling
-AbstractSourcePosition = 'silver.ast.AbstractSourcePosition'
-Position = 'silver.ast.Position'
-Info = 'silver.ast.Info'
+AbstractSourcePosition = Any  # 'silver.ast.AbstractSourcePosition'
+Position = Any  # 'silver.ast.Position'
+Info = Any  # 'silver.ast.Info'
 
 # Verification
-AbstractVerificationError = 'silver.verifier.AbstractVerificationError'
-AbstractErrorReason = 'silver.verifier.AbstractErrorReason'
+AbstractVerificationError = Any  # 'silver.verifier.AbstractVerificationError'
+AbstractErrorReason = Any  # 'silver.verifier.AbstractErrorReason'
