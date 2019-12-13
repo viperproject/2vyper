@@ -20,15 +20,282 @@ class Node:
         self.end_col_offset = None
 
 
-class Stmt(Node):
-    pass
-
-
 class Expr(Node):
 
     def __init__(self):
         super().__init__()
         self.type = None
+
+
+class BoolOperator(Node):
+    pass
+
+
+class And(BoolOperator):
+    pass
+
+
+class Or(BoolOperator):
+    pass
+
+
+class Implies(BoolOperator):
+    pass
+
+
+# TODO: change to left right
+class BoolOp(Expr):
+
+    _children = ['values']
+
+    def __init__(self, op: BoolOperator, values: ListT[Expr]):
+        super().__init__()
+        self.op = op
+        self.values = values
+
+
+class ArithmeticOperator(Node):
+    pass
+
+
+class Add(ArithmeticOperator):
+    pass
+
+
+class Sub(ArithmeticOperator):
+    pass
+
+
+class Mult(ArithmeticOperator):
+    pass
+
+
+class Div(ArithmeticOperator):
+    pass
+
+
+class Mod(ArithmeticOperator):
+    pass
+
+
+class Pow(ArithmeticOperator):
+    pass
+
+
+class BinOp(Expr):
+
+    _children = ['left', 'right']
+
+    def __init__(self, left: Expr, op: ArithmeticOperator, right: Expr):
+        super().__init__()
+        self.left = left
+        self.op = op
+        self.right = right
+
+
+class UnaryOperator(Node):
+    pass
+
+
+class Not(UnaryOperator):
+    pass
+
+
+class UAdd(UnaryOperator):
+    pass
+
+
+class USub(UnaryOperator):
+    pass
+
+
+class UnaryOp(Expr):
+
+    _children = ['operand']
+
+    def __init__(self, op: UnaryOperator, operand: Expr):
+        super().__init__()
+        self.op = op
+        self.operand = operand
+
+
+class ComparisonOperator(Node):
+    pass
+
+
+class Eq(ComparisonOperator):
+    pass
+
+
+class NotEq(ComparisonOperator):
+    pass
+
+
+class Lt(ComparisonOperator):
+    pass
+
+
+class LtE(ComparisonOperator):
+    pass
+
+
+class Gt(ComparisonOperator):
+    pass
+
+
+class GtE(ComparisonOperator):
+    pass
+
+
+class In(ComparisonOperator):
+    pass
+
+
+class NotIn(ComparisonOperator):
+    pass
+
+
+class Compare(Expr):
+
+    _children = ['left', 'right']
+
+    def __init__(self, left: Expr, op: ComparisonOperator, right: Expr):
+        super().__init__()
+        self.left = left
+        self.op = op
+        self.right = right
+
+
+class IfExp(Expr):
+
+    _children = ['test', 'body', 'orelse']
+
+    def __init__(self, test: Expr, body: Expr, orelse: Expr):
+        super().__init__()
+        self.test = test
+        self.body = body
+        self.orelse = orelse
+
+
+class Dict(Expr):
+
+    _children = ['keys', 'values']
+
+    def __init__(self, keys: ListT[Expr], values: ListT[Expr]):
+        super().__init__()
+        self.keys = keys
+        self.values = values
+
+
+class Set(Expr):
+
+    _children = ['elts']
+
+    def __init__(self, elts: ListT[Expr]):
+        super().__init__()
+        self.elts = elts
+
+
+class Keyword(Node):
+
+    _children = ['value']
+
+    def __init__(self, name: str, value: Expr):
+        super().__init__()
+        self.name = name
+        self.value = value
+
+
+class Call(Expr):
+
+    _children = ['func', 'args', 'keywords']
+
+    def __init__(self, func: Expr, args: ListT[Expr], keywords: ListT[Keyword]):
+        super().__init__()
+        self.func = func
+        self.args = args
+        self.keywords = keywords
+
+
+class Num(Expr):
+
+    def __init__(self, n):
+        super().__init__()
+        self.n = n
+
+
+class Str(Expr):
+
+    def __init__(self, s: str):
+        super().__init__()
+        self.s = s
+
+
+class Bytes(Expr):
+
+    def __init__(self, s: bytes):
+        super().__init__()
+        self.s = s
+
+
+class NameConstant(Expr):
+
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
+
+
+class Ellipsis(Expr):
+    pass
+
+
+class Attribute(Expr):
+
+    _children = ['value']
+
+    def __init__(self, value: Expr, attr: str):
+        super().__init__()
+        self.value = value
+        self.attr = attr
+
+
+class Subscript(Expr):
+
+    _children = ['value', 'index']
+
+    def __init__(self, value: Expr, index: Expr):
+        super().__init__()
+        self.value = value
+        self.index = index
+
+
+class Name(Expr):
+
+    def __init__(self, id: str):
+        super().__init__()
+        self.id = id
+
+
+class List(Expr):
+
+    _children = ['elts']
+
+    def __init__(self, elts: ListT[Expr]):
+        super().__init__()
+        self.elts = elts
+
+
+class Tuple(Expr):
+
+    _children = ['elts']
+
+    def __init__(self, elts: ListT[Expr]):
+        super().__init__()
+        self.elts = elts
+
+
+class Stmt(Node):
+    pass
 
 
 class Module(Node):
@@ -101,34 +368,6 @@ class Assign(Stmt):
         super().__init__()
         self.target = target
         self.value = value
-
-
-class ArithmeticOperator(Node):
-    pass
-
-
-class Add(ArithmeticOperator):
-    pass
-
-
-class Sub(ArithmeticOperator):
-    pass
-
-
-class Mult(ArithmeticOperator):
-    pass
-
-
-class Div(ArithmeticOperator):
-    pass
-
-
-class Mod(ArithmeticOperator):
-    pass
-
-
-class Pow(ArithmeticOperator):
-    pass
 
 
 class AugAssign(Stmt):
@@ -250,242 +489,3 @@ class Break(Stmt):
 
 class Continue(Stmt):
     pass
-
-
-class BoolOperator(Node):
-    pass
-
-
-class And(BoolOperator):
-    pass
-
-
-class Or(BoolOperator):
-    pass
-
-
-class Implies(BoolOperator):
-    pass
-
-
-# TODO: change to left right
-class BoolOp(Expr):
-
-    _children = ['values']
-
-    def __init__(self, op: BoolOperator, values: ListT[Expr]):
-        super().__init__()
-        self.op = op
-        self.values = values
-
-
-class BinOp(Expr):
-
-    _children = ['left', 'right']
-
-    def __init__(self, left: Expr, op: ArithmeticOperator, right: Expr):
-        super().__init__()
-        self.left = left
-        self.op = op
-        self.right = right
-
-
-class UnaryOperator(Node):
-    pass
-
-
-class Not(UnaryOperator):
-    pass
-
-
-class UAdd(UnaryOperator):
-    pass
-
-
-class USub(UnaryOperator):
-    pass
-
-
-class UnaryOp(Expr):
-
-    _children = ['operand']
-
-    def __init__(self, op: UnaryOperator, operand: Expr):
-        super().__init__()
-        self.op = op
-        self.operand = operand
-
-
-class IfExp(Expr):
-
-    _children = ['test', 'body', 'orelse']
-
-    def __init__(self, test: Expr, body: ListT[Stmt], orelse: ListT[Stmt]):
-        super().__init__()
-        self.test = test
-        self.body = body
-        self.orelse = orelse
-
-
-class Dict(Expr):
-
-    _children = ['keys', 'values']
-
-    def __init__(self, keys: ListT[Expr], values: ListT[Expr]):
-        super().__init__()
-        self.keys = keys
-        self.values = values
-
-
-class Set(Expr):
-
-    _children = ['elts']
-
-    def __init__(self, elts: ListT[Expr]):
-        super().__init__()
-        self.elts = elts
-
-
-class ComparisonOperator(Node):
-    pass
-
-
-class Eq(ComparisonOperator):
-    pass
-
-
-class NotEq(ComparisonOperator):
-    pass
-
-
-class Lt(ComparisonOperator):
-    pass
-
-
-class LtE(ComparisonOperator):
-    pass
-
-
-class Gt(ComparisonOperator):
-    pass
-
-
-class GtE(ComparisonOperator):
-    pass
-
-
-class In(ComparisonOperator):
-    pass
-
-
-class NotIn(ComparisonOperator):
-    pass
-
-
-class Compare(Expr):
-
-    _children = ['left', 'right']
-
-    def __init__(self, left: Expr, op: ComparisonOperator, right: Expr):
-        super().__init__()
-        self.left = left
-        self.op = op
-        self.right = right
-
-
-class Keyword(Node):
-
-    _children = ['value']
-
-    def __init__(self, name: str, value: Expr):
-        super().__init__()
-        self.name = name
-        self.value = value
-
-
-class Call(Expr):
-
-    _children = ['func', 'args', 'keywords']
-
-    def __init__(self, func: Expr, args: ListT[Expr], keywords: ListT[Keyword]):
-        super().__init__()
-        self.func = func
-        self.args = args
-        self.keywords = keywords
-
-
-class Num(Expr):
-
-    def __init__(self, n):
-        super().__init__()
-        self.n = n
-
-
-class Str(Expr):
-
-    def __init__(self, s: str):
-        super().__init__()
-        self.s = s
-
-
-class Bytes(Expr):
-
-    def __init__(self, s: bytes):
-        super().__init__()
-        self.s = s
-
-
-class NameConstant(Expr):
-
-    def __init__(self, value):
-        super().__init__()
-        self.value = value
-
-
-class Ellipsis(Expr):
-    pass
-
-
-class Attribute(Expr):
-
-    _children = ['value']
-
-    def __init__(self, value: Expr, attr: str):
-        super().__init__()
-        self.value = value
-        self.attr = attr
-
-
-class Subscript(Expr):
-
-    _children = ['value', 'index']
-
-    def __init__(self, value: Expr, index: Expr):
-        super().__init__()
-        self.value = value
-        self.index = index
-
-
-class Name(Expr):
-
-    def __init__(self, id: str):
-        super().__init__()
-        self.id = id
-
-
-class List(Expr):
-
-    _children = ['elts']
-
-    def __init__(self, elts: ListT[Expr]):
-        super().__init__()
-        self.elts = elts
-
-
-class Tuple(Expr):
-
-    _children = ['elts']
-
-    def __init__(self, elts: ListT[Expr]):
-        super().__init__()
-        self.elts = elts
