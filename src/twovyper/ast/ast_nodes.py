@@ -169,11 +169,11 @@ class Dict(Expr):
 
 class Set(Expr):
 
-    _children = ['elts']
+    _children = ['elements']
 
-    def __init__(self, elts: ListT[Expr]):
+    def __init__(self, elements: ListT[Expr]):
         super().__init__()
-        self.elts = elts
+        self.elements = elements
 
 
 class Keyword(Node):
@@ -258,20 +258,20 @@ class Name(Expr):
 
 class List(Expr):
 
-    _children = ['elts']
+    _children = ['elements']
 
-    def __init__(self, elts: ListT[Expr]):
+    def __init__(self, elements: ListT[Expr]):
         super().__init__()
-        self.elts = elts
+        self.elements = elements
 
 
 class Tuple(Expr):
 
-    _children = ['elts']
+    _children = ['elements']
 
-    def __init__(self, elts: ListT[Expr]):
+    def __init__(self, elements: ListT[Expr]):
         super().__init__()
-        self.elts = elts
+        self.elements = elements
 
 
 class Module(Node):

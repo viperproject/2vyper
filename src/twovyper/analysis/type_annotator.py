@@ -627,7 +627,7 @@ class TypeAnnotator(NodeVisitor):
 
     # Sets occur in trigger expressions
     def visit_Set(self, node: ast.Set):
-        for elem in node.elts:
+        for elem in node.elements:
             # Triggers can have any type
             self.annotate(elem)
         return [None], [node]
@@ -678,10 +678,10 @@ class TypeAnnotator(NodeVisitor):
 
     def visit_List(self, node: ast.List):
         # Vyper guarantees that size > 0
-        size = len(node.elts)
-        for e in node.elts:
+        size = len(node.elements)
+        for e in node.elements:
             self.annotate(e)
-        element_types = [e.type for e in node.elts]
+        element_types = [e.type for e in node.elements]
         for element_type in element_types:
             if element_type != types.VYPER_INT128:
                 return [types.ArrayType(element_type, size)], [node]

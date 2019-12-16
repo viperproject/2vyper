@@ -109,7 +109,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 with inside_trigger_scope(ctx):
                     for arg in node.args[1: num_args - 1]:
                         trigger_pos = self.to_position(arg, ctx)
-                        trigger_exprs = [self._translate_spec(t, ctx) for t in arg.elts]
+                        trigger_exprs = [self._translate_spec(t, ctx) for t in arg.elements]
                         trigger = self.viper_ast.Trigger(trigger_exprs, trigger_pos)
                         triggers.append(trigger)
 

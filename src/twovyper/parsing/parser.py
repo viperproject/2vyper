@@ -231,7 +231,7 @@ class ProgramBuilder(NodeVisitor):
             if isinstance(node.value, ast.Name):
                 options = [node.value.id]
             elif isinstance(node.value, ast.Tuple):
-                options = [n.id for n in node.value.elts]
+                options = [n.id for n in node.value.elements]
 
             for option in options:
                 if option not in names.CONFIG_OPTIONS:

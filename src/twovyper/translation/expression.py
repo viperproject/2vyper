@@ -234,13 +234,13 @@ class ExpressionTranslator(NodeTranslator):
     def translate_List(self, node: ast.List, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
-        if not node.elts:
+        if not node.elements:
             type = self.type_translator.translate(node.type.element_type, ctx)
             return [], self.viper_ast.EmptySeq(type, pos)
 
         stmts = []
         elems = []
-        for e in node.elts:
+        for e in node.elements:
             e_stmts, elem = self.translate(e, ctx)
             stmts.extend(e_stmts)
             elems.append(elem)
