@@ -35,7 +35,6 @@ class ArithmeticTranslator(CommonTranslator):
             ast.Div: lambda l, r, pos, info: helpers.div(viper_ast, l, r, pos, info),
             ast.Mod: lambda l, r, pos, info: helpers.mod(viper_ast, l, r, pos, info),
             ast.Pow: lambda l, r, pos, info: helpers.pow(viper_ast, l, r, pos, info),
-            ast.Implies: self.viper_ast.Implies
         }
 
     def uop(self, op, arg, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:

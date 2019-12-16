@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from functools import reduce
 from typing import List
 
 from lark import Lark
@@ -55,7 +56,7 @@ def copy_pos_from(node: ast.Node, to: ast.Node):
     to.end_col_offset = node.end_col_offset
 
 
-def copy_pos_between(node: ast.Node, left: ast.Node, right: ast.Node):
+def copy_pos_between(node: ast.Node, left: ast.Node, right: ast.Node) -> ast.Node:
     assert left.file == right.file
     assert left.lineno <= right.lineno
     assert left.lineno != right.lineno or left.col_offset < right.col_offset
@@ -65,6 +66,8 @@ def copy_pos_between(node: ast.Node, left: ast.Node, right: ast.Node):
     node.col_offset = left.col_offset
     node.end_lineno = right.end_lineno
     node.end_col_offset = right.end_col_offset
+
+    return node
 
 
 @v_args(meta=True)
@@ -280,30 +283,23 @@ class _PythonTransformer(Transformer):
         orelse = children[2]
         return ast.IfExp(cond, body, orelse)
 
+    def _left_associative_bool_op(self, children, op):
+        return reduce(lambda l, r: copy_pos_between(ast.BoolOp(l, op, r), l, r), children)
+
+    def _right_associative_bool_op(self, children, op):
+        return reduce(lambda r, l: copy_pos_between(ast.BoolOp(l, op, r), l, r), reversed(children))
+
     @copy_pos
     def impl_test(self, children, meta):
-        it = iter(children)
-        left = next(it)
-
-        def impl(l):
-            r = next(it, None)
-            if r is None:
-                return l
-            else:
-                r = impl(r)
-                ret = ast.BinOp(l, ast.Implies(), r)
-                copy_pos_between(ret, l, r)
-                return ret
-
-        return impl(left)
+        return self._right_associative_bool_op(children, ast.BoolOperator.IMPLIES)
 
     @copy_pos
     def or_test(self, children, meta):
-        return ast.BoolOp(ast.Or(), children)
+        return self._left_associative_bool_op(children, ast.BoolOperator.OR)
 
     @copy_pos
     def and_test(self, children, meta):
-        return ast.BoolOp(ast.And(), children)
+        return self._left_associative_bool_op(children, ast.BoolOperator.AND)
 
     @copy_pos
     def unot(self, children, meta):

@@ -268,8 +268,8 @@ class TypeAnnotator(NodeVisitor):
         pass
 
     def visit_BoolOp(self, node: ast.BoolOp):
-        for value in node.values:
-            self.annotate_expected(value, types.VYPER_BOOL)
+        self.annotate_expected(node.left, types.VYPER_BOOL)
+        self.annotate_expected(node.right, types.VYPER_BOOL)
         return [types.VYPER_BOOL], [node]
 
     def visit_BinOp(self, node: ast.BinOp):

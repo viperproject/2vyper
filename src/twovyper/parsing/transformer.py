@@ -54,11 +54,12 @@ class ConstantInterpreter(NodeVisitor):
         self.constants = constants
 
     def visit_BoolOp(self, node: ast.BoolOp):
-        operands = [self.visit(v) for v in node.values]
-        if isinstance(node.op, ast.And):
-            return all(operands)
-        elif isinstance(node.op, ast.Or):
-            return any(operands)
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        if node.op == ast.BoolOperator.AND:
+            return left and right
+        elif node.op == ast.BoolOperator.OR:
+            return left or right
         else:
             assert False
 

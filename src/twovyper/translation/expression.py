@@ -54,9 +54,13 @@ class ExpressionTranslator(NodeTranslator):
             ast.GtE: self.viper_ast.GeCmp,
             ast.In: lambda l, r, pos: helpers.array_contains(viper_ast, l, r, pos),
             ast.NotIn: lambda l, r, pos: helpers.array_not_contains(viper_ast, l, r, pos),
-            ast.And: self.viper_ast.And,
-            ast.Or: self.viper_ast.Or,
             ast.Not: self.viper_ast.Not
+        }
+
+        self._bool_ops = {
+            ast.BoolOperator.AND: self.viper_ast.And,
+            ast.BoolOperator.OR: self.viper_ast.Or,
+            ast.BoolOperator.IMPLIES: self.viper_ast.Implies
         }
 
     @property
@@ -119,18 +123,11 @@ class ExpressionTranslator(NodeTranslator):
     def translate_BoolOp(self, node: ast.BoolOp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
-        op = self.translate_operator(node.op)
+        left_stmts, left = self.translate(node.left, ctx)
+        op = self._bool_ops[node.op]
+        right_stmts, right = self.translate(node.right, ctx)
 
-        def build(values):
-            head, *tail = values
-            stmts, lhs = self.translate(head, ctx)
-            if not tail:
-                return stmts, lhs
-            else:
-                more, rhs = build(tail)
-                return stmts + more, op(lhs, rhs, pos)
-
-        return build(node.values)
+        return left_stmts + right_stmts, op(left, right, pos)
 
     def translate_UnaryOp(self, node: ast.UnaryOp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)

@@ -94,9 +94,9 @@ class SpecStructureChecker(NodeVisitor):
             def check_success_args(node):
                 if isinstance(node, ast.Name):
                     _assert(node.id in names.SUCCESS_CONDITIONS, node, 'spec.success')
-                elif isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
-                    for val in node.values:
-                        check_success_args(val)
+                elif isinstance(node, ast.BoolOp) and node.op == ast.BoolOperator.OR:
+                    check_success_args(node.left)
+                    check_success_args(node.right)
                 else:
                     raise InvalidProgramException(node, 'spec.success')
 

@@ -130,8 +130,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 if isinstance(node, ast.Name):
                     conds.add(node.id)
                 elif isinstance(node, ast.BoolOp):
-                    for val in node.values:
-                        collect_conds(val)
+                    collect_conds(node.left)
+                    collect_conds(node.right)
 
             if node.keywords:
                 args = node.keywords[0].value

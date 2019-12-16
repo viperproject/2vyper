@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from enum import Enum
 from typing import List as ListT, Optional as OptionalT
 
 
@@ -20,6 +21,10 @@ class Node:
         self.end_col_offset = None
 
 
+class Stmt(Node):
+    pass
+
+
 class Expr(Node):
 
     def __init__(self):
@@ -27,31 +32,25 @@ class Expr(Node):
         self.type = None
 
 
-class BoolOperator(Node):
+class Operator:
     pass
 
 
-class And(BoolOperator):
-    pass
+class BoolOperator(Operator, Enum):
+    AND = 'and'
+    OR = 'or'
+    IMPLIES = 'implies'
 
 
-class Or(BoolOperator):
-    pass
-
-
-class Implies(BoolOperator):
-    pass
-
-
-# TODO: change to left right
 class BoolOp(Expr):
 
-    _children = ['values']
+    _children = ['left', 'right']
 
-    def __init__(self, op: BoolOperator, values: ListT[Expr]):
+    def __init__(self, left: Expr, op: BoolOperator, right: Expr):
         super().__init__()
+        self.left = left
         self.op = op
-        self.values = values
+        self.right = right
 
 
 class ArithmeticOperator(Node):
@@ -292,10 +291,6 @@ class Tuple(Expr):
     def __init__(self, elts: ListT[Expr]):
         super().__init__()
         self.elts = elts
-
-
-class Stmt(Node):
-    pass
 
 
 class Module(Node):
