@@ -30,6 +30,9 @@ env/
 .cache
 .pytest_cache/
 
+# mypy
+.mypy_cache/
+
 # Documentation
 docs/build
 
