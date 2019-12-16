@@ -53,20 +53,6 @@ def unique(eq, iterable: Iterable[T]) -> List[T]:
     return unique_iterable
 
 
-class DicitionaryView:
-
-    def __init__(self, dicts):
-        self.dicts = dicts
-
-    def __getitem__(self, key):
-        for d in self.dicts:
-            opt_value = d.get(key)
-            if opt_value is not None:
-                return opt_value
-        else:
-            raise KeyError(f"{key} not present in dict")
-
-
 def seq_to_list(scala_iterable):
     lst = []
     it = scala_iterable.iterator()

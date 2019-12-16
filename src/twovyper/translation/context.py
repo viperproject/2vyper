@@ -6,11 +6,10 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
-from collections import defaultdict
+from collections import ChainMap, defaultdict
 
 from twovyper.ast import names
 from twovyper.translation import mangled
-from twovyper.utils import DicitionaryView
 
 
 class Context:
@@ -36,7 +35,7 @@ class Context:
         self.current_old_state = {}
         self.quantified_vars = {}
 
-        # The actual preset, old, pre, and issued states
+        # The actual present, old, pre, and issued states
         self.present_state = {}
         self.old_state = {}
         self.pre_state = {}
@@ -66,8 +65,7 @@ class Context:
 
     @property
     def all_vars(self):
-        var_dicts = [self.quantified_vars, self.current_state, self.locals, self.args]
-        return DicitionaryView(var_dicts)
+        return ChainMap(self.quantified_vars, self.current_state, self.locals, self.args)
 
     @property
     def self_type(self):
