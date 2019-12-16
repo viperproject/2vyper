@@ -207,7 +207,7 @@ class ProgramBuilder(NodeVisitor):
         else:
             assert False
 
-    def visit_AnnAssign(self, node):
+    def visit_AnnAssign(self, node: ast.AnnAssign):
         # No local specs are allowed before contract state variables
         self._check_no_local_spec()
 
@@ -225,7 +225,7 @@ class ProgramBuilder(NodeVisitor):
             else:
                 self.field_types[variable_name] = variable_type
 
-    def visit_Assign(self, node):
+    def visit_Assign(self, node: ast.Assign):
         # This is for invariants and postconditions which get translated to
         # assignments during preprocessing.
 
@@ -323,7 +323,7 @@ class ProgramBuilder(NodeVisitor):
 
             ghost_functions[name] = GhostFunction(name, args, type, func)
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(self, node: ast.FunctionDef):
         args = {arg.name: self._arg(arg) for arg in node.args}
         defaults = {arg.name: arg.default for arg in node.args}
         arg_types = [arg.type for arg in args.values()]
