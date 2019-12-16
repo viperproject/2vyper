@@ -45,21 +45,17 @@ class ExpressionTranslator(NodeTranslator):
         self.state_translator = StateTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
-        self._operations = {
-            ast.Eq: self.viper_ast.EqCmp,
-            ast.NotEq: self.viper_ast.NeCmp,
-            ast.Lt: self.viper_ast.LtCmp,
-            ast.LtE: self.viper_ast.LeCmp,
-            ast.Gt: self.viper_ast.GtCmp,
-            ast.GtE: self.viper_ast.GeCmp,
-            ast.In: lambda l, r, pos: helpers.array_contains(viper_ast, l, r, pos),
-            ast.NotIn: lambda l, r, pos: helpers.array_not_contains(viper_ast, l, r, pos),
-        }
-
         self._bool_ops = {
             ast.BoolOperator.AND: self.viper_ast.And,
             ast.BoolOperator.OR: self.viper_ast.Or,
             ast.BoolOperator.IMPLIES: self.viper_ast.Implies
+        }
+
+        self._comparison_ops = {
+            ast.ComparisonOperator.LT: self.viper_ast.LtCmp,
+            ast.ComparisonOperator.LTE: self.viper_ast.LeCmp,
+            ast.ComparisonOperator.GTE: self.viper_ast.GeCmp,
+            ast.ComparisonOperator.GT: self.viper_ast.GtCmp
         }
 
     @property
@@ -149,24 +145,41 @@ class ExpressionTranslator(NodeTranslator):
         expr = self.viper_ast.CondExp(test, body, orelse, pos)
         return [*test_stmts, *body_stmts, *orelse_stmts], expr
 
-    def translate_Compare(self, node: ast.Compare, ctx: Context) -> StmtsAndExpr:
+    def translate_Comparison(self, node: ast.Comparison, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
-        left = node.left
-        operator = node.op
-        right = node.right
+        lhs_stmts, lhs = self.translate(node.left, ctx)
+        op = self._comparison_ops[node.op]
+        rhs_stmts, rhs = self.translate(node.right, ctx)
+        return lhs_stmts + rhs_stmts, op(lhs, rhs, pos)
 
-        lhs_stmts, lhs = self.translate(left, ctx)
-        op = self.translate_operator(operator)
-        rhs_stmts, rhs = self.translate(right, ctx)
+    def translate_Containment(self, node: ast.Containment, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
+
+        value_stmts, value = self.translate(node.value, ctx)
+        list_stmts, list = self.translate(node.list, ctx)
+        stmts = value_stmts + list_stmts
+
+        if node.op == ast.ContainmentOperator.IN:
+            return stmts, helpers.array_contains(self.viper_ast, value, list, pos)
+        elif node.op == ast.ContainmentOperator.NOT_IN:
+            return stmts, helpers.array_not_contains(self.viper_ast, value, list, pos)
+        else:
+            assert False
+
+    def translate_Equality(self, node: ast.Equality, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
+
+        lhs_stmts, lhs = self.translate(node.left, ctx)
+        rhs_stmts, rhs = self.translate(node.right, ctx)
         stmts = lhs_stmts + rhs_stmts
 
-        if isinstance(operator, ast.Eq):
-            return stmts, self.type_translator.eq(node, lhs, rhs, left.type, ctx)
-        elif isinstance(operator, ast.NotEq):
-            return stmts, self.type_translator.neq(node, lhs, rhs, left.type, ctx)
+        if node.op == ast.EqualityOperator.EQ:
+            return stmts, self.type_translator.eq(lhs, rhs, node.left.type, ctx, pos)
+        elif node.op == ast.EqualityOperator.NEQ:
+            return stmts, self.type_translator.neq(lhs, rhs, node.left.type, ctx, pos)
         else:
-            return stmts, op(lhs, rhs, pos)
+            assert False
 
     def translate_operator(self, operator):
         return self._operations[type(operator)]

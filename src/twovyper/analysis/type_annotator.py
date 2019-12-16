@@ -286,7 +286,16 @@ class TypeAnnotator(NodeVisitor):
         self.annotate_expected(node.test, types.VYPER_BOOL)
         return self.combine(node.body, node.orelse, node)
 
-    def visit_Compare(self, node: ast.Compare):
+    def visit_Comparison(self, node: ast.Comparison):
+        self.annotate(node.left, node.right)
+        return [types.VYPER_BOOL], [node]
+
+    def visit_Containment(self, node: ast.Containment):
+        self.annotate_expected(node.list, lambda t: isinstance(t, ArrayType))
+        self.annotate_expected(node.value, node.list.type.element_type)
+        return [types.VYPER_BOOL], [node]
+
+    def visit_Equality(self, node: ast.Equality):
         self.annotate(node.left, node.right)
         return [types.VYPER_BOOL], [node]
 

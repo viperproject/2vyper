@@ -302,21 +302,17 @@ class _PythonTransformer(Transformer):
     @copy_pos
     def comparison(self, children, meta):
         left = children[0]
-        ops = []
-        comparators = []
-        it = iter(children[1:])
-        for c in it:
-            ops.append(c)
-            comparators.append(next(it))
+        op = children[1]
+        right = children[2]
 
-        if len(ops) > 1:
-            raise InvalidProgramException(ops[1], 'invalid.comparison')
-
-        # TODO: improve
-
-        assert len(ops) == 1 and len(comparators) == 1
-
-        return ast.Compare(left, ops[0], comparators[0])
+        if isinstance(op, ast.ComparisonOperator):
+            return ast.Comparison(left, op, right)
+        elif isinstance(op, ast.ContainmentOperator):
+            return ast.Containment(left, op, right)
+        elif isinstance(op, ast.EqualityOperator):
+            return ast.Equality(left, op, right)
+        else:
+            assert False
 
     @copy_pos
     def arith_expr(self, children, meta):
@@ -356,21 +352,17 @@ class _PythonTransformer(Transformer):
     def mul_op(self, children, meta):
         return ast.ArithmeticOperator(children[0])
 
-    @copy_pos
     def comp_op(self, children, meta):
-        ops = {
-            '<': ast.Lt,
-            '>': ast.Gt,
-            '==': ast.Eq,
-            '>=': ast.GtE,
-            '<=': ast.LtE,
-            '!=': ast.NotEq,
-            'in': ast.In,
-        }
-        if len(children) == 2:
-            return ast.NotIn()
+        return ast.ComparisonOperator(children[0])
+
+    def cont_op(self, children, meta):
+        if len(children) == 1:
+            return ast.ContainmentOperator.IN
         else:
-            return ops[children[0]]()
+            return ast.ContainmentOperator.NOT_IN
+
+    def eq_op(self, children, meta):
+        return ast.EqualityOperator(children[0])
 
     @copy_pos
     def power(self, children, meta):

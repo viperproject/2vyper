@@ -95,22 +95,29 @@ class ConstantInterpreter(NodeVisitor):
         else:
             assert False
 
-    def visit_Compare(self, node: ast.Compare):
+    def visit_Comparison(self, node: ast.Comparison):
         lhs = self.visit(node.left)
         rhs = self.visit(node.right)
-        op = node.op
-        if isinstance(op, ast.Eq):
-            return lhs == rhs
-        elif isinstance(op, ast.NotEq):
-            return lhs != rhs
-        elif isinstance(op, ast.Lt):
+
+        if isinstance(node.op, ast.Lt):
             return lhs < rhs
-        elif isinstance(op, ast.LtE):
+        elif isinstance(node.op, ast.LtE):
             return lhs <= rhs
-        elif isinstance(op, ast.Gt):
+        elif isinstance(node.op, ast.Gt):
             return lhs > rhs
-        elif isinstance(op, ast.GtE):
+        elif isinstance(node.op, ast.GtE):
             return lhs >= rhs
+        else:
+            assert False
+
+    def visit_Equality(self, node: ast.Equality):
+        lhs = self.visit(node.left)
+        rhs = self.visit(node.right)
+
+        if node.op == ast.EqualityOperator.EQ:
+            return lhs == rhs
+        elif node.op == ast.EqualityOperator.NEQ:
+            return lhs != rhs
         else:
             assert False
 

@@ -67,12 +67,15 @@ suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
 ?and_test: not_test ("and" not_test)*
 ?not_test: "not" not_test -> unot
          | comparison
-?comparison: arith_expr (comp_op arith_expr)*
+?comparison: arith_expr [(comp_op | cont_op | eq_op) arith_expr]
 ?arith_expr: term (add_op term)*
 ?term: factor (mul_op factor)*
 ?factor: factor_op factor | power
 
-!comp_op: "<" | ">" | "==" | ">=" | "<=" | "!=" | "in" | "not" "in"
+!comp_op: "<" | ">" | ">=" | "<="
+!cont_op: "in" | "not" "in"
+!eq_op: "==" | "!="
+
 !add_op: "+" | "-"
 !mul_op: "*" | "/" | "%"
 !factor_op: "+" | "-"

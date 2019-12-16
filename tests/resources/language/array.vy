@@ -123,3 +123,19 @@ def index_negative_fail(a: int128[5], n: int128):
 @public
 def index_size_fail(a: int128[5], n: int128):
     pass
+
+
+#@ ensures: a == [1, 2, 3] and element == 3 ==> result()
+#@ ensures: a == [1, 2, 3] and element == 4 ==> not result()
+#@ ensures: 3 in [1, 2, 3]
+#@ ensures: 4 not in [1, 2, 3]
+@public
+def element_in_array(a: int128[3], element: int128) -> bool:
+    return element in a
+
+
+#:: ExpectedOutput(postcondition.violated:assertion.false)
+#@ ensures: a == [1, 2, 3] and element == 4 ==> result()
+@public
+def element_in_array_fail(a: int128[3], element: int128) -> bool:
+    return element in a

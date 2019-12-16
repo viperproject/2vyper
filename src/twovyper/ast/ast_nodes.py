@@ -96,47 +96,50 @@ class UnaryArithmeticOp(Expr):
         self.operand = operand
 
 
-class ComparisonOperator(Node):
-    pass
+class ComparisonOperator(Operator, Enum):
+    LT = '<'
+    LTE = '<='
+    GTE = '>='
+    GT = '>'
 
 
-class Eq(ComparisonOperator):
-    pass
-
-
-class NotEq(ComparisonOperator):
-    pass
-
-
-class Lt(ComparisonOperator):
-    pass
-
-
-class LtE(ComparisonOperator):
-    pass
-
-
-class Gt(ComparisonOperator):
-    pass
-
-
-class GtE(ComparisonOperator):
-    pass
-
-
-class In(ComparisonOperator):
-    pass
-
-
-class NotIn(ComparisonOperator):
-    pass
-
-
-class Compare(Expr):
+class Comparison(Expr):
 
     _children = ['left', 'right']
 
     def __init__(self, left: Expr, op: ComparisonOperator, right: Expr):
+        super().__init__()
+        self.left = left
+        self.op = op
+        self.right = right
+
+
+class ContainmentOperator(Operator, Enum):
+    IN = 'in'
+    NOT_IN = 'not in'
+
+
+class Containment(Expr):
+
+    _children = ['value', 'list']
+
+    def __init__(self, value: Expr, op: ContainmentOperator, list: Expr):
+        super().__init__()
+        self.value = value
+        self.op = op
+        self.list = list
+
+
+class EqualityOperator(Operator, Enum):
+    EQ = '=='
+    NEQ = '!='
+
+
+class Equality(Expr):
+
+    _children = ['left', 'right']
+
+    def __init__(self, left: Expr, op: EqualityOperator, right: Expr):
         super().__init__()
         self.left = left
         self.op = op
