@@ -46,7 +46,7 @@ class ProgramBuilder(NodeVisitor):
     # top-level statements we gather pre and postconditions until we reach a function
     # definition.
 
-    def __init__(self, path: str, root: str, is_interface: bool, name: str):
+    def __init__(self, path: str, root: Optional[str], is_interface: bool, name: str):
         self.path = path
         self.root = root
         self.is_interface = is_interface

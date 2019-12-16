@@ -90,7 +90,7 @@ class GhostFunction:
 
 class VyperStruct:
 
-    def __init__(self, name: str, type: StructType, node: ast.StructDef):
+    def __init__(self, name: str, type: StructType, node: Optional[ast.StructDef]):
         self.name = name
         self.type = type
         self.node = node
@@ -98,7 +98,7 @@ class VyperStruct:
 
 class VyperContract:
 
-    def __init__(self, name: str, type: ContractType, node: ast.ContractDef):
+    def __init__(self, name: str, type: ContractType, node: Optional[ast.ContractDef]):
         self.name = name
         self.type = type
         self.node = node
