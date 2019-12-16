@@ -272,26 +272,20 @@ class TypeBuilder(NodeVisitor):
     def _visit_Name(self, node: ast.Name) -> VyperType:
         return self.type_map.get(node.id) or TYPES[node.id]
 
-    def _visit_ClassDef(self, node: ast.ClassDef) -> VyperType:
-        assert node.body
+    def _visit_StructDef(self, node: ast.StructDef) -> VyperType:
+        members = {n.target.id: self.visit(n.annotation) for n in node.body}
+        return StructType(node.name, members)
 
-        # This is a struct
-        if isinstance(node.body[0], ast.AnnAssign):
-            members = {n.target.id: self.visit(n.annotation) for n in node.body}
-            return StructType(node.name, members)
-        # This is a contract
-        elif isinstance(node.body[0], ast.FunctionDef):
-            functions = {}
-            modifiers = {}
-            for f in node.body:
-                name = f.name
-                arg_types = [self.visit(arg.annotation) for arg in f.args]
-                return_type = None if f.returns is None else self.visit(f.returns)
-                functions[name] = FunctionType(arg_types, return_type)
-                modifiers[name] = f.body[0].value.id
-            return ContractType(node.name, functions, modifiers)
-        else:
-            assert False
+    def _visit_ContractDef(self, node: ast.ContractDef) -> VyperType:
+        functions = {}
+        modifiers = {}
+        for f in node.body:
+            name = f.name
+            arg_types = [self.visit(arg.annotation) for arg in f.args]
+            return_type = None if f.returns is None else self.visit(f.returns)
+            functions[name] = FunctionType(arg_types, return_type)
+            modifiers[name] = f.body[0].value.id
+        return ContractType(node.name, functions, modifiers)
 
     def _visit_Call(self, node: ast.Call) -> VyperType:
         # We allow

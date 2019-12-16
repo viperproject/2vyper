@@ -83,10 +83,16 @@ class _PythonTransformer(Transformer):
         return ast.Module(children)
 
     @copy_pos
-    def classdef(self, children, meta):
+    def contractdef(self, children, meta):
         name = str(children[0])
         body = children[1]
-        return ast.ClassDef(name, body)
+        return ast.ContractDef(name, body)
+
+    @copy_pos
+    def structdef(self, children, meta):
+        name = str(children[0])
+        body = children[1]
+        return ast.StructDef(name, body)
 
     @copy_pos
     def funcdef(self, children, meta):

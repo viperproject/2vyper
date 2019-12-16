@@ -283,7 +283,17 @@ class Module(Node):
         self.stmts = stmts
 
 
-class ClassDef(Node):
+class StructDef(Node):
+
+    _children = ['body']
+
+    def __init__(self, name: str, body: ListT[Stmt]):
+        super().__init__()
+        self.name = name
+        self.body = body
+
+
+class ContractDef(Node):
 
     _children = ['body']
 

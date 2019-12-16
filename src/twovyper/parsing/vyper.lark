@@ -23,7 +23,8 @@
 
 file_input: (_NEWLINE | stmt)*
 
-classdef: ("struct" | "contract") NAME ":" suite
+contractdef: "contract" NAME ":" suite
+structdef: "struct" NAME ":" suite
 funcdef: decorators "def" NAME "(" parameter_list ")" ["->" test] ":" suite
 decorators: decorator*
 decorator: "@" NAME ["(" arguments ")"] _NEWLINE
@@ -55,7 +56,7 @@ alias: dotted_name ["as" NAME]
 dotted_name: NAME ("." NAME)*
 assert_stmt: "assert" test ["," test]
 
-?compound_stmt: if_stmt | for_stmt | with_stmt | funcdef | classdef
+?compound_stmt: if_stmt | for_stmt | with_stmt | funcdef | structdef | contractdef
 if_stmt: "if" test ":" suite ("elif" test ":" suite)* ["else" ":" suite]
 for_stmt: "for" var "in" test ":" suite
 with_stmt: "with" test ":" suite

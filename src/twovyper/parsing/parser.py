@@ -20,10 +20,7 @@ from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
     VyperConfig, VyperInterface, GhostFunction
 )
-
-from twovyper.ast.types import (
-    TypeBuilder, FunctionType, EventType, StructType, SelfType, ContractType, InterfaceType
-)
+from twovyper.ast.types import TypeBuilder, FunctionType, EventType, SelfType, InterfaceType
 
 from twovyper.exceptions import InvalidProgramException
 
@@ -196,16 +193,15 @@ class ProgramBuilder(NodeVisitor):
             interface = parse(file, self.root, True, name)
             self.interfaces[name] = interface
 
-    def visit_ClassDef(self, node: ast.ClassDef):
+    def visit_StructDef(self, node: ast.StructDef):
         type = self.type_builder.build(node)
-        if isinstance(type, StructType):
-            struct = VyperStruct(node.name, type, node)
-            self.structs[struct.name] = struct
-        elif isinstance(type, ContractType):
-            contract = VyperContract(node.name, type, node)
-            self.contracts[contract.name] = contract
-        else:
-            assert False
+        struct = VyperStruct(node.name, type, node)
+        self.structs[struct.name] = struct
+
+    def visit_ContractDef(self, node: ast.ContractDef):
+        type = self.type_builder.build(node)
+        contract = VyperContract(node.name, type, node)
+        self.contracts[contract.name] = contract
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
         # No local specs are allowed before contract state variables
