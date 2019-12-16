@@ -53,35 +53,24 @@ class BoolOp(Expr):
         self.right = right
 
 
-class ArithmeticOperator(Node):
-    pass
+class Not(Expr):
+
+    _children = ['operand']
+
+    def __init__(self, operand: Expr):
+        self.operand = operand
 
 
-class Add(ArithmeticOperator):
-    pass
+class ArithmeticOperator(Operator, Enum):
+    ADD = '+'
+    SUB = '-'
+    MUL = '*'
+    DIV = '/'
+    MOD = '%'
+    POW = '**'
 
 
-class Sub(ArithmeticOperator):
-    pass
-
-
-class Mult(ArithmeticOperator):
-    pass
-
-
-class Div(ArithmeticOperator):
-    pass
-
-
-class Mod(ArithmeticOperator):
-    pass
-
-
-class Pow(ArithmeticOperator):
-    pass
-
-
-class BinOp(Expr):
+class ArithmeticOp(Expr):
 
     _children = ['left', 'right']
 
@@ -92,27 +81,16 @@ class BinOp(Expr):
         self.right = right
 
 
-class UnaryOperator(Node):
-    pass
+class UnaryArithmeticOperator(Operator, Enum):
+    ADD = '+'
+    SUB = '-'
 
 
-class Not(UnaryOperator):
-    pass
-
-
-class UAdd(UnaryOperator):
-    pass
-
-
-class USub(UnaryOperator):
-    pass
-
-
-class UnaryOp(Expr):
+class UnaryArithmeticOp(Expr):
 
     _children = ['operand']
 
-    def __init__(self, op: UnaryOperator, operand: Expr):
+    def __init__(self, op: UnaryArithmeticOperator, operand: Expr):
         super().__init__()
         self.op = op
         self.operand = operand

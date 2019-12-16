@@ -71,7 +71,7 @@ class StatementTranslator(NodeTranslator):
         rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
 
         at = self.arithmetic_translator
-        value_stmts, value = at.binop(lhs, node.op, rhs, node.value.type, ctx, pos)
+        value_stmts, value = at.arithmetic_op(lhs, node.op, rhs, node.value.type, ctx, pos)
 
         assign_stmts, assign = self.assignment_translator.assign_to(node.target, value, ctx)
         return [*lhs_stmts, *rhs_stmts, *value_stmts, *assign_stmts, assign]

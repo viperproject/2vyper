@@ -272,10 +272,14 @@ class TypeAnnotator(NodeVisitor):
         self.annotate_expected(node.right, types.VYPER_BOOL)
         return [types.VYPER_BOOL], [node]
 
-    def visit_BinOp(self, node: ast.BinOp):
+    def visit_Not(self, node: ast.Not):
+        self.annotate_expected(node.operand, types.VYPER_BOOL)
+        return [types.VYPER_BOOL], [node]
+
+    def visit_ArithmeticOp(self, node: ast.ArithmeticOp):
         return self.combine(node.left, node.right, node)
 
-    def visit_UnaryOp(self, node: ast.UnaryOp):
+    def visit_UnaryArithmeticOp(self, node: ast.UnaryArithmeticOp):
         return self.pass_through(node.operand, node)
 
     def visit_IfExp(self, node: ast.IfExp):

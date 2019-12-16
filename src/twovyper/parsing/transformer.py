@@ -63,31 +63,35 @@ class ConstantInterpreter(NodeVisitor):
         else:
             assert False
 
-    def visit_BinOp(self, node: ast.BinOp):
+    def visit_Not(self, node: ast.Not):
+        operand = self.visit(node.operand)
+        return not operand
+
+    def visit_ArithmeticOp(self, node: ast.ArithmeticOp):
         lhs = self.visit(node.left)
         rhs = self.visit(node.right)
         op = node.op
-        if isinstance(op, ast.Add):
+        if op == ast.ArithmeticOperator.ADD:
             return lhs + rhs
-        elif isinstance(op, ast.Sub):
+        elif op == ast.ArithmeticOperator.SUB:
             return lhs - rhs
-        elif isinstance(op, ast.Mult):
+        elif op == ast.ArithmeticOperator.MUL:
             return lhs * rhs
-        elif isinstance(op, ast.Div):
+        elif op == ast.ArithmeticOperator.DIV:
             return div(lhs, rhs)
-        elif isinstance(op, ast.Mod):
+        elif op == ast.ArithmeticOperator.MOD:
             return mod(lhs, rhs)
-        elif isinstance(op, ast.Pow):
+        elif op == ast.ArithmeticOperator.POW:
             return lhs ** rhs
         else:
             assert False
 
-    def visit_UnaryOp(self, node: ast.UnaryOp):
+    def visit_UnaryArithmeticOp(self, node: ast.UnaryArithmeticOp):
         operand = self.visit(node.operand)
-        if isinstance(node.op, ast.USub):
+        if node.op == ast.UnaryArithmeticOperator.ADD:
+            return operand
+        elif node.op == ast.UnaryArithmeticOperator.SUB:
             return -operand
-        elif isinstance(node.op, ast.Not):
-            return not operand
         else:
             assert False
 

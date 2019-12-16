@@ -54,7 +54,6 @@ class ExpressionTranslator(NodeTranslator):
             ast.GtE: self.viper_ast.GeCmp,
             ast.In: lambda l, r, pos: helpers.array_contains(viper_ast, l, r, pos),
             ast.NotIn: lambda l, r, pos: helpers.array_not_contains(viper_ast, l, r, pos),
-            ast.Not: self.viper_ast.Not
         }
 
         self._bool_ops = {
@@ -110,14 +109,14 @@ class ExpressionTranslator(NodeTranslator):
         else:
             return [], ctx.all_vars[node.id].local_var(ctx, pos)
 
-    def translate_BinOp(self, node: ast.BinOp, ctx: Context) -> StmtsAndExpr:
+    def translate_ArithmeticOp(self, node: ast.ArithmeticOp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
         left_stmts, left = self.translate(node.left, ctx)
         right_stmts, right = self.translate(node.right, ctx)
 
         at = self.arithmetic_translator
-        res_stmts, res = at.binop(left, node.op, right, node.type, ctx, pos)
+        res_stmts, res = at.arithmetic_op(left, node.op, right, node.type, ctx, pos)
         return left_stmts + right_stmts + res_stmts, res
 
     def translate_BoolOp(self, node: ast.BoolOp, ctx: Context) -> StmtsAndExpr:
@@ -129,19 +128,18 @@ class ExpressionTranslator(NodeTranslator):
 
         return left_stmts + right_stmts, op(left, right, pos)
 
-    def translate_UnaryOp(self, node: ast.UnaryOp, ctx: Context) -> StmtsAndExpr:
+    def translate_Not(self, node: ast.Not, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
-        stmts, expr = self.translate(node.operand, ctx)
+        stmts, operand = self.translate(node.operand, ctx)
+        return stmts, self.viper_ast.Not(operand, pos)
 
-        if types.is_numeric(node.type):
-            res_stmts, res = self.arithmetic_translator.uop(node.op, expr, node.type, ctx, pos)
-            stmts.extend(res_stmts)
-        else:
-            op = self.translate_operator(node.op)
-            res = op(expr, pos)
+    def translate_UnaryArithmeticOp(self, node: ast.UnaryArithmeticOp, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
 
-        return stmts, res
+        operand_stmts, operand = self.translate(node.operand, ctx)
+        res_stmts, res = self.arithmetic_translator.unary_arithmetic_op(node.op, operand, node.type, ctx, pos)
+        return operand_stmts + res_stmts, res
 
     def translate_IfExp(self, node: ast.IfExp, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)

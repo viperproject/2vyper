@@ -26,25 +26,25 @@ class ArithmeticTranslator(CommonTranslator):
         self.viper_ast = viper_ast
         self.no_reverts = no_reverts
 
-        self._operations = {
-            ast.USub: self.viper_ast.Minus,
-            ast.Add: self.viper_ast.Add,
-            ast.Sub: self.viper_ast.Sub,
-            ast.Mult: self.viper_ast.Mul,
-            # Note that / and % in Vyper means truncating division
-            ast.Div: lambda l, r, pos, info: helpers.div(viper_ast, l, r, pos, info),
-            ast.Mod: lambda l, r, pos, info: helpers.mod(viper_ast, l, r, pos, info),
-            ast.Pow: lambda l, r, pos, info: helpers.pow(viper_ast, l, r, pos, info),
+        self._unary_arithmetic_operations = {
+            ast.UnaryArithmeticOperator.ADD: lambda o, pos, info: o,
+            ast.UnaryArithmeticOperator.SUB: self.viper_ast.Minus
         }
 
-    def uop(self, op, arg, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:
-        res = self._operations[type(op)](arg, pos, info)
-        stmts = []
-        # Unary negation can only overflow if one negates MIN_INT128
-        if types.is_bounded(otype):
-            oc = self.check_overflow(res, otype, ctx, pos)
-            stmts.extend(oc)
+        self._arithmetic_ops = {
+            ast.ArithmeticOperator.ADD: self.viper_ast.Add,
+            ast.ArithmeticOperator.SUB: self.viper_ast.Sub,
+            ast.ArithmeticOperator.MUL: self.viper_ast.Mul,
+            # Note that / and % in Vyper means truncating division
+            ast.ArithmeticOperator.DIV: lambda l, r, pos, info: helpers.div(viper_ast, l, r, pos, info),
+            ast.ArithmeticOperator.MOD: lambda l, r, pos, info: helpers.mod(viper_ast, l, r, pos, info),
+            ast.ArithmeticOperator.POW: lambda l, r, pos, info: helpers.pow(viper_ast, l, r, pos, info),
+        }
 
+    def unary_arithmetic_op(self, op: ast.UnaryArithmeticOperator, arg, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:
+        res = self._unary_arithmetic_operations[op](arg, pos, info)
+        # Unary negation can only overflow if one negates MIN_INT128
+        stmts = self.check_overflow(res, otype, ctx, pos) if types.is_bounded(otype) else []
         return stmts, res
 
     # Decimals are scaled integers, i.e. the decimal 2.3 is represented as the integer
@@ -52,7 +52,7 @@ class ArithmeticTranslator(CommonTranslator):
     # as with integers can be used. For multiplication we need to divide out one of the
     # scaling factors while in division we need to multiply one in.
 
-    def decimal_mult(self, lhs, rhs, ctx: Context, pos=None, info=None) -> Expr:
+    def decimal_mul(self, lhs, rhs, ctx: Context, pos=None, info=None) -> Expr:
         scaling_factor = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
         mult = self.viper_ast.Mul(lhs, rhs, pos)
         # In decimal multiplication we divide the end result by the scaling factor
@@ -64,21 +64,23 @@ class ArithmeticTranslator(CommonTranslator):
         mult = self.viper_ast.Mul(lhs, scaling_factor, pos)
         return helpers.div(self.viper_ast, mult, rhs, pos, info)
 
-    def binop(self, lhs, op: ast.ArithmeticOperator, rhs, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:
+    def arithmetic_op(self, lhs, op: ast.ArithmeticOperator, rhs, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:
+        ast_op = ast.ArithmeticOperator
+
         stmts = []
-        with switch(type(op), otype) as case:
+        with switch(op, otype) as case:
             from twovyper.utils import _
 
-            if (case(ast.Div, _) or case(ast.Mod, _)) and not self.no_reverts:
+            if (case(ast_op.DIV, _) or case(ast_op.MOD, _)) and not self.no_reverts:
                 cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos), pos)
                 stmts.append(self.fail_if(cond, [], ctx, pos))
 
-            if case(ast.Mult, types.VYPER_DECIMAL):
-                res = self.decimal_mult(lhs, rhs, ctx, pos, info)
-            elif case(ast.Div, types.VYPER_DECIMAL):
+            if case(ast_op.MUL, types.VYPER_DECIMAL):
+                res = self.decimal_mul(lhs, rhs, ctx, pos, info)
+            elif case(ast_op.DIV, types.VYPER_DECIMAL):
                 res = self.decimal_div(lhs, rhs, ctx, pos, info)
             else:
-                res = self._operations[type(op)](lhs, rhs, pos, info)
+                res = self._arithmetic_ops[op](lhs, rhs, pos, info)
 
         if types.is_bounded(otype):
             stmts.extend(self.check_under_overflow(res, otype, ctx, pos))

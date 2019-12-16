@@ -157,17 +157,10 @@ class _PythonTransformer(Transformer):
         value = children[1]
         return lambda target: ast.AugAssign(target, op, value)
 
-    @copy_pos
     def aug_op(self, children, meta):
-        ops = {
-            '+=':  ast.Add,
-            '-=':  ast.Sub,
-            '*=':  ast.Mult,
-            '/=':  ast.Div,
-            '%=':  ast.Mod,
-            '**=': ast.Pow
-        }
-        return ops[children[0]]()
+        # The actual operation is the first character of augment operator
+        op = children[0][0]
+        return ast.ArithmeticOperator(op)
 
     @copy_pos
     def pass_stmt(self, children, meta):
@@ -304,7 +297,7 @@ class _PythonTransformer(Transformer):
     @copy_pos
     def unot(self, children, meta):
         operand = children[0]
-        return ast.UnaryOp(ast.Not(), operand)
+        return ast.Not(operand)
 
     @copy_pos
     def comparison(self, children, meta):
@@ -337,7 +330,7 @@ class _PythonTransformer(Transformer):
     def factor(self, children, meta):
         op = children[0]
         operand = children[1]
-        return ast.UnaryOp(op, operand)
+        return ast.UnaryArithmeticOp(op, operand)
 
     def _bin_op(self, children):
         operand = children.pop()
@@ -346,7 +339,7 @@ class _PythonTransformer(Transformer):
             if children:
                 op = children.pop()
                 left = bop(children.pop())
-                ret = ast.BinOp(left, op, right)
+                ret = ast.ArithmeticOp(left, op, right)
                 copy_pos_between(ret, left, right)
                 return ret
             else:
@@ -354,30 +347,14 @@ class _PythonTransformer(Transformer):
 
         return bop(operand)
 
-    @copy_pos
     def factor_op(self, children, meta):
-        ops = {
-            '+': ast.UAdd,
-            '-': ast.USub
-        }
-        return ops[children[0]]()
+        return ast.UnaryArithmeticOperator(children[0])
 
-    @copy_pos
     def add_op(self, children, meta):
-        ops = {
-            '+': ast.Add,
-            '-': ast.Sub
-        }
-        return ops[children[0]]()
+        return ast.ArithmeticOperator(children[0])
 
-    @copy_pos
     def mul_op(self, children, meta):
-        ops = {
-            '*': ast.Mult,
-            '/': ast.Div,
-            '%': ast.Mod
-        }
-        return ops[children[0]]()
+        return ast.ArithmeticOperator(children[0])
 
     @copy_pos
     def comp_op(self, children, meta):
@@ -399,7 +376,7 @@ class _PythonTransformer(Transformer):
     def power(self, children, meta):
         left = children[0]
         right = children[1]
-        return ast.BinOp(left, ast.Pow(), right)
+        return ast.ArithmeticOp(left, ast.ArithmeticOperator.POW, right)
 
     @copy_pos
     def funccall(self, children, meta):
