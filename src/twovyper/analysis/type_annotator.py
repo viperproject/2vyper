@@ -282,7 +282,7 @@ class TypeAnnotator(NodeVisitor):
     def visit_UnaryArithmeticOp(self, node: ast.UnaryArithmeticOp):
         return self.pass_through(node.operand, node)
 
-    def visit_IfExp(self, node: ast.IfExp):
+    def visit_IfExpr(self, node: ast.IfExpr):
         self.annotate_expected(node.test, types.VYPER_BOOL)
         return self.combine(node.body, node.orelse, node)
 

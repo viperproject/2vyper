@@ -137,7 +137,7 @@ class ExpressionTranslator(NodeTranslator):
         res_stmts, res = self.arithmetic_translator.unary_arithmetic_op(node.op, operand, node.type, ctx, pos)
         return operand_stmts + res_stmts, res
 
-    def translate_IfExp(self, node: ast.IfExp, ctx: Context) -> StmtsAndExpr:
+    def translate_IfExpr(self, node: ast.IfExpr, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
         test_stmts, test = self.translate(node.test, ctx)
         body_stmts, body = self.translate(node.body, ctx)

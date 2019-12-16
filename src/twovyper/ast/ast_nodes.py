@@ -146,7 +146,7 @@ class Equality(Expr):
         self.right = right
 
 
-class IfExp(Expr):
+class IfExpr(Expr):
 
     _children = ['test', 'body', 'orelse']
 

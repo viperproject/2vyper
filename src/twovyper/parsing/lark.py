@@ -280,7 +280,7 @@ class _PythonTransformer(Transformer):
         body = children[0]
         cond = children[1]
         orelse = children[2]
-        return ast.IfExp(cond, body, orelse)
+        return ast.IfExpr(cond, body, orelse)
 
     def _left_associative_bool_op(self, children, op):
         return reduce(lambda l, r: copy_pos_between(ast.BoolOp(l, op, r), l, r), children)
