@@ -87,15 +87,9 @@ class ExpressionTranslator(NodeTranslator):
         else:
             assert False
 
-    def translate_NameConstant(self, node: ast.NameConstant, ctx: Context) -> StmtsAndExpr:
+    def translate_Bool(self, node: ast.Bool, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
-
-        if node.value is True:
-            return [], self.viper_ast.TrueLit(pos)
-        elif node.value is False:
-            return [], self.viper_ast.FalseLit(pos)
-        else:
-            assert False
+        return [], self.viper_ast.TrueLit(pos) if node.value else self.viper_ast.FalseLit(pos)
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)

@@ -218,7 +218,7 @@ class Bytes(Expr):
         self.s = s
 
 
-class NameConstant(Expr):
+class Bool(Expr):
 
     def __init__(self, value):
         super().__init__()

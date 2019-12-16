@@ -648,8 +648,7 @@ class TypeAnnotator(NodeVisitor):
         else:
             assert False
 
-    def visit_NameConstant(self, node: ast.NameConstant):
-        _check(node.value is not None, node, 'use.of.none')
+    def visit_Bool(self, node: ast.Bool):
         return [types.VYPER_BOOL], [node]
 
     def visit_Attribute(self, node: ast.Attribute):

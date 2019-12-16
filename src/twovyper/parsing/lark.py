@@ -427,11 +427,11 @@ class _PythonTransformer(Transformer):
 
     @copy_pos
     def const_true(self, children, meta):
-        return ast.NameConstant(True)
+        return ast.Bool(True)
 
     @copy_pos
     def const_false(self, children, meta):
-        return ast.NameConstant(False)
+        return ast.Bool(False)
 
     def testlist(self, children, meta):
         return children

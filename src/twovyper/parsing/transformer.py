@@ -136,7 +136,7 @@ class ConstantInterpreter(NodeVisitor):
         assert isinstance(node.n, int)
         return node.n
 
-    def visit_NameConstant(self, node: ast.NameConstant):
+    def visit_Bool(self, node: ast.Bool):
         return node.value
 
     def visit_Name(self, node: ast.Name):
