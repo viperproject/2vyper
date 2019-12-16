@@ -131,7 +131,7 @@ class TypeAnnotator(NodeVisitor):
             nodes.append(node)
         return types, nodes
 
-    def combine(self, node1, node2, node=None):
+    def combine(self, node1, node2, node=None, allowed=lambda t: True):
         types1, nodes1 = self.visit(node1)
         types2, nodes2 = self.visit(node2)
 
@@ -156,7 +156,7 @@ class TypeAnnotator(NodeVisitor):
                         elif types.matches(t, e):
                             yield t
 
-        intersection = list(intersect(types1, types2))
+        intersection = list(filter(allowed, intersect(types1, types2)))
         if not intersection:
             raise InvalidProgramException(node if node is not None else node2, 'invalid.type')
         else:
@@ -165,11 +165,11 @@ class TypeAnnotator(NodeVisitor):
             else:
                 return intersection, [*nodes1, *nodes2]
 
-    def annotate(self, node1, node2=None):
+    def annotate(self, node1, node2=None, allowed=lambda t: True):
         if node2 is None:
             combined, nodes = self.visit(node1)
         else:
-            combined, nodes = self.combine(node1, node2)
+            combined, nodes = self.combine(node1, node2, allowed)
         for node in nodes:
             node.type = combined[0]
 
@@ -217,7 +217,7 @@ class TypeAnnotator(NodeVisitor):
         self.annotate(node.target, node.value)
 
     def visit_AugAssign(self, node: ast.AugAssign):
-        self.annotate(node.target, node.value)
+        self.annotate(node.target, node.value, types.is_numeric)
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
         # This is a variable declaration so we add it to the type map. Since Vyper
@@ -277,7 +277,7 @@ class TypeAnnotator(NodeVisitor):
         return [types.VYPER_BOOL], [node]
 
     def visit_ArithmeticOp(self, node: ast.ArithmeticOp):
-        return self.combine(node.left, node.right, node)
+        return self.combine(node.left, node.right, node, types.is_numeric)
 
     def visit_UnaryArithmeticOp(self, node: ast.UnaryArithmeticOp):
         return self.pass_through(node.operand, node)
@@ -323,9 +323,7 @@ class TypeAnnotator(NodeVisitor):
                     return self._visit_range(node)
                 elif case(names.MIN) or case(names.MAX):
                     _check_number_of_arguments(node, 2)
-                    self.annotate_expected(node.args[0], types.is_numeric)
-                    self.annotate_expected(node.args[1], types.is_numeric)
-                    return self.combine(node.args[0], node.args[1], node)
+                    return self.combine(node.args[0], node.args[1], node, types.is_numeric)
                 elif case(names.ADDMOD) or case(names.MULMOD):
                     _check_number_of_arguments(node, 3)
                     for arg in node.args:
