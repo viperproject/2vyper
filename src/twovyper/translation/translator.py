@@ -150,7 +150,7 @@ class ProgramTranslator(CommonTranslator):
         return viper_program
 
     def _translate_struct(self, struct: VyperStruct, ctx: Context):
-        # For structs we need to synthesize an initializer and and equality domain function and
+        # For structs we need to synthesize an initializer and an equality domain function with
         # their corresponding axioms
         domain = mangled.struct_name(struct.name)
         struct_type = self.type_translator.translate(struct.type, ctx)
