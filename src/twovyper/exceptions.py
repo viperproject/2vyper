@@ -18,6 +18,9 @@ class TwoVyperException(Exception):
 
 
 class InvalidVyperException(TwoVyperException):
+    """
+    Exception indicating that the file is not a valid Vyper contract.
+    """
 
     def __init__(self, vyper_output: str):
         message = f"Not a valid Vyper contract:\n{vyper_output}"
@@ -25,6 +28,9 @@ class InvalidVyperException(TwoVyperException):
 
 
 class ParseException(TwoVyperException):
+    """
+    Exception that is thrown if the contract cannot be parsed.
+    """
 
     def __init__(self, message: str):
         super().__init__(message)
@@ -46,7 +52,7 @@ class TranslationException(TwoVyperException):
 class UnsupportedException(TranslationException):
     """
     Exception that is thrown when attempting to translate a Vyper element not
-    currently supported
+    currently supported.
     """
 
     def __init__(self, node: ast.Node, message: str = None):
@@ -58,7 +64,7 @@ class UnsupportedException(TranslationException):
 
 class InvalidProgramException(TranslationException):
     """
-    Signals that the input program is invalid and cannot be translated
+    Signals that the input program is invalid and cannot be translated.
     """
 
     def __init__(self, node: ast.Node, reason_code: str, message: str = None):
@@ -73,7 +79,7 @@ class InvalidProgramException(TranslationException):
 
 class ConsistencyException(TwoVyperException):
     """
-    Exception reporting that the translated AST has a consistency error
+    Exception reporting that the translated AST has a consistency error.
     """
 
     def __init__(self, program, message: str, errors):
