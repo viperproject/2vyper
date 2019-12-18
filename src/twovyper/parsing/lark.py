@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from functools import reduce
-from typing import List
+from typing import Any, List
 
 from lark import Lark
 from lark.exceptions import ParseError, UnexpectedInput, VisitError
@@ -36,7 +36,7 @@ _vyper_expr_parser = Lark.open('vyper.lark', rel_to=__file__, start='test', **_k
 
 def copy_pos(function):
 
-    def with_pos(self, children: List[ast.Node], meta: Meta):
+    def with_pos(self, children: List[Any], meta: Meta):
         node = function(self, children, meta)
         node.file = self.file
         node.lineno = meta.line
