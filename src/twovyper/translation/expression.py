@@ -538,6 +538,26 @@ class ExpressionTranslator(NodeTranslator):
                     stmts.append(self.viper_ast.If(condition, log_event, [], pos))
 
                 return stmts, None
+            elif name == names.CREATE_FORWARDER_TO:
+                stmts, at = self.translate(node.args[0], ctx)
+                if node.keywords:
+                    amount_stmts, amount = self.translate(node.keywords[0].value, ctx)
+                    stmts.extend(amount_stmts)
+                    check = self.balance_translator.check_balance(amount, ctx, pos)
+                    sent = self.balance_translator.increase_sent(at, amount, ctx, pos)
+                    sub = self.balance_translator.decrease_balance(amount, ctx, pos)
+                    stmts.extend([check, sent, sub])
+
+                new_name = ctx.new_local_var_name('$new')
+                type = self.type_translator.translate(node.type, ctx)
+                new_var_decl = self.viper_ast.LocalVarDecl(new_name, type, pos)
+                ctx.new_local_vars.append(new_var_decl)
+                new_var = new_var_decl.localVar()
+
+                eq_zero = self.viper_ast.EqCmp(new_var, self.viper_ast.IntLit(0, pos), pos)
+                stmts.append(self.fail_if(eq_zero, [], ctx, pos))
+
+                return stmts, new_var
             # This is a struct initializer
             elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                 stmts = []

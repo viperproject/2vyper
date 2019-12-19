@@ -26,11 +26,10 @@ def _check(condition: bool, node: ast.Node, reason_code: str):
         raise InvalidProgramException(node, reason_code)
 
 
-def _check_number_of_arguments(node: ast.Call, *expected: int, keywords: List[str] = []):
+def _check_number_of_arguments(node: ast.Call, *expected: int, allowed_keywords: List[str] = []):
     _check(len(node.args) in expected, node, 'invalid.no.args')
-    _check(len(node.keywords) == len(keywords), node, 'invalid.no.args')
     for kw in node.keywords:
-        _check(kw.name in keywords, node, 'invalid.no.args')
+        _check(kw.name in allowed_keywords, node, 'invalid.no.args')
 
 
 class TypeAnnotator(NodeVisitor):
@@ -312,7 +311,10 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate(node.args[0])
                     ntype = self.type_builder.build(node.args[1])
                     return [ntype], [node]
-                elif case(names.SUCCESS) or case(names.REVERT):
+                elif case(names.SUCCESS):
+                    _check_number_of_arguments(node, 0, 1, allowed_keywords=[names.SUCCESS_IF_NOT])
+                    return [types.VYPER_BOOL], [node]
+                elif case(names.REVERT):
                     return [types.VYPER_BOOL], [node]
                 elif case(names.FORALL):
                     return self._visit_forall(node)
@@ -402,6 +404,12 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[0], ArrayType(types.VYPER_BYTES32, 4, False))
                     self.annotate_expected(node.args[1], types.is_bytes_array)
                     return [None], [node]
+                elif case(names.CREATE_FORWARDER_TO):
+                    _check_number_of_arguments(node, 1, allowed_keywords=[names.CREATE_FORWARDER_TO_VALUE])
+                    self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                    if node.keywords:
+                        self.annotate_expected(node.keywords[0].value, types.VYPER_WEI_VALUE)
+                    return [types.VYPER_ADDRESS], [node]
                 elif case(names.AS_WEI_VALUE):
                     _check_number_of_arguments(node, 2)
                     self.annotate_expected(node.args[0], types.is_integer)
@@ -414,6 +422,8 @@ class TypeAnnotator(NodeVisitor):
                     # We ignore units completely, therefore the type stays the same
                     return self.pass_through(node.args[0], node)
                 elif case(names.CONCAT):
+                    _check(node.args, node, 'invalid.no.args')
+
                     for arg in node.args:
                         self.annotate_expected(arg, types.is_bytes_array)
 
