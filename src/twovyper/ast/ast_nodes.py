@@ -382,7 +382,7 @@ class For(Stmt):
 
     _children = ['target', 'iter', 'body']
 
-    def __init__(self, target: Expr, iter: Expr, body: ListT[Stmt]):
+    def __init__(self, target: Name, iter: Expr, body: ListT[Stmt]):
         super().__init__()
         self.target = target
         self.iter = iter
@@ -449,7 +449,7 @@ class ImportFrom(Stmt):
 
     _children = ['names']
 
-    def __init__(self, module: OptionalT[str], names: ListT[Alias], level: OptionalT[int]):
+    def __init__(self, module: OptionalT[str], names: ListT[Alias], level: int):
         super().__init__()
         self.module = module
         self.names = names
