@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
-from typing import Union
+from typing import List, Union
 
 from twovyper.utils import first_index, switch
 
@@ -26,8 +26,11 @@ def _check(condition: bool, node: ast.Node, reason_code: str):
         raise InvalidProgramException(node, reason_code)
 
 
-def _check_number_of_arguments(node: ast.Call, *expected: int):
+def _check_number_of_arguments(node: ast.Call, *expected: int, keywords: List[str] = []):
     _check(len(node.args) in expected, node, 'invalid.no.args')
+    _check(len(node.keywords) == len(keywords), node, 'invalid.no.args')
+    for kw in node.keywords:
+        _check(kw.name in keywords, node, 'invalid.no.args')
 
 
 class TypeAnnotator(NodeVisitor):
