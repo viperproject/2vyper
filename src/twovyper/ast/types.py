@@ -230,6 +230,10 @@ def has_strict_array_size(element_type: VyperType) -> bool:
     return element_type != VYPER_BYTE
 
 
+def is_bytes_array(type: VyperType):
+    return isinstance(type, ArrayType) and type.element_type == VYPER_BYTE
+
+
 def matches(t, m):
     """
     Determines whether a type t matches a required type m in the
@@ -240,7 +244,7 @@ def matches(t, m):
     as mathematical integers.
     """
 
-    a1 = isinstance(t, ArrayType) and not t.is_strict
+    a1 = isinstance(t, ArrayType)
     a2 = isinstance(m, ArrayType) and not m.is_strict
     if a1 and a2 and t.element_type == m.element_type:
         return t.size <= m.size

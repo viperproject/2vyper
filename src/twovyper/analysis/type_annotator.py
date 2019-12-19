@@ -394,6 +394,11 @@ class TypeAnnotator(NodeVisitor):
                     idx = first_index(lambda n: n.name == names.RAW_CALL_OUTSIZE, node.keywords)
                     size = node.keywords[idx].value.n
                     return [ArrayType(types.VYPER_BYTE, size, False)], [node]
+                elif case(names.RAW_LOG):
+                    _check_number_of_arguments(node, 2)
+                    self.annotate_expected(node.args[0], ArrayType(types.VYPER_BYTES32, 4, False))
+                    self.annotate_expected(node.args[1], types.is_bytes_array)
+                    return [None], [node]
                 elif case(names.AS_WEI_VALUE):
                     _check_number_of_arguments(node, 2)
                     self.annotate_expected(node.args[0], types.is_integer)
@@ -406,22 +411,14 @@ class TypeAnnotator(NodeVisitor):
                     # We ignore units completely, therefore the type stays the same
                     return self.pass_through(node.args[0], node)
                 elif case(names.CONCAT):
-
-                    def is_bytes_array(t):
-                        return isinstance(t, types.ArrayType) and t.element_type == types.VYPER_BYTE
-
                     for arg in node.args:
-                        self.annotate_expected(arg, is_bytes_array)
+                        self.annotate_expected(arg, types.is_bytes_array)
 
                     size = sum(arg.type.size for arg in node.args)
                     return [ArrayType(node.args[0].type.element_type, size, False)], [node]
                 elif case(names.KECCAK256) or case(names.SHA256):
                     _check_number_of_arguments(node, 1)
-
-                    def is_bytes_array(t):
-                        return isinstance(t, types.ArrayType) and t.element_type == types.VYPER_BYTE
-
-                    self.annotate_expected(node.args[0], is_bytes_array)
+                    self.annotate_expected(node.args[0], types.is_bytes_array)
                     return [types.VYPER_BYTES32], [node]
                 elif case(names.BLOCKHASH):
                     _check_number_of_arguments(node, 1)

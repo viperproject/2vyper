@@ -13,7 +13,7 @@ from twovyper.exceptions import UnsupportedException
 
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.arithmetic import Decimal
-from twovyper.ast.nodes import VyperFunction, VyperInterface, VyperVar
+from twovyper.ast.nodes import VyperFunction, VyperInterface, VyperVar, VyperEvent
 from twovyper.ast.types import MapType, ArrayType, StructType, AddressType, ContractType, InterfaceType
 
 from twovyper.viper.ast import ViperAST
@@ -504,6 +504,40 @@ class ExpressionTranslator(NodeTranslator):
 
                 call_stmts, _, call = self._translate_external_call(node, to, amount, False, ctx)
                 return [*args_stmts, *call_stmts], call
+            elif name == names.RAW_LOG:
+                topic_stmts, _ = self.translate(node.args[0], ctx)
+                data_stmts, _ = self.translate(node.args[1], ctx)
+
+                stmts = topic_stmts + data_stmts
+
+                # Since we don't know what raw_log logs, any event could have been emitted.
+                # Therefore we create a fresh var and do
+                # if var == 0:
+                #    log.event1(...)
+                # elif var == 1:
+                #    log.event2(...)
+                # ...
+                # for all events to indicate that at most one event has been emitted.
+
+                var_name = ctx.new_local_var_name('$a')
+                var_decl = self.viper_ast.LocalVarDecl(var_name, self.viper_ast.Int, pos)
+                ctx.new_local_vars.append(var_decl)
+                var = var_decl.localVar()
+                for idx, event in enumerate(ctx.program.events.values()):
+                    condition = self.viper_ast.EqCmp(var, self.viper_ast.IntLit(idx, pos), pos)
+
+                    args = []
+                    for arg_type in event.type.arg_types:
+                        arg_name = ctx.new_local_var_name('$arg')
+                        arg_type = self.type_translator.translate(arg_type, ctx)
+                        arg = self.viper_ast.LocalVarDecl(arg_name, arg_type, pos)
+                        ctx.new_local_vars.append(arg)
+                        args.append(arg.localVar())
+
+                    log_event = self._log_event(event, args, ctx, pos)
+                    stmts.append(self.viper_ast.If(condition, log_event, [], pos))
+
+                return stmts, None
             # This is a struct initializer
             elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                 stmts = []
@@ -564,14 +598,19 @@ class ExpressionTranslator(NodeTranslator):
 
                 return stmts, res
             elif node.func.value.id == names.LOG:
-                event_name = mangled.event_name(name)
-                pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
-                one = self.viper_ast.FullPerm(pos)
-                pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, one, pos)
-                stmts.append(self.viper_ast.Inhale(pred_acc_pred, pos))
-                return self.seqn_with_info(stmts, f"Event: {name}"), None
+                event = ctx.program.events[name]
+                stmts.extend(self._log_event(event, args, ctx, pos))
+                return stmts, None
             else:
                 assert False
+
+    def _log_event(self, event: VyperEvent, args, ctx, pos=None) -> List[Stmt]:
+        event_name = mangled.event_name(event.name)
+        pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
+        one = self.viper_ast.FullPerm(pos)
+        pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, one, pos)
+        log = self.viper_ast.Inhale(pred_acc_pred, pos)
+        return self.seqn_with_info([log], f"Event: {event.name}")
 
     def _translate_external_call(self,
                                  node: ast.Call,
