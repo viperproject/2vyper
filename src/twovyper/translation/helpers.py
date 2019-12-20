@@ -86,6 +86,20 @@ def method_id(viper_ast: ViperAST, method, len: int, pos=None, info=None):
     return viper_ast.DomainFuncApp(mid, [method, rl], viper_ast.SeqType(viper_ast.Int), pos, info, domain)
 
 
+def keccak256(viper_ast: ViperAST, arg, pos=None, info=None):
+    int_array_type = viper_ast.SeqType(viper_ast.Int)
+    keccak = mangled.BLOCKCHAIN_KECCAK256
+    domain = mangled.BLOCKCHAIN_DOMAIN
+    return viper_ast.DomainFuncApp(keccak, [arg], int_array_type, pos, info, domain)
+
+
+def sha256(viper_ast: ViperAST, arg, pos=None, info=None):
+    int_array_type = viper_ast.SeqType(viper_ast.Int)
+    sha = mangled.BLOCKCHAIN_SHA256
+    domain = mangled.BLOCKCHAIN_DOMAIN
+    return viper_ast.DomainFuncApp(sha, [arg], int_array_type, pos, info, domain)
+
+
 def self_address(viper_ast: ViperAST, pos=None, info=None):
     address = mangled.SELF_ADDRESS
     domain = mangled.CONTRACT_DOMAIN
@@ -164,20 +178,6 @@ def array_init(viper_ast: ViperAST, arg, size: int, element_type, pos=None, info
     init = mangled.ARRAY_INIT
     domain = mangled.ARRAY_DOMAIN
     return viper_ast.DomainFuncApp(init, [arg, size], arr_type, pos, info, domain, type_vars)
-
-
-def array_keccak256(viper_ast: ViperAST, arg, pos=None, info=None):
-    int_array_type = viper_ast.SeqType(viper_ast.Int)
-    keccak = mangled.ARRAY_KECCAK256
-    domain = mangled.ARRAY_INT_DOMAIN
-    return viper_ast.DomainFuncApp(keccak, [arg], int_array_type, pos, info, domain)
-
-
-def array_sha256(viper_ast: ViperAST, arg, pos=None, info=None):
-    int_array_type = viper_ast.SeqType(viper_ast.Int)
-    sha = mangled.ARRAY_SHA256
-    domain = mangled.ARRAY_INT_DOMAIN
-    return viper_ast.DomainFuncApp(sha, [arg], int_array_type, pos, info, domain)
 
 
 def array_length(viper_ast: ViperAST, ref, pos=None, info=None):

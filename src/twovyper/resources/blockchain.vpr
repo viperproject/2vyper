@@ -11,6 +11,10 @@ domain $Blockchain {
 
     function $method_id($bb: Seq[Int], $l: Int): Seq[Int]
 
+    function $keccak256($s: Seq[Int]): Seq[Int]
+
+    function $sha256($s: Seq[Int]): Seq[Int]
+
     axiom $blockhash_ax {
         forall $no: Int :: { $blockhash($no) }
             |$blockhash($no)| == 32
@@ -19,6 +23,14 @@ domain $Blockchain {
     axiom $method_id_ax {
         forall $bb: Seq[Int], $l: Int :: { $method_id($bb, $l) }
             |$method_id($bb, $l)| == $l
+    }
+
+    axiom $keccak256_ax {
+        forall $s: Seq[Int] :: { $keccak256($s) } |$keccak256($s)| == 32
+    }
+
+    axiom $sha256_ax {
+        forall $s: Seq[Int] :: { $sha256($s) } |$sha256($s)| == 32
     }
 
 }

@@ -447,10 +447,10 @@ class ExpressionTranslator(NodeTranslator):
                         raise UnsupportedException(node, 'Unsupported type converison.')
             elif name == names.KECCAK256:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, helpers.array_keccak256(self.viper_ast, arg, pos)
+                return arg_stmts, helpers.keccak256(self.viper_ast, arg, pos)
             elif name == names.SHA256:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, helpers.array_sha256(self.viper_ast, arg, pos)
+                return arg_stmts, helpers.sha256(self.viper_ast, arg, pos)
             elif name == names.BLOCKHASH:
                 stmts, arg = self.translate(node.args[0], ctx)
 

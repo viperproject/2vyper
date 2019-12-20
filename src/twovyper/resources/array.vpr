@@ -19,19 +19,3 @@ domain $Array[$E] {
     }
 
 }
-
-domain $ArrayInt {
-
-    function $array_keccak256($s: Seq[Int]): Seq[Int]
-
-    function $array_sha256($s: Seq[Int]): Seq[Int]
-
-    axiom $array_keccak256_ax {
-        forall $s: Seq[Int] :: { $array_keccak256($s) } |$array_keccak256($s)| == 32
-    }
-
-    axiom $array_sha256_ax {
-        forall $s: Seq[Int] :: { $array_sha256($s) } |$array_sha256($s)| == 32
-    }
-
-}
