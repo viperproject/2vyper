@@ -7,13 +7,13 @@
 
 domain $Blockchain {
 
-    function $blockhash($no: Int, $curr: Int): Seq[Int]
+    function $blockhash($no: Int): Seq[Int]
 
     function $method_id($bb: Seq[Int], $l: Int): Seq[Int]
 
     axiom $blockhash_ax {
-        forall $no: Int, $curr: Int :: { $blockhash($no, $curr) }
-            |$blockhash($no, $curr)| == 32
+        forall $no: Int :: { $blockhash($no) }
+            |$blockhash($no)| == 32
     }
 
     axiom $method_id_ax {

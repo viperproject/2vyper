@@ -452,8 +452,20 @@ class ExpressionTranslator(NodeTranslator):
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, helpers.array_sha256(self.viper_ast, arg, pos)
             elif name == names.BLOCKHASH:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, helpers.blockhash(self.viper_ast, arg, ctx, pos)
+                stmts, arg = self.translate(node.args[0], ctx)
+
+                block = ctx.block_var.local_var(ctx)
+                number_type = self.type_translator.translate(types.BLOCK_TYPE.member_types[names.BLOCK_NUMBER], ctx)
+                block_number = helpers.struct_get(self.viper_ast, block, names.BLOCK_NUMBER, number_type, types.BLOCK_TYPE, pos)
+
+                # Only the last 256 blocks (before the current block) are available in blockhash, else we revert
+                lt = self.viper_ast.LtCmp(arg, block_number, pos)
+                last_256 = self.viper_ast.Sub(block_number, self.viper_ast.IntLit(256, pos), pos)
+                ge = self.viper_ast.GeCmp(arg, last_256, pos)
+                cond = self.viper_ast.Not(self.viper_ast.And(lt, ge, pos), pos)
+                stmts.append(self.fail_if(cond, [], ctx, pos))
+
+                return stmts, helpers.blockhash(self.viper_ast, arg, ctx, pos)
             elif name == names.METHOD_ID:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, helpers.method_id(self.viper_ast, arg, node.type.size, pos)

@@ -76,9 +76,7 @@ def contracts_type():
 def blockhash(viper_ast: ViperAST, no, ctx: Context, pos=None, info=None):
     bhash = mangled.BLOCKCHAIN_BLOCKHASH
     domain = mangled.BLOCKCHAIN_DOMAIN
-    block_var = ctx.block_var.local_var(ctx)
-    curr = struct_get(viper_ast, block_var, names.BLOCK_NUMBER, viper_ast.Int, ctx.block_var.type, pos)
-    return viper_ast.DomainFuncApp(bhash, [no, curr], viper_ast.SeqType(viper_ast.Int), pos, info, domain)
+    return viper_ast.DomainFuncApp(bhash, [no], viper_ast.SeqType(viper_ast.Int), pos, info, domain)
 
 
 def method_id(viper_ast: ViperAST, method, len: int, pos=None, info=None):
