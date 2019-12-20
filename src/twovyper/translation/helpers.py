@@ -100,6 +100,26 @@ def sha256(viper_ast: ViperAST, arg, pos=None, info=None):
     return viper_ast.DomainFuncApp(sha, [arg], int_array_type, pos, info, domain)
 
 
+def ecrecover(viper_ast: ViperAST, args, pos=None, info=None):
+    ec = mangled.BLOCKCHAIN_ECRECOVER
+    domain = mangled.BLOCKCHAIN_DOMAIN
+    return viper_ast.DomainFuncApp(ec, args, viper_ast.Int, pos, info, domain)
+
+
+def ecadd(viper_ast: ViperAST, args, pos=None, info=None):
+    int_array_type = viper_ast.SeqType(viper_ast.Int)
+    ea = mangled.BLOCKCHAIN_ECADD
+    domain = mangled.BLOCKCHAIN_DOMAIN
+    return viper_ast.DomainFuncApp(ea, args, int_array_type, pos, info, domain)
+
+
+def ecmul(viper_ast: ViperAST, args, pos=None, info=None):
+    int_array_type = viper_ast.SeqType(viper_ast.Int)
+    em = mangled.BLOCKCHAIN_ECMUL
+    domain = mangled.BLOCKCHAIN_DOMAIN
+    return viper_ast.DomainFuncApp(em, args, int_array_type, pos, info, domain)
+
+
 def self_address(viper_ast: ViperAST, pos=None, info=None):
     address = mangled.SELF_ADDRESS
     domain = mangled.CONTRACT_DOMAIN

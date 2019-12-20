@@ -469,6 +469,20 @@ class ExpressionTranslator(NodeTranslator):
             elif name == names.METHOD_ID:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
                 return arg_stmts, helpers.method_id(self.viper_ast, arg, node.type.size, pos)
+            elif name == names.ECRECOVER:
+                stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+                return stmts, helpers.ecrecover(self.viper_ast, args, pos)
+            elif name == names.ECADD or name == names.ECMUL:
+                stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+                fail_var_name = ctx.new_local_var_name('$fail')
+                fail_var_decl = self.viper_ast.LocalVarDecl(fail_var_name, self.viper_ast.Bool, pos)
+                ctx.new_local_vars.append(fail_var_decl)
+                fail_var = fail_var_decl.localVar()
+                stmts.append(self.fail_if(fail_var, [], ctx, pos))
+                if name == names.ECADD:
+                    return stmts, helpers.ecadd(self.viper_ast, args, pos)
+                else:
+                    return stmts, helpers.ecmul(self.viper_ast, args, pos)
             elif name == names.SELFDESTRUCT:
                 arg_stmts, arg = self.translate(node.args[0], ctx)
 

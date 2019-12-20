@@ -113,6 +113,9 @@ CONCAT = 'concat'
 
 KECCAK256 = 'keccak256'
 SHA256 = 'sha256'
+ECRECOVER = 'ecrecover'
+ECADD = 'ecadd'
+ECMUL = 'ecmul'
 
 BLOCKHASH = 'blockhash'
 METHOD_ID = 'method_id'

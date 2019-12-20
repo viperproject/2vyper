@@ -447,6 +447,20 @@ class TypeAnnotator(NodeVisitor):
                     is_bytes4 = lambda t: isinstance(ntype, ArrayType) and ntype.element_type == types.VYPER_BYTE and ntype.size == 4
                     _check(is_bytes32(ntype) or is_bytes4(ntype), node.args[1], 'invalid.method_id')
                     return [ntype], [node]
+                elif case(names.ECRECOVER):
+                    _check_number_of_arguments(node, 4)
+                    self.annotate_expected(node.args[0], types.VYPER_BYTES32)
+                    self.annotate_expected(node.args[1], types.VYPER_UINT256)
+                    self.annotate_expected(node.args[2], types.VYPER_UINT256)
+                    self.annotate_expected(node.args[3], types.VYPER_UINT256)
+                    return [types.VYPER_ADDRESS], [node]
+                elif case(names.ECADD) or case(names.ECMUL):
+                    _check_number_of_arguments(node, 2)
+                    int_pair = ArrayType(types.VYPER_UINT256, 2)
+                    self.annotate_expected(node.args[0], int_pair)
+                    arg_type = int_pair if case(names.ECADD) else types.VYPER_UINT256
+                    self.annotate_expected(node.args[1], arg_type)
+                    return [int_pair], [node]
                 elif case(names.IMPLIES):
                     _check_number_of_arguments(node, 2)
 

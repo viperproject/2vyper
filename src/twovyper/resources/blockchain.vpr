@@ -15,6 +15,12 @@ domain $Blockchain {
 
     function $sha256($s: Seq[Int]): Seq[Int]
 
+    function $ecrecover($s: Seq[Int], v: Int, r: Int, s: Int): Int
+
+    function $ecadd($p: Seq[Int], $q: Seq[Int]): Seq[Int]
+
+    function $ecmul($p: Seq[Int], $s: Int): Seq[Int]
+
     axiom $blockhash_ax {
         forall $no: Int :: { $blockhash($no) }
             |$blockhash($no)| == 32
@@ -31,6 +37,14 @@ domain $Blockchain {
 
     axiom $sha256_ax {
         forall $s: Seq[Int] :: { $sha256($s) } |$sha256($s)| == 32
+    }
+
+    axiom $ecadd_ax {
+        forall $p: Seq[Int], $q: Seq[Int] :: { $ecadd($p, $q) } |$ecadd($p, $q)| == 2
+    }
+
+    axiom $ecmul_ax {
+        forall $p: Seq[Int], $s: Int :: { $ecmul($p, $s) } |$ecmul($p, $s)| == 2
     }
 
 }
