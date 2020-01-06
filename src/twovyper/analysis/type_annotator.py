@@ -338,6 +338,19 @@ class TypeAnnotator(NodeVisitor):
                     _check_number_of_arguments(node, 1)
                     self.annotate_expected(node.args[0], types.VYPER_DECIMAL)
                     return [types.VYPER_DECIMAL], [node]
+                elif case(names.SHIFT):
+                    _check_number_of_arguments(node, 2)
+                    self.annotate_expected(node.args[0], types.VYPER_UINT256)
+                    self.annotate_expected(node.args[1], types.VYPER_INT128)
+                elif case(names.BITWISE_NOT):
+                    _check_number_of_arguments(node, 1)
+                    self.annotate_expected(node.args[0], types.VYPER_UINT256)
+                    return [types.VYPER_UINT256], [node]
+                elif case(names.BITWISE_AND) or case(names.BITWISE_OR) or case(names.BITWISE_XOR):
+                    _check_number_of_arguments(node, 2)
+                    self.annotate_expected(node.args[0], types.VYPER_UINT256)
+                    self.annotate_expected(node.args[1], types.VYPER_UINT256)
+                    return [types.VYPER_UINT256], [node]
                 elif case(names.OLD) or case(names.ISSUED):
                     _check_number_of_arguments(node, 1)
                     return self.pass_through(node.args[0], node)

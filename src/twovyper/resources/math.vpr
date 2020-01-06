@@ -21,6 +21,16 @@ domain $Math {
 
     function $ceil($a: Int, $s: Int): Int
 
+    function $shift($a: Int, $s: Int): Int
+
+    function $bitwise_not($a: Int): Int
+
+    function $bitwise_and($a: Int, $b: Int): Int
+
+    function $bitwise_or($a: Int, $b: Int): Int
+
+    function $bitwise_xor($a: Int, $b: Int): Int
+
     axiom $sign_ax {
         $sign(0) == 0 && 
         forall $a: Int :: { $sign($a) } 
@@ -57,6 +67,34 @@ domain $Math {
     axiom $ceil_ax {
         forall $a: Int, $s: Int :: { $ceil($a, $s) }
             $s > 0 ==> $ceil($a, $s) == $div($a < 0 ? $a : $a + $s - 1, $s, 0)
+    }
+
+    // Bitwise operations are only defined for unsigned integers, therefore the result
+    // is always non-negative
+
+    axiom $shift_ax {
+        forall $a: Int, $s: Int :: { $shift($a, $s) }
+            $shift($a, $s) >= 0
+    }
+
+    axiom $bitwise_not_ax {
+        forall $a: Int :: { $bitwise_not($a) }
+            $bitwise_not($a) >= 0
+    }
+
+    axiom $bitwise_and_ax {
+        forall $a: Int, $b: Int :: { $bitwise_and($a, $b) }
+            $bitwise_and($a, $b) >= 0
+    }
+
+    axiom $bitwise_or_ax {
+        forall $a: Int, $b: Int :: { $bitwise_or($a, $b) }
+            $bitwise_or($a, $b) >= 0
+    }
+
+    axiom $bitwise_xor_ax {
+        forall $a: Int, $b: Int :: { $bitwise_xor($a, $b) }
+            $bitwise_xor($a, $b) >= 0
     }
 
 }

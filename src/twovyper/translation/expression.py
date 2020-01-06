@@ -311,6 +311,24 @@ class ExpressionTranslator(NodeTranslator):
                     expr = helpers.ceil(self.viper_ast, arg, scaling_factor, pos)
 
                 return arg_stmts, expr
+            elif name == names.SHIFT:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                shift_stmts, shift = self.translate(node.args[1], ctx)
+                return arg_stmts + shift_stmts, helpers.shift(self.viper_ast, arg, shift, pos)
+            elif name in [names.BITWISE_AND, names.BITWISE_OR, names.BITWISE_XOR]:
+                a_stmts, a = self.translate(node.args[0], ctx)
+                b_stmts, b = self.translate(node.args[1], ctx)
+
+                funcs = {
+                    names.BITWISE_AND: helpers.bitwise_and,
+                    names.BITWISE_OR: helpers.bitwise_or,
+                    names.BITWISE_XOR: helpers.bitwise_xor
+                }
+
+                return a_stmts + b_stmts, funcs[name](self.viper_ast, a, b, pos)
+            elif name == names.BITWISE_NOT:
+                arg_stmts, arg = self.translate(node.args[0], ctx)
+                return arg_stmts, helpers.bitwise_not(self.viper_ast, arg, pos)
             elif name == names.AS_WEI_VALUE:
                 stmts, arg = self.translate(node.args[0], ctx)
                 unit = node.args[1].s

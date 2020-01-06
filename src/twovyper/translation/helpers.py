@@ -183,6 +183,36 @@ def ceil(viper_ast: ViperAST, dec, scaling_factor: int, pos=None, info=None):
     return viper_ast.DomainFuncApp(mceil, args, viper_ast.Int, pos, info, domain)
 
 
+def shift(viper_ast: ViperAST, arg, shift, pos=None, info=None):
+    b_shift = mangled.MATH_SHIFT
+    domain = mangled.MATH_DOMAIN
+    return viper_ast.DomainFuncApp(b_shift, [arg, shift], viper_ast.Int, pos, info, domain)
+
+
+def bitwise_not(viper_ast: ViperAST, arg, pos=None, info=None):
+    b_not = mangled.MATH_BITWISE_NOT
+    domain = mangled.MATH_DOMAIN
+    return viper_ast.DomainFuncApp(b_not, [arg], viper_ast.Int, pos, info, domain)
+
+
+def bitwise_and(viper_ast: ViperAST, a, b, pos=None, info=None):
+    b_and = mangled.MATH_BITWISE_AND
+    domain = mangled.MATH_DOMAIN
+    return viper_ast.DomainFuncApp(b_and, [a, b], viper_ast.Int, pos, info, domain)
+
+
+def bitwise_or(viper_ast: ViperAST, a, b, pos=None, info=None):
+    b_or = mangled.MATH_BITWISE_OR
+    domain = mangled.MATH_DOMAIN
+    return viper_ast.DomainFuncApp(b_or, [a, b], viper_ast.Int, pos, info, domain)
+
+
+def bitwise_xor(viper_ast: ViperAST, a, b, pos=None, info=None):
+    b_xor = mangled.MATH_BITWISE_XOR
+    domain = mangled.MATH_DOMAIN
+    return viper_ast.DomainFuncApp(b_xor, [a, b], viper_ast.Int, pos, info, domain)
+
+
 def array_type(viper_ast: ViperAST, element_type):
     return viper_ast.SeqType(element_type)
 
