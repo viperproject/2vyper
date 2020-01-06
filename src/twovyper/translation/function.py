@@ -12,8 +12,8 @@ from typing import List
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.nodes import VyperFunction, VyperVar
 
-from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
+from twovyper.translation import mangled
+from twovyper.translation import helpers
 
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.balance import BalanceTranslator
@@ -28,11 +28,11 @@ from twovyper.translation.context import (
 )
 from twovyper.translation.variable import TranslatedVar
 
-from twovyper.translation import mangled
-from twovyper.translation import helpers
-
 from twovyper.verification import rules
 from twovyper.verification.error import Via
+
+from twovyper.viper.ast import ViperAST
+from twovyper.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
 
 
 class FunctionTranslator(CommonTranslator):

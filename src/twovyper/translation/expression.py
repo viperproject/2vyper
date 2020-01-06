@@ -8,16 +8,15 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from itertools import chain
 from typing import List, Optional, Tuple
 
-from twovyper.utils import switch, flatten, first_index
-from twovyper.exceptions import UnsupportedException
-
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.nodes import VyperFunction, VyperInterface, VyperVar, VyperEvent
 from twovyper.ast.types import MapType, ArrayType, StructType, AddressType, ContractType, InterfaceType
 
-from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
+from twovyper.exceptions import UnsupportedException
+
+from twovyper.translation import mangled
+from twovyper.translation import helpers
 
 from twovyper.translation.abstract import NodeTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
@@ -28,11 +27,13 @@ from twovyper.translation.type import TypeTranslator
 from twovyper.translation.context import Context, interface_call_scope, program_scope, self_address_scope
 from twovyper.translation.variable import TranslatedVar
 
-from twovyper.translation import mangled
-from twovyper.translation import helpers
+from twovyper.utils import switch, flatten, first_index
 
 from twovyper.verification import rules
 from twovyper.verification.error import Via
+
+from twovyper.viper.ast import ViperAST
+from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
 
 
 class ExpressionTranslator(NodeTranslator):
