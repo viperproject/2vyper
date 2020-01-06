@@ -21,21 +21,21 @@ from twovyper.ast.types import AnyStructType
 from twovyper.exceptions import ConsistencyException
 
 from twovyper.translation import helpers, mangled, State
+from twovyper.translation.context import Context
 from twovyper.translation.abstract import CommonTranslator
-from twovyper.translation.function import FunctionTranslator
-from twovyper.translation.type import TypeTranslator
-from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.balance import BalanceTranslator
-from twovyper.translation.context import Context, function_scope, state_scope
+from twovyper.translation.function import FunctionTranslator
+from twovyper.translation.specification import SpecificationTranslator
+from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
+
+from twovyper.verification import rules
 
 from twovyper.viper import sif
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.jvmaccess import JVM
 from twovyper.viper.parser import ViperParser
 from twovyper.viper.typedefs import Program, Stmt
-
-from twovyper.verification import rules
 
 
 class TranslationOptions:
@@ -239,7 +239,7 @@ class ProgramTranslator(CommonTranslator):
         # If the ghost function has an implementation we add a postcondition for that
         implementation = ctx.program.ghost_function_implementations.get(function.name)
         if implementation:
-            with function_scope(ctx):
+            with ctx.function_scope():
                 ctx.args = {arg.name: arg for arg in args}
                 expr = implementation.node.body[0].value
                 stmts, impl_expr = self.specification_translator.translate(expr, ctx)
@@ -285,7 +285,7 @@ class ProgramTranslator(CommonTranslator):
 
     def _assume_assertions(self, self_state: State, old_state: State, ctx: Context) -> List[Stmt]:
         body = []
-        with state_scope(self_state, old_state, ctx):
+        with ctx.state_scope(self_state, old_state):
             for inv in ctx.unchecked_invariants():
                 body.append(self.viper_ast.Inhale(inv))
             for inv in ctx.program.invariants:
@@ -314,7 +314,7 @@ class ProgramTranslator(CommonTranslator):
         # The transitive postconditions are checked similarly, but conditioned under an unkown
         # boolean variable so we can't assume them for checking the invariants
 
-        with function_scope(ctx):
+        with ctx.function_scope():
             name = mangled.TRANSITIVITY_CHECK
 
             def self_var(name):
@@ -374,7 +374,7 @@ class ProgramTranslator(CommonTranslator):
             assume_assertions(states[2], states[1])
 
             # Check invariants for current state 2 and old state 0
-            with state_scope(states[2], states[0], ctx):
+            with ctx.state_scope(states[2], states[0]):
                 for inv in ctx.program.invariants:
                     rule = rules.INVARIANT_TRANSITIVITY_VIOLATED
                     apos = self.to_position(inv, ctx, rule)
@@ -399,7 +399,7 @@ class ProgramTranslator(CommonTranslator):
         # Creates a check that all transitive postconditions still hold after
         # forcibly receiving ether through selfdestruct or coinbase transactions
 
-        with function_scope(ctx):
+        with ctx.function_scope():
             name = mangled.FORCED_ETHER_CHECK
 
             contracts_type = helpers.contracts_type()
@@ -465,10 +465,10 @@ class ProgramTranslator(CommonTranslator):
             body.append(self.viper_ast.LocalVarAssign(pre_self_local, self_local))
             body.append(self.viper_ast.LocalVarAssign(pre_contracts_local, contracts_local))
 
-            with state_scope(self_state, self_state, ctx):
+            with ctx.state_scope(self_state, self_state):
                 body.append(self.balance_translator.increase_balance(havoc.localVar(), ctx))
 
-            with state_scope(self_state, pre_self_state, ctx):
+            with ctx.state_scope(self_state, pre_self_state):
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)

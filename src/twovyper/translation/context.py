@@ -139,240 +139,230 @@ class Context:
         self._continue_label_counter += 1
         return f'continue_{self._continue_label_counter}'
 
+    @contextmanager
+    def function_scope(self):
+        """
+        Should be used in a ``with`` statement.
+        Saves the current context state of a function, then clears it for the body
+        of the ``with`` statement and restores the previous one in the end.
+        """
 
-@contextmanager
-def function_scope(ctx: Context):
-    """
-    Should be used in a ``with`` statement.
-    Saves the current context state of a function, then clears it for the body
-    of the ``with`` statement and restores the previous one in the end.
-    """
+        function = self.function
+
+        args = self.args
+        locals = self.locals
+        current_state = self.current_state
+        current_old_state = self.current_old_state
+        quantified_vars = self.quantified_vars
+
+        present_state = self.present_state
+        old_state = self.old_state
+        pre_state = self.pre_state
+        issued_state = self.issued_state
 
-    function = ctx.function
+        self_address = self.self_address
+
+        _break_label_counter = self._break_label_counter
+        _continue_label_counter = self._continue_label_counter
+        break_label = self.break_label
+        continue_label = self.continue_label
+
+        success_var = self.success_var
+        revert_label = self.revert_label
+        result_var = self.result_var
+        return_label = self.return_label
 
-    args = ctx.args
-    locals = ctx.locals
-    current_state = ctx.current_state
-    current_old_state = ctx.current_old_state
-    quantified_vars = ctx.quantified_vars
+        inside_trigger = self.inside_trigger
 
-    present_state = ctx.present_state
-    old_state = ctx.old_state
-    pre_state = ctx.pre_state
-    issued_state = ctx.issued_state
+        local_var_counter = self._local_var_counter
+        new_local_vars = self.new_local_vars
 
-    self_address = ctx.self_address
+        quantified_var_counter = self._quantified_var_counter
+        inline_counter = self._inline_counter
+        current_inline = self._current_inline
+        inline_vias = self.inline_vias.copy()
 
-    _break_label_counter = ctx._break_label_counter
-    _continue_label_counter = ctx._continue_label_counter
-    break_label = ctx.break_label
-    continue_label = ctx.continue_label
+        self.function = None
 
-    success_var = ctx.success_var
-    revert_label = ctx.revert_label
-    result_var = ctx.result_var
-    return_label = ctx.return_label
+        self.args = {}
+        self.locals = {}
+        self.current_state = {}
+        self.current_old_state = {}
+        self.quantified_vars = {}
 
-    inside_trigger = ctx.inside_trigger
+        self.present_state = {}
+        self.old_state = {}
+        self.pre_state = {}
+        self.issued_state = {}
 
-    local_var_counter = ctx._local_var_counter
-    new_local_vars = ctx.new_local_vars
+        self._break_label_counter = -1
+        self._continue_label_counter = -1
+        self.break_label = None
+        self.continue_label = None
 
-    quantified_var_counter = ctx._quantified_var_counter
-    inline_counter = ctx._inline_counter
-    current_inline = ctx._current_inline
-    inline_vias = ctx.inline_vias.copy()
+        self.success_var = None
+        self.revert_label = None
+        self.result_var = None
+        self.return_label = None
 
-    ctx.function = None
+        self.inside_trigger = False
 
-    ctx.args = {}
-    ctx.locals = {}
-    ctx.current_state = {}
-    ctx.current_old_state = {}
-    ctx.quantified_vars = {}
+        self._local_var_counter = defaultdict(lambda: -1)
+        self.new_local_vars = []
 
-    ctx.present_state = {}
-    ctx.old_state = {}
-    ctx.pre_state = {}
-    ctx.issued_state = {}
+        self._quantified_var_counter = -1
+        self._inline_counter = -1
+        self._current_inline = -1
 
-    ctx._break_label_counter = -1
-    ctx._continue_label_counter = -1
-    ctx.break_label = None
-    ctx.continue_label = None
+        yield
 
-    ctx.success_var = None
-    ctx.revert_label = None
-    ctx.result_var = None
-    ctx.return_label = None
+        self.function = function
 
-    ctx.inside_trigger = False
+        self.args = args
+        self.locals = locals
+        self.current_state = current_state
+        self.current_old_state = current_old_state
+        self.quantified_vars = quantified_vars
 
-    ctx._local_var_counter = defaultdict(lambda: -1)
-    ctx.new_local_vars = []
+        self.present_state = present_state
+        self.old_state = old_state
+        self.pre_state = pre_state
+        self.issued_state = issued_state
 
-    ctx._quantified_var_counter = -1
-    ctx._inline_counter = -1
-    ctx._current_inline = -1
+        self.self_address = self_address
 
-    yield
+        self._break_label_counter = _break_label_counter
+        self._continue_label_counter = _continue_label_counter
+        self.break_label = break_label
+        self.continue_label = continue_label
 
-    ctx.function = function
+        self.success_var = success_var
+        self.revert_label = revert_label
+        self.result_var = result_var
+        self.return_label = return_label
 
-    ctx.args = args
-    ctx.locals = locals
-    ctx.current_state = current_state
-    ctx.current_old_state = current_old_state
-    ctx.quantified_vars = quantified_vars
+        self.inside_trigger = inside_trigger
 
-    ctx.present_state = present_state
-    ctx.old_state = old_state
-    ctx.pre_state = pre_state
-    ctx.issued_state = issued_state
+        self._local_var_counter = local_var_counter
+        self.new_local_vars = new_local_vars
 
-    ctx.self_address = self_address
+        self._quantified_var_counter = quantified_var_counter
+        self._inline_counter = inline_counter
+        self._current_inline = current_inline
+        self.inline_vias = inline_vias
 
-    ctx._break_label_counter = _break_label_counter
-    ctx._continue_label_counter = _continue_label_counter
-    ctx.break_label = break_label
-    ctx.continue_label = continue_label
+    @contextmanager
+    def quantified_var_scope(self):
+        quantified_vars = self.quantified_vars.copy()
+        quantified_var_counter = self._quantified_var_counter
+        self._quantified_var_counter = -1
 
-    ctx.success_var = success_var
-    ctx.revert_label = revert_label
-    ctx.result_var = result_var
-    ctx.return_label = return_label
+        yield
 
-    ctx.inside_trigger = inside_trigger
+        self.quantified_vars = quantified_vars
+        self._quantified_var_counter = quantified_var_counter
 
-    ctx._local_var_counter = local_var_counter
-    ctx.new_local_vars = new_local_vars
+    @contextmanager
+    def inside_trigger_scope(self):
+        inside_trigger = self.inside_trigger
+        self.inside_trigger = True
 
-    ctx._quantified_var_counter = quantified_var_counter
-    ctx._inline_counter = inline_counter
-    ctx._current_inline = current_inline
-    ctx.inline_vias = inline_vias
+        yield
 
+        self.inside_trigger = inside_trigger
 
-@contextmanager
-def quantified_var_scope(ctx: Context):
-    quantified_vars = ctx.quantified_vars.copy()
-    quantified_var_counter = ctx._quantified_var_counter
-    ctx._quantified_var_counter = -1
+    @contextmanager
+    def inline_scope(self, via):
+        result_var = self.result_var
+        self.result_var = None
 
-    yield
+        return_label = self.return_label
+        self.return_label = None
 
-    ctx.quantified_vars = quantified_vars
-    ctx._quantified_var_counter = quantified_var_counter
+        local_vars = self.locals.copy()
+        args = self.args.copy()
+        old_inline = self._current_inline
+        self._inline_counter += 1
+        self._current_inline = self._inline_counter
 
+        inline_vias = self.inline_vias.copy()
+        self.inline_vias.append(via)
 
-@contextmanager
-def inside_trigger_scope(ctx: Context):
-    inside_trigger = ctx.inside_trigger
-    ctx.inside_trigger = True
+        yield
 
-    yield
+        self.result_var = result_var
+        self.return_label = return_label
 
-    ctx.inside_trigger = inside_trigger
+        self.locals = local_vars
+        self.args = args
+        self._current_inline = old_inline
 
+        self.inline_vias = inline_vias
 
-@contextmanager
-def inline_scope(via, ctx: Context):
-    result_var = ctx.result_var
-    ctx.result_var = None
+    @contextmanager
+    def interface_call_scope(self):
+        result_var = self.result_var
+        self.result_var = None
+        success_var = self.success_var
+        self.success_var = None
 
-    return_label = ctx.return_label
-    ctx.return_label = None
+        local_vars = self.locals.copy()
+        old_inline = self._current_inline
+        self._inline_counter += 1
+        self._current_inline = self._inline_counter
 
-    local_vars = ctx.locals.copy()
-    args = ctx.args.copy()
-    old_inline = ctx._current_inline
-    ctx._inline_counter += 1
-    ctx._current_inline = ctx._inline_counter
+        yield
 
-    inline_vias = ctx.inline_vias.copy()
-    ctx.inline_vias.append(via)
+        self.result_var = result_var
+        self.success_var = success_var
 
-    yield
+        self.locals = local_vars
+        self._current_inline = old_inline
 
-    ctx.result_var = result_var
-    ctx.return_label = return_label
+    @contextmanager
+    def program_scope(self, program):
+        old_program = self.current_program
+        self.current_program = program
 
-    ctx.locals = local_vars
-    ctx.args = args
-    ctx._current_inline = old_inline
+        yield
 
-    ctx.inline_vias = inline_vias
+        self.current_program = old_program
 
+    @contextmanager
+    def state_scope(self, present_state, old_state):
+        current_state = self.current_state.copy()
+        current_old_state = self.current_old_state.copy()
+        self.current_state = present_state
+        self.current_old_state = old_state
 
-@contextmanager
-def interface_call_scope(ctx: Context):
-    result_var = ctx.result_var
-    ctx.result_var = None
-    success_var = ctx.success_var
-    ctx.success_var = None
+        yield
 
-    local_vars = ctx.locals.copy()
-    old_inline = ctx._current_inline
-    ctx._inline_counter += 1
-    ctx._current_inline = ctx._inline_counter
+        self.current_state = current_state
+        self.current_old_state = current_old_state
 
-    yield
+    @contextmanager
+    def self_address_scope(self, address):
+        old_self_address = self.self_address
+        self.self_address = address
 
-    ctx.result_var = result_var
-    ctx.success_var = success_var
+        yield
 
-    ctx.locals = local_vars
-    ctx._current_inline = old_inline
+        self.self_address = old_self_address
 
+    @contextmanager
+    def break_scope(self):
+        break_label = self.break_label
+        self.break_label = self._next_break_label()
 
-@contextmanager
-def program_scope(program, ctx: Context):
-    old_program = ctx.current_program
-    ctx.current_program = program
+        yield
 
-    yield
+        self.break_label = break_label
 
-    ctx.current_program = old_program
+    @contextmanager
+    def continue_scope(self):
+        continue_label = self.continue_label
+        self.continue_label = self._next_continue_label()
 
+        yield
 
-@contextmanager
-def state_scope(present_state, old_state, ctx: Context):
-    current_state = ctx.current_state.copy()
-    current_old_state = ctx.current_old_state.copy()
-    ctx.current_state = present_state
-    ctx.current_old_state = old_state
-
-    yield
-
-    ctx.current_state = current_state
-    ctx.current_old_state = current_old_state
-
-
-@contextmanager
-def self_address_scope(address, ctx: Context):
-    old_self_address = ctx.self_address
-    ctx.self_address = address
-
-    yield
-
-    ctx.self_address = old_self_address
-
-
-@contextmanager
-def break_scope(ctx: Context):
-    break_label = ctx.break_label
-    ctx.break_label = ctx._next_break_label()
-
-    yield
-
-    ctx.break_label = break_label
-
-
-@contextmanager
-def continue_scope(ctx: Context):
-    continue_label = ctx.continue_label
-    ctx.continue_label = ctx._next_continue_label()
-
-    yield
-
-    ctx.continue_label = continue_label
+        self.continue_label = continue_label

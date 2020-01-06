@@ -16,7 +16,7 @@ from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr, Type
 
 from twovyper.translation.abstract import CommonTranslator
-from twovyper.translation.context import Context, quantified_var_scope
+from twovyper.translation.context import Context
 
 from twovyper.translation import helpers, mangled
 
@@ -202,7 +202,7 @@ class TypeTranslator(CommonTranslator):
                     ret.extend(construct(member_type, get))
             return ret
 
-        with quantified_var_scope(ctx):
+        with ctx.quantified_var_scope():
             return construct(type, node)
 
     def array_bounds_check(self, array, index, ctx: Context) -> Stmt:

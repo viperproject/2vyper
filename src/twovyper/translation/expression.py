@@ -18,13 +18,13 @@ from twovyper.exceptions import UnsupportedException
 from twovyper.translation import mangled
 from twovyper.translation import helpers
 
+from twovyper.translation.context import Context
 from twovyper.translation.abstract import NodeTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.model import ModelTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
-from twovyper.translation.context import Context, interface_call_scope, program_scope, self_address_scope
 from twovyper.translation.variable import TranslatedVar
 
 from twovyper.utils import switch, flatten, first_index
@@ -837,7 +837,7 @@ class ExpressionTranslator(NodeTranslator):
                                          succ: Expr,
                                          res: Optional[Expr],
                                          ctx: Context) -> List[Stmt]:
-        with interface_call_scope(ctx):
+        with ctx.interface_call_scope():
             body = []
 
             # Define new msg variable
@@ -884,8 +884,8 @@ class ExpressionTranslator(NodeTranslator):
             translate = self.spec_translator.translate_postcondition
             pos = self.to_position(node, ctx, rules.INHALE_INTERFACE_FAIL)
 
-            with program_scope(interface, ctx):
-                with self_address_scope(to, ctx):
+            with ctx.program_scope(interface):
+                with ctx.self_address_scope(to):
                     postconditions = chain(function.postconditions, interface.general_postconditions)
                     stmts, exprs = self.collect(translate(post, ctx) for post in postconditions)
                     body.extend(stmts)

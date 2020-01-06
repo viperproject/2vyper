@@ -11,19 +11,17 @@ from functools import reduce
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.types import VyperType
 
+from twovyper.translation import helpers, mangled
+from twovyper.translation.context import Context
+from twovyper.translation.expression import ExpressionTranslator
+from twovyper.translation.variable import TranslatedVar
+
 from twovyper.utils import switch
+
+from twovyper.verification import rules
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import StmtsAndExpr
-
-from twovyper.translation import helpers, mangled
-from twovyper.translation.expression import ExpressionTranslator
-from twovyper.translation.context import (
-    Context, quantified_var_scope, state_scope, inside_trigger_scope
-)
-from twovyper.translation.variable import TranslatedVar
-
-from twovyper.verification import rules
 
 
 class SpecificationTranslator(ExpressionTranslator):
@@ -74,7 +72,7 @@ class SpecificationTranslator(ExpressionTranslator):
             rhs_stmts, rhs = self.translate(node.args[1], ctx)
             return lhs_stmts + rhs_stmts, self.viper_ast.Implies(lhs, rhs, pos)
         elif name == names.FORALL:
-            with quantified_var_scope(ctx):
+            with ctx.quantified_var_scope():
                 num_args = len(node.args)
                 quants = []
                 type_assumptions = []
@@ -106,7 +104,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
                 # The arguments in the middle are the triggers
                 triggers = []
-                with inside_trigger_scope(ctx):
+                with ctx.inside_trigger_scope():
                     for arg in node.args[1: num_args - 1]:
                         trigger_pos = self.to_position(arg, ctx)
                         trigger_exprs = [self._translate_spec(t, ctx) for t in arg.elements]
@@ -162,7 +160,7 @@ class SpecificationTranslator(ExpressionTranslator):
             return [], self.viper_ast.Not(success, pos)
         elif name == names.OLD or name == names.ISSUED:
             self_state = ctx.current_old_state if name == names.OLD else ctx.issued_state
-            with state_scope(self_state, self_state, ctx):
+            with ctx.state_scope(self_state, self_state):
                 arg = node.args[0]
                 return self.translate(arg, ctx)
         elif name == names.SUM:
@@ -245,7 +243,7 @@ class SpecificationTranslator(ExpressionTranslator):
             def unless(node):
                 if isinstance(node, ast.Call):
                     # An old expression
-                    with state_scope(ctx.current_old_state, ctx.current_old_state, ctx):
+                    with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
                         return unless(node.args[0])
                 elif isinstance(node, ast.Attribute):
                     struct_type = node.value.type

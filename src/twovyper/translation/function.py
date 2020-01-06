@@ -15,6 +15,7 @@ from twovyper.ast.nodes import VyperFunction, VyperVar
 from twovyper.translation import mangled
 from twovyper.translation import helpers
 
+from twovyper.translation.context import Context
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.expression import ExpressionTranslator
@@ -23,9 +24,6 @@ from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.statement import StatementTranslator
 from twovyper.translation.type import TypeTranslator
-from twovyper.translation.context import (
-    Context, function_scope, inline_scope, state_scope, program_scope
-)
 from twovyper.translation.variable import TranslatedVar
 
 from twovyper.verification import rules
@@ -48,7 +46,7 @@ class FunctionTranslator(CommonTranslator):
         self.type_translator = TypeTranslator(viper_ast)
 
     def translate(self, function: VyperFunction, ctx: Context) -> Method:
-        with function_scope(ctx):
+        with ctx.function_scope():
             # A synthesized __init__ does not have a position in the file
             if function.node:
                 pos = self.to_position(function.node, ctx)
@@ -163,7 +161,7 @@ class FunctionTranslator(CommonTranslator):
             # Translate the invariants for the issued state. Since we don't know anything about
             # the state before then, we use the issued state itself as the old state
             if not is_init and function.analysis.uses_issued:
-                with state_scope(ctx.issued_state, ctx.issued_state, ctx):
+                with ctx.state_scope(ctx.issued_state, ctx.issued_state):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_issued.append(self.viper_ast.Inhale(inv))
 
@@ -178,7 +176,7 @@ class FunctionTranslator(CommonTranslator):
             # which results in fewer assumptions passed to the prover
             if not is_init:
                 last_state = ctx.issued_state if function.analysis.uses_issued else ctx.present_state
-                with state_scope(ctx.present_state, last_state, ctx):
+                with ctx.state_scope(ctx.present_state, last_state):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_self.append(self.viper_ast.Inhale(inv))
 
@@ -317,7 +315,7 @@ class FunctionTranslator(CommonTranslator):
                 body.append(self.state_translator.check_first_public_state(ctx, False))
 
             old_state = ctx.present_state if is_init else ctx.pre_state
-            with state_scope(ctx.present_state, old_state, ctx):
+            with ctx.state_scope(ctx.present_state, old_state):
                 # Save model vars
                 post_stmts, modelt = self.model_translator.save_variables(ctx)
                 # Assert postconditions
@@ -353,7 +351,7 @@ class FunctionTranslator(CommonTranslator):
 
                     for post in postconditions:
                         post_pos = self.to_position(function.node or post, ctx, rules.INTERFACE_POSTCONDITION_FAIL)
-                        with program_scope(interface, ctx):
+                        with ctx.program_scope(interface):
                             stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
                             if is_init:
                                 cond = self.viper_ast.Implies(success_var, cond, post_pos)
@@ -499,7 +497,7 @@ class FunctionTranslator(CommonTranslator):
         function = ctx.program.functions[call.func.attr]
         cpos = self.to_position(call, ctx)
         via = Via('inline', cpos)
-        with inline_scope(via, ctx):
+        with ctx.inline_scope(via):
             assert function.node
             # Only private self-calls are allowed in Vyper
             assert function.is_private()

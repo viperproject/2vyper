@@ -16,7 +16,7 @@ from twovyper.exceptions import UnsupportedException
 from twovyper.utils import flatten
 
 from twovyper.translation import helpers
-from twovyper.translation.context import Context, break_scope, continue_scope
+from twovyper.translation.context import Context
 from twovyper.translation.abstract import NodeTranslator, CommonTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.expression import ExpressionTranslator
@@ -146,7 +146,7 @@ class StatementTranslator(NodeTranslator):
 
         self._add_local_var(node.target, ctx)
 
-        with break_scope(ctx):
+        with ctx.break_scope():
             loop_var = ctx.all_vars[node.target.id].local_var(ctx)
             lpos = self.to_position(node.target, ctx)
             rpos = self.to_position(node.iter, ctx)
@@ -155,7 +155,7 @@ class StatementTranslator(NodeTranslator):
             stmts, array = self.expression_translator.translate(node.iter, ctx)
 
             for i in range(times):
-                with continue_scope(ctx):
+                with ctx.continue_scope():
                     loop_info = self.to_info(["Start of loop iteration."])
                     idx = self.viper_ast.IntLit(i, lpos)
                     array_at = self.viper_ast.SeqIndex(array, idx, rpos)
