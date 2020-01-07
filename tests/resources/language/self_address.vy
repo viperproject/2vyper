@@ -9,6 +9,7 @@
 self_address: address
 
 
+#@ invariant: 0 <= self and self < 1461501637330902918203684832716283019655932542976
 #@ invariant: self.self_address == self
 
 
@@ -17,7 +18,7 @@ def __init__():
     self.self_address = self
 
 
-#@ ensures: implies(success(), result() == self)
+#@ ensures: success() ==> result() == self
 @public
 def get_self_address() -> address:
     return self

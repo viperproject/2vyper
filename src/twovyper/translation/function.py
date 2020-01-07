@@ -125,6 +125,13 @@ class FunctionTranslator(CommonTranslator):
                 issued_assumptions = [self.viper_ast.Inhale(a) for a in issued]
                 body.extend(self.seqn_with_info(issued_assumptions, "Issued state assumptions"))
 
+            # Assume type assumptions for self address
+            self_address = helpers.self_address(self.viper_ast)
+            self_address_ass = self.type_translator.type_assumptions(self_address, types.VYPER_ADDRESS, ctx)
+            self_address_assumptions = [self.viper_ast.Inhale(c) for c in self_address_ass]
+            self_address_info_msg = "Assume type assumptions for self address"
+            body.extend(self.seqn_with_info(self_address_assumptions, self_address_info_msg))
+
             # Assume type assumptions for arguments
             argument_conds = []
             for var in function.args.values():

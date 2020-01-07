@@ -172,7 +172,7 @@ VYPER_INT128 = BoundedType(names.INT128, -2 ** 127, 2 ** 127 - 1)
 VYPER_UINT256 = BoundedType(names.UINT256, 0, 2 ** 256 - 1)
 VYPER_DECIMAL = DecimalType(names.DECIMAL, 10, -2 ** 127, 2 ** 127 - 1)
 VYPER_WEI_VALUE = VYPER_UINT256
-VYPER_ADDRESS = PrimitiveType(names.ADDRESS)
+VYPER_ADDRESS = BoundedType(names.ADDRESS, 0, 2 ** 160 - 1)
 VYPER_BYTE = PrimitiveType(names.BYTE)
 VYPER_BYTES32 = ArrayType(VYPER_BYTE, 32, True)
 
@@ -215,7 +215,7 @@ def is_numeric(type: VyperType) -> bool:
 
 
 def is_bounded(type: VyperType) -> bool:
-    return type in [VYPER_INT128, VYPER_UINT256, VYPER_DECIMAL]
+    return type in [VYPER_INT128, VYPER_UINT256, VYPER_DECIMAL, VYPER_ADDRESS]
 
 
 def is_integer(type: VyperType) -> bool:
@@ -223,7 +223,7 @@ def is_integer(type: VyperType) -> bool:
 
 
 def is_unsigned(type: VyperType) -> bool:
-    return type == VYPER_UINT256
+    return type == VYPER_UINT256 or type == VYPER_ADDRESS
 
 
 def has_strict_array_size(element_type: VyperType) -> bool:

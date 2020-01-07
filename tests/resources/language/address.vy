@@ -9,6 +9,9 @@
 owner: address
 
 
+#@ invariant: self.owner >= 0x0
+
+
 @public
 @payable
 def __init__():
@@ -17,9 +20,8 @@ def __init__():
 
 @public
 def set_owner(a: address) -> address:
-    b: address = a
-    b = a
-    return b
+    self.owner = a
+    return a
 
 
 @public
