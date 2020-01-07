@@ -335,7 +335,7 @@ class ProgramTranslator(CommonTranslator):
 
             if ctx.program.analysis.uses_issued:
                 ctx.issued_state[names.SELF] = self_var(mangled.ISSUED_SELF)
-                ctx.issued_state[mangled.CONTRACTS] = contract_var(mangled.CONTRACTS)
+                ctx.issued_state[mangled.CONTRACTS] = contract_var(mangled.ISSUED_CONTRACTS)
                 local_vars.extend(var.var_decl(ctx) for var in ctx.issued_state.values())
                 all_states = chain(states, [ctx.issued_state])
             else:
