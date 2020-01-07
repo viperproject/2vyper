@@ -13,6 +13,7 @@ from twovyper.ast.types import VyperType
 
 from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context
+from twovyper.translation.allocation import AllocationTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.variable import TranslatedVar
 
@@ -28,6 +29,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
+
+        self.allocation_translator = AllocationTranslator(viper_ast)
 
     @property
     def no_reverts(self):
@@ -202,6 +205,13 @@ class SpecificationTranslator(ExpressionTranslator):
                 return stmts, self.balance_translator.get_sent(self_var, arg, ctx, pos)
             else:
                 return [], self.balance_translator.sent(self_var, ctx, pos)
+        elif name == names.ALLOCATED:
+            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+            if node.args:
+                address_stmts, address = self.translate(node.args[0], ctx)
+                return address_stmts, self.allocation_translator.get_allocated(allocated, address, ctx)
+            else:
+                return [], allocated
         elif name == names.ACCESSIBLE:
             # The function necessary for accessible is either the one used as the third argument
             # or the one the heuristics determined
@@ -302,6 +312,23 @@ class SpecificationTranslator(ExpressionTranslator):
             stmts, address = self.translate(node.args[0], ctx)
             interface = node.args[1].id
             return stmts, helpers.implements(self.viper_ast, address, interface, ctx, pos)
+        elif name == names.REALLOCATE:
+            stmts = []
+            for kw in node.keywords:
+                if kw.name == names.REALLOCATE_TO:
+                    to_stmts, to = self.translate(kw.value, ctx)
+                    stmts.extend(to_stmts)
+                elif kw.name == names.REALLOCATE_TIMES:
+                    times_stmts, times = self.translate(kw.value, ctx)
+                    stmts.extend(times_stmts)
+
+            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            amount_stmts, amount = self.translate(node.args[0], ctx)
+            stmts.extend(amount_stmts)
+            value = self.viper_ast.Mul(times, amount, pos)
+            stmts.extend(self.allocation_translator.reallocate(allocated, msg_sender, to, value, ctx, pos))
+            return stmts, None
         elif name in ctx.program.ghost_functions:
             function = ctx.program.ghost_functions[name]
             stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)

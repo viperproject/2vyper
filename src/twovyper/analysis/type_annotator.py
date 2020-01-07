@@ -26,10 +26,13 @@ def _check(condition: bool, node: ast.Node, reason_code: str):
         raise InvalidProgramException(node, reason_code)
 
 
-def _check_number_of_arguments(node: ast.Call, *expected: int, allowed_keywords: List[str] = []):
+def _check_number_of_arguments(node: ast.Call, *expected: int, allowed_keywords: List[str] = [], required_keywords: List[str] = []):
     _check(len(node.args) in expected, node, 'invalid.no.args')
     for kw in node.keywords:
         _check(kw.name in allowed_keywords, node, 'invalid.no.args')
+
+    for kw in required_keywords:
+        _check(any(k.name == kw for k in node.keywords), node, 'invalid.no.args')
 
 
 class TypeAnnotator(NodeVisitor):
@@ -491,7 +494,7 @@ class TypeAnnotator(NodeVisitor):
 
                     self.annotate_expected(node.args[0], is_numeric_map)
                     return [node.args[0].type.value_type], [node]
-                elif case(names.SENT) or case(names.RECEIVED):
+                elif case(names.SENT) or case(names.RECEIVED) or case(names.ALLOCATED):
                     _check_number_of_arguments(node, 0, 1)
 
                     if not node.args:
@@ -520,6 +523,17 @@ class TypeAnnotator(NodeVisitor):
                     _check(is_interface, node, 'invalid.interface')
                     self.annotate_expected(address, types.VYPER_ADDRESS)
                     return [types.VYPER_BOOL], [node]
+                elif case(names.REALLOCATE):
+                    keywords = {
+                        names.REALLOCATE_TO: types.VYPER_ADDRESS,
+                        names.REALLOCATE_TIMES: types.VYPER_INT128
+                    }
+                    _check_number_of_arguments(node, 1, allowed_keywords=keywords.keys(), required_keywords=keywords.keys())
+                    self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
+                    for kw in node.keywords:
+                        self.annotate_expected(kw.value, keywords[kw.name])
+
+                    return [None], [node]
                 elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                     # This is a struct inizializer
                     _check_number_of_arguments(node, 1)

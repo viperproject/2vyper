@@ -31,10 +31,17 @@ class StateTranslator(CommonTranslator):
             contracts_type = helpers.contracts_type()
             return TranslatedVar(mangled.CONTRACTS, name, contracts_type, self.viper_ast)
 
+        def allocated_var(name):
+            allocated_type = helpers.allocated_type()
+            return TranslatedVar(mangled.ALLOCATED, name, allocated_type, self.viper_ast)
+
         s = {
             names.SELF: self_var(name_transformation(mangled.SELF)),
             mangled.CONTRACTS: contract_var(name_transformation(mangled.CONTRACTS))
         }
+
+        if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            s[mangled.ALLOCATED] = allocated_var(name_transformation(mangled.ALLOCATED))
 
         return s
 
@@ -48,9 +55,9 @@ class StateTranslator(CommonTranslator):
 
     def havoc_state_except_self(self, state: State, ctx: Context, pos=None) -> List[Stmt]:
         """
-        Havocs all contract state except self.
+        Havocs all contract state except self and allocated.
         """
-        return self.havoc_state(state, ctx, pos, unless=lambda v: v == names.SELF)
+        return self.havoc_state(state, ctx, pos, unless=lambda v: v in [names.SELF, mangled.ALLOCATED])
 
     def havoc_state(self, state: State, ctx: Context, pos=None, unless=None) -> List[Stmt]:
         havocs = []

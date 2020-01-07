@@ -20,6 +20,7 @@ from twovyper.translation import helpers
 
 from twovyper.translation.context import Context
 from twovyper.translation.abstract import NodeTranslator
+from twovyper.translation.allocation import AllocationTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.model import ModelTranslator
@@ -40,6 +41,7 @@ class ExpressionTranslator(NodeTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
+        self.allocation_translator = AllocationTranslator(viper_ast)
         self.arithmetic_translator = ArithmeticTranslator(viper_ast, self.no_reverts)
         self.balance_translator = BalanceTranslator(viper_ast)
         self.model_translsator = ModelTranslator(viper_ast)
@@ -619,6 +621,8 @@ class ExpressionTranslator(NodeTranslator):
             # This is a contract / interface initializer
             elif name in ctx.program.contracts or name in ctx.program.interfaces:
                 return self.translate(node.args[0], ctx)
+            elif name in names.GHOST_STATEMENTS:
+                return self.spec_translator.translate(node, ctx)
             else:
                 raise UnsupportedException(node, "Unsupported function call")
         else:
@@ -709,8 +713,15 @@ class ExpressionTranslator(NodeTranslator):
         if amount:
             check = self.balance_translator.check_balance(amount, ctx, pos)
             sent = self.balance_translator.increase_sent(to, amount, ctx, pos)
+
+            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+                dealloc = self.allocation_translator.deallocate(allocated, to, amount, ctx, pos)
+            else:
+                dealloc = []
+
             sub = self.balance_translator.decrease_balance(amount, ctx, pos)
-            stmts = [check, sent, sub]
+            stmts = [check, sent, *dealloc, sub]
         else:
             stmts = []
 

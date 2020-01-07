@@ -17,6 +17,7 @@ from twovyper.translation import helpers
 
 from twovyper.translation.context import Context
 from twovyper.translation.abstract import CommonTranslator
+from twovyper.translation.allocation import AllocationTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.model import ModelTranslator
@@ -37,6 +38,7 @@ class FunctionTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         self.viper_ast = viper_ast
+        self.allocation_translator = AllocationTranslator(viper_ast)
         self.balance_translator = BalanceTranslator(viper_ast)
         self.expression_translator = ExpressionTranslator(viper_ast)
         self.model_translator = ModelTranslator(viper_ast)
@@ -237,6 +239,14 @@ class FunctionTranslator(CommonTranslator):
                 # in the beginning
                 body.extend(self._havoc_balance(ctx))
 
+                if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                    # Initially all allocation is zero
+                    allocated = ctx.current_state[mangled.ALLOCATED]
+                    astmts, default_allocated = self.type_translator.default_value(None, allocated.type, ctx)
+                    allocated_assign = self.viper_ast.LocalVarAssign(allocated.local_var(ctx), default_allocated)
+                    body.extend(astmts)
+                    body.append(allocated_assign)
+
             msg_value = helpers.msg_value(self.viper_ast, ctx)
             if not function.is_payable():
                 # If the function is not payable we assume that msg.value == 0
@@ -258,6 +268,10 @@ class FunctionTranslator(CommonTranslator):
                 # Increase received for msg.sender by msg.value
                 rec_inc = self.balance_translator.increase_received(msg_value, ctx)
                 body.append(rec_inc)
+
+                if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                    allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+                    body.extend(self.allocation_translator.allocate(allocated, msg_sender, msg_value, ctx))
 
             # If we are in a synthesized init, we don't have a function body
             if function.node:

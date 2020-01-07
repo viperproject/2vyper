@@ -73,6 +73,10 @@ def contracts_type():
     return MapType(types.VYPER_ADDRESS, AnyStructType())
 
 
+def allocated_type():
+    return MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+
+
 def blockhash(viper_ast: ViperAST, no, ctx: Context, pos=None, info=None):
     bhash = mangled.BLOCKCHAIN_BLOCKHASH
     domain = mangled.BLOCKCHAIN_DOMAIN
