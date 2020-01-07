@@ -33,5 +33,4 @@ def preprocess(program: str) -> str:
     replace(r'#@\s*always\s*ensures\s*:', replacement('always_ensures', '='))
     replace(r'#@\s*always\s*check\s*:', replacement('always_check', '='))
     replace(r'#@\s*preserves\s*:', replacement('if False', ':'))
-    replace(r'#@', replacement('  ', ''))
     return program

@@ -115,7 +115,8 @@ string: STRING | LONG_STRING
 // Tokens
 
 NAME: /[a-zA-Z_]\w*/
-COMMENT: /#[^\n]*/
+COMMENT: /#(?!@)[^\n]*/
+SPEC_MARKER: /#@[\t \f]*/
 _NEWLINE: (/\r?\n[\t ]*/ | COMMENT)+
 
 STRING : /b?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
@@ -130,4 +131,5 @@ FLOAT_NUMBER.2: /((\d+\.\d*|\.\d+)(e[-+]?\d+)?|\d+(e[-+]?\d+))/i
 %ignore /[\t \f]+/  // WS
 %ignore /\\[\t \f]*\r?\n/  // LINE_CONT
 %ignore COMMENT
+%ignore SPEC_MARKER
 %declare _INDENT _DEDENT
