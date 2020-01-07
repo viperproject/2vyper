@@ -26,6 +26,7 @@ from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.function import FunctionTranslator
 from twovyper.translation.specification import SpecificationTranslator
+from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
 
@@ -76,6 +77,7 @@ class ProgramTranslator(CommonTranslator):
         self.function_translator = FunctionTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
+        self.state_translator = StateTranslator(viper_ast)
         self.balance_translator = BalanceTranslator(viper_ast)
 
     def translate(self, vyper_program: VyperProgram, options: TranslationOptions) -> Program:
@@ -283,6 +285,22 @@ class ProgramTranslator(CommonTranslator):
             args.append(self.viper_ast.LocalVarDecl(arg_name, arg_type))
         return self.viper_ast.Predicate(name, args, None)
 
+    def _state(self, postfix: str, ctx: Context) -> State:
+
+        def self_var(name):
+            return TranslatedVar(names.SELF, name, ctx.self_type, self.viper_ast)
+
+        def contract_var(name):
+            contracts_type = helpers.contracts_type()
+            return TranslatedVar(mangled.CONTRACTS, name, contracts_type, self.viper_ast)
+
+        s = {
+            names.SELF: self_var(f'$s${postfix}'),
+            mangled.CONTRACTS: contract_var(f'$c${postfix}')
+        }
+
+        return s
+
     def _assume_assertions(self, self_state: State, old_state: State, ctx: Context) -> List[Stmt]:
         body = []
         with ctx.state_scope(self_state, old_state):
@@ -317,14 +335,7 @@ class ProgramTranslator(CommonTranslator):
         with ctx.function_scope():
             name = mangled.TRANSITIVITY_CHECK
 
-            def self_var(name):
-                return TranslatedVar(names.SELF, name, ctx.self_type, self.viper_ast)
-
-            def contract_var(name):
-                contracts_type = helpers.contracts_type()
-                return TranslatedVar(mangled.CONTRACTS, name, contracts_type, self.viper_ast)
-
-            states = [{names.SELF: self_var(f'$s{i}'), mangled.CONTRACTS: contract_var(f'$c{i}')} for i in range(3)]
+            states = [self._state(str(i), ctx) for i in range(3)]
 
             block = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             ctx.locals[names.BLOCK] = block
@@ -334,8 +345,7 @@ class ProgramTranslator(CommonTranslator):
             local_vars.append(is_post)
 
             if ctx.program.analysis.uses_issued:
-                ctx.issued_state[names.SELF] = self_var(mangled.ISSUED_SELF)
-                ctx.issued_state[mangled.CONTRACTS] = contract_var(mangled.ISSUED_CONTRACTS)
+                ctx.issued_state = self._state(names.ISSUED, ctx)
                 local_vars.extend(var.var_decl(ctx) for var in ctx.issued_state.values())
                 all_states = chain(states, [ctx.issued_state])
             else:
@@ -402,41 +412,32 @@ class ProgramTranslator(CommonTranslator):
         with ctx.function_scope():
             name = mangled.FORCED_ETHER_CHECK
 
-            contracts_type = helpers.contracts_type()
+            current_state = self._state('curr', ctx)
+            pre_state = self._state('pre', ctx)
 
-            issued_var = TranslatedVar(names.SELF, mangled.ISSUED_SELF, ctx.self_type, self.viper_ast)
-            issued_local = issued_var.local_var(ctx)
-            issued_contracts_var = TranslatedVar(mangled.ISSUED_CONTRACTS, mangled.ISSUED_CONTRACTS, contracts_type, self.viper_ast)
+            local_vars = [var.var_decl(ctx) for var in chain(current_state.values(), pre_state.values())]
 
-            self_var = TranslatedVar(names.SELF, mangled.SELF, ctx.self_type, self.viper_ast)
-            self_local = self_var.local_var(ctx)
-            pre_self_var = TranslatedVar(names.SELF, mangled.PRE_SELF, ctx.self_type, self.viper_ast)
-            pre_self_local = pre_self_var.local_var(ctx)
+            if ctx.program.analysis.uses_issued:
+                issued_state = self._state(names.ISSUED, ctx)
+                ctx.issued_state = issued_state
+                local_vars.extend(var.var_decl(ctx) for var in issued_state.values())
 
-            contracts_var = TranslatedVar(mangled.CONTRACTS, mangled.CONTRACTS, contracts_type, self.viper_ast)
-            contracts_local = contracts_var.local_var(ctx)
-            pre_contracts_var = TranslatedVar(mangled.PRE_CONTRACTS, mangled.PRE_CONTRACTS, contracts_type, self.viper_ast)
-            pre_contracts_local = pre_contracts_var.local_var(ctx)
+                all_states = [current_state, pre_state, issued_state]
+            else:
+                all_states = [current_state, pre_state]
 
             block = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             ctx.locals[names.BLOCK] = block
             is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
             havoc = self.viper_ast.LocalVarDecl('$havoc', self.viper_ast.Int)
-            local_vars = [var.var_decl(ctx) for var in [issued_var, issued_contracts_var, self_var, pre_self_var, contracts_var, pre_contracts_var, block]]
-            local_vars.extend([is_post, havoc])
+            local_vars.extend([is_post, havoc, block.var_decl(ctx)])
 
             body = []
 
-            if ctx.program.analysis.uses_issued:
-                ctx.issued_state[names.SELF] = issued_var
-                ctx.issued_state[mangled.CONTRACTS] = issued_contracts_var
-
-                # Assume type assumptions for issued self
-                issued_assumptions = self.type_translator.type_assumptions(issued_local, ctx.self_type, ctx)
-                body.extend(self.viper_ast.Inhale(a) for a in issued_assumptions)
-
-            # Assume type assumptions for self
-            type_assumptions = self.type_translator.type_assumptions(self_local, ctx.self_type, ctx)
+            for state in all_states:
+                for var in state.values():
+                    local = var.local_var(ctx)
+                    type_assumptions = self.type_translator.type_assumptions(local, var.type, ctx)
             body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
 
             # Assume type assumptions for block
@@ -452,23 +453,18 @@ class ProgramTranslator(CommonTranslator):
             assume_non_negative = self.viper_ast.Inhale(self.viper_ast.GeCmp(havoc.localVar(), zero))
             body.append(assume_non_negative)
 
-            issued_state = {names.SELF: issued_var, mangled.CONTRACTS: issued_contracts_var}
-            self_state = {names.SELF: self_var, mangled.CONTRACTS: contracts_var}
-            pre_self_state = {names.SELF: pre_self_var, mangled.CONTRACTS: pre_contracts_var}
-
             if ctx.program.analysis.uses_issued:
                 assume_assertions(issued_state, issued_state)
-                assume_assertions(self_state, issued_state)
+                assume_assertions(current_state, issued_state)
             else:
-                assume_assertions(self_state, self_state)
+                assume_assertions(current_state, current_state)
 
-            body.append(self.viper_ast.LocalVarAssign(pre_self_local, self_local))
-            body.append(self.viper_ast.LocalVarAssign(pre_contracts_local, contracts_local))
+            body.extend(self.state_translator.copy_state(pre_state, current_state, ctx))
 
-            with ctx.state_scope(self_state, self_state):
+            with ctx.state_scope(current_state, current_state):
                 body.append(self.balance_translator.increase_balance(havoc.localVar(), ctx))
 
-            with ctx.state_scope(self_state, pre_self_state):
+            with ctx.state_scope(current_state, pre_state):
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)
