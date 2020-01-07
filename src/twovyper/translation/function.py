@@ -69,18 +69,13 @@ class FunctionTranslator(CommonTranslator):
             # We represent self as a struct in each state (present, old, pre, issued).
             # For other contracts we use a map from addresses to structs.
 
-            ctype = helpers.contracts_type()
-            ctx.present_state[names.SELF] = TranslatedVar(names.SELF, mangled.SELF, ctx.self_type, self.viper_ast)
-            ctx.present_state[mangled.CONTRACTS] = TranslatedVar(mangled.CONTRACTS, mangled.CONTRACTS, ctype, self.viper_ast)
+            ctx.present_state = self.state_translator.state(mangled.present_state_var_name, ctx)
             # The last publicly visible state of the blockchain
-            ctx.old_state[names.SELF] = TranslatedVar(names.SELF, mangled.OLD_SELF, ctx.self_type, self.viper_ast)
-            ctx.old_state[mangled.CONTRACTS] = TranslatedVar(mangled.CONTRACTS, mangled.OLD_CONTRACTS, ctype, self.viper_ast)
+            ctx.old_state = self.state_translator.state(mangled.old_state_var_name, ctx)
             # The state of the blockchain before the function call
-            ctx.pre_state[names.SELF] = TranslatedVar(names.SELF, mangled.PRE_SELF, ctx.self_type, self.viper_ast)
-            ctx.pre_state[mangled.CONTRACTS] = TranslatedVar(mangled.CONTRACTS, mangled.PRE_CONTRACTS, ctype, self.viper_ast)
+            ctx.pre_state = self.state_translator.state(mangled.pre_state_var_name, ctx)
             # The state of the blockchain when the transaction was issued
-            ctx.issued_state[names.SELF] = TranslatedVar(names.SELF, mangled.ISSUED_SELF, ctx.self_type, self.viper_ast)
-            ctx.issued_state[mangled.CONTRACTS] = TranslatedVar(mangled.CONTRACTS, mangled.ISSUED_CONTRACTS, ctype, self.viper_ast)
+            ctx.issued_state = self.state_translator.state(mangled.issued_state_var_name, ctx)
             # Usually self refers to the present state and old(self) refers to the old state
             ctx.current_state = ctx.present_state
             ctx.current_old_state = ctx.old_state

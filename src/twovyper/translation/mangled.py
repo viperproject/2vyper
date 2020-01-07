@@ -11,15 +11,9 @@ from twovyper.ast import names
 # Constants for names in translated AST
 
 INIT = names.INIT
-SELF = names.SELF
-OLD_SELF = f'$old_{names.SELF}'
-PRE_SELF = f'$pre_{names.SELF}'
-ISSUED_SELF = f'$issued_{names.SELF}'
 
+SELF = names.SELF
 CONTRACTS = '$contracts'
-OLD_CONTRACTS = '$old_contracts'
-PRE_CONTRACTS = '$pre_contracts'
-ISSUED_CONTRACTS = '$issued_contracts'
 
 MSG = names.MSG
 BLOCK = names.BLOCK

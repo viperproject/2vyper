@@ -5,13 +5,14 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import List
+from typing import Callable, List
 
 from twovyper.ast import names
 
-from twovyper.translation import helpers, State
+from twovyper.translation import helpers, mangled, State
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.context import Context
+from twovyper.translation.variable import TranslatedVar
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Stmt
@@ -21,6 +22,21 @@ class StateTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
+
+    def state(self, name_transformation: Callable[[str], str], ctx: Context):
+        def self_var(name):
+            return TranslatedVar(names.SELF, name, ctx.self_type, self.viper_ast)
+
+        def contract_var(name):
+            contracts_type = helpers.contracts_type()
+            return TranslatedVar(mangled.CONTRACTS, name, contracts_type, self.viper_ast)
+
+        s = {
+            names.SELF: self_var(name_transformation(mangled.SELF)),
+            mangled.CONTRACTS: contract_var(name_transformation(mangled.CONTRACTS))
+        }
+
+        return s
 
     def copy_state(self, from_state: State, to_state: State, ctx: Context, pos=None) -> List[Stmt]:
         copies = []

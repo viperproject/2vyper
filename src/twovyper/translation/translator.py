@@ -285,22 +285,6 @@ class ProgramTranslator(CommonTranslator):
             args.append(self.viper_ast.LocalVarDecl(arg_name, arg_type))
         return self.viper_ast.Predicate(name, args, None)
 
-    def _state(self, postfix: str, ctx: Context) -> State:
-
-        def self_var(name):
-            return TranslatedVar(names.SELF, name, ctx.self_type, self.viper_ast)
-
-        def contract_var(name):
-            contracts_type = helpers.contracts_type()
-            return TranslatedVar(mangled.CONTRACTS, name, contracts_type, self.viper_ast)
-
-        s = {
-            names.SELF: self_var(f'$s${postfix}'),
-            mangled.CONTRACTS: contract_var(f'$c${postfix}')
-        }
-
-        return s
-
     def _assume_assertions(self, self_state: State, old_state: State, ctx: Context) -> List[Stmt]:
         body = []
         with ctx.state_scope(self_state, old_state):
@@ -335,7 +319,7 @@ class ProgramTranslator(CommonTranslator):
         with ctx.function_scope():
             name = mangled.TRANSITIVITY_CHECK
 
-            states = [self._state(str(i), ctx) for i in range(3)]
+            states = [self.state_translator.state(lambda n: f'${n}${i}', ctx) for i in range(3)]
 
             block = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             ctx.locals[names.BLOCK] = block
@@ -345,7 +329,7 @@ class ProgramTranslator(CommonTranslator):
             local_vars.append(is_post)
 
             if ctx.program.analysis.uses_issued:
-                ctx.issued_state = self._state(names.ISSUED, ctx)
+                ctx.issued_state = self.state_translator.state(mangled.issued_state_var_name, ctx)
                 local_vars.extend(var.var_decl(ctx) for var in ctx.issued_state.values())
                 all_states = chain(states, [ctx.issued_state])
             else:
@@ -412,19 +396,19 @@ class ProgramTranslator(CommonTranslator):
         with ctx.function_scope():
             name = mangled.FORCED_ETHER_CHECK
 
-            current_state = self._state('curr', ctx)
-            pre_state = self._state('pre', ctx)
+            present_state = self.state_translator.state(mangled.present_state_var_name, ctx)
+            pre_state = self.state_translator.state(mangled.pre_state_var_name, ctx)
 
-            local_vars = [var.var_decl(ctx) for var in chain(current_state.values(), pre_state.values())]
+            local_vars = [var.var_decl(ctx) for var in chain(present_state.values(), pre_state.values())]
 
             if ctx.program.analysis.uses_issued:
-                issued_state = self._state(names.ISSUED, ctx)
+                issued_state = self.state_translator.state(mangled.issued_state_var_name, ctx)
                 ctx.issued_state = issued_state
                 local_vars.extend(var.var_decl(ctx) for var in issued_state.values())
 
-                all_states = [current_state, pre_state, issued_state]
+                all_states = [present_state, pre_state, issued_state]
             else:
-                all_states = [current_state, pre_state]
+                all_states = [present_state, pre_state]
 
             block = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             ctx.locals[names.BLOCK] = block
@@ -438,7 +422,7 @@ class ProgramTranslator(CommonTranslator):
                 for var in state.values():
                     local = var.local_var(ctx)
                     type_assumptions = self.type_translator.type_assumptions(local, var.type, ctx)
-            body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
+                    body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
 
             # Assume type assumptions for block
             block_var = block.local_var(ctx)
@@ -455,16 +439,16 @@ class ProgramTranslator(CommonTranslator):
 
             if ctx.program.analysis.uses_issued:
                 assume_assertions(issued_state, issued_state)
-                assume_assertions(current_state, issued_state)
+                assume_assertions(present_state, issued_state)
             else:
-                assume_assertions(current_state, current_state)
+                assume_assertions(present_state, present_state)
 
-            body.extend(self.state_translator.copy_state(pre_state, current_state, ctx))
+            body.extend(self.state_translator.copy_state(pre_state, present_state, ctx))
 
-            with ctx.state_scope(current_state, current_state):
+            with ctx.state_scope(present_state, present_state):
                 body.append(self.balance_translator.increase_balance(havoc.localVar(), ctx))
 
-            with ctx.state_scope(current_state, pre_state):
+            with ctx.state_scope(present_state, pre_state):
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)
