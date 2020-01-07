@@ -153,6 +153,22 @@ def lock_name(vyper_name: str) -> str:
     return f'r${vyper_name}'
 
 
+def present_state_var_name(name: str) -> str:
+    return name
+
+
+def old_state_var_name(name: str) -> str:
+    return f'$old_{name}'
+
+
+def pre_state_var_name(name: str) -> str:
+    return f'$pre_{name}'
+
+
+def issued_state_var_name(name: str) -> str:
+    return f'$issued_{name}'
+
+
 def local_var_name(inline_prefix: str, vyper_name: str) -> str:
     if vyper_name in {names.SELF, names.MSG, names.BLOCK}:
         prefix = ''
