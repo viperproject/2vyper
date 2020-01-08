@@ -269,6 +269,7 @@ class FunctionTranslator(CommonTranslator):
                 rec_inc = self.balance_translator.increase_received(msg_value, ctx)
                 body.append(rec_inc)
 
+                # Allocate the received ether to the sender
                 if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                     allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
                     body.extend(self.allocation_translator.allocate(allocated, msg_sender, msg_value, ctx))
@@ -449,6 +450,10 @@ class FunctionTranslator(CommonTranslator):
                 invariant_stmts.append(self.viper_ast.Assert(cond, apos))
 
             body.extend(self.seqn_with_info(invariant_stmts, "Assert Invariants"))
+
+            # We check that the invariant tracks all allocation by doing a leak check.
+            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                body.extend(self.allocation_translator.function_leak_check(ctx, pos))
 
             # We check accessibility by inhaling a predicate in the corresponding function
             # and checking in the end that if it has been inhaled (i.e. if we want to prove

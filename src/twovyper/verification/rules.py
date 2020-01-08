@@ -60,6 +60,11 @@ CALL_CHECK_FAIL = {
         ('call.check', 'assertion.false')
 }
 
+CALL_LEAK_CHECK_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('call.leakcheck', 'allocation.leaked')
+}
+
 INHALE_INVARIANT_FAIL = {
     ('inhale.failed', 'division.by.zero'):
         ('invariant.not.wellformed', 'division.by.zero'),
@@ -110,4 +115,9 @@ PRECONDITION_IMPLEMENTS_INTERFACE = {
 REALLOCATE_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('reallocate.failed', 'insufficient.funds')
+}
+
+ALLOCATION_LEAK_CHECK_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('leakcheck.failed', 'allocation.leaked')
 }

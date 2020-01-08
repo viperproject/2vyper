@@ -341,6 +341,15 @@ class Context:
         self.current_old_state = current_old_state
 
     @contextmanager
+    def allocated_scope(self, allocated):
+        current_state = self.current_state.copy()
+        self.current_state[mangled.ALLOCATED] = allocated
+
+        yield
+
+        self.current_state = current_state
+
+    @contextmanager
     def self_address_scope(self, address):
         old_self_address = self.self_address
         self.self_address = address

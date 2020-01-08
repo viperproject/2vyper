@@ -23,6 +23,8 @@ ERRORS = {
         lambda i: f"A check might not hold before the call {pprint(i.node)}.",
     'call.precondition':
         lambda i: f"The precondition of function {pprint(i.node)} might not hold.",
+    'call.leakcheck':
+        lambda i: f"The leak check after call {pprint(i.node)} might not hold.",
     'application.precondition':
         lambda i: f"The precondition of function {pprint(i.node)} might not hold.",
     'exhale.failed':
@@ -51,6 +53,8 @@ ERRORS = {
         lambda i: f"Postcondition of {pprint(i.node)} might not be well-formed.",
     'reallocate.failed':
         lambda i: f"Reallocate might fail.",
+    'leakcheck.failed':
+        lambda i: f"Leak check might fail in {i.function}.",
     'fold.failed':
         lambda i: "Fold might fail.",
     'unfold.failed':
@@ -69,9 +73,9 @@ REASONS = {
     'assertion.false':
         lambda i: f"Assertion {pprint(i.node)} might not hold.",
     'transitivity.violated':
-        lambda i: "It might not be transitive.",
+        lambda i: f"It might not be transitive.",
     'constant.balance':
-        lambda i: "It might assume constant balance.",
+        lambda i: f"It might assume constant balance.",
     'division.by.zero':
         lambda i: f"Divisor {pprint(i.node)} might be zero.",
     'seq.index.length':
@@ -82,6 +86,8 @@ REASONS = {
         lambda i: f"Receiver might not implement the interface.",
     'insufficient.funds':
         lambda i: f"The owner might have insufficient allocated funds.",
+    'allocation.leaked':
+        lambda i: f"Some allocation might be leaked.",
     'receiver.not.injective':
         lambda i: f"Receiver of {pprint(i.node)} might not be injective.",
     'receiver.null':

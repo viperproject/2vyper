@@ -750,6 +750,10 @@ class ExpressionTranslator(NodeTranslator):
 
         assertions = [*check_assertions, *inv_assertions]
 
+        # We check that the invariant tracks all allocation by doing a leak check.
+        if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            assertions.extend(self.allocation_translator.send_leak_check(node, ctx, pos))
+
         copy_old = self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, ctx)
 
         send_fail_name = ctx.new_local_var_name('send_fail')
