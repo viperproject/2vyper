@@ -716,7 +716,7 @@ class ExpressionTranslator(NodeTranslator):
 
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                 allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
-                dealloc = self.allocation_translator.deallocate(allocated, to, amount, ctx, pos)
+                dealloc = self.allocation_translator.deallocate(node, allocated, to, amount, ctx, pos)
             else:
                 dealloc = []
 

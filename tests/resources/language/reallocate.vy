@@ -46,6 +46,14 @@ def transfer(to: address, amount: wei_value):
 
 #:: ExpectedOutput(invariant.violated:assertion.false, AB)
 @public
-def transfer_fail(to: address, amount: wei_value):
+def transfer_no_realloc_fail(to: address, amount: wei_value):
     self.balance_of[msg.sender] -= amount
+    self.balance_of[to] += amount
+
+
+@public
+def transfer_no_funds_fail(to: address, amount: wei_value):
+    self.balance_of[msg.sender] -= amount
+    #:: ExpectedOutput(reallocate.failed:insufficient.funds)
+    #@ reallocate(amount, to=to, times=2)
     self.balance_of[to] += amount

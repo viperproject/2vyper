@@ -327,7 +327,7 @@ class SpecificationTranslator(ExpressionTranslator):
             amount_stmts, amount = self.translate(node.args[0], ctx)
             stmts.extend(amount_stmts)
             value = self.viper_ast.Mul(times, amount, pos)
-            stmts.extend(self.allocation_translator.reallocate(allocated, msg_sender, to, value, ctx, pos))
+            stmts.extend(self.allocation_translator.reallocate(node, allocated, msg_sender, to, value, ctx, pos))
             return stmts, None
         elif name in ctx.program.ghost_functions:
             function = ctx.program.ghost_functions[name]

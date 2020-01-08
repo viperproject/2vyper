@@ -106,3 +106,8 @@ PRECONDITION_IMPLEMENTS_INTERFACE = {
     ('application.precondition', 'assertion.false'):
         ('application.precondition', 'not.implements.interface')
 }
+
+REALLOCATE_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('reallocate.failed', 'insufficient.funds')
+}

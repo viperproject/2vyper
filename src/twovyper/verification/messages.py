@@ -49,6 +49,8 @@ ERRORS = {
         lambda i: f"General postcondition {pprint(i.node)} might not be well-formed.",
     'interface.postcondition.not.wellformed':
         lambda i: f"Postcondition of {pprint(i.node)} might not be well-formed.",
+    'reallocate.failed':
+        lambda i: f"Reallocate might fail.",
     'fold.failed':
         lambda i: "Fold might fail.",
     'unfold.failed':
@@ -78,6 +80,8 @@ REASONS = {
         lambda i: f"Index {pprint(i.node)} might be negative.",
     'not.implements.interface':
         lambda i: f"Receiver might not implement the interface.",
+    'insufficient.funds':
+        lambda i: f"The owner might have insufficient allocated funds.",
     'receiver.not.injective':
         lambda i: f"Receiver of {pprint(i.node)} might not be injective.",
     'receiver.null':
