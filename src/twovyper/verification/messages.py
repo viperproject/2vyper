@@ -24,7 +24,7 @@ ERRORS = {
     'call.precondition':
         lambda i: f"The precondition of function {pprint(i.node)} might not hold.",
     'call.leakcheck':
-        lambda i: f"The leak check after call {pprint(i.node)} might not hold.",
+        lambda i: f"The leak check for call {pprint(i.node)} might not hold.",
     'application.precondition':
         lambda i: f"The precondition of function {pprint(i.node)} might not hold.",
     'exhale.failed':
