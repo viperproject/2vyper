@@ -29,6 +29,7 @@ def withdraw(amount: wei_value):
     send(msg.sender, amount)
 
 
+#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, AB)
 @public
 def withdraw_fail():
     amount: wei_value = self.balance_of[msg.sender]
@@ -51,6 +52,7 @@ def transfer_no_realloc_fail(to: address, amount: wei_value):
     self.balance_of[to] += amount
 
 
+#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, AB)
 @public
 def transfer_no_funds_fail(to: address, amount: wei_value):
     self.balance_of[msg.sender] -= amount
