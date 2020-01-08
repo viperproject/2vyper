@@ -95,7 +95,7 @@ class _ProgramAnalyzer(NodeVisitor):
                     function_name = node.args[2].func.attr
                 else:
                     if not self.program.analysis.accessible_function:
-                        msg = "No matching function for acccessible could be determined."
+                        msg = "No matching function for accessible could be determined."
                         raise UnsupportedException(node, msg)
                     function_name = self.program.analysis.accessible_function.name
                 self.program.functions[function_name].analysis.accessible_tags.add(self.tag)
