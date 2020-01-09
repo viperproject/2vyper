@@ -23,7 +23,7 @@ setup(
     install_requires=[
         'jpype1==0.7.0',
         # 'lark-parser>=0.7.7'  TODO: update the version once the end_line fix has been released
-        'vyper>=0.1.0b13',
+        'vyper==0.1.0b13',
         'z3-solver',
         'lark-parser @ git+https://github.com/lark-parser/lark'
     ],
