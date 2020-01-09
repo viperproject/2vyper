@@ -119,15 +119,27 @@ class ProgramTranslator(CommonTranslator):
 
         def unchecked_invariants():
             self_var = ctx.self_var.local_var(ctx)
-            old_self_var = ctx.old_self_var.local_var(ctx)
             address_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
+
+            # forall({a: address}, {sent(a)}, sent(a) >= old(sent(a)))
+            old_self_var = ctx.old_self_var.local_var(ctx)
             q_var = self.viper_ast.LocalVarDecl('$a', address_type)
             q_local = q_var.localVar()
             sent = self.balance_translator.get_sent(self_var, q_local, ctx)
             old_sent = self.balance_translator.get_sent(old_self_var, q_local, ctx)
             expr = self.viper_ast.GeCmp(sent, old_sent)
             trigger = self.viper_ast.Trigger([sent])
-            return [self.viper_ast.Forall([q_var], [trigger], expr)]
+            sent_inc = self.viper_ast.Forall([q_var], [trigger], expr)
+
+            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                # self.balance >= sum(allocated())
+                balance = self.balance_translator.get_balance(self_var, ctx)
+                allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+                allocated_sum = helpers.map_sum(self.viper_ast, allocated, address_type)
+                balance_geq_sum = self.viper_ast.GeCmp(balance, allocated_sum)
+                return [sent_inc, balance_geq_sum]
+            else:
+                return [sent_inc]
 
         ctx.unchecked_invariants = unchecked_invariants
 
