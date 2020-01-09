@@ -7,8 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import List
 
-from twovyper.ast import names, types
-from twovyper.ast.ast_nodes import Node
+from twovyper.ast import ast_nodes as ast, names, types
 
 from twovyper.translation import helpers, mangled
 from twovyper.translation.abstract import CommonTranslator
@@ -42,11 +41,11 @@ class AllocationTranslator(CommonTranslator):
         value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
         return helpers.map_get(self.viper_ast, allocated, address, key_type, value_type, pos, info)
 
-    def _check_allocation(self, node: Node, allocated: Expr, address: Expr, value: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def _check_allocation(self, node: ast.Node, allocated: Expr, address: Expr, value: Expr, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
         get_alloc = self.get_allocated(allocated, address, ctx, pos)
         cond = self.viper_ast.LeCmp(value, get_alloc, pos)
         stmts, modelt = self.model_translator.save_variables(ctx)
-        apos = self.to_position(node, ctx, rules.REALLOCATE_FAIL, modelt=modelt)
+        apos = self.to_position(node, ctx, rule, modelt=modelt)
         stmts.append(self.viper_ast.Assert(cond, apos, info))
         return stmts
 
@@ -66,24 +65,24 @@ class AllocationTranslator(CommonTranslator):
         """
         return self._change_allocation(allocated, address, amount, True, ctx, pos, info)
 
-    def reallocate(self, node: Node, allocated: Expr, frm: Expr, to: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def reallocate(self, node: ast.Node, allocated: Expr, frm: Expr, to: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `from` has sufficient allocation and then moves `amount` wei from `frm` to `to`.
         """
-        check_allocation = self._check_allocation(node, allocated, frm, amount, ctx, pos, info)
+        check_allocation = self._check_allocation(node, allocated, frm, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
         decs = self._change_allocation(allocated, frm, amount, False, ctx, pos)
         incs = self._change_allocation(allocated, to, amount, True, ctx, pos)
         return check_allocation + decs + incs
 
-    def deallocate(self, node: Node, allocated: Expr, address: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def deallocate(self, node: ast.Node, allocated: Expr, address: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `address` has sufficient allocation and then removes `amount` wei from the allocation map entry of `address`.
         """
-        check_allocation = self._check_allocation(node, allocated, address, amount, ctx, pos, info)
+        check_allocation = self._check_allocation(node, allocated, address, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
         decs = self._change_allocation(allocated, address, amount, False, ctx, pos, info)
         return check_allocation + decs
 
-    def _leak_check(self, node: Node, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def _leak_check(self, node: ast.Node, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that the invariant knows about all ether allocated to the individual addresses, i.e., that
         given only the invariant and the state it is known for each address how much of the ether is
@@ -142,5 +141,27 @@ class AllocationTranslator(CommonTranslator):
     def function_leak_check(self, ctx: Context, pos=None, info=None) -> List[Stmt]:
         return self._leak_check(ctx.function.node, rules.ALLOCATION_LEAK_CHECK_FAIL, ctx, pos, info)
 
-    def send_leak_check(self, node: Node, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def send_leak_check(self, node: ast.Node, ctx: Context, pos=None, info=None) -> List[Stmt]:
         return self._leak_check(node, rules.CALL_LEAK_CHECK_FAIL, ctx, pos, info)
+
+    def exchange(self,
+                 node: ast.Node,
+                 allocated: Expr,
+                 value1: Expr, value2: Expr,
+                 owner1: Expr, owner2: Expr,
+                 times: Expr,
+                 ctx: Context,
+                 pos=None, info=None) -> List[Stmt]:
+        amount1 = self.viper_ast.Mul(times, value1)
+        check1 = self._check_allocation(node, allocated, owner1, amount1, rules.EXCHANGE_FAIL, ctx, pos)
+
+        amount2 = self.viper_ast.Mul(times, value2)
+        check2 = self._check_allocation(node, allocated, owner2, amount2, rules.EXCHANGE_FAIL, ctx, pos)
+
+        inc1 = self.viper_ast.Sub(amount2, amount1)
+        change1 = self._change_allocation(allocated, owner1, inc1, True, ctx, pos)
+
+        inc2 = self.viper_ast.Sub(amount1, amount2)
+        change2 = self._change_allocation(allocated, owner2, inc2, True, ctx, pos, info)
+
+        return [*check1, *check2, *change1, *change2]

@@ -622,7 +622,7 @@ class ExpressionTranslator(NodeTranslator):
             elif name in ctx.program.contracts or name in ctx.program.interfaces:
                 return self.translate(node.args[0], ctx)
             elif name in names.GHOST_STATEMENTS:
-                return self.spec_translator.translate(node, ctx)
+                return self.spec_translator.translate_ghost_statement(node, ctx)
             else:
                 raise UnsupportedException(node, "Unsupported function call")
         else:

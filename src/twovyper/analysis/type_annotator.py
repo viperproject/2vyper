@@ -526,12 +526,22 @@ class TypeAnnotator(NodeVisitor):
                 elif case(names.REALLOCATE):
                     keywords = {
                         names.REALLOCATE_TO: types.VYPER_ADDRESS,
-                        names.REALLOCATE_TIMES: types.VYPER_INT128
+                        names.REALLOCATE_TIMES: types.VYPER_UINT256
                     }
                     _check_number_of_arguments(node, 1, allowed_keywords=keywords.keys(), required_keywords=keywords.keys())
                     self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
                     for kw in node.keywords:
                         self.annotate_expected(kw.value, keywords[kw.name])
+
+                    return [None], [node]
+                elif case(names.EXCHANGE):
+                    keywords = [names.EXCHANGE_TIMES]
+                    _check_number_of_arguments(node, 4, allowed_keywords=keywords, required_keywords=keywords)
+                    self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
+                    self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
+                    self.annotate_expected(node.args[2], types.VYPER_ADDRESS)
+                    self.annotate_expected(node.args[3], types.VYPER_ADDRESS)
+                    self.annotate_expected(node.keywords[0].value, types.VYPER_UINT256)
 
                     return [None], [node]
                 elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):

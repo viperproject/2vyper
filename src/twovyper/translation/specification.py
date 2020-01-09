@@ -312,23 +312,6 @@ class SpecificationTranslator(ExpressionTranslator):
             stmts, address = self.translate(node.args[0], ctx)
             interface = node.args[1].id
             return stmts, helpers.implements(self.viper_ast, address, interface, ctx, pos)
-        elif name == names.REALLOCATE:
-            stmts = []
-            for kw in node.keywords:
-                if kw.name == names.REALLOCATE_TO:
-                    to_stmts, to = self.translate(kw.value, ctx)
-                    stmts.extend(to_stmts)
-                elif kw.name == names.REALLOCATE_TIMES:
-                    times_stmts, times = self.translate(kw.value, ctx)
-                    stmts.extend(times_stmts)
-
-            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
-            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-            amount_stmts, amount = self.translate(node.args[0], ctx)
-            stmts.extend(amount_stmts)
-            value = self.viper_ast.Mul(times, amount, pos)
-            stmts.extend(self.allocation_translator.reallocate(node, allocated, msg_sender, to, value, ctx, pos))
-            return stmts, None
         elif name in ctx.program.ghost_functions:
             function = ctx.program.ghost_functions[name]
             stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
@@ -363,3 +346,40 @@ class SpecificationTranslator(ExpressionTranslator):
             return self.viper_ast.Low(expr, *comp, pos, info)
         else:
             return self.viper_ast.Low(expr, position=pos, info=info)
+
+    def translate_ghost_statement(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
+        assert isinstance(node.func, ast.Name)
+
+        pos = self.to_position(node, ctx)
+        name = node.func.id
+        if name == names.REALLOCATE:
+            stmts = []
+            for kw in node.keywords:
+                if kw.name == names.REALLOCATE_TO:
+                    to_stmts, to = self.translate(kw.value, ctx)
+                    stmts.extend(to_stmts)
+                elif kw.name == names.REALLOCATE_TIMES:
+                    times_stmts, times = self.translate(kw.value, ctx)
+                    stmts.extend(times_stmts)
+
+            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            amount_stmts, amount = self.translate(node.args[0], ctx)
+            stmts.extend(amount_stmts)
+            value = self.viper_ast.Mul(times, amount, pos)
+            stmts.extend(self.allocation_translator.reallocate(node, allocated, msg_sender, to, value, ctx, pos))
+            return stmts, None
+        elif name == names.EXCHANGE:
+            value1_stmts, value1 = self.translate(node.args[0], ctx)
+            value2_stmts, value2 = self.translate(node.args[1], ctx)
+            owner1_stmts, owner1 = self.translate(node.args[2], ctx)
+            owner2_stmts, owner2 = self.translate(node.args[3], ctx)
+
+            times_stmts, times = self.translate(node.keywords[0].value, ctx)
+
+            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
+            exchange_stmts = self.allocation_translator.exchange(node, allocated, value1, value2, owner1, owner2, times, ctx, pos)
+
+            return [*value1_stmts, *value2_stmts, *owner1_stmts, *owner2_stmts, *times_stmts, *exchange_stmts], None
+        else:
+            assert False

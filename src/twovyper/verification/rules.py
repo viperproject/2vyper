@@ -117,6 +117,11 @@ REALLOCATE_FAIL = {
         ('reallocate.failed', 'insufficient.funds')
 }
 
+EXCHANGE_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('exchange.failed', 'insufficient.funds')
+}
+
 ALLOCATION_LEAK_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('leakcheck.failed', 'allocation.leaked')
