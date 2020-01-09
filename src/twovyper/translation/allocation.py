@@ -107,6 +107,9 @@ class AllocationTranslator(CommonTranslator):
             stmts.extend(self.seqn_with_info(allocated_assumptions, allocated_info_msg))
 
         with ctx.allocated_scope(fresh_allocated):
+            for inv in ctx.unchecked_invariants():
+                stmts.append(self.viper_ast.Inhale(inv))
+
             for inv in ctx.program.invariants:
                 ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 inv_stmts, expr = spec_translator.translate_invariant(inv, ctx, True)
