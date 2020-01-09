@@ -129,6 +129,17 @@ class FunctionTranslator(CommonTranslator):
             self_address_info_msg = "Assume type assumptions for self address"
             body.extend(self.seqn_with_info(self_address_assumptions, self_address_info_msg))
 
+            # Assume type assumptions for allocated
+            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                allocated_ass = []
+                for s in [ctx.current_state, ctx.issued_state]:
+                    allocated = s[mangled.ALLOCATED]
+                    allocated_var = allocated.local_var(ctx)
+                    allocated_ass.extend(self.type_translator.type_assumptions(allocated_var, allocated.type, ctx))
+                allocated_assumptions = [self.viper_ast.Inhale(c) for c in allocated_ass]
+                allocated_info_msg = "Assume type assumptions for allocated"
+                body.extend(self.seqn_with_info(allocated_assumptions, allocated_info_msg))
+
             # Assume type assumptions for arguments
             argument_conds = []
             for var in function.args.values():

@@ -95,8 +95,17 @@ class AllocationTranslator(CommonTranslator):
         new_allocated_name = ctx.new_local_var_name(mangled.ALLOCATED)
         fresh_allocated = TranslatedVar(mangled.ALLOCATED, new_allocated_name, allocated.type, self.viper_ast, pos)
         ctx.new_local_vars.append(fresh_allocated.var_decl(ctx))
+        fresh_allocated_var = fresh_allocated.local_var(ctx, pos)
 
         stmts = []
+
+        # Assume type assumptions for fresh_allocated
+        if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            allocated_ass = self.type_translator.type_assumptions(fresh_allocated_var, fresh_allocated.type, ctx)
+            allocated_assumptions = [self.viper_ast.Inhale(c) for c in allocated_ass]
+            allocated_info_msg = "Assume type assumptions for fresh allocated"
+            stmts.extend(self.seqn_with_info(allocated_assumptions, allocated_info_msg))
+
         with ctx.allocated_scope(fresh_allocated):
             for inv in ctx.program.invariants:
                 ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
@@ -111,7 +120,7 @@ class AllocationTranslator(CommonTranslator):
             cmpm = self.viper_ast.LeCmp(address_var, self.viper_ast.IntLit(types.VYPER_ADDRESS.upper, pos), pos)
             cond = self.viper_ast.And(cond, cmpm, pos)
         allocated_get = self.get_allocated(allocated.local_var(ctx, pos), address_var, ctx, pos)
-        fresh_allocated_get = self.get_allocated(fresh_allocated.local_var(ctx, pos), address_var, ctx, pos)
+        fresh_allocated_get = self.get_allocated(fresh_allocated_var, address_var, ctx, pos)
         allocated_eq = self.viper_ast.EqCmp(allocated_get, fresh_allocated_get, pos)
         trigger = self.viper_ast.Trigger([allocated_get, fresh_allocated_get], pos)
         assertion = self.viper_ast.Forall([address], [trigger], self.viper_ast.Implies(cond, allocated_eq, pos), pos)
