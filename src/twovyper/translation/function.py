@@ -12,9 +12,7 @@ from typing import List
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.nodes import VyperFunction, VyperVar
 
-from twovyper.translation import mangled
-from twovyper.translation import helpers
-
+from twovyper.translation import helpers, mangled, State
 from twovyper.translation.context import Context
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.allocation import AllocationTranslator
@@ -92,7 +90,6 @@ class FunctionTranslator(CommonTranslator):
 
             self_var = ctx.self_var.local_var(ctx)
             pre_self_var = ctx.pre_self_var.local_var(ctx)
-            issued_self_var = ctx.issued_self_var.local_var(ctx)
 
             ctx.success_var = TranslatedVar(names.SUCCESS, mangled.SUCCESS_VAR, types.VYPER_BOOL, self.viper_ast)
             rets = [ctx.success_var]
@@ -111,16 +108,20 @@ class FunctionTranslator(CommonTranslator):
 
             body = []
 
-            # Assume type assumptions for self state
-            self_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
-            self_assumptions = [self.viper_ast.Inhale(inv) for inv in self_ass]
-            body.extend(self.seqn_with_info(self_assumptions, "Self state assumptions"))
+            def assume_type_assumptions(state: State, name: str) -> List[Stmt]:
+                stmts = []
+                for state_var in state.values():
+                    assumptions = self.type_translator.type_assumptions(state_var.local_var(ctx), state_var.type, ctx)
+                    stmts.extend(self.viper_ast.Inhale(inv) for inv in assumptions)
 
-            # Assume type assumptions for issued self state
+                return self.seqn_with_info(stmts, f"{name} state assumptions")
+
+            # Assume type assumptions for self state
+            body.extend(assume_type_assumptions(ctx.present_state, "Present"))
+
+            # Assume type assumptions for issued state
             if function.analysis.uses_issued:
-                issued = self.type_translator.type_assumptions(issued_self_var, ctx.self_type, ctx)
-                issued_assumptions = [self.viper_ast.Inhale(a) for a in issued]
-                body.extend(self.seqn_with_info(issued_assumptions, "Issued state assumptions"))
+                body.extend(assume_type_assumptions(ctx.issued_state, "Issued"))
 
             # Assume type assumptions for self address
             self_address = helpers.self_address(self.viper_ast)
@@ -128,17 +129,6 @@ class FunctionTranslator(CommonTranslator):
             self_address_assumptions = [self.viper_ast.Inhale(c) for c in self_address_ass]
             self_address_info_msg = "Assume type assumptions for self address"
             body.extend(self.seqn_with_info(self_address_assumptions, self_address_info_msg))
-
-            # Assume type assumptions for allocated
-            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-                allocated_ass = []
-                for s in [ctx.current_state, ctx.issued_state]:
-                    allocated = s[mangled.ALLOCATED]
-                    allocated_var = allocated.local_var(ctx)
-                    allocated_ass.extend(self.type_translator.type_assumptions(allocated_var, allocated.type, ctx))
-                allocated_assumptions = [self.viper_ast.Inhale(c) for c in allocated_ass]
-                allocated_info_msg = "Assume type assumptions for allocated"
-                body.extend(self.seqn_with_info(allocated_assumptions, allocated_info_msg))
 
             # Assume type assumptions for arguments
             argument_conds = []
