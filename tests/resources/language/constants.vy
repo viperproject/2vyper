@@ -39,12 +39,12 @@ def bool_ops() -> bool:
 
 #@ ensures: success() ==> result() == 0x0000000000000000000000000000000000000000
 @public
-def zero_add() -> address:
+def _zero_address() -> address:
     return ZERO_ADDRESS
 
 #@ ensures: success() ==> len(result()) == 32
 @public
-def empty_bytes() -> bytes32:
+def _empty_bytes32() -> bytes32:
     return EMPTY_BYTES32
 
 #@ ensures: success() ==> result() == 0
@@ -54,5 +54,5 @@ def _zero_wei() -> wei_value:
 
 #@ ensures: success() ==> result() == 170141183460469231731687303715884105727
 @public
-def max_int128() -> int128:
+def _max_int128() -> int128:
     return MAX_INT128
