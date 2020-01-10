@@ -73,9 +73,12 @@ class StateTranslator(CommonTranslator):
     def check_first_public_state(self, ctx: Context, set_false: bool, pos=None, info=None) -> Stmt:
         self_var = ctx.self_var.local_var(ctx)
         old_self_var = ctx.old_self_var.local_var(ctx)
+        self_assign = self.viper_ast.LocalVarAssign(old_self_var, self_var)
+        allocated_var = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+        old_allocated_var = ctx.current_old_state[mangled.ALLOCATED].local_var(ctx)
+        allocated_assign = self.viper_ast.LocalVarAssign(old_allocated_var, allocated_var)
         first_public_state = helpers.first_public_state_var(self.viper_ast, pos).localVar()
-        old_assign = self.viper_ast.LocalVarAssign(old_self_var, self_var)
         false = self.viper_ast.FalseLit(pos)
         var_assign = self.viper_ast.LocalVarAssign(first_public_state, false, pos)
-        stmts = [old_assign, var_assign] if set_false else [old_assign]
+        stmts = [self_assign, allocated_assign, var_assign] if set_false else [self_assign, allocated_assign]
         return self.viper_ast.If(first_public_state, stmts, [], pos, info)
