@@ -231,22 +231,10 @@ class FunctionTranslator(CommonTranslator):
 
             # In the initializer initialize all fields to their default values
             if is_init:
-                stmts, default_self = self.type_translator.default_value(None, ctx.self_type, ctx)
-                self_assign = self.viper_ast.LocalVarAssign(self_var, default_self)
-                body.extend(stmts)
-                body.append(self_assign)
-
+                body.extend(self.state_translator.initialize_state(ctx.current_state, ctx))
                 # Havoc self.balance, because we are not allwed to assume self.balance == 0
                 # in the beginning
                 body.extend(self._havoc_balance(ctx))
-
-                if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-                    # Initially all allocation is zero
-                    allocated = ctx.current_state[mangled.ALLOCATED]
-                    astmts, default_allocated = self.type_translator.default_value(None, allocated.type, ctx)
-                    allocated_assign = self.viper_ast.LocalVarAssign(allocated.local_var(ctx), default_allocated)
-                    body.extend(astmts)
-                    body.append(allocated_assign)
 
             msg_value = helpers.msg_value(self.viper_ast, ctx)
             if not function.is_payable():
