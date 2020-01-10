@@ -117,6 +117,11 @@ class ProgramTranslator(CommonTranslator):
         for field, field_type in vyper_program.fields.type.member_types.items():
             ctx.field_types[field] = self.type_translator.translate(field_type, ctx)
 
+        # Add the offer struct which we use as the key type of the offered map
+        if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            offer_struct = VyperStruct(mangled.OFFER, helpers.offer_type(), None)
+            domains.append(self._translate_struct(offer_struct, ctx))
+
         def unchecked_invariants():
             self_var = ctx.self_var.local_var(ctx)
             address_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)

@@ -88,6 +88,8 @@ REASONS = {
         lambda i: f"Receiver might not implement the interface.",
     'insufficient.funds':
         lambda i: f"There might be insufficient allocated funds.",
+    'no.offer':
+        lambda i: f"There might not be an appropriate offer.",
     'allocation.leaked':
         lambda i: f"Some allocation might be leaked.",
     'receiver.not.injective':

@@ -15,6 +15,9 @@ INIT = names.INIT
 SELF = names.SELF
 CONTRACTS = '$contracts'
 ALLOCATED = '$allocated'
+OFFERED = '$offered'
+
+OFFER = '$offer'
 
 MSG = names.MSG
 BLOCK = names.BLOCK

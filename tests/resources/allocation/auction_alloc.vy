@@ -51,6 +51,8 @@ pendingReturns: public(map(address, wei_value))
 #@ invariant: not self.ended ==> allocated(self.highestBidder) == self.highestBid + self.pendingReturns[self.highestBidder]
 #@ invariant: self.ended ==> allocated(self.highestBidder) == self.pendingReturns[self.highestBidder]
 
+#@ invariant: self.highestBidder != ZERO_ADDRESS and not self.ended ==> offered(self.highestBid, 0, self.highestBidder, self.beneficiary) >= 1
+
 #@ invariant: forall({a: address}, accessible(a, self.pendingReturns[a]))
 
 
@@ -70,6 +72,8 @@ def bid():
     assert not self.ended
     assert msg.value > self.highestBid
     assert msg.sender != self.beneficiary
+
+    #@ offer(msg.value, 0, to=self.beneficiary, times=1)
 
     self.pendingReturns[self.highestBidder] += self.highestBid
     self.highestBidder = msg.sender

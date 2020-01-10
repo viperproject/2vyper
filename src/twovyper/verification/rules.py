@@ -117,7 +117,12 @@ REALLOCATE_FAIL = {
         ('reallocate.failed', 'insufficient.funds')
 }
 
-EXCHANGE_FAIL = {
+EXCHANGE_FAIL_NO_OFFER = {
+    ('assert.failed', 'assertion.false'):
+        ('exchange.failed', 'no.offer')
+}
+
+EXCHANGE_FAIL_INSUFFICIENT_FUNDS = {
     ('assert.failed', 'assertion.false'):
         ('exchange.failed', 'insufficient.funds')
 }

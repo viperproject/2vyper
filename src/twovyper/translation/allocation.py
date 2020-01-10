@@ -41,12 +41,35 @@ class AllocationTranslator(CommonTranslator):
         value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
         return helpers.map_get(self.viper_ast, allocated, address, key_type, value_type, pos, info)
 
+    def get_offered(self, offered: Expr, from_val: Expr, to_val: Expr, from_addr: Expr, to_addr: Expr, ctx: Context, pos=None, info=None) -> Expr:
+        offered_type = helpers.offered_type()
+        offer = helpers.struct_init(self.viper_ast, [from_val, to_val, from_addr, to_addr], offered_type.key_type, pos)
+        key_type = self.type_translator.translate(offered_type.key_type, ctx)
+        value_type = self.type_translator.translate(offered_type.value_type, ctx)
+        return helpers.map_get(self.viper_ast, offered, offer, key_type, value_type, pos)
+
     def _check_allocation(self, node: ast.Node, allocated: Expr, address: Expr, value: Expr, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
         get_alloc = self.get_allocated(allocated, address, ctx, pos)
         cond = self.viper_ast.LeCmp(value, get_alloc, pos)
         stmts, modelt = self.model_translator.save_variables(ctx)
         apos = self.to_position(node, ctx, rule, modelt=modelt)
         stmts.append(self.viper_ast.Assert(cond, apos, info))
+        return stmts
+
+    def _check_from_agrees(self, node: ast.Node,
+                           offered: Expr,
+                           from_val: Expr, to_val: Expr,
+                           from_addr: Expr, to_addr: Expr,
+                           amount: Expr,
+                           ctx: Context, pos=None) -> List[Stmt]:
+        """
+        Checks that `from_addr` offered to exchange `from_val` for `to_val` to `to_addr`.
+        """
+        stmts, modelt = self.model_translator.save_variables(ctx, pos)
+        get_offered = self.get_offered(offered, from_val, to_val, from_addr, to_addr, ctx, pos)
+        cond = self.viper_ast.LeCmp(amount, get_offered, pos)
+        apos = self.to_position(node, ctx, rules.EXCHANGE_FAIL_NO_OFFER, modelt=modelt)
+        stmts.append(self.viper_ast.Assert(cond, apos))
         return stmts
 
     def _change_allocation(self, allocated: Expr, address: Expr, value: Expr, increase: bool, ctx: Context, pos=None, info=None) -> List[Stmt]:
@@ -58,6 +81,22 @@ class AllocationTranslator(CommonTranslator):
         set_alloc = helpers.map_set(self.viper_ast, allocated, address, new_value, key_type, value_type, pos)
         alloc_assign = self.viper_ast.LocalVarAssign(allocated, set_alloc, pos, info)
         return [alloc_assign]
+
+    def _change_offered(self, offered: Expr,
+                        from_val: Expr, to_val: Expr,
+                        from_addr: Expr, to_addr: Expr,
+                        amount: Expr, increase: bool,
+                        ctx: Context, pos=None) -> List[Stmt]:
+        get_offered = self.get_offered(offered, from_val, to_val, from_addr, to_addr, ctx, pos)
+        func = self.viper_ast.Add if increase else self.viper_ast.Sub
+        new_value = func(get_offered, amount, pos)
+        offered_type = helpers.offered_type()
+        key_type = self.type_translator.translate(offered_type.key_type, ctx)
+        value_type = self.type_translator.translate(offered_type.value_type, ctx)
+        offer = helpers.struct_init(self.viper_ast, [from_val, to_val, from_addr, to_addr], offered_type.key_type, pos)
+        set_offered = helpers.map_set(self.viper_ast, offered, offer, new_value, key_type, value_type, pos)
+        offered_assign = self.viper_ast.LocalVarAssign(offered, set_offered, pos)
+        return [offered_assign]
 
     def allocate(self, allocated: Expr, address: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
@@ -144,19 +183,42 @@ class AllocationTranslator(CommonTranslator):
     def send_leak_check(self, node: ast.Node, ctx: Context, pos=None, info=None) -> List[Stmt]:
         return self._leak_check(node, rules.CALL_LEAK_CHECK_FAIL, ctx, pos, info)
 
+    def offer(self, offered: Expr,
+              value1: Expr, value2: Expr,
+              owner1: Expr, owner2: Expr,
+              times: Expr,
+              ctx: Context, pos=None) -> List[Stmt]:
+        stmts = self._change_offered(offered, value1, value2, owner1, owner2, times, True, ctx, pos)
+        return self.seqn_with_info(stmts, "Offer")
+
     def exchange(self,
                  node: ast.Node,
                  allocated: Expr,
+                 offered: Expr,
                  value1: Expr, value2: Expr,
                  owner1: Expr, owner2: Expr,
                  times: Expr,
                  ctx: Context,
                  pos=None, info=None) -> List[Stmt]:
+        zero = self.viper_ast.IntLit(0, pos)
+        # If value1 == 0, owner1 will definitely agree, else we check that they offered the exchange, and decrease
+        # the offer map by the amount of exchanges we do
+        allowed1 = self._check_from_agrees(node, offered, value1, value2, owner1, owner2, times, ctx, pos)
+        dec_offered1 = self._change_offered(offered, value1, value2, owner1, owner2, times, False, ctx, pos)
+        is_not_zero1 = self.viper_ast.NeCmp(value1, zero)
+        ex1 = self.viper_ast.If(is_not_zero1, [*allowed1, *dec_offered1], [], pos)
+
+        # We do the same for owner2
+        allowed2 = self._check_from_agrees(node, offered, value2, value1, owner2, owner1, times, ctx, pos)
+        dec_offered2 = self._change_offered(offered, value2, value1, owner2, owner1, times, False, ctx, pos)
+        is_not_zero2 = self.viper_ast.NeCmp(value2, zero)
+        ex2 = self.viper_ast.If(is_not_zero2, [*allowed2, *dec_offered2], [], pos)
+
         amount1 = self.viper_ast.Mul(times, value1)
-        check1 = self._check_allocation(node, allocated, owner1, amount1, rules.EXCHANGE_FAIL, ctx, pos)
+        check1 = self._check_allocation(node, allocated, owner1, amount1, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
 
         amount2 = self.viper_ast.Mul(times, value2)
-        check2 = self._check_allocation(node, allocated, owner2, amount2, rules.EXCHANGE_FAIL, ctx, pos)
+        check2 = self._check_allocation(node, allocated, owner2, amount2, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
 
         inc1 = self.viper_ast.Sub(amount2, amount1)
         change1 = self._change_allocation(allocated, owner1, inc1, True, ctx, pos)
@@ -164,4 +226,4 @@ class AllocationTranslator(CommonTranslator):
         inc2 = self.viper_ast.Sub(amount1, amount2)
         change2 = self._change_allocation(allocated, owner2, inc2, True, ctx, pos, info)
 
-        return [*check1, *check2, *change1, *change2]
+        return [ex1, ex2, *check1, *check2, *change1, *change2]

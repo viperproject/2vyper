@@ -77,6 +77,20 @@ def allocated_type():
     return MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
 
 
+def offer_type():
+    members = {
+        '0': types.VYPER_WEI_VALUE,
+        '1': types.VYPER_WEI_VALUE,
+        '2': types.VYPER_ADDRESS,
+        '3': types.VYPER_ADDRESS
+    }
+    return StructType(mangled.OFFER, members)
+
+
+def offered_type():
+    return MapType(offer_type(), types.VYPER_UINT256)
+
+
 def blockhash(viper_ast: ViperAST, no, ctx: Context, pos=None, info=None):
     bhash = mangled.BLOCKCHAIN_BLOCKHASH
     domain = mangled.BLOCKCHAIN_DOMAIN

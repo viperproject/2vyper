@@ -534,6 +534,17 @@ class TypeAnnotator(NodeVisitor):
                         self.annotate_expected(kw.value, keywords[kw.name])
 
                     return [None], [node]
+                elif case(names.OFFER):
+                    keywords = {
+                        names.OFFER_TO: types.VYPER_ADDRESS,
+                        names.OFFER_TIMES: types.VYPER_UINT256
+                    }
+                    _check_number_of_arguments(node, 2, allowed_keywords=keywords.keys(), required_keywords=keywords.keys())
+                    self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
+                    self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
+                    for kw in node.keywords:
+                        self.annotate_expected(kw.value, keywords[kw.name])
+                    return [None], [node]
                 elif case(names.EXCHANGE):
                     keywords = [names.EXCHANGE_TIMES]
                     _check_number_of_arguments(node, 4, allowed_keywords=keywords, required_keywords=keywords)
@@ -542,8 +553,14 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(node.args[2], types.VYPER_ADDRESS)
                     self.annotate_expected(node.args[3], types.VYPER_ADDRESS)
                     self.annotate_expected(node.keywords[0].value, types.VYPER_UINT256)
-
                     return [None], [node]
+                elif case(names.OFFERED):
+                    _check_number_of_arguments(node, 4)
+                    self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
+                    self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
+                    self.annotate_expected(node.args[2], types.VYPER_ADDRESS)
+                    self.annotate_expected(node.args[3], types.VYPER_ADDRESS)
+                    return [types.VYPER_INT128], [node]
                 elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                     # This is a struct inizializer
                     _check_number_of_arguments(node, 1)

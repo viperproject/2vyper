@@ -212,6 +212,10 @@ class SpecificationTranslator(ExpressionTranslator):
                 return address_stmts, self.allocation_translator.get_allocated(allocated, address, ctx)
             else:
                 return [], allocated
+        elif name == names.OFFERED:
+            offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
+            args_stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+            return args_stmts, self.allocation_translator.get_offered(offered, *args, ctx, pos)
         elif name == names.ACCESSIBLE:
             # The function necessary for accessible is either the one used as the third argument
             # or the one the heuristics determined
@@ -369,6 +373,24 @@ class SpecificationTranslator(ExpressionTranslator):
             value = self.viper_ast.Mul(times, amount, pos)
             stmts.extend(self.allocation_translator.reallocate(node, allocated, msg_sender, to, value, ctx, pos))
             return stmts, None
+        elif name == names.OFFER:
+            offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
+
+            value1_stmts, value1 = self.translate(node.args[0], ctx)
+            value2_stmts, value2 = self.translate(node.args[1], ctx)
+
+            stmts = [*value1_stmts, *value2_stmts]
+            for kw in node.keywords:
+                if kw.name == names.OFFER_TO:
+                    to_stmts, to = self.translate(kw.value, ctx)
+                    stmts.extend(to_stmts)
+                elif kw.name == names.OFFER_TIMES:
+                    times_stmts, times = self.translate(kw.value, ctx)
+                    stmts.extend(times_stmts)
+
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            stmts.extend(self.allocation_translator.offer(offered, value1, value2, msg_sender, to, times, ctx, pos))
+            return stmts, None
         elif name == names.EXCHANGE:
             value1_stmts, value1 = self.translate(node.args[0], ctx)
             value2_stmts, value2 = self.translate(node.args[1], ctx)
@@ -378,7 +400,8 @@ class SpecificationTranslator(ExpressionTranslator):
             times_stmts, times = self.translate(node.keywords[0].value, ctx)
 
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
-            exchange_stmts = self.allocation_translator.exchange(node, allocated, value1, value2, owner1, owner2, times, ctx, pos)
+            offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
+            exchange_stmts = self.allocation_translator.exchange(node, allocated, offered, value1, value2, owner1, owner2, times, ctx, pos)
 
             return [*value1_stmts, *value2_stmts, *owner1_stmts, *owner2_stmts, *times_stmts, *exchange_stmts], None
         else:
