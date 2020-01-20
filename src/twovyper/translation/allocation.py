@@ -138,7 +138,6 @@ class AllocationTranslator(CommonTranslator):
         stmts = []
 
         # Assume type assumptions for fresh_allocated
-        if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
             allocated_ass = self.type_translator.type_assumptions(fresh_allocated_var, fresh_allocated.type, ctx)
             allocated_assumptions = [self.viper_ast.Inhale(c) for c in allocated_ass]
             allocated_info_msg = "Assume type assumptions for fresh allocated"
