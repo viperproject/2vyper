@@ -4,14 +4,14 @@
 Dependencies (Ubuntu Linux, MacOS)
 ===================================
 
-Install Java 8 (64 bit) and Python 3 (64 bit).
+Install Java 11 (64 bit) and Python 3 (64 bit).
 
 For usage with the Viper's verification condition generation backend Carbon, you will also need to install the Mono runtime.
 
 Dependencies (Windows)
 ==========================
 
-1.  Install Java (64 bit) and Python 3 (64 bit).
+1.  Install Java 11 (64 bit) and Python 3 (64 bit).
 
 2.  Install either Visual C++ Build Tools 2015 (http://go.microsoft.com/fwlink/?LinkId=691126) or Visual Studio 2015. For the latter, make sure to choose the option "Common Tools for Visual C++ 2015" in the setup (see https://blogs.msdn.microsoft.com/vcblog/2015/07/24/setup-changes-in-visual-studio-2015-affecting-c-developers/ for an explanation).
 
@@ -19,12 +19,17 @@ Dependencies (Windows)
 Getting Started
 ===============
 
-1.  Create a virtual environment and activate it::
+1.  Clone the 2vyper repository::
+
+        git clone https://github.com/robinsierra/2vyper
+        cd 2vyper/
+
+2.  Create a virtual environment and activate it::
 
         make env
         source env/bin/activate
         
-2.  Install 2vyper::
+3.  Install 2vyper::
 
         make install
 
