@@ -29,7 +29,7 @@ class PythonIndenter(Indenter):
     tab_len = 8
 
 
-_kwargs = dict(postlex=PythonIndenter(), parser='lalr', maybe_placeholders=False)
+_kwargs = dict(postlex=PythonIndenter(), parser='lalr', propagate_positions=True, maybe_placeholders=False)
 _vyper_module_parser = Lark.open('vyper.lark', rel_to=__file__, start='file_input', **_kwargs)
 _vyper_expr_parser = Lark.open('vyper.lark', rel_to=__file__, start='test', **_kwargs)
 
