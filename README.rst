@@ -19,12 +19,17 @@ Dependencies (Windows)
 Getting Started
 ===============
 
-1.  Create a virtual environment and activate it::
+1.  Clone the 2vyper repository::
+
+        git clone https://github.com/robinsierra/2vyper
+        cd 2vyper/
+
+2.  Create a virtual environment and activate it::
 
         make env
         source env/bin/activate
         
-2.  Install 2vyper::
+3.  Install 2vyper::
 
         make install
 
