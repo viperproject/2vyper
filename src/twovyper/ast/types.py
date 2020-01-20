@@ -205,6 +205,10 @@ BLOCK_TYPE = StructType(names.BLOCK, {
     names.BLOCK_TIMESTAMP: VYPER_UINT256
 })
 
+CHAIN_TYPE = StructType(names.CHAIN, {
+    names.CHAIN_ID: VYPER_UINT256
+})
+
 TX_TYPE = StructType(names.TX, {
     names.TX_ORIGIN: VYPER_ADDRESS
 })

@@ -67,6 +67,7 @@ class TypeAnnotator(NodeVisitor):
         # Contains the possible types a variable can have
         self.variables = {
             names.BLOCK: [types.BLOCK_TYPE],
+            names.CHAIN: [types.CHAIN_TYPE],
             names.TX: [types.TX_TYPE],
             names.MSG: [types.MSG_TYPE],
             names.SELF: [types.VYPER_ADDRESS, self_type],

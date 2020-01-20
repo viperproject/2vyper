@@ -108,6 +108,10 @@ class Context:
         return self.all_vars[names.BLOCK]
 
     @property
+    def chain_var(self):
+        return self.all_vars[names.CHAIN]
+
+    @property
     def tx_var(self):
         return self.all_vars[names.TX]
 

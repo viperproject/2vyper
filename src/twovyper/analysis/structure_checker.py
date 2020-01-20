@@ -68,7 +68,7 @@ class GhostFunctionChecker(NodeVisitor):
             self.visit(func.node)
 
     def visit_Name(self, node: ast.Name):
-        if node.id in [names.MSG, names.BLOCK, names.TX]:
+        if node.id in names.ENV_VARIABLES:
             raise InvalidProgramException(node, 'invalid.ghost')
 
     def visit_Call(self, node: ast.Call):
@@ -149,7 +149,7 @@ class SpecStructureChecker(NodeVisitor):
                 if isinstance(arg, ast.Attribute):
                     return check_allowed(arg.value)
                 elif isinstance(arg, ast.Name):
-                    _assert(arg.id in [names.SELF, names.BLOCK, names.TX, *self.func.args], node, 'spec.independent')
+                    _assert(arg.id in [names.SELF, names.BLOCK, names.CHAIN, names.TX, *self.func.args], node, 'spec.independent')
                 else:
                     _assert(False, node, 'spec.independent')
 

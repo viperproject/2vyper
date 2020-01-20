@@ -21,6 +21,7 @@ OFFER = '$offer'
 
 MSG = names.MSG
 BLOCK = names.BLOCK
+CHAIN = names.CHAIN
 TX = names.TX
 
 SENT_FIELD = '$sent'

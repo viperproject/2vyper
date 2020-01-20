@@ -270,7 +270,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     lows = [self.viper_ast.Low(get, position=pos) for get in gets]
                     return unless(node.value) + lows
                 elif isinstance(node, ast.Name):
-                    variables = [ctx.old_self_var, ctx.msg_var, ctx.block_var, ctx.tx_var, *ctx.args.values()]
+                    variables = [ctx.old_self_var, ctx.msg_var, ctx.block_var, ctx.chain_var, ctx.tx_var, *ctx.args.values()]
                     return [self.viper_ast.Low(var.local_var(ctx, pos), position=pos) for var in variables if var.name != node.id]
 
             lows = unless(node.args[1])
@@ -281,7 +281,7 @@ class SpecificationTranslator(ExpressionTranslator):
             stmts, arg = self.translate(node.args[0], ctx)
             # Using the current msg_var is ok since we don't use msg.gas, but always return fresh values,
             # therefore msg is constant
-            variables = [ctx.issued_self_var, ctx.tx_var, ctx.msg_var, *ctx.args.values()]
+            variables = [ctx.issued_self_var, ctx.chain_var, ctx.tx_var, ctx.msg_var, *ctx.args.values()]
             low_variables = [self.viper_ast.Low(var.local_var(ctx), position=pos) for var in variables]
             cond = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_variables)
             implies = self.viper_ast.Implies(cond, self._low(arg, node.args[0].type, ctx, pos), pos)

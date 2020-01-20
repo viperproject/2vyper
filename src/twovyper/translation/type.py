@@ -213,7 +213,7 @@ class TypeTranslator(CommonTranslator):
 
     def comparator(self, type: VyperType, ctx: Context):
         # For msg, block, tx we don't generate an equality function, as they are immutable anyway
-        if isinstance(type, StructType) and type not in [types.MSG_TYPE, types.BLOCK_TYPE, types.TX_TYPE]:
+        if isinstance(type, StructType) and type not in names.ENV_VARIABLES:
             return mangled.struct_eq_name(type.name), {}
         elif isinstance(type, MapType):
             key_type = self.translate(type.key_type, ctx)

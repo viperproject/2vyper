@@ -59,10 +59,12 @@ class FunctionTranslator(CommonTranslator):
             args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
             # Local variables will be added when translating.
             locals = {}
-            # The block variable
-            locals[names.BLOCK] = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
             # The msg variable
             locals[names.MSG] = TranslatedVar(names.MSG, mangled.MSG, types.MSG_TYPE, self.viper_ast)
+            # The block variable
+            locals[names.BLOCK] = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
+            # The chain variable
+            locals[names.CHAIN] = TranslatedVar(names.CHAIN, mangled.CHAIN, types.CHAIN_TYPE, self.viper_ast)
             # The tx variable
             locals[names.TX] = TranslatedVar(names.TX, mangled.TX, types.TX_TYPE, self.viper_ast)
 

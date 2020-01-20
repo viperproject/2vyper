@@ -51,9 +51,13 @@ BLOCK_DIFFICULTY = 'difficulty'
 BLOCK_NUMBER = 'number'
 BLOCK_PREVHASH = 'prevhash'
 BLOCK_TIMESTAMP = 'timestamp'
+CHAIN = 'chain'
+CHAIN_ID = 'id'
 TX = 'tx'
 TX_ORIGIN = 'origin'
 LOG = 'log'
+
+ENV_VARIABLES = [MSG, BLOCK, CHAIN, TX]
 
 # Constants
 EMPTY_BYTES32 = 'EMPTY_BYTES32'

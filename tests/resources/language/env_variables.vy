@@ -14,6 +14,7 @@ def test_env():
     no: uint256 = block.number
     ph: bytes32 = block.prevhash
     tt: timestamp = block.timestamp
+    ci: uint256 = chain.id
     sd: address = msg.sender
     vl: wei_value = msg.value
     og: address = tx.origin
