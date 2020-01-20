@@ -175,7 +175,7 @@ class TypeAnnotator(NodeVisitor):
         if node2 is None:
             combined, nodes = self.visit(node1)
         else:
-            combined, nodes = self.combine(node1, node2, allowed)
+            combined, nodes = self.combine(node1, node2, allowed=allowed)
         for node in nodes:
             node.type = combined[0]
 
