@@ -138,20 +138,25 @@ class AllocationTranslator(CommonTranslator):
         stmts = []
 
         # Assume type assumptions for fresh_allocated
-            allocated_ass = self.type_translator.type_assumptions(fresh_allocated_var, fresh_allocated.type, ctx)
-            allocated_assumptions = [self.viper_ast.Inhale(c) for c in allocated_ass]
-            allocated_info_msg = "Assume type assumptions for fresh allocated"
-            stmts.extend(self.seqn_with_info(allocated_assumptions, allocated_info_msg))
+        allocated_ass = self.type_translator.type_assumptions(fresh_allocated_var, fresh_allocated.type, ctx)
+        allocated_assumptions = [self.viper_ast.Inhale(c) for c in allocated_ass]
+        allocated_info_msg = "Assume type assumptions for fresh allocated"
+        stmts.extend(self.seqn_with_info(allocated_assumptions, allocated_info_msg))
 
         with ctx.allocated_scope(fresh_allocated):
-            for inv in ctx.unchecked_invariants():
-                stmts.append(self.viper_ast.Inhale(inv))
+            # We assume the invariant with the current state as the old state because the current allocation
+            # should be known from the current state, not the old state. For example, the invariant
+            #   allocated() == old(allocated())
+            # should be illegal.
+            with ctx.state_scope(ctx.current_state, ctx.current_state):
+                for inv in ctx.unchecked_invariants():
+                    stmts.append(self.viper_ast.Inhale(inv))
 
-            for inv in ctx.program.invariants:
-                ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                inv_stmts, expr = spec_translator.translate_invariant(inv, ctx, True)
-                stmts.extend(inv_stmts)
-                stmts.append(self.viper_ast.Inhale(expr, ppos))
+                for inv in ctx.program.invariants:
+                    ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                    inv_stmts, expr = spec_translator.translate_invariant(inv, ctx, True)
+                    stmts.extend(inv_stmts)
+                    stmts.append(self.viper_ast.Inhale(expr, ppos))
 
         address = self.viper_ast.LocalVarDecl('$a', self.viper_ast.Int, pos)
         address_var = address.localVar()
