@@ -391,6 +391,17 @@ class SpecificationTranslator(ExpressionTranslator):
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             stmts.extend(self.allocation_translator.offer(offered, value1, value2, msg_sender, to, times, ctx, pos))
             return stmts, None
+        elif name == names.REVOKE:
+            offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
+
+            value1_stmts, value1 = self.translate(node.args[0], ctx)
+            value2_stmts, value2 = self.translate(node.args[1], ctx)
+            to_stmts, to = self.translate(node.keywords[0].value, ctx)
+
+            stmts = [*value1_stmts, *value2_stmts, *to_stmts]
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            stmts.extend(self.allocation_translator.revoke(offered, value1, value2, msg_sender, to, ctx, pos))
+            return stmts, None
         elif name == names.EXCHANGE:
             value1_stmts, value1 = self.translate(node.args[0], ctx)
             value2_stmts, value2 = self.translate(node.args[1], ctx)

@@ -545,6 +545,13 @@ class TypeAnnotator(NodeVisitor):
                     for kw in node.keywords:
                         self.annotate_expected(kw.value, keywords[kw.name])
                     return [None], [node]
+                elif case(names.REVOKE):
+                    keywords = [names.REVOKE_TO]
+                    _check_number_of_arguments(node, 2, allowed_keywords=keywords, required_keywords=keywords)
+                    self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
+                    self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
+                    self.annotate_expected(node.keywords[0].value, types.VYPER_ADDRESS)
+                    return [None], [node]
                 elif case(names.EXCHANGE):
                     keywords = [names.EXCHANGE_TIMES]
                     _check_number_of_arguments(node, 4, allowed_keywords=keywords, required_keywords=keywords)

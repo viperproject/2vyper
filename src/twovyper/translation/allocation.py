@@ -82,6 +82,20 @@ class AllocationTranslator(CommonTranslator):
         alloc_assign = self.viper_ast.LocalVarAssign(allocated, set_alloc, pos, info)
         return [alloc_assign]
 
+    def _set_offered(self, offered: Expr,
+                     from_val: Expr, to_val: Expr,
+                     from_addr: Expr, to_addr: Expr,
+                     to: Expr,
+                     ctx: Context, pos=None):
+        offered_type = helpers.offered_type()
+        key_type = self.type_translator.translate(offered_type.key_type, ctx)
+        value_type = self.type_translator.translate(offered_type.value_type, ctx)
+        offer = helpers.struct_init(self.viper_ast, [from_val, to_val, from_addr, to_addr], offered_type.key_type, pos)
+        set_offered = helpers.map_set(self.viper_ast, offered, offer, to, key_type, value_type, pos)
+        offered_assign = self.viper_ast.LocalVarAssign(offered, set_offered, pos)
+
+        return [offered_assign]
+
     def _change_offered(self, offered: Expr,
                         from_val: Expr, to_val: Expr,
                         from_addr: Expr, to_addr: Expr,
@@ -90,13 +104,8 @@ class AllocationTranslator(CommonTranslator):
         get_offered = self.get_offered(offered, from_val, to_val, from_addr, to_addr, ctx, pos)
         func = self.viper_ast.Add if increase else self.viper_ast.Sub
         new_value = func(get_offered, amount, pos)
-        offered_type = helpers.offered_type()
-        key_type = self.type_translator.translate(offered_type.key_type, ctx)
-        value_type = self.type_translator.translate(offered_type.value_type, ctx)
-        offer = helpers.struct_init(self.viper_ast, [from_val, to_val, from_addr, to_addr], offered_type.key_type, pos)
-        set_offered = helpers.map_set(self.viper_ast, offered, offer, new_value, key_type, value_type, pos)
-        offered_assign = self.viper_ast.LocalVarAssign(offered, set_offered, pos)
-        return [offered_assign]
+
+        return self._set_offered(offered, from_val, to_val, from_addr, to_addr, new_value, ctx, pos)
 
     def allocate(self, allocated: Expr, address: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
@@ -194,6 +203,14 @@ class AllocationTranslator(CommonTranslator):
               ctx: Context, pos=None) -> List[Stmt]:
         stmts = self._change_offered(offered, value1, value2, owner1, owner2, times, True, ctx, pos)
         return self.seqn_with_info(stmts, "Offer")
+
+    def revoke(self, offered: Expr,
+               value1: Expr, value2: Expr,
+               owner1: Expr, owner2: Expr,
+               ctx: Context, pos=None) -> List[Stmt]:
+        zero = self.viper_ast.IntLit(0, pos)
+        stmts = self._set_offered(offered, value1, value2, owner1, owner2, zero, ctx, pos)
+        return self.seqn_with_info(stmts, "Revoke")
 
     def exchange(self,
                  node: ast.Node,
