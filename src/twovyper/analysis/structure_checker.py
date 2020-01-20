@@ -31,10 +31,13 @@ class ProgramChecker(NodeVisitor):
 
     def __init__(self, program: VyperProgram):
         self.program = program
+        self.function = None
 
     def check(self):
         for func in self.program.functions.values():
+            self.function = func
             self.visit(func.node)
+            self.function = None
 
     def visit_Call(self, node: ast.Call):
         if isinstance(node.func, ast.Name):
@@ -43,6 +46,14 @@ class ProgramChecker(NodeVisitor):
             if name == names.RAW_CALL:
                 if names.RAW_CALL_DELEGATE_CALL in [kw.name for kw in node.keywords]:
                     raise UnsupportedException(node, 'Delegate calls are not supported.')
+
+            if name in names.GHOST_STATEMENTS:
+                if not self.program.config.has_option(names.CONFIG_ALLOCATION):
+                    msg = "Allocation statements require allocation config option."
+                    raise InvalidProgramException(node, 'alloc.not.alloc', msg)
+                elif self.function.is_constant():
+                    msg = "Allocation statements are not allowed in constant functions."
+                    raise InvalidProgramException(node, 'alloc.in.constant', msg)
 
         self.generic_visit(node)
 
