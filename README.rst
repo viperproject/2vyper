@@ -101,6 +101,6 @@ Troubleshooting
 Build Status
 ============
 
-.. image:: https://pmbuilds.inf.ethz.ch/buildStatus/icon?job=nagini&style=plastic
+.. image:: https://pmbuilds.inf.ethz.ch/buildStatus/icon?job=2vyper-linux-xenial&style=plastic
    :alt: Build Status
-   :target: https://pmbuilds.inf.ethz.ch/job/nagini
+   :target: https://pmbuilds.inf.ethz.ch/job/2vyper-linux-xenial
