@@ -39,21 +39,18 @@ class ProgramChecker(NodeVisitor):
             self.visit(func.node)
             self.function = None
 
-    def visit_Call(self, node: ast.Call):
-        if isinstance(node.func, ast.Name):
-            name = node.func.id
+    def visit_FunctionCall(self, node: ast.FunctionCall):
+        if node.name == names.RAW_CALL:
+            if names.RAW_CALL_DELEGATE_CALL in [kw.name for kw in node.keywords]:
+                raise UnsupportedException(node, 'Delegate calls are not supported.')
 
-            if name == names.RAW_CALL:
-                if names.RAW_CALL_DELEGATE_CALL in [kw.name for kw in node.keywords]:
-                    raise UnsupportedException(node, 'Delegate calls are not supported.')
-
-            if name in names.GHOST_STATEMENTS:
-                if not self.program.config.has_option(names.CONFIG_ALLOCATION):
-                    msg = "Allocation statements require allocation config option."
-                    raise InvalidProgramException(node, 'alloc.not.alloc', msg)
-                elif self.function.is_constant():
-                    msg = "Allocation statements are not allowed in constant functions."
-                    raise InvalidProgramException(node, 'alloc.in.constant', msg)
+        if node.name in names.GHOST_STATEMENTS:
+            if not self.program.config.has_option(names.CONFIG_ALLOCATION):
+                msg = "Allocation statements require allocation config option."
+                raise InvalidProgramException(node, 'alloc.not.alloc', msg)
+            elif self.function.is_constant():
+                msg = "Allocation statements are not allowed in constant functions."
+                raise InvalidProgramException(node, 'alloc.in.constant', msg)
 
         self.generic_visit(node)
 
@@ -71,14 +68,12 @@ class GhostFunctionChecker(NodeVisitor):
         if node.id in names.ENV_VARIABLES:
             raise InvalidProgramException(node, 'invalid.ghost')
 
-    def visit_Call(self, node: ast.Call):
-        if isinstance(node.func, ast.Name):
-            name = node.func.id
-
-            if name in names.NOT_ALLOWED_IN_GHOST_FUNCTION:
-                raise InvalidProgramException(node, 'invalid.ghost')
-        else:
+    def visit_FunctionCall(self, node: ast.FunctionCall):
+        if node.name in names.NOT_ALLOWED_IN_GHOST_FUNCTION:
             raise InvalidProgramException(node, 'invalid.ghost')
+
+    def visit_ReceiverCall(self, node: ast.ReceiverCall):
+        raise InvalidProgramException(node, 'invalid.ghost')
 
 
 class SpecStructureChecker(NodeVisitor):
@@ -95,12 +90,9 @@ class SpecStructureChecker(NodeVisitor):
             self.visit(node)
         self.func
 
-    def visit_Call(self, node: ast.Call):
-        _assert(isinstance(node.func, ast.Name), node, 'spec.call')
-
-        name = node.func.id
+    def visit_FunctionCall(self, node: ast.FunctionCall):
         # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
-        if name == names.SUCCESS:
+        if node.name == names.SUCCESS:
 
             def check_success_args(node):
                 if isinstance(node, ast.Name):
@@ -116,7 +108,7 @@ class SpecStructureChecker(NodeVisitor):
                 _assert(node.keywords[0].name == names.SUCCESS_IF_NOT, node, 'spec.success')
                 check_success_args(node.keywords[0].value)
         # Accessible is of the form accessible(to, amount, self.some_func(args...))
-        elif name == names.ACCESSIBLE:
+        elif node.name == names.ACCESSIBLE:
             _assert(not self._inside_old, node, 'spec.old.accessible')
             _assert(len(node.args) == 2 or len(node.args) == 3, node, 'spec.accessible')
 
@@ -125,25 +117,24 @@ class SpecStructureChecker(NodeVisitor):
 
             if len(node.args) == 3:
                 call = node.args[2]
-                _assert(isinstance(call, ast.Call), node, 'spec.accessible')
-                _assert(isinstance(call.func, ast.Attribute), node, 'spec.accessible')
-                _assert(isinstance(call.func.value, ast.Name), node, 'spec.accessible')
-                _assert(call.func.value.id == names.SELF, node, 'spec.accessible')
-                _assert(call.func.attr in self.program.functions, node, 'spec.accessible')
-                _assert(call.func.attr != names.INIT, node, 'spec.accessible')
+                _assert(isinstance(call, ast.ReceiverCall), node, 'spec.accessible')
+                _assert(isinstance(call.receiver, ast.Name), node, 'spec.accessible')
+                _assert(call.receiver.id == names.SELF, node, 'spec.accessible')
+                _assert(call.name in self.program.functions, node, 'spec.accessible')
+                _assert(call.name != names.INIT, node, 'spec.accessible')
 
                 self.generic_visit(call)
-        elif name == names.OLD:
+        elif node.name == names.OLD:
             inside_old = self._inside_old
             self._inside_old = True
             self.generic_visit(node)
             self._inside_old = inside_old
-        elif name == names.INDEPENDENT:
+        elif node.name == names.INDEPENDENT:
             self.visit(node.args[0])
 
             def check_allowed(arg):
-                if isinstance(arg, ast.Call):
-                    is_old = len(arg.args) == 1 and isinstance(arg.func, ast.Name) and arg.func.id == names.OLD
+                if isinstance(arg, ast.FunctionCall):
+                    is_old = len(arg.args) == 1 and arg.name == names.OLD
                     _assert(is_old, node, 'spec.independent')
                     return check_allowed(arg.args[0])
                 if isinstance(arg, ast.Attribute):
@@ -157,6 +148,9 @@ class SpecStructureChecker(NodeVisitor):
         else:
             self.generic_visit(node)
 
+    def visit_ReceiverCall(self, node: ast.ReceiverCall):
+        _assert(False, node, 'spec.call')
+
 
 class InvariantChecker(SpecStructureChecker):
 
@@ -167,10 +161,9 @@ class InvariantChecker(SpecStructureChecker):
         _assert(node.id != names.MSG, node, 'invariant.msg')
         _assert(node.id != names.BLOCK, node, 'invariant.block')
 
-    def visit_Call(self, node: ast.Call):
-        super().visit_Call(node)
-        if isinstance(node.func, ast.Name):
-            _assert(node.func.id not in names.NOT_ALLOWED_IN_INVARIANT, node, 'invariant.call')
+    def visit_FunctionCall(self, node: ast.FunctionCall):
+        super().visit_FunctionCall(node)
+        _assert(node.name not in names.NOT_ALLOWED_IN_INVARIANT, node, 'invariant.call')
 
 
 class CheckChecker(SpecStructureChecker):
@@ -181,9 +174,9 @@ class CheckChecker(SpecStructureChecker):
         for func in self.program.functions.values():
             self._check(func.checks, func)
 
-    def visit_Call(self, node: ast.Call):
-        super().visit_Call(node)
-        _assert(node.func.id not in names.NOT_ALLOWED_IN_CHECK, node, 'check.call')
+    def visit_FunctionCall(self, node: ast.FunctionCall):
+        super().visit_FunctionCall(node)
+        _assert(node.name not in names.NOT_ALLOWED_IN_CHECK, node, 'check.call')
 
 
 class PostconditionChecker(SpecStructureChecker):
@@ -205,15 +198,15 @@ class PostconditionChecker(SpecStructureChecker):
         if self._is_transitive:
             _assert(node.id != names.MSG, node, 'postcondition.msg')
 
-    def visit_Call(self, node: ast.Call):
-        super().visit_Call(node)
+    def visit_FunctionCall(self, node: ast.FunctionCall):
+        super().visit_FunctionCall(node)
 
         if self._is_transitive:
             not_allowed = names.NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION
         else:
             not_allowed = names.NOT_ALLOWED_IN_POSTCONDITION
 
-        _assert(node.func.id not in not_allowed, node, 'postcondition.call')
+        _assert(node.name not in not_allowed, node, 'postcondition.call')
 
         if self.func and self.func.name == names.INIT:
-            _assert(node.func.id != names.OLD, node, 'postcondition.init.old')
+            _assert(node.name != names.OLD, node, 'postcondition.init.old')

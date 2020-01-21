@@ -396,7 +396,13 @@ class _PythonTransformer(Transformer):
     def funccall(self, children, meta):
         func = children[0]
         args, kwargs = children[1]
-        return ast.Call(func, args, kwargs)
+
+        if isinstance(func, ast.Name):
+            return ast.FunctionCall(func.id, args, kwargs)
+        elif isinstance(func, ast.Attribute):
+            return ast.ReceiverCall(func.attr, func.value, args, kwargs)
+        else:
+            raise InvalidProgramException(func, 'invalid.receiver')
 
     @copy_pos
     def getitem(self, children, meta):

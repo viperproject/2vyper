@@ -298,7 +298,7 @@ class TypeBuilder(NodeVisitor):
             modifiers[name] = f.body[0].value.id
         return ContractType(node.name, functions, modifiers)
 
-    def _visit_Call(self, node: ast.Call) -> VyperType:
+    def _visit_FunctionCall(self, node: ast.FunctionCall) -> VyperType:
         # We allow
         #   - public, indexed: not important for verification
         #   - map: map type
@@ -306,18 +306,21 @@ class TypeBuilder(NodeVisitor):
         # Not allowed is
         #   - constant: should already be replaced
         # Anything else is treated as a unit
-        if node.func.id == names.PUBLIC or node.func.id == names.INDEXED:
+        if node.name == names.PUBLIC or node.name == names.INDEXED:
             return self.visit(node.args[0])
-        elif node.func.id == names.MAP:
+        elif node.name == names.MAP:
             key_type = self.visit(node.args[0])
             value_type = self.visit(node.args[1])
             return MapType(key_type, value_type)
-        elif node.func.id == names.EVENT:
+        elif node.name == names.EVENT:
             dict_literal = node.args[0]
             arg_types = [self.visit(arg) for arg in dict_literal.values]
             return EventType(arg_types)
         else:
-            return self.visit(node.func)
+            type = self.type_map.get(node.name) or TYPES.get(node.name)
+            if type is None:
+                raise InvalidProgramException(node, 'invalid.type')
+            return type
 
     def _visit_Subscript(self, node: ast.Subscript) -> VyperType:
         element_type = self.visit(node.value)

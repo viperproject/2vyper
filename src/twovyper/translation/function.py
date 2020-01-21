@@ -505,8 +505,8 @@ class FunctionTranslator(CommonTranslator):
             method = self.viper_ast.Method(viper_name, args_list, ret_list, [], [], locals_list, body, pos)
             return method
 
-    def inline(self, call: ast.Call, args: List[Expr], ctx: Context) -> StmtsAndExpr:
-        function = ctx.program.functions[call.func.attr]
+    def inline(self, call: ast.ReceiverCall, args: List[Expr], ctx: Context) -> StmtsAndExpr:
+        function = ctx.program.functions[call.name]
         cpos = self.to_position(call, ctx)
         via = Via('inline', cpos)
         with ctx.inline_scope(via):

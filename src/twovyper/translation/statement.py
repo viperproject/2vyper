@@ -79,9 +79,7 @@ class StatementTranslator(NodeTranslator):
     def translate_ExprStmt(self, node: ast.ExprStmt, ctx: Context) -> List[Stmt]:
         # Check if we are translating a call to clear
         # We handle clear in the StatementTranslator because it is essentially an assignment
-        is_call = lambda n: isinstance(n, ast.Call)
-        is_clear = lambda n: isinstance(n, ast.Name) and n.id == names.CLEAR
-        if is_call(node.value) and is_clear(node.value.func):
+        if isinstance(node.value, ast.FunctionCall) and node.value.name == names.CLEAR:
             arg = node.value.args[0]
             stmts, value = self.type_translator.default_value(node, arg.type, ctx)
             assign_stmts, assign = self.assignment_translator.assign_to(arg, value, ctx)
@@ -252,5 +250,5 @@ class _AssignmentTranslator(NodeVisitor, CommonTranslator):
         assign_stmts, assign = self.assign_to(node.value, new_value, ctx)
         return receiver_stmts + index_stmts + stmts + assign_stmts, assign
 
-    def assign_to_Call(self, node: ast.Call, value, ctx: Context):
+    def assign_to_ReceiverCall(self, node: ast.ReceiverCall, value, ctx: Context):
         raise UnsupportedException(node, "Assignments to calls are not supported.")

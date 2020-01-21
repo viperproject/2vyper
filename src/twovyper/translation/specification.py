@@ -66,10 +66,10 @@ class SpecificationTranslator(ExpressionTranslator):
         assert not stmts
         return expr
 
-    def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
+    def translate_FunctionCall(self, node: ast.FunctionCall, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
-        name = node.func.id
+        name = node.name
         if name == names.IMPLIES:
             lhs_stmts, lhs = self.translate(node.args[0], ctx)
             rhs_stmts, rhs = self.translate(node.args[1], ctx)
@@ -222,7 +222,7 @@ class SpecificationTranslator(ExpressionTranslator):
             if len(node.args) == 2:
                 func_name = ctx.program.analysis.accessible_function.name
             else:
-                func_name = node.args[2].func.attr
+                func_name = node.args[2].name
 
             is_wrong_func = ctx.function and func_name != ctx.function.name
             # If we ignore accessibles or if we are in a function not mentioned in the accessible
@@ -255,7 +255,7 @@ class SpecificationTranslator(ExpressionTranslator):
             stmts, res = self.translate(node.args[0], ctx)
 
             def unless(node):
-                if isinstance(node, ast.Call):
+                if isinstance(node, ast.FunctionCall):
                     # An old expression
                     with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
                         return unless(node.args[0])
@@ -288,7 +288,7 @@ class SpecificationTranslator(ExpressionTranslator):
             return stmts, implies
         elif name == names.EVENT:
             event = node.args[0]
-            event_name = mangled.event_name(event.func.id)
+            event_name = mangled.event_name(event.name)
             stmts, args = self.collect(self.translate(arg, ctx) for arg in event.args)
             full_perm = self.viper_ast.FullPerm(pos)
             one = self.viper_ast.IntLit(1, pos)
@@ -340,7 +340,7 @@ class SpecificationTranslator(ExpressionTranslator):
             rpos = self.to_position(node, ctx, rules.PRECONDITION_IMPLEMENTS_INTERFACE)
             return stmts, helpers.ghost_function(self.viper_ast, name, address, struct, args[1:], return_type, rpos)
         elif name not in names.NOT_ALLOWED_IN_SPEC:
-            return super().translate_Call(node, ctx)
+            return super().translate_FunctionCall(node, ctx)
         else:
             assert False
 
@@ -351,11 +351,9 @@ class SpecificationTranslator(ExpressionTranslator):
         else:
             return self.viper_ast.Low(expr, position=pos, info=info)
 
-    def translate_ghost_statement(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
-        assert isinstance(node.func, ast.Name)
-
+    def translate_ghost_statement(self, node: ast.FunctionCall, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
-        name = node.func.id
+        name = node.name
         if name == names.REALLOCATE:
             stmts = []
             for kw in node.keywords:

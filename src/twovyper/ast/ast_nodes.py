@@ -186,13 +186,25 @@ class Keyword(Node):
         self.value = value
 
 
-class Call(Expr):
+class FunctionCall(Expr):
 
-    _children = ['func', 'args', 'keywords']
+    _children = ['args', 'keywords']
 
-    def __init__(self, func: Expr, args: ListT[Expr], keywords: ListT[Keyword]):
+    def __init__(self, name: str, args: ListT[Expr], keywords: ListT[Keyword]):
         super().__init__()
-        self.func = func
+        self.name = name
+        self.args = args
+        self.keywords = keywords
+
+
+class ReceiverCall(Expr):
+
+    _children = ['receiver', 'args', 'keywords']
+
+    def __init__(self, name: str, receiver: Expr, args: ListT[Expr], keywords: ListT[Keyword]):
+        super().__init__()
+        self.name = name
+        self.receiver = receiver
         self.args = args
         self.keywords = keywords
 

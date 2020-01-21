@@ -268,410 +268,412 @@ class ExpressionTranslator(NodeTranslator):
             elems = [self.viper_ast.IntLit(e, pos) for e in node.s]
             return [], self.viper_ast.ExplicitSeq(elems, pos)
 
-    def translate_Call(self, node: ast.Call, ctx: Context) -> StmtsAndExpr:
+    def translate_FunctionCall(self, node: ast.FunctionCall, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
-        if isinstance(node.func, ast.Name):
-            name = node.func.id
-            is_min = (name == names.MIN)
-            is_max = (name == names.MAX)
-            if is_min or is_max:
-                lhs_stmts, lhs = self.translate(node.args[0], ctx)
-                rhs_stmts, rhs = self.translate(node.args[1], ctx)
-                op = self.viper_ast.GtCmp if is_max else self.viper_ast.LtCmp
-                comp = op(lhs, rhs, pos)
-                stmts = lhs_stmts + rhs_stmts
-                return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
-            elif name == names.ADDMOD or name == names.MULMOD:
-                op1_stmts, op1 = self.translate(node.args[0], ctx)
-                op2_stmts, op2 = self.translate(node.args[1], ctx)
-                mod_stmts, mod = self.translate(node.args[2], ctx)
+        name = node.name
+        is_min = (name == names.MIN)
+        is_max = (name == names.MAX)
+        if is_min or is_max:
+            lhs_stmts, lhs = self.translate(node.args[0], ctx)
+            rhs_stmts, rhs = self.translate(node.args[1], ctx)
+            op = self.viper_ast.GtCmp if is_max else self.viper_ast.LtCmp
+            comp = op(lhs, rhs, pos)
+            stmts = lhs_stmts + rhs_stmts
+            return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
+        elif name == names.ADDMOD or name == names.MULMOD:
+            op1_stmts, op1 = self.translate(node.args[0], ctx)
+            op2_stmts, op2 = self.translate(node.args[1], ctx)
+            mod_stmts, mod = self.translate(node.args[2], ctx)
 
-                cond = self.viper_ast.EqCmp(mod, self.viper_ast.IntLit(0, pos), pos)
-                mod_stmts.append(self.fail_if(cond, [], ctx, pos))
+            cond = self.viper_ast.EqCmp(mod, self.viper_ast.IntLit(0, pos), pos)
+            mod_stmts.append(self.fail_if(cond, [], ctx, pos))
 
-                operation = self.viper_ast.Add if name == names.ADDMOD else self.viper_ast.Mul
-                op_res = operation(op1, op2, pos)
-                return op1_stmts + op2_stmts + mod_stmts, helpers.mod(self.viper_ast, op_res, mod, pos)
-            elif name == names.SQRT:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                zero = self.viper_ast.IntLit(0, pos)
-                lt = self.viper_ast.LtCmp(arg, zero, pos)
-                fail = self.fail_if(lt, [], ctx, pos)
-                sqrt = helpers.sqrt(self.viper_ast, arg, pos)
-                return [*arg_stmts, fail], sqrt
-            elif name == names.FLOOR or name == names.CEIL:
-                # Let s be the scaling factor, then
-                #    floor(d) == d < 0 ? (d - (s - 1)) / s : d / s
-                #    ceil(d)  == d < 0 ? d / s : (d + s - 1) / s
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                scaling_factor = node.args[0].type.scaling_factor
+            operation = self.viper_ast.Add if name == names.ADDMOD else self.viper_ast.Mul
+            op_res = operation(op1, op2, pos)
+            return op1_stmts + op2_stmts + mod_stmts, helpers.mod(self.viper_ast, op_res, mod, pos)
+        elif name == names.SQRT:
+            arg_stmts, arg = self.translate(node.args[0], ctx)
+            zero = self.viper_ast.IntLit(0, pos)
+            lt = self.viper_ast.LtCmp(arg, zero, pos)
+            fail = self.fail_if(lt, [], ctx, pos)
+            sqrt = helpers.sqrt(self.viper_ast, arg, pos)
+            return [*arg_stmts, fail], sqrt
+        elif name == names.FLOOR or name == names.CEIL:
+            # Let s be the scaling factor, then
+            #    floor(d) == d < 0 ? (d - (s - 1)) / s : d / s
+            #    ceil(d)  == d < 0 ? d / s : (d + s - 1) / s
+            arg_stmts, arg = self.translate(node.args[0], ctx)
+            scaling_factor = node.args[0].type.scaling_factor
 
-                if name == names.FLOOR:
-                    expr = helpers.floor(self.viper_ast, arg, scaling_factor, pos)
-                elif name == names.CEIL:
-                    expr = helpers.ceil(self.viper_ast, arg, scaling_factor, pos)
+            if name == names.FLOOR:
+                expr = helpers.floor(self.viper_ast, arg, scaling_factor, pos)
+            elif name == names.CEIL:
+                expr = helpers.ceil(self.viper_ast, arg, scaling_factor, pos)
 
-                return arg_stmts, expr
-            elif name == names.SHIFT:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                shift_stmts, shift = self.translate(node.args[1], ctx)
-                return arg_stmts + shift_stmts, helpers.shift(self.viper_ast, arg, shift, pos)
-            elif name in [names.BITWISE_AND, names.BITWISE_OR, names.BITWISE_XOR]:
-                a_stmts, a = self.translate(node.args[0], ctx)
-                b_stmts, b = self.translate(node.args[1], ctx)
+            return arg_stmts, expr
+        elif name == names.SHIFT:
+            arg_stmts, arg = self.translate(node.args[0], ctx)
+            shift_stmts, shift = self.translate(node.args[1], ctx)
+            return arg_stmts + shift_stmts, helpers.shift(self.viper_ast, arg, shift, pos)
+        elif name in [names.BITWISE_AND, names.BITWISE_OR, names.BITWISE_XOR]:
+            a_stmts, a = self.translate(node.args[0], ctx)
+            b_stmts, b = self.translate(node.args[1], ctx)
 
-                funcs = {
-                    names.BITWISE_AND: helpers.bitwise_and,
-                    names.BITWISE_OR: helpers.bitwise_or,
-                    names.BITWISE_XOR: helpers.bitwise_xor
-                }
+            funcs = {
+                names.BITWISE_AND: helpers.bitwise_and,
+                names.BITWISE_OR: helpers.bitwise_or,
+                names.BITWISE_XOR: helpers.bitwise_xor
+            }
 
-                return a_stmts + b_stmts, funcs[name](self.viper_ast, a, b, pos)
-            elif name == names.BITWISE_NOT:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, helpers.bitwise_not(self.viper_ast, arg, pos)
-            elif name == names.AS_WEI_VALUE:
-                stmts, arg = self.translate(node.args[0], ctx)
-                unit = node.args[1].s
-                unit_pos = self.to_position(node.args[1], ctx)
-                multiplier = next(v for k, v in names.ETHER_UNITS.items() if unit in k)
-                multiplier_lit = self.viper_ast.IntLit(multiplier, unit_pos)
-                res = self.viper_ast.Mul(arg, multiplier_lit, pos)
+            return a_stmts + b_stmts, funcs[name](self.viper_ast, a, b, pos)
+        elif name == names.BITWISE_NOT:
+            arg_stmts, arg = self.translate(node.args[0], ctx)
+            return arg_stmts, helpers.bitwise_not(self.viper_ast, arg, pos)
+        elif name == names.AS_WEI_VALUE:
+            stmts, arg = self.translate(node.args[0], ctx)
+            unit = node.args[1].s
+            unit_pos = self.to_position(node.args[1], ctx)
+            multiplier = next(v for k, v in names.ETHER_UNITS.items() if unit in k)
+            multiplier_lit = self.viper_ast.IntLit(multiplier, unit_pos)
+            res = self.viper_ast.Mul(arg, multiplier_lit, pos)
 
-                if types.is_bounded(node.type):
-                    oc = self.arithmetic_translator.check_under_overflow(res, node.type, ctx, pos)
+            if types.is_bounded(node.type):
+                oc = self.arithmetic_translator.check_under_overflow(res, node.type, ctx, pos)
+                stmts.extend(oc)
+
+            return stmts, res
+        elif name == names.AS_UNITLESS_NUMBER:
+            return self.translate(node.args[0], ctx)
+        elif name == names.LEN:
+            arr_stmts, arr = self.translate(node.args[0], ctx)
+            return arr_stmts, helpers.array_length(self.viper_ast, arr, pos)
+        elif name == names.RANGE:
+            if len(node.args) == 1:
+                start_stmts, start = [], self.viper_ast.IntLit(0, pos)
+                end_stmts, end = self.translate(node.args[0], ctx)
+            else:
+                start_stmts, start = self.translate(node.args[0], ctx)
+                end_stmts, end = self.translate(node.args[1], ctx)
+
+            range_func = helpers.range(self.viper_ast, start, end, pos)
+            return [*start_stmts, *end_stmts], range_func
+        elif name == names.CONCAT:
+            concat_stmts, concats = zip(*[self.translate(arg, ctx) for arg in node.args])
+
+            def concat(args):
+                arg, *tail = args
+                if not tail:
+                    return arg
+                else:
+                    return self.viper_ast.SeqAppend(arg, concat(tail), pos)
+
+            return flatten(concat_stmts), concat(concats)
+        elif name == names.CONVERT:
+            from_type = node.args[0].type
+            to_type = node.type
+
+            arg_stmts, arg = self.translate(node.args[0], ctx)
+
+            if isinstance(from_type, ArrayType) and from_type.element_type == types.VYPER_BYTE:
+                if from_type.size > 32:
+                    raise UnsupportedException(node, 'Unsupported type converison.')
+
+                # If we convert a byte array to some type, we simply pad it to a bytes32 and
+                # proceed as if we had been given a bytes32
+                arg = helpers.pad32(self.viper_ast, arg, pos)
+                from_type = types.VYPER_BYTES32
+
+            stmts = arg_stmts
+            zero = self.viper_ast.IntLit(0, pos)
+            one = self.viper_ast.IntLit(1, pos)
+
+            zero_list = [0] * 32
+            one_list = [0] * 31 + [1]
+            zero_array = self.viper_ast.ExplicitSeq([self.viper_ast.IntLit(i, pos) for i in zero_list], pos)
+            one_array = self.viper_ast.ExplicitSeq([self.viper_ast.IntLit(i, pos) for i in one_list], pos)
+
+            with switch(from_type, to_type) as case:
+                from twovyper.utils import _
+                # If both types are equal (e.g. if we convert a literal) we simply
+                # return the argument
+                if case(_, _, where=from_type == to_type):
+                    return stmts, arg
+                # --------------------- bool -> ? ---------------------
+                # If we convert from a bool we translate True as 1 and False as 0
+                elif case(types.VYPER_BOOL, types.VYPER_DECIMAL):
+                    d_one = 1 * types.VYPER_DECIMAL.scaling_factor
+                    d_one_lit = self.viper_ast.IntLit(d_one, pos)
+                    return stmts, self.viper_ast.CondExp(arg, d_one_lit, zero, pos)
+                elif case(types.VYPER_BOOL, types.VYPER_BYTES32):
+                    return stmts, self.viper_ast.CondExp(arg, one_array, zero_array, pos)
+                elif case(types.VYPER_BOOL, _):
+                    return stmts, self.viper_ast.CondExp(arg, one, zero, pos)
+                # --------------------- ? -> bool ---------------------
+                # If we convert to a bool we check for zero
+                elif case(types.VYPER_BYTES32, types.VYPER_BOOL):
+                    return stmts, self.viper_ast.NeCmp(arg, zero_array, pos)
+                elif case(_, types.VYPER_BOOL):
+                    return stmts, self.viper_ast.NeCmp(arg, zero, pos)
+                # --------------------- decimal -> ? ---------------------
+                elif case(types.VYPER_DECIMAL, types.VYPER_INT128):
+                    s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+                    return stmts, helpers.div(self.viper_ast, arg, s, pos)
+                elif case(types.VYPER_DECIMAL, types.VYPER_UINT256):
+                    s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+                    res = helpers.div(self.viper_ast, arg, s, pos)
+                    uc = self.arithmetic_translator.check_underflow(res, to_type, ctx, pos)
+                    stmts.extend(uc)
+                    return stmts, res
+                elif case(types.VYPER_DECIMAL, types.VYPER_BYTES32):
+                    return stmts, helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
+                # --------------------- int128 -> ? ---------------------
+                elif case(types.VYPER_INT128, types.VYPER_DECIMAL):
+                    s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+                    return stmts, self.viper_ast.Mul(arg, s, pos)
+                # When converting a signed number to an unsigned number we revert if
+                # the argument is negative
+                elif case(types.VYPER_INT128, types.VYPER_UINT256):
+                    uc = self.arithmetic_translator.check_underflow(arg, to_type, ctx, pos)
+                    stmts.extend(uc)
+                    return stmts, arg
+                elif case(types.VYPER_INT128, types.VYPER_BYTES32):
+                    return stmts, helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
+                # --------------------- uint256 -> ? ---------------------
+                elif case(types.VYPER_UINT256, types.VYPER_DECIMAL):
+                    s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
+                    res = self.viper_ast.Mul(arg, s, pos)
+                    oc = self.arithmetic_translator.check_overflow(res, to_type, ctx, pos)
                     stmts.extend(oc)
-
-                return stmts, res
-            elif name == names.AS_UNITLESS_NUMBER:
-                return self.translate(node.args[0], ctx)
-            elif name == names.LEN:
-                arr_stmts, arr = self.translate(node.args[0], ctx)
-                return arr_stmts, helpers.array_length(self.viper_ast, arr, pos)
-            elif name == names.RANGE:
-                if len(node.args) == 1:
-                    start_stmts, start = [], self.viper_ast.IntLit(0, pos)
-                    end_stmts, end = self.translate(node.args[0], ctx)
+                    return stmts, res
+                # If we convert an unsigned to a signed value we simply return
+                # the argument, given that it fits
+                elif case(types.VYPER_UINT256, types.VYPER_INT128):
+                    oc = self.arithmetic_translator.check_overflow(arg, to_type, ctx, pos)
+                    stmts.extend(oc)
+                    return stmts, arg
+                elif case(types.VYPER_UINT256, types.VYPER_BYTES32):
+                    return stmts, helpers.convert_unsigned_int_to_bytes32(self.viper_ast, arg, pos)
+                # --------------------- bytes32 -> ? ---------------------
+                elif case(types.VYPER_BYTES32, types.VYPER_DECIMAL) or case(types.VYPER_BYTES32, types.VYPER_INT128):
+                    res = helpers.convert_bytes32_to_signed_int(self.viper_ast, arg, pos)
+                    oc = self.arithmetic_translator.check_under_overflow(res, to_type, ctx, pos)
+                    stmts.extend(oc)
+                    return stmts, res
+                elif case(types.VYPER_BYTES32, types.VYPER_UINT256):
+                    # uint256 and bytes32 have the same size, so no overflow check is necessary
+                    return stmts, helpers.convert_bytes32_to_unsigned_int(self.viper_ast, arg, pos)
                 else:
-                    start_stmts, start = self.translate(node.args[0], ctx)
-                    end_stmts, end = self.translate(node.args[1], ctx)
+                    raise UnsupportedException(node, 'Unsupported type converison.')
+        elif name == names.KECCAK256:
+            arg_stmts, arg = self.translate(node.args[0], ctx)
+            return arg_stmts, helpers.keccak256(self.viper_ast, arg, pos)
+        elif name == names.SHA256:
+            arg_stmts, arg = self.translate(node.args[0], ctx)
+            return arg_stmts, helpers.sha256(self.viper_ast, arg, pos)
+        elif name == names.BLOCKHASH:
+            stmts, arg = self.translate(node.args[0], ctx)
 
-                range_func = helpers.range(self.viper_ast, start, end, pos)
-                return [*start_stmts, *end_stmts], range_func
-            elif name == names.CONCAT:
-                concat_stmts, concats = zip(*[self.translate(arg, ctx) for arg in node.args])
+            block = ctx.block_var.local_var(ctx)
+            number_type = self.type_translator.translate(types.BLOCK_TYPE.member_types[names.BLOCK_NUMBER], ctx)
+            block_number = helpers.struct_get(self.viper_ast, block, names.BLOCK_NUMBER, number_type, types.BLOCK_TYPE, pos)
 
-                def concat(args):
-                    arg, *tail = args
-                    if not tail:
-                        return arg
-                    else:
-                        return self.viper_ast.SeqAppend(arg, concat(tail), pos)
+            # Only the last 256 blocks (before the current block) are available in blockhash, else we revert
+            lt = self.viper_ast.LtCmp(arg, block_number, pos)
+            last_256 = self.viper_ast.Sub(block_number, self.viper_ast.IntLit(256, pos), pos)
+            ge = self.viper_ast.GeCmp(arg, last_256, pos)
+            cond = self.viper_ast.Not(self.viper_ast.And(lt, ge, pos), pos)
+            stmts.append(self.fail_if(cond, [], ctx, pos))
 
-                return flatten(concat_stmts), concat(concats)
-            elif name == names.CONVERT:
-                from_type = node.args[0].type
-                to_type = node.type
-
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-
-                if isinstance(from_type, ArrayType) and from_type.element_type == types.VYPER_BYTE:
-                    if from_type.size > 32:
-                        raise UnsupportedException(node, 'Unsupported type converison.')
-
-                    # If we convert a byte array to some type, we simply pad it to a bytes32 and
-                    # proceed as if we had been given a bytes32
-                    arg = helpers.pad32(self.viper_ast, arg, pos)
-                    from_type = types.VYPER_BYTES32
-
-                stmts = arg_stmts
-                zero = self.viper_ast.IntLit(0, pos)
-                one = self.viper_ast.IntLit(1, pos)
-
-                zero_list = [0] * 32
-                one_list = [0] * 31 + [1]
-                zero_array = self.viper_ast.ExplicitSeq([self.viper_ast.IntLit(i, pos) for i in zero_list], pos)
-                one_array = self.viper_ast.ExplicitSeq([self.viper_ast.IntLit(i, pos) for i in one_list], pos)
-
-                with switch(from_type, to_type) as case:
-                    from twovyper.utils import _
-                    # If both types are equal (e.g. if we convert a literal) we simply
-                    # return the argument
-                    if case(_, _, where=from_type == to_type):
-                        return stmts, arg
-                    # --------------------- bool -> ? ---------------------
-                    # If we convert from a bool we translate True as 1 and False as 0
-                    elif case(types.VYPER_BOOL, types.VYPER_DECIMAL):
-                        d_one = 1 * types.VYPER_DECIMAL.scaling_factor
-                        d_one_lit = self.viper_ast.IntLit(d_one, pos)
-                        return stmts, self.viper_ast.CondExp(arg, d_one_lit, zero, pos)
-                    elif case(types.VYPER_BOOL, types.VYPER_BYTES32):
-                        return stmts, self.viper_ast.CondExp(arg, one_array, zero_array, pos)
-                    elif case(types.VYPER_BOOL, _):
-                        return stmts, self.viper_ast.CondExp(arg, one, zero, pos)
-                    # --------------------- ? -> bool ---------------------
-                    # If we convert to a bool we check for zero
-                    elif case(types.VYPER_BYTES32, types.VYPER_BOOL):
-                        return stmts, self.viper_ast.NeCmp(arg, zero_array, pos)
-                    elif case(_, types.VYPER_BOOL):
-                        return stmts, self.viper_ast.NeCmp(arg, zero, pos)
-                    # --------------------- decimal -> ? ---------------------
-                    elif case(types.VYPER_DECIMAL, types.VYPER_INT128):
-                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                        return stmts, helpers.div(self.viper_ast, arg, s, pos)
-                    elif case(types.VYPER_DECIMAL, types.VYPER_UINT256):
-                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                        res = helpers.div(self.viper_ast, arg, s, pos)
-                        uc = self.arithmetic_translator.check_underflow(res, to_type, ctx, pos)
-                        stmts.extend(uc)
-                        return stmts, res
-                    elif case(types.VYPER_DECIMAL, types.VYPER_BYTES32):
-                        return stmts, helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
-                    # --------------------- int128 -> ? ---------------------
-                    elif case(types.VYPER_INT128, types.VYPER_DECIMAL):
-                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                        return stmts, self.viper_ast.Mul(arg, s, pos)
-                    # When converting a signed number to an unsigned number we revert if
-                    # the argument is negative
-                    elif case(types.VYPER_INT128, types.VYPER_UINT256):
-                        uc = self.arithmetic_translator.check_underflow(arg, to_type, ctx, pos)
-                        stmts.extend(uc)
-                        return stmts, arg
-                    elif case(types.VYPER_INT128, types.VYPER_BYTES32):
-                        return stmts, helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
-                    # --------------------- uint256 -> ? ---------------------
-                    elif case(types.VYPER_UINT256, types.VYPER_DECIMAL):
-                        s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                        res = self.viper_ast.Mul(arg, s, pos)
-                        oc = self.arithmetic_translator.check_overflow(res, to_type, ctx, pos)
-                        stmts.extend(oc)
-                        return stmts, res
-                    # If we convert an unsigned to a signed value we simply return
-                    # the argument, given that it fits
-                    elif case(types.VYPER_UINT256, types.VYPER_INT128):
-                        oc = self.arithmetic_translator.check_overflow(arg, to_type, ctx, pos)
-                        stmts.extend(oc)
-                        return stmts, arg
-                    elif case(types.VYPER_UINT256, types.VYPER_BYTES32):
-                        return stmts, helpers.convert_unsigned_int_to_bytes32(self.viper_ast, arg, pos)
-                    # --------------------- bytes32 -> ? ---------------------
-                    elif case(types.VYPER_BYTES32, types.VYPER_DECIMAL) or case(types.VYPER_BYTES32, types.VYPER_INT128):
-                        res = helpers.convert_bytes32_to_signed_int(self.viper_ast, arg, pos)
-                        oc = self.arithmetic_translator.check_under_overflow(res, to_type, ctx, pos)
-                        stmts.extend(oc)
-                        return stmts, res
-                    elif case(types.VYPER_BYTES32, types.VYPER_UINT256):
-                        # uint256 and bytes32 have the same size, so no overflow check is necessary
-                        return stmts, helpers.convert_bytes32_to_unsigned_int(self.viper_ast, arg, pos)
-                    else:
-                        raise UnsupportedException(node, 'Unsupported type converison.')
-            elif name == names.KECCAK256:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, helpers.keccak256(self.viper_ast, arg, pos)
-            elif name == names.SHA256:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, helpers.sha256(self.viper_ast, arg, pos)
-            elif name == names.BLOCKHASH:
-                stmts, arg = self.translate(node.args[0], ctx)
-
-                block = ctx.block_var.local_var(ctx)
-                number_type = self.type_translator.translate(types.BLOCK_TYPE.member_types[names.BLOCK_NUMBER], ctx)
-                block_number = helpers.struct_get(self.viper_ast, block, names.BLOCK_NUMBER, number_type, types.BLOCK_TYPE, pos)
-
-                # Only the last 256 blocks (before the current block) are available in blockhash, else we revert
-                lt = self.viper_ast.LtCmp(arg, block_number, pos)
-                last_256 = self.viper_ast.Sub(block_number, self.viper_ast.IntLit(256, pos), pos)
-                ge = self.viper_ast.GeCmp(arg, last_256, pos)
-                cond = self.viper_ast.Not(self.viper_ast.And(lt, ge, pos), pos)
-                stmts.append(self.fail_if(cond, [], ctx, pos))
-
-                return stmts, helpers.blockhash(self.viper_ast, arg, ctx, pos)
-            elif name == names.METHOD_ID:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-                return arg_stmts, helpers.method_id(self.viper_ast, arg, node.type.size, pos)
-            elif name == names.ECRECOVER:
-                stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
-                return stmts, helpers.ecrecover(self.viper_ast, args, pos)
-            elif name == names.ECADD or name == names.ECMUL:
-                stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
-                fail_var_name = ctx.new_local_var_name('$fail')
-                fail_var_decl = self.viper_ast.LocalVarDecl(fail_var_name, self.viper_ast.Bool, pos)
-                ctx.new_local_vars.append(fail_var_decl)
-                fail_var = fail_var_decl.localVar()
-                stmts.append(self.fail_if(fail_var, [], ctx, pos))
-                if name == names.ECADD:
-                    return stmts, helpers.ecadd(self.viper_ast, args, pos)
-                else:
-                    return stmts, helpers.ecmul(self.viper_ast, args, pos)
-            elif name == names.SELFDESTRUCT:
-                arg_stmts, arg = self.translate(node.args[0], ctx)
-
-                self_var = ctx.self_var.local_var(ctx)
-                self_type = ctx.self_type
-
-                val = self.viper_ast.TrueLit(pos)
-                member = mangled.SELFDESTRUCT_FIELD
-                type = self.type_translator.translate(self_type.member_types[member], ctx)
-                sset = helpers.struct_set(self.viper_ast, self_var, val, member, type, self_type, pos)
-                self_s_assign = self.viper_ast.LocalVarAssign(self_var, sset, pos)
-
-                balance = self.balance_translator.get_balance(self_var, ctx, pos)
-                sent = self.balance_translator.increase_sent(arg, balance, ctx, pos)
-
-                zero = self.viper_ast.IntLit(0, pos)
-                bset = self.balance_translator.set_balance(self_var, zero, ctx, pos)
-                self_b_assign = self.viper_ast.LocalVarAssign(self_var, bset, pos)
-
-                goto_return = self.viper_ast.Goto(ctx.return_label, pos)
-                return [*arg_stmts, self_s_assign, sent, self_b_assign, goto_return], None
-            elif name == names.ASSERT_MODIFIABLE:
-                cond_stmts, cond = self.translate(node.args[0], ctx)
-                not_cond = self.viper_ast.Not(cond, pos)
-                fail = self.fail_if(not_cond, [], ctx, pos)
-                return [*cond_stmts, fail], None
-            elif name == names.SEND:
-                to_stmts, to = self.translate(node.args[0], ctx)
-                amount_stmts, amount = self.translate(node.args[1], ctx)
-                call_stmts, _, expr = self._translate_external_call(node, to, amount, False, ctx)
-                return [*to_stmts, *amount_stmts, *call_stmts], expr
-            elif name == names.RAW_CALL:
-                # Translate the callee address
-                to_stmts, to = self.translate(node.args[0], ctx)
-                # Translate the data expression (bytes)
-                function_stmts, _ = self.translate(node.args[1], ctx)
-
-                args_stmts = [*to_stmts, *function_stmts]
-                amount = self.viper_ast.IntLit(0, pos)
-                for kw in node.keywords:
-                    arg_stmts, arg = self.translate(kw.value, ctx)
-                    if kw.name == names.RAW_CALL_VALUE:
-                        amount = arg
-                    args_stmts.extend(arg_stmts)
-
-                call_stmts, _, call = self._translate_external_call(node, to, amount, False, ctx)
-                return [*args_stmts, *call_stmts], call
-            elif name == names.RAW_LOG:
-                topic_stmts, _ = self.translate(node.args[0], ctx)
-                data_stmts, _ = self.translate(node.args[1], ctx)
-
-                stmts = topic_stmts + data_stmts
-
-                # Since we don't know what raw_log logs, any event could have been emitted.
-                # Therefore we create a fresh var and do
-                # if var == 0:
-                #    log.event1(...)
-                # elif var == 1:
-                #    log.event2(...)
-                # ...
-                # for all events to indicate that at most one event has been emitted.
-
-                var_name = ctx.new_local_var_name('$a')
-                var_decl = self.viper_ast.LocalVarDecl(var_name, self.viper_ast.Int, pos)
-                ctx.new_local_vars.append(var_decl)
-                var = var_decl.localVar()
-                for idx, event in enumerate(ctx.program.events.values()):
-                    condition = self.viper_ast.EqCmp(var, self.viper_ast.IntLit(idx, pos), pos)
-
-                    args = []
-                    for arg_type in event.type.arg_types:
-                        arg_name = ctx.new_local_var_name('$arg')
-                        arg_type = self.type_translator.translate(arg_type, ctx)
-                        arg = self.viper_ast.LocalVarDecl(arg_name, arg_type, pos)
-                        ctx.new_local_vars.append(arg)
-                        args.append(arg.localVar())
-
-                    log_event = self._log_event(event, args, ctx, pos)
-                    stmts.append(self.viper_ast.If(condition, log_event, [], pos))
-
-                return stmts, None
-            elif name == names.CREATE_FORWARDER_TO:
-                stmts, at = self.translate(node.args[0], ctx)
-                if node.keywords:
-                    amount_stmts, amount = self.translate(node.keywords[0].value, ctx)
-                    stmts.extend(amount_stmts)
-                    check = self.balance_translator.check_balance(amount, ctx, pos)
-                    sent = self.balance_translator.increase_sent(at, amount, ctx, pos)
-                    sub = self.balance_translator.decrease_balance(amount, ctx, pos)
-                    stmts.extend([check, sent, sub])
-
-                new_name = ctx.new_local_var_name('$new')
-                type = self.type_translator.translate(node.type, ctx)
-                new_var_decl = self.viper_ast.LocalVarDecl(new_name, type, pos)
-                ctx.new_local_vars.append(new_var_decl)
-                new_var = new_var_decl.localVar()
-
-                eq_zero = self.viper_ast.EqCmp(new_var, self.viper_ast.IntLit(0, pos), pos)
-                stmts.append(self.fail_if(eq_zero, [], ctx, pos))
-
-                return stmts, new_var
-            # This is a struct initializer
-            elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
-                stmts = []
-                exprs = {}
-                for key, value in zip(node.args[0].keys, node.args[0].values):
-                    value_stmts, value_expr = self.translate(value, ctx)
-                    stmts.extend(value_stmts)
-                    idx = node.type.member_indices[key.id]
-                    exprs[idx] = value_expr
-
-                init_args = [exprs[i] for i in range(len(exprs))]
-                init = helpers.struct_init(self.viper_ast, init_args, node.type, pos)
-                return stmts, init
-            # This is a contract / interface initializer
-            elif name in ctx.program.contracts or name in ctx.program.interfaces:
-                return self.translate(node.args[0], ctx)
-            elif name in names.GHOST_STATEMENTS:
-                return self.spec_translator.translate_ghost_statement(node, ctx)
-            else:
-                raise UnsupportedException(node, "Unsupported function call")
-        else:
-            name = node.func.attr
+            return stmts, helpers.blockhash(self.viper_ast, arg, ctx, pos)
+        elif name == names.METHOD_ID:
+            arg_stmts, arg = self.translate(node.args[0], ctx)
+            return arg_stmts, helpers.method_id(self.viper_ast, arg, node.type.size, pos)
+        elif name == names.ECRECOVER:
             stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
-            rec_type = node.func.value.type
-
-            if isinstance(rec_type, types.SelfType):
-                call_stmts, res = self.function_translator.inline(node, args, ctx)
-                return stmts + call_stmts, res
-            elif isinstance(rec_type, (ContractType, InterfaceType)):
-                to_stmts, to = self.translate(node.func.value, ctx)
-
-                val_idx = first_index(lambda n: n.name == names.RAW_CALL_VALUE, node.keywords)
-                if val_idx >= 0:
-                    amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
-                    stmts.extend(amount_stmts)
-                else:
-                    amount = None
-
-                if isinstance(rec_type, ContractType):
-                    const = rec_type.function_modifiers[node.func.attr] == names.CONSTANT
-                    call_stmts, _, res = self._translate_external_call(node, to, amount, const, ctx)
-                    stmts.extend(call_stmts)
-                else:
-                    interface = ctx.program.interfaces[rec_type.name]
-                    function = interface.functions[name]
-                    const = function.is_constant()
-
-                    # If the function is payable, but no ether is sent, revert
-                    # If the function is not payable, but ether is sent, revert
-                    zero = self.viper_ast.IntLit(0, pos)
-                    if function.is_payable():
-                        cond = self.viper_ast.LeCmp(amount, zero, pos) if amount else self.viper_ast.TrueLit(pos)
-                    else:
-                        cond = self.viper_ast.NeCmp(amount, zero, pos) if amount else self.viper_ast.FalseLit(pos)
-
-                    stmts.append(self.fail_if(cond, [], ctx, pos))
-                    known = (interface, function, args)
-                    call_stmts, succ, res = self._translate_external_call(node, to, amount, const, ctx, known)
-                    stmts.extend(call_stmts)
-
-                return stmts, res
-            elif node.func.value.id == names.LOG:
-                event = ctx.program.events[name]
-                stmts.extend(self._log_event(event, args, ctx, pos))
-                return stmts, None
+            return stmts, helpers.ecrecover(self.viper_ast, args, pos)
+        elif name == names.ECADD or name == names.ECMUL:
+            stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+            fail_var_name = ctx.new_local_var_name('$fail')
+            fail_var_decl = self.viper_ast.LocalVarDecl(fail_var_name, self.viper_ast.Bool, pos)
+            ctx.new_local_vars.append(fail_var_decl)
+            fail_var = fail_var_decl.localVar()
+            stmts.append(self.fail_if(fail_var, [], ctx, pos))
+            if name == names.ECADD:
+                return stmts, helpers.ecadd(self.viper_ast, args, pos)
             else:
-                assert False
+                return stmts, helpers.ecmul(self.viper_ast, args, pos)
+        elif name == names.SELFDESTRUCT:
+            arg_stmts, arg = self.translate(node.args[0], ctx)
+
+            self_var = ctx.self_var.local_var(ctx)
+            self_type = ctx.self_type
+
+            val = self.viper_ast.TrueLit(pos)
+            member = mangled.SELFDESTRUCT_FIELD
+            type = self.type_translator.translate(self_type.member_types[member], ctx)
+            sset = helpers.struct_set(self.viper_ast, self_var, val, member, type, self_type, pos)
+            self_s_assign = self.viper_ast.LocalVarAssign(self_var, sset, pos)
+
+            balance = self.balance_translator.get_balance(self_var, ctx, pos)
+            sent = self.balance_translator.increase_sent(arg, balance, ctx, pos)
+
+            zero = self.viper_ast.IntLit(0, pos)
+            bset = self.balance_translator.set_balance(self_var, zero, ctx, pos)
+            self_b_assign = self.viper_ast.LocalVarAssign(self_var, bset, pos)
+
+            goto_return = self.viper_ast.Goto(ctx.return_label, pos)
+            return [*arg_stmts, self_s_assign, sent, self_b_assign, goto_return], None
+        elif name == names.ASSERT_MODIFIABLE:
+            cond_stmts, cond = self.translate(node.args[0], ctx)
+            not_cond = self.viper_ast.Not(cond, pos)
+            fail = self.fail_if(not_cond, [], ctx, pos)
+            return [*cond_stmts, fail], None
+        elif name == names.SEND:
+            to_stmts, to = self.translate(node.args[0], ctx)
+            amount_stmts, amount = self.translate(node.args[1], ctx)
+            call_stmts, _, expr = self._translate_external_call(node, to, amount, False, ctx)
+            return [*to_stmts, *amount_stmts, *call_stmts], expr
+        elif name == names.RAW_CALL:
+            # Translate the callee address
+            to_stmts, to = self.translate(node.args[0], ctx)
+            # Translate the data expression (bytes)
+            function_stmts, _ = self.translate(node.args[1], ctx)
+
+            args_stmts = [*to_stmts, *function_stmts]
+            amount = self.viper_ast.IntLit(0, pos)
+            for kw in node.keywords:
+                arg_stmts, arg = self.translate(kw.value, ctx)
+                if kw.name == names.RAW_CALL_VALUE:
+                    amount = arg
+                args_stmts.extend(arg_stmts)
+
+            call_stmts, _, call = self._translate_external_call(node, to, amount, False, ctx)
+            return [*args_stmts, *call_stmts], call
+        elif name == names.RAW_LOG:
+            topic_stmts, _ = self.translate(node.args[0], ctx)
+            data_stmts, _ = self.translate(node.args[1], ctx)
+
+            stmts = topic_stmts + data_stmts
+
+            # Since we don't know what raw_log logs, any event could have been emitted.
+            # Therefore we create a fresh var and do
+            # if var == 0:
+            #    log.event1(...)
+            # elif var == 1:
+            #    log.event2(...)
+            # ...
+            # for all events to indicate that at most one event has been emitted.
+
+            var_name = ctx.new_local_var_name('$a')
+            var_decl = self.viper_ast.LocalVarDecl(var_name, self.viper_ast.Int, pos)
+            ctx.new_local_vars.append(var_decl)
+            var = var_decl.localVar()
+            for idx, event in enumerate(ctx.program.events.values()):
+                condition = self.viper_ast.EqCmp(var, self.viper_ast.IntLit(idx, pos), pos)
+
+                args = []
+                for arg_type in event.type.arg_types:
+                    arg_name = ctx.new_local_var_name('$arg')
+                    arg_type = self.type_translator.translate(arg_type, ctx)
+                    arg = self.viper_ast.LocalVarDecl(arg_name, arg_type, pos)
+                    ctx.new_local_vars.append(arg)
+                    args.append(arg.localVar())
+
+                log_event = self._log_event(event, args, ctx, pos)
+                stmts.append(self.viper_ast.If(condition, log_event, [], pos))
+
+            return stmts, None
+        elif name == names.CREATE_FORWARDER_TO:
+            stmts, at = self.translate(node.args[0], ctx)
+            if node.keywords:
+                amount_stmts, amount = self.translate(node.keywords[0].value, ctx)
+                stmts.extend(amount_stmts)
+                check = self.balance_translator.check_balance(amount, ctx, pos)
+                sent = self.balance_translator.increase_sent(at, amount, ctx, pos)
+                sub = self.balance_translator.decrease_balance(amount, ctx, pos)
+                stmts.extend([check, sent, sub])
+
+            new_name = ctx.new_local_var_name('$new')
+            type = self.type_translator.translate(node.type, ctx)
+            new_var_decl = self.viper_ast.LocalVarDecl(new_name, type, pos)
+            ctx.new_local_vars.append(new_var_decl)
+            new_var = new_var_decl.localVar()
+
+            eq_zero = self.viper_ast.EqCmp(new_var, self.viper_ast.IntLit(0, pos), pos)
+            stmts.append(self.fail_if(eq_zero, [], ctx, pos))
+
+            return stmts, new_var
+        # This is a struct initializer
+        elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
+            stmts = []
+            exprs = {}
+            for key, value in zip(node.args[0].keys, node.args[0].values):
+                value_stmts, value_expr = self.translate(value, ctx)
+                stmts.extend(value_stmts)
+                idx = node.type.member_indices[key.id]
+                exprs[idx] = value_expr
+
+            init_args = [exprs[i] for i in range(len(exprs))]
+            init = helpers.struct_init(self.viper_ast, init_args, node.type, pos)
+            return stmts, init
+        # This is a contract / interface initializer
+        elif name in ctx.program.contracts or name in ctx.program.interfaces:
+            return self.translate(node.args[0], ctx)
+        elif name in names.GHOST_STATEMENTS:
+            return self.spec_translator.translate_ghost_statement(node, ctx)
+        else:
+            raise UnsupportedException(node, "Unsupported function call")
+
+    def translate_ReceiverCall(self, node: ast.ReceiverCall, ctx: Context) -> StmtsAndExpr:
+        pos = self.to_position(node, ctx)
+
+        name = node.name
+        stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+        rec_type = node.receiver.type
+
+        if isinstance(rec_type, types.SelfType):
+            call_stmts, res = self.function_translator.inline(node, args, ctx)
+            return stmts + call_stmts, res
+        elif isinstance(rec_type, (ContractType, InterfaceType)):
+            to_stmts, to = self.translate(node.receiver, ctx)
+
+            val_idx = first_index(lambda n: n.name == names.RAW_CALL_VALUE, node.keywords)
+            if val_idx >= 0:
+                amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
+                stmts.extend(amount_stmts)
+            else:
+                amount = None
+
+            if isinstance(rec_type, ContractType):
+                const = rec_type.function_modifiers[node.name] == names.CONSTANT
+                call_stmts, _, res = self._translate_external_call(node, to, amount, const, ctx)
+                stmts.extend(call_stmts)
+            else:
+                interface = ctx.program.interfaces[rec_type.name]
+                function = interface.functions[name]
+                const = function.is_constant()
+
+                # If the function is payable, but no ether is sent, revert
+                # If the function is not payable, but ether is sent, revert
+                zero = self.viper_ast.IntLit(0, pos)
+                if function.is_payable():
+                    cond = self.viper_ast.LeCmp(amount, zero, pos) if amount else self.viper_ast.TrueLit(pos)
+                else:
+                    cond = self.viper_ast.NeCmp(amount, zero, pos) if amount else self.viper_ast.FalseLit(pos)
+
+                stmts.append(self.fail_if(cond, [], ctx, pos))
+                known = (interface, function, args)
+                call_stmts, succ, res = self._translate_external_call(node, to, amount, const, ctx, known)
+                stmts.extend(call_stmts)
+
+            return stmts, res
+        elif node.receiver.id == names.LOG:
+            event = ctx.program.events[name]
+            stmts.extend(self._log_event(event, args, ctx, pos))
+            return stmts, None
+        else:
+            assert False
 
     def _log_event(self, event: VyperEvent, args, ctx, pos=None) -> List[Stmt]:
         event_name = mangled.event_name(event.name)
@@ -682,7 +684,7 @@ class ExpressionTranslator(NodeTranslator):
         return self.seqn_with_info([log], f"Event: {event.name}")
 
     def _translate_external_call(self,
-                                 node: ast.Call,
+                                 node: ast.Expr,
                                  to: Expr,
                                  amount: Optional[Expr],
                                  constant: bool,

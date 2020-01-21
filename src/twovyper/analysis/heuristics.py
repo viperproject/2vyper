@@ -52,13 +52,9 @@ class _AccessibleHeuristics(NodeVisitor):
         self.current_function = function
         self.visit(function.node)
 
-    def visit_Call(self, node: ast.Call):
-        if not isinstance(node.func, ast.Name):
-            self.generic_visit(node)
-            return
-
-        is_send = node.func.id == names.SEND
-        is_rawcall = node.func.id == names.RAW_CALL
+    def visit_FunctionCall(self, node: ast.FunctionCall):
+        is_send = node.name == names.SEND
+        is_rawcall = node.name == names.RAW_CALL
         is_raw_send = names.RAW_CALL_VALUE in [kw.name for kw in node.keywords]
         if is_send or (is_rawcall and is_raw_send):
             self.send_functions.append(self.current_function)

@@ -53,6 +53,9 @@ class ConstantInterpreter(NodeVisitor):
     def __init__(self, constants: Dict[str, Any]):
         self.constants = constants
 
+    def generic_visit(self, node: ast.Node):
+        raise UnsupportedException(node)
+
     def visit_BoolOp(self, node: ast.BoolOp):
         left = self.visit(node.left)
         right = self.visit(node.right)
@@ -121,13 +124,12 @@ class ConstantInterpreter(NodeVisitor):
         else:
             assert False
 
-    def visit_Call(self, node: ast.Call):
+    def visit_FunctionCall(self, node: ast.FunctionCall):
         args = [self.visit(arg) for arg in node.args]
-        if isinstance(node.func, ast.Name):
-            if node.func.id == names.MIN:
-                return min(args)
-            elif node.func.id == names.MAX:
-                return max(args)
+        if node.name == names.MIN:
+            return min(args)
+        elif node.name == names.MAX:
+            return max(args)
 
         raise UnsupportedException(node)
 
@@ -152,7 +154,7 @@ class ConstantCollector(NodeTransformer):
         self.constants = []
 
     def _is_constant(self, node):
-        return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'constant'
+        return isinstance(node, ast.FunctionCall) and node.name == 'constant'
 
     def collect_constants(self, node):
         new_node = self.visit(node)

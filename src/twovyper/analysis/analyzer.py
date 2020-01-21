@@ -49,7 +49,7 @@ class ProgramAnalysis:
         # Each invariant has a tag that is used in accessible so we know which invariant fails
         # if we cannot prove the accessibility
         self.inv_tags = {}
-        # Maps accessible ast.Call nodes to their tag
+        # Maps accessible ast.ReceiverCall nodes to their tag
         self.accessible_tags = {}
 
 
@@ -83,22 +83,21 @@ class _ProgramAnalyzer(NodeVisitor):
         for check in self.program.general_checks:
             self.visit(check)
 
-    def visit_Call(self, node: ast.Call):
-        if isinstance(node.func, ast.Name):
-            if node.func.id == names.ISSUED:
-                self.program.analysis.uses_issued = True
-                for function in self.program.functions.values():
-                    function.analysis.uses_issued = True
-            elif node.func.id == names.ACCESSIBLE:
-                self.program.analysis.accessible_tags[node] = self.tag
-                if len(node.args) == 3:
-                    function_name = node.args[2].func.attr
-                else:
-                    if not self.program.analysis.accessible_function:
-                        msg = "No matching function for accessible could be determined."
-                        raise UnsupportedException(node, msg)
-                    function_name = self.program.analysis.accessible_function.name
-                self.program.functions[function_name].analysis.accessible_tags.add(self.tag)
+    def visit_FunctionCall(self, node: ast.FunctionCall):
+        if node.name == names.ISSUED:
+            self.program.analysis.uses_issued = True
+            for function in self.program.functions.values():
+                function.analysis.uses_issued = True
+        elif node.name == names.ACCESSIBLE:
+            self.program.analysis.accessible_tags[node] = self.tag
+            if len(node.args) == 3:
+                function_name = node.args[2].name
+            else:
+                if not self.program.analysis.accessible_function:
+                    msg = "No matching function for accessible could be determined."
+                    raise UnsupportedException(node, msg)
+                function_name = self.program.analysis.accessible_function.name
+            self.program.functions[function_name].analysis.accessible_tags.add(self.tag)
 
         self.generic_visit(node)
 
@@ -115,8 +114,8 @@ class _FunctionAnalyzer(NodeVisitor):
         for check in self.function.checks:
             self.visit(check)
 
-    def visit_Call(self, node: ast.Call):
-        if isinstance(node.func, ast.Name) and node.func.id == names.ISSUED:
+    def visit_FunctionCall(self, node: ast.FunctionCall):
+        if node.name == names.ISSUED:
             self.function.analysis.uses_issued = True
 
         self.generic_visit(node)
