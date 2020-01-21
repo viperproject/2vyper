@@ -760,6 +760,7 @@ class TypeAnnotator(NodeVisitor):
         return [ntype], [node]
 
     def visit_Name(self, node: ast.Name):
+        _check(node.id in self.variables, node, 'invalid.local.var')
         return self.variables[node.id], [node]
 
     def visit_List(self, node: ast.List):
