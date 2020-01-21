@@ -18,7 +18,7 @@ from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
-    VyperConfig, VyperInterface, GhostFunction
+    Config, VyperInterface, GhostFunction
 )
 from twovyper.ast.types import TypeBuilder, FunctionType, EventType, SelfType, InterfaceType
 
@@ -90,7 +90,7 @@ class ProgramBuilder(NodeVisitor):
         # No trailing local specs allowed
         self._check_no_local_spec()
 
-        self.config = self.config or VyperConfig([])
+        self.config = self.config or Config([])
 
         if self.is_interface:
             interface_type = InterfaceType(self.name)
@@ -238,7 +238,7 @@ class ProgramBuilder(NodeVisitor):
                     msg = f"Option {option} is invalid."
                     raise InvalidProgramException(node, 'invalid.config.option', msg)
 
-            self.config = VyperConfig(options)
+            self.config = Config(options)
         elif name == names.INTERFACE:
             self._check_no_local_spec()
             self.is_interface = True

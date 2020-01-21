@@ -13,7 +13,7 @@ from twovyper.ast.types import (
 )
 
 
-class VyperConfig:
+class Config:
 
     def __init__(self, options: List[str]):
         self.options = options
@@ -115,7 +115,7 @@ class VyperProgram:
 
     def __init__(self,
                  file: str,
-                 config: VyperConfig,
+                 config: Config,
                  fields: VyperStruct,
                  functions: Dict[str, VyperFunction],
                  interfaces: Dict[str, 'VyperInterface'],
@@ -168,7 +168,7 @@ class VyperInterface(VyperProgram):
     def __init__(self,
                  file: str,
                  name: Optional[str],
-                 config: VyperConfig,
+                 config: Config,
                  functions: Dict[str, VyperFunction],
                  ghost_functions: Dict[str, GhostFunction],
                  general_postconditions: List[ast.Expr],
