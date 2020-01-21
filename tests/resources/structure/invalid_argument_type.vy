@@ -6,7 +6,7 @@
 #
 
 
-#:: ExpectedOutput(invalid.program:invalid.type)
+#:: ExpectedOutput(invalid.program:wrong.type)
 #@ invariant: forall({a: address}, a)
 
 

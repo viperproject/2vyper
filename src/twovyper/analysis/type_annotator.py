@@ -149,7 +149,7 @@ class TypeAnnotator(NodeVisitor):
                 arrays = [t for t in lst if is_array(t) and t.element_type == matching.element_type]
                 return max(arrays, key=lambda t: t.size)
             except ValueError:
-                raise InvalidProgramException(node if node is not None else node2, 'invalid.type')
+                raise InvalidProgramException(node if node is not None else node2, 'wrong.type')
 
         def intersect(l1, l2):
             for e in l1:
@@ -164,7 +164,7 @@ class TypeAnnotator(NodeVisitor):
 
         intersection = list(filter(allowed, intersect(types1, types2)))
         if not intersection:
-            raise InvalidProgramException(node if node is not None else node2, 'invalid.type')
+            raise InvalidProgramException(node if node is not None else node2, 'wrong.type')
         else:
             if node:
                 return intersection, [*nodes1, *nodes2, node]
@@ -204,7 +204,7 @@ class TypeAnnotator(NodeVisitor):
         if orelse:
             self.annotate_expected(node, orelse)
         else:
-            raise InvalidProgramException(node, 'invalid.type')
+            raise InvalidProgramException(node, 'wrong.type')
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         for stmt in node.body:

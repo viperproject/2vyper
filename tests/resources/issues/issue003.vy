@@ -7,7 +7,7 @@
 
 amount: public(uint256(wei))
 
-#:: ExpectedOutput(invalid.program:invalid.type)
+#:: ExpectedOutput(invalid.program:wrong.type)
 #@ invariant: sent() == self.amount
 
 @public

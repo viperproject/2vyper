@@ -6,7 +6,7 @@
 #
 
 
-#:: ExpectedOutput(invalid.program:invalid.type)
+#:: ExpectedOutput(invalid.program:wrong.type)
 #@ ensures: success() ==> result() == old(a + b)
 @public
 def add_arrays(a: int128[19], b: int128[19]) -> int128[19]:
