@@ -10,7 +10,7 @@ from typing import Optional, List, Dict
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.visitors import NodeVisitor
 
-from twovyper.exceptions import UnsupportedException
+from twovyper.exceptions import InvalidProgramException
 
 
 class VyperType:
@@ -275,10 +275,13 @@ class TypeBuilder(NodeVisitor):
         return '_visit'
 
     def generic_visit(self, node):
-        raise UnsupportedException(node)
+        raise InvalidProgramException(node, 'invalid.type')
 
     def _visit_Name(self, node: ast.Name) -> VyperType:
-        return self.type_map.get(node.id) or TYPES[node.id]
+        type = self.type_map.get(node.id) or TYPES.get(node.id)
+        if type is None:
+            raise InvalidProgramException(node, 'invalid.type')
+        return type
 
     def _visit_StructDef(self, node: ast.StructDef) -> VyperType:
         members = {n.target.id: self.visit(n.annotation) for n in node.body}
@@ -314,7 +317,7 @@ class TypeBuilder(NodeVisitor):
             arg_types = [self.visit(arg) for arg in dict_literal.values]
             return EventType(arg_types)
         else:
-            return TYPES[node.func.id]
+            return self.visit(node.func)
 
     def _visit_Subscript(self, node: ast.Subscript) -> VyperType:
         element_type = self.visit(node.value)
