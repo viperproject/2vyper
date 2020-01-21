@@ -772,15 +772,15 @@ class ExpressionTranslator(NodeTranslator):
         for event in ctx.program.events.values():
             event_name = mangled.event_name(event.name)
             types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
-            args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos) for idx, type in enumerate(types)]
-            local_args = [arg.localVar() for arg in args]
+            event_args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos) for idx, type in enumerate(types)]
+            local_args = [arg.localVar() for arg in event_args]
             pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
             perm = self.viper_ast.CurrentPerm(pa, pos)
             pap = self.viper_ast.PredicateAccessPredicate(pa, perm, pos)
             none = self.viper_ast.NoPerm(pos)
             impl = self.viper_ast.Implies(self.viper_ast.GtCmp(perm, none, pos), pap)
             trigger = self.viper_ast.Trigger([pa], pos)
-            forall = self.viper_ast.Forall(args, [trigger], impl, pos)
+            forall = self.viper_ast.Forall(event_args, [trigger], impl, pos)
             event_exhales.append(self.viper_ast.Exhale(forall, pos))
 
         if not constant:
