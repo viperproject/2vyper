@@ -1,5 +1,5 @@
 
-2vyper is an automatic verifier for smart contracts written in Vyper, based on the `Viper <http://viper.ethz.ch>`_ verification infrastructure. Nagini is being developed at the `Programming Methodology Group <http://www.pm.inf.ethz.ch/>`_ at ETH Zurich.
+2vyper is an automatic verifier for smart contracts written in Vyper, based on the `Viper <http://viper.ethz.ch>`_ verification infrastructure. It is being developed at the `Programming Methodology Group <http://www.pm.inf.ethz.ch/>`_ at ETH Zurich.
 
 Dependencies (Ubuntu Linux, MacOS)
 ===================================
