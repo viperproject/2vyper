@@ -337,6 +337,17 @@ class FunctionDef(Stmt):
         self.returns = returns
 
 
+class FunctionStub(Stmt):
+
+    _children = ['args']
+
+    def __init__(self, name: str, args: ListT[Arg], returns: OptionalT[Expr]):
+        super().__init__()
+        self.name = name
+        self.args = args
+        self.returns = returns
+
+
 class Return(Stmt):
 
     _children = ['value']

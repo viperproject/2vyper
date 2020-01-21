@@ -99,10 +99,26 @@ class _PythonTransformer(Transformer):
         decorators = children[0]
         name = str(children[1])
         args = children[2]
-        has_ret = isinstance(children[3], list)
-        ret = None if has_ret else children[3]
-        body = children[3 if has_ret else 4]
-        return ast.FunctionDef(name, args, body, decorators, ret)
+
+        if len(children) == 3:
+            # This is a function stub without a return value
+            if decorators:
+                raise InvalidProgramException(decorators[0], 'invalid.function.stub')
+            return ast.FunctionStub(name, args, None)
+        elif len(children) == 4:
+            if isinstance(children[3], list):
+                # This is a function definition without a return value
+                body = children[3]
+                return ast.FunctionDef(name, args, body, decorators, None)
+            else:
+                # This is a function stub with a return value
+                ret = children[3]
+                return ast.FunctionStub(name, args, ret)
+        elif len(children) == 5:
+            # This is a function definition with a return value
+            ret = children[3]
+            body = children[4]
+            return ast.FunctionDef(name, args, body, decorators, ret)
 
     def decorators(self, children, meta):
         return children

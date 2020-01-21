@@ -88,6 +88,17 @@ class GhostFunction:
         self.node = node
 
 
+class Resource:
+
+    def __init__(self,
+                 name: str,
+                 args: Dict[str, VyperVar],
+                 node: ast.FunctionStub):
+        self.name = name
+        self.args = args
+        self.node = node
+
+
 class VyperStruct:
 
     def __init__(self, name: str, type: StructType, node: Optional[ast.StructDef]):
@@ -122,6 +133,7 @@ class VyperProgram:
                  structs: Dict[str, VyperStruct],
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
+                 resources: Dict[str, Resource],
                  invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
                  transitive_postconditions: List[ast.Expr],
@@ -136,6 +148,7 @@ class VyperProgram:
         self.structs = structs
         self.contracts = contracts
         self.events = events
+        self.resources = resources
         self.invariants = invariants
         self.general_postconditions = general_postconditions
         self.transitive_postconditions = transitive_postconditions
@@ -180,7 +193,7 @@ class VyperInterface(VyperProgram):
                          config,
                          empty_struct,
                          functions,
-                         {}, {}, {}, {},
+                         {}, {}, {}, {}, {},
                          [],
                          general_postconditions,
                          [], [], [], {})

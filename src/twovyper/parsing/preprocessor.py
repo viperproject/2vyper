@@ -27,6 +27,7 @@ def preprocess(program: str) -> str:
     replace(r'#@\s*config\s*:', replacement('config', '='))
     replace(r'#@\s*interface', replacement('interface', '=True'))
     replace(r'#@\s*ghost\s*:', replacement('with(g)', ':'))
+    replace(r'#@\s*resource\s*:', replacement('def ', ''))
     replace(r'#@\s*ensures\s*:', replacement('ensures', '='))
     replace(r'#@\s*check\s*:', replacement('check', '='))
     replace(r'#@\s*invariant\s*:', replacement('invariant', '='))
