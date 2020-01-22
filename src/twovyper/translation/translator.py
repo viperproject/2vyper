@@ -201,12 +201,17 @@ class ProgramTranslator(CommonTranslator):
 
         init_args = [param.localVar() for param in init_parms]
         init = helpers.struct_init(self.viper_ast, init_args, struct.type)
-        init_expr = self.viper_ast.TrueLit()
+        # The type tag of the initializer is always the type tag of the struct being initialized
+        type_tag = self.viper_ast.IntLit(mangled.struct_type_tag(struct.name))
+        init_expr = self.viper_ast.EqCmp(helpers.struct_type_tag(self.viper_ast, init), type_tag)
 
         eq_left = eq_left_decl.localVar()
         eq_right = eq_right_decl.localVar()
         eq = helpers.struct_eq(self.viper_ast, eq_left, eq_right, struct.type)
-        eq_expr = self.viper_ast.TrueLit()
+        # For two struct to be equal the type tags have to agree, i.e., they have to be of the same Vyper type
+        ltag = helpers.struct_type_tag(self.viper_ast, eq_left)
+        rtag = helpers.struct_type_tag(self.viper_ast, eq_right)
+        eq_expr = self.viper_ast.EqCmp(ltag, rtag)
 
         for name, var in members:
             init_get = helpers.struct_get(self.viper_ast, init, name, var.typ(), struct.type)
@@ -236,7 +241,6 @@ class ProgramTranslator(CommonTranslator):
         return self.viper_ast.Domain(domain, [init_f, eq_f], [init_axiom, eq_axiom], [])
 
     def _translate_resource(self, resource: VyperStruct, ctx: Context):
-        resource.type.add_member(mangled.RESOURCE_ID, types.VYPER_INT128)
         return self._translate_struct(resource, ctx)
 
     def _translate_ghost_function(self, function: GhostFunction, ctx: Context):

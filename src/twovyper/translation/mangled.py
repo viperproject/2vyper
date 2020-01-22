@@ -19,8 +19,6 @@ OFFERED = '$offered'
 
 OFFER = '$offer'
 
-RESOURCE_ID = '$rid'
-
 MSG = names.MSG
 BLOCK = names.BLOCK
 CHAIN = names.CHAIN
@@ -93,6 +91,8 @@ STRUCT_OPS_VALUE_VAR = '$T'
 STRUCT_LOC = '$struct_loc'
 STRUCT_GET = '$struct_get'
 STRUCT_SET = '$struct_set'
+
+STRUCT_TYPE_LOC = -1
 
 STRUCT_INIT_DOMAIN = '$StructInit'
 
@@ -194,3 +194,7 @@ def quantifier_var_name(vyper_name: str) -> str:
 
 def model_var_name(*components: str) -> str:
     return f'm${"$".join(components)}'
+
+
+def struct_type_tag(name: str) -> int:
+    return int.from_bytes(name.encode('utf-8'), 'big')

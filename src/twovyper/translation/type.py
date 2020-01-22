@@ -145,13 +145,13 @@ class TypeTranslator(CommonTranslator):
             #   forall i: Int :: 0 <= i && i < |array| ==> construct(array[i])
             # where construct recursively constructs the assumptions for nested arrays and maps
             elif isinstance(type, ArrayType):
-                    array_len = self.viper_ast.SeqLength(node)
-                    size = self.viper_ast.IntLit(type.size)
-                    if type.is_strict:
-                        comp = self.viper_ast.EqCmp(array_len, size)
-                    else:
-                        comp = self.viper_ast.LeCmp(array_len, size)
-                    ret.append(comp)
+                array_len = self.viper_ast.SeqLength(node)
+                size = self.viper_ast.IntLit(type.size)
+                if type.is_strict:
+                    comp = self.viper_ast.EqCmp(array_len, size)
+                else:
+                    comp = self.viper_ast.LeCmp(array_len, size)
+                ret.append(comp)
 
                 quant_var_name = ctx.new_quantified_var_name()
                 quant_decl = self.viper_ast.LocalVarDecl(quant_var_name, self.viper_ast.Int)
@@ -170,11 +170,17 @@ class TypeTranslator(CommonTranslator):
                     ret.append(quantifier)
             # If we encounter a struct type we simply add the necessary assumptions for
             # all struct members
+            # Additionally, we add an assumption about the type tag
             elif isinstance(type, StructType):
                 for member_name, member_type in type.member_types.items():
                     viper_type = self.translate(member_type, ctx)
                     get = helpers.struct_get(self.viper_ast, node, member_name, viper_type, type)
                     ret.extend(construct(member_type, get))
+
+                type_tag = self.viper_ast.IntLit(mangled.struct_type_tag(type.name))
+                get_tag = helpers.struct_type_tag(self.viper_ast, node)
+                ret.append(self.viper_ast.EqCmp(get_tag, type_tag))
+
             return ret
 
         with ctx.quantified_var_scope():

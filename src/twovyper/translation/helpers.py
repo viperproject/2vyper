@@ -340,6 +340,19 @@ def struct_eq(viper_ast: ViperAST, left, right, struct: StructType, pos=None, in
     return viper_ast.DomainFuncApp(eq, [left, right], viper_ast.Bool, pos, info, domain)
 
 
+def struct_type_tag(viper_ast: ViperAST, ref, pos=None, info=None):
+    """
+    Returns the type tag of a struct which we store at index -1 of a struct
+    """
+    domain = mangled.STRUCT_OPS_DOMAIN
+    idx = viper_ast.IntLit(mangled.STRUCT_TYPE_LOC)
+    field = struct_loc(viper_ast, ref, idx, pos)
+    getter = mangled.STRUCT_GET
+    type_type = viper_ast.Int
+    type_map = _struct_type_var_map(viper_ast, type_type)
+    return viper_ast.DomainFuncApp(getter, [field], type_type, pos, info, domain, type_map)
+
+
 def _struct_type_var_map(viper_ast: ViperAST, member_type):
     member = viper_ast.TypeVar(mangled.STRUCT_OPS_VALUE_VAR)
     return {member: member_type}

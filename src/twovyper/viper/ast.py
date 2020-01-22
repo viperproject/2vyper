@@ -600,6 +600,10 @@ class ViperAST:
     def Forall(self, variables, triggers, exp, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
+
+        if not variables:
+            return exp
+
         res = self.ast.Forall(self.to_seq(variables), self.to_seq(triggers), exp, position, info, self.NoTrafos)
         if res.isPure():
             return res
