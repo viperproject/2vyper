@@ -188,13 +188,14 @@ class Keyword(Node):
 
 class FunctionCall(Expr):
 
-    _children = ['args', 'keywords']
+    _children = ['args', 'keywords', 'resource']
 
-    def __init__(self, name: str, args: ListT[Expr], keywords: ListT[Keyword]):
+    def __init__(self, name: str, args: ListT[Expr], keywords: ListT[Keyword], resource: OptionalT[Expr] = None):
         super().__init__()
         self.name = name
         self.args = args
         self.keywords = keywords
+        self.resource = resource
 
 
 class ReceiverCall(Expr):

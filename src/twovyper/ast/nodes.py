@@ -88,20 +88,9 @@ class GhostFunction:
         self.node = node
 
 
-class Resource:
-
-    def __init__(self,
-                 name: str,
-                 args: Dict[str, VyperVar],
-                 node: ast.FunctionStub):
-        self.name = name
-        self.args = args
-        self.node = node
-
-
 class VyperStruct:
 
-    def __init__(self, name: str, type: StructType, node: Optional[ast.StructDef]):
+    def __init__(self, name: str, type: StructType, node: Optional[ast.Node]):
         self.name = name
         self.type = type
         self.node = node
@@ -133,7 +122,7 @@ class VyperProgram:
                  structs: Dict[str, VyperStruct],
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
-                 resources: Dict[str, Resource],
+                 resources: Dict[str, VyperStruct],
                  invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
                  transitive_postconditions: List[ast.Expr],

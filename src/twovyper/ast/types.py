@@ -287,6 +287,11 @@ class TypeBuilder(NodeVisitor):
         members = {n.target.id: self.visit(n.annotation) for n in node.body}
         return StructType(node.name, members)
 
+    def _visit_FunctionStub(self, node: ast.FunctionStub) -> VyperType:
+        # A resource declaration
+        members = {n.name: self.visit(n.annotation) for n in node.args}
+        return StructType(node.name, members)
+
     def _visit_ContractDef(self, node: ast.ContractDef) -> VyperType:
         functions = {}
         modifiers = {}

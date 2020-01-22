@@ -16,7 +16,7 @@ from twovyper.utils import flatten, seq_to_list
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction
-from twovyper.ast.types import AnyStructType
+from twovyper.ast.types import AnyStructType, StructType
 
 from twovyper.exceptions import ConsistencyException
 
@@ -105,6 +105,10 @@ class ProgramTranslator(CommonTranslator):
         # For each nonreentrant key add a boolean flag whether it is set
         for key in vyper_program.nonreentrant_keys():
             vyper_program.fields.type.add_member(mangled.lock_name(key), types.VYPER_BOOL)
+        # Add wei resource
+        wei_type = StructType(names.WEI, {})
+        wei_resource = VyperStruct(names.WEI, wei_type, None)
+        vyper_program.resources[names.WEI] = wei_resource
 
         ctx = Context()
         ctx.program = vyper_program
@@ -151,6 +155,10 @@ class ProgramTranslator(CommonTranslator):
         # Structs
         structs = vyper_program.structs.values()
         domains.extend(self._translate_struct(struct, ctx) for struct in structs)
+
+        # Resources
+        resources = vyper_program.resources.values()
+        domains.extend(self._translate_resource(resource, ctx) for resource in resources)
 
         # Ghost functions
         functions.extend(self._translate_ghost_function(func, ctx) for func in vyper_program.ghost_functions.values())
@@ -226,6 +234,10 @@ class ProgramTranslator(CommonTranslator):
         eq_axiom = self.viper_ast.DomainAxiom(eq_axiom_name, eq_quant, domain)
 
         return self.viper_ast.Domain(domain, [init_f, eq_f], [init_axiom, eq_axiom], [])
+
+    def _translate_resource(self, resource: VyperStruct, ctx: Context):
+        resource.type.add_member(mangled.RESOURCE_ID, types.VYPER_INT128)
+        return self._translate_struct(resource, ctx)
 
     def _translate_ghost_function(self, function: GhostFunction, ctx: Context):
         # We translate a ghost function as a function where the first argument is the

@@ -399,6 +399,8 @@ class _PythonTransformer(Transformer):
 
         if isinstance(func, ast.Name):
             return ast.FunctionCall(func.id, args, kwargs)
+        elif isinstance(func, ast.Subscript) and isinstance(func.value, ast.Name):
+            return ast.FunctionCall(func.value.id, args, kwargs, func.index)
         elif isinstance(func, ast.Attribute):
             return ast.ReceiverCall(func.attr, func.value, args, kwargs)
         else:

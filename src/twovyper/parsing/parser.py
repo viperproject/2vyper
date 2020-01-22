@@ -18,7 +18,7 @@ from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
-    Config, VyperInterface, GhostFunction, Resource
+    Config, VyperInterface, GhostFunction
 )
 from twovyper.ast.types import TypeBuilder, FunctionType, EventType, SelfType, InterfaceType
 
@@ -200,6 +200,14 @@ class ProgramBuilder(NodeVisitor):
         struct = VyperStruct(node.name, type, node)
         self.structs[struct.name] = struct
 
+    def visit_FunctionStub(self, node: ast.FunctionStub):
+        # A function stub on the top-level is a resource declaration
+        self._check_no_local_spec()
+
+        type = self.type_builder.build(node)
+        resource = VyperStruct(node.name, type, node)
+        self.resources[node.name] = resource
+
     def visit_ContractDef(self, node: ast.ContractDef):
         type = self.type_builder.build(node)
         contract = VyperContract(node.name, type, node)
@@ -333,11 +341,3 @@ class ProgramBuilder(NodeVisitor):
         # Reset local specs
         self.postconditions = []
         self.checks = []
-
-    def visit_FunctionStub(self, node: ast.FunctionStub):
-        # A function stub on the top-level is a resource declaration
-        self._check_no_local_spec()
-
-        args = {arg.name: self._arg(arg) for arg in node.args}
-        resource = Resource(node.name, args, node)
-        self.resources[node.name] = resource

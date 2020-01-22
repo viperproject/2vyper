@@ -19,6 +19,8 @@ OFFERED = '$offered'
 
 OFFER = '$offer'
 
+RESOURCE_ID = '$rid'
+
 MSG = names.MSG
 BLOCK = names.BLOCK
 CHAIN = names.CHAIN
@@ -118,6 +120,10 @@ def struct_name(vyper_struct_name: str) -> str:
     return f's${vyper_struct_name}'
 
 
+def resource_name(vyper_resource_name: str) -> str:
+    return f'r${vyper_resource_name}'
+
+
 def struct_init_name(vyper_struct_name: str) -> str:
     return f'{struct_name(vyper_struct_name)}$init'
 
@@ -155,7 +161,7 @@ def accessible_name(vyper_name: str) -> str:
 
 
 def lock_name(vyper_name: str) -> str:
-    return f'r${vyper_name}'
+    return f'n${vyper_name}'
 
 
 def present_state_var_name(name: str) -> str:
