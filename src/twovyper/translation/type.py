@@ -88,25 +88,6 @@ class TypeTranslator(CommonTranslator):
             assert False
 
     def type_assumptions(self, node, type: VyperType, ctx: Context) -> List[Expr]:
-        return [*self._number_bounds(node, type, ctx), *self._array_length(node, type, ctx)]
-
-    def _number_bounds(self, node, type: VyperType, ctx: Context) -> List[Expr]:
-        """
-        Computes the bound assumptions for a node `node` of type `type`.
-        Node has to be a translated viper node.
-        """
-
-        return self._construct_quantifiers(node, type, ctx, 0)
-
-    def _array_length(self, node, type: VyperType, ctx: Context) -> List[Expr]:
-        """
-        Computes the array-length assumptions for a node `node` of type `type`.
-        Node has to be a translated viper node.
-        """
-
-        return self._construct_quantifiers(node, type, ctx, 1)
-
-    def _construct_quantifiers(self, node, type: VyperType, ctx: Context, mode: int) -> List[Expr]:
         """
         Computes the assumptions for either array length or number bounds of nested
         structures.
@@ -122,7 +103,7 @@ class TypeTranslator(CommonTranslator):
             #   x >= lower
             #   x <= upper
             # where x is said integer
-            if mode == 0 and types.is_bounded(type):
+            if types.is_bounded(type):
                 lower = self.viper_ast.IntLit(type.lower)
                 upper = self.viper_ast.IntLit(type.upper)
                 lcmp = self.viper_ast.LeCmp(lower, node)
@@ -137,9 +118,7 @@ class TypeTranslator(CommonTranslator):
                     bounds = self.viper_ast.And(lcmp, ucmp)
                 ret.append(bounds)
             # If we encounter a map, we add the following assumptions:
-            # In any mode:
             #   forall k: Key :: construct(map_get(k))
-            # If mode == 0:
             #   forall k: Key :: map_get(k) <= map_sum()
             # where constuct constructs the assumption for the values contained
             # in the map (may be empty)
@@ -156,20 +135,16 @@ class TypeTranslator(CommonTranslator):
                     quantifier = self.viper_ast.Forall([quant_decl], [trigger], r)
                     ret.append(quantifier)
 
-                if mode == 0 and types.is_unsigned(type.value_type):
+                if types.is_unsigned(type.value_type):
                     mp_sum = helpers.map_sum(self.viper_ast, node, key_type)
                     r = self.viper_ast.LeCmp(new_node, mp_sum)
                     quantifier = self.viper_ast.Forall([quant_decl], [trigger], r)
                     ret.append(quantifier)
             # If we encounter an array, we add the follwing assumptions:
-            # If mode == 0:
-            #   forall i: Int :: 0 <= i && i < |array| ==> construct(array[i]) >= 0
-            # If mode == 1:
-            #   forall i: Int :: 0 <= i && i < |array| ==> |array| == array_size
+            #   |array| == array_size
             #   forall i: Int :: 0 <= i && i < |array| ==> construct(array[i])
             # where construct recursively constructs the assumptions for nested arrays and maps
             elif isinstance(type, ArrayType):
-                if mode == 1:
                     array_len = self.viper_ast.SeqLength(node)
                     size = self.viper_ast.IntLit(type.size)
                     if type.is_strict:
