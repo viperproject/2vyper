@@ -79,6 +79,7 @@ class _PythonTransformer(Transformer):
         self.file = None
         return transformed
 
+    @copy_pos
     def file_input(self, children, meta):
         return ast.Module(children)
 

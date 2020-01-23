@@ -23,15 +23,16 @@ def _check_unique_ghost_functions(program: VyperProgram):
 
 
 def _check_ghost_implements(program: VyperProgram):
-    def check(cond):
+    def check(cond, node):
         if not cond:
-            raise InvalidProgramException(implementation.node, 'ghost.not.implemented')
+            msg = "A ghost function has not been implemented correctly."
+            raise InvalidProgramException(node, 'ghost.not.implemented', msg)
 
     for itype in program.implements:
         interface = program.interfaces[itype.name]
         for ghost in interface.ghost_functions.values():
             implementation = program.ghost_function_implementations.get(ghost.name)
-            check(implementation)
-            check(implementation.name == ghost.name)
-            check(len(implementation.args) == len(ghost.args))
-            check(implementation.type == ghost.type)
+            check(implementation, program.node)
+            check(implementation.name == ghost.name, implementation.node)
+            check(len(implementation.args) == len(ghost.args), implementation.node)
+            check(implementation.type == ghost.type, implementation.node)

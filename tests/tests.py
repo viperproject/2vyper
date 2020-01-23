@@ -496,7 +496,7 @@ class AnnotationManager:
             else:
                 unexpected_errors.append(error)
 
-        umsg = "\n".join([f"{error}" for error in unexpected_errors])
+        umsg = "\n".join(f"{error}" for error in unexpected_errors)
         assert not unexpected_errors, f"Unexpected errors found:\n{umsg}"
         assert not annotations
 

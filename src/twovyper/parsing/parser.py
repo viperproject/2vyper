@@ -100,7 +100,8 @@ class ProgramBuilder(NodeVisitor):
 
         if self.is_interface:
             interface_type = InterfaceType(self.name)
-            return VyperInterface(self.path,
+            return VyperInterface(node,
+                                  self.path,
                                   self.name,
                                   self.config,
                                   self.functions,
@@ -111,7 +112,8 @@ class ProgramBuilder(NodeVisitor):
             # Create the self-type
             self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
-            return VyperProgram(self.path,
+            return VyperProgram(node,
+                                self.path,
                                 self.config,
                                 self_struct,
                                 self.functions,

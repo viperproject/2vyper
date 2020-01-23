@@ -114,6 +114,7 @@ class VyperEvent:
 class VyperProgram:
 
     def __init__(self,
+                 node: ast.Module,
                  file: str,
                  config: Config,
                  fields: VyperStruct,
@@ -129,6 +130,7 @@ class VyperProgram:
                  general_checks: List[ast.Expr],
                  implements: List[InterfaceType],
                  ghost_function_implementations: Dict[str, ast.Expr]):
+        self.node = node
         self.file = file
         self.config = config
         self.fields = fields
@@ -168,6 +170,7 @@ class VyperProgram:
 class VyperInterface(VyperProgram):
 
     def __init__(self,
+                 node: ast.Module,
                  file: str,
                  name: Optional[str],
                  config: Config,
@@ -178,7 +181,8 @@ class VyperInterface(VyperProgram):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})
         empty_struct = VyperStruct(struct_name, empty_struct_type, None)
-        super().__init__(file,
+        super().__init__(node,
+                         file,
                          config,
                          empty_struct,
                          functions,
