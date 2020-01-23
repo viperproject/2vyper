@@ -361,12 +361,13 @@ class FunctionTranslator(CommonTranslator):
                         postconditions = interface.general_postconditions
 
                     for post in postconditions:
-                        post_pos = self.to_position(function.node or post, ctx, rules.INTERFACE_POSTCONDITION_FAIL)
+                        post_pos = self.to_position(function.node or post, ctx)
                         with ctx.program_scope(interface):
                             stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
                             if is_init:
                                 cond = self.viper_ast.Implies(success_var, cond, post_pos)
-                        post_assert = self.viper_ast.Assert(cond, post_pos)
+                        apos = self.to_position(function.node or post, ctx, rules.INTERFACE_POSTCONDITION_FAIL, modelt=modelt)
+                        post_assert = self.viper_ast.Assert(cond, apos)
                         post_stmts.extend(stmts)
                         post_stmts.append(post_assert)
 
