@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from twovyper.ast import ast_nodes as ast, names
 
@@ -14,7 +14,7 @@ from twovyper.translation.abstract import NodeTranslator
 from twovyper.translation.context import Context
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, StmtsAndExpr
+from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
 
 
 class ResourceTranslator(NodeTranslator):
@@ -36,6 +36,15 @@ class ResourceTranslator(NodeTranslator):
             return super().translate(resource, ctx)
         else:
             return [], self.resource(names.WEI, [], ctx)
+
+    def translate_exchange(self, exchange: Optional[ast.Exchange], ctx: Context) -> Tuple[Stmt, Expr, Expr]:
+        if not exchange:
+            wei_resource = self.resource(names.WEI, [], ctx)
+            return [], wei_resource, wei_resource
+
+        stmts1, r1 = self.translate(exchange.value1, ctx)
+        stmts2, r2 = self.translate(exchange.value2, ctx)
+        return stmts1 + stmts2, r1, r2
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)

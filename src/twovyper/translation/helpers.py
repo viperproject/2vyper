@@ -88,7 +88,7 @@ def offer_type():
 
 
 def offered_type():
-    return MapType(offer_type(), types.VYPER_UINT256)
+    return MapType(AnyStructType(), MapType(AnyStructType(), MapType(offer_type(), types.VYPER_UINT256)))
 
 
 def blockhash(viper_ast: ViperAST, no, ctx: Context, pos=None, info=None):

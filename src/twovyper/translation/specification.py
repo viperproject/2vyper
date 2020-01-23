@@ -216,9 +216,10 @@ class SpecificationTranslator(ExpressionTranslator):
             else:
                 return resource_stmts, self.allocation_translator.get_allocated_map(allocated, resource, ctx, pos)
         elif name == names.OFFERED:
+            resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
             args_stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
-            return args_stmts, self.allocation_translator.get_offered(offered, *args, ctx, pos)
+            return resource_stmts + args_stmts, self.allocation_translator.get_offered(offered, from_resource, to_resource, *args, ctx, pos)
         elif name == names.ACCESSIBLE:
             # The function necessary for accessible is either the one used as the third argument
             # or the one the heuristics determined
@@ -376,12 +377,14 @@ class SpecificationTranslator(ExpressionTranslator):
             stmts.extend(self.allocation_translator.reallocate(node, allocated, resource, msg_sender, to, value, ctx, pos))
             return stmts, None
         elif name == names.OFFER:
+            resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
+
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
 
             value1_stmts, value1 = self.translate(node.args[0], ctx)
             value2_stmts, value2 = self.translate(node.args[1], ctx)
 
-            stmts = [*value1_stmts, *value2_stmts]
+            stmts = [*resource_stmts, *value1_stmts, *value2_stmts]
             for kw in node.keywords:
                 if kw.name == names.OFFER_TO:
                     to_stmts, to = self.translate(kw.value, ctx)
@@ -391,20 +394,24 @@ class SpecificationTranslator(ExpressionTranslator):
                     stmts.extend(times_stmts)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-            stmts.extend(self.allocation_translator.offer(offered, value1, value2, msg_sender, to, times, ctx, pos))
+            stmts.extend(self.allocation_translator.offer(offered, from_resource, to_resource, value1, value2, msg_sender, to, times, ctx, pos))
             return stmts, None
         elif name == names.REVOKE:
+            resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
+
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
 
             value1_stmts, value1 = self.translate(node.args[0], ctx)
             value2_stmts, value2 = self.translate(node.args[1], ctx)
             to_stmts, to = self.translate(node.keywords[0].value, ctx)
 
-            stmts = [*value1_stmts, *value2_stmts, *to_stmts]
+            stmts = [*resource_stmts, *value1_stmts, *value2_stmts, *to_stmts]
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-            stmts.extend(self.allocation_translator.revoke(offered, value1, value2, msg_sender, to, ctx, pos))
+            stmts.extend(self.allocation_translator.revoke(offered, from_resource, to_resource, value1, value2, msg_sender, to, ctx, pos))
             return stmts, None
         elif name == names.EXCHANGE:
+            resource_stmts, resource1, resource2 = self.resource_translator.translate_exchange(node.resource, ctx)
+
             value1_stmts, value1 = self.translate(node.args[0], ctx)
             value2_stmts, value2 = self.translate(node.args[1], ctx)
             owner1_stmts, owner1 = self.translate(node.args[2], ctx)
@@ -414,8 +421,9 @@ class SpecificationTranslator(ExpressionTranslator):
 
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
-            exchange_stmts = self.allocation_translator.exchange(node, allocated, offered, value1, value2, owner1, owner2, times, ctx, pos)
+            exchange = self.allocation_translator.exchange
+            exchange_stmts = exchange(node, allocated, offered, resource1, resource2, value1, value2, owner1, owner2, times, ctx, pos)
 
-            return [*value1_stmts, *value2_stmts, *owner1_stmts, *owner2_stmts, *times_stmts, *exchange_stmts], None
+            return [*resource_stmts, *value1_stmts, *value2_stmts, *owner1_stmts, *owner2_stmts, *times_stmts, *exchange_stmts], None
         else:
             assert False
