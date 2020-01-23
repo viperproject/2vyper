@@ -8,8 +8,9 @@
 
 #@ config: allocation
 
-
+owner: address
 balance_of: map(address, uint256(wei))
+buyers: map(address, bool)
 
 
 #@ resource: GOOD()
@@ -22,20 +23,33 @@ balance_of: map(address, uint256(wei))
 #@ invariant: forall({a: address, o: address}, allocated[ALLOC(o)](a) == 0)
 #@ invariant: forall({a: address, o1: address, o2: address}, allocated[DOUBLE(o1, o2)](a) == 0)
 
+#@ invariant: forall({a: address}, self.buyers[a] ==> offered[wei <-> GOOD](self.balance_of[a], 1, a, self.owner) >= 1)
+
 
 @public
 def __init__():
-    pass
+    self.owner = msg.sender
 
 
 @public
 @payable
 def deposit():
+    assert not self.buyers[msg.sender]
+
     self.balance_of[msg.sender] += msg.value
 
 
 @public
 def transfer(to: address, amount: uint256(wei)):
+    assert not self.buyers[msg.sender]
+    assert not self.buyers[to]
+
     self.balance_of[msg.sender] -= amount
     #@ reallocate[wei](amount, to=to, times=1)
     self.balance_of[to] += amount
+
+
+@public
+def offer():
+    #@ offer[wei <-> GOOD](self.balance_of[msg.sender], 1, to=self.owner, times=1)
+    self.buyers[msg.sender] = True

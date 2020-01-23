@@ -84,9 +84,11 @@ suite: simple_stmt | _NEWLINE _INDENT stmt+ _DEDENT
 ?power: atom_expr ["**" factor]
 
 ?atom_expr: atom_expr "(" arguments ")"  -> funccall
-          | atom_expr "[" test "]"       -> getitem
+          | atom_expr "[" exchange "]"       -> getitem
           | atom_expr "." NAME           -> getattr
           | atom
+
+?exchange: test ["<->" test]
 
 ?atom: "[" [testlist] "]"  -> list
      | "{" [dictlist | testlist] "}"  -> dictset

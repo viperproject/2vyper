@@ -27,13 +27,24 @@ def _check(condition: bool, node: ast.Node, reason_code: str):
 
 
 def _check_number_of_arguments(node: ast.FunctionCall, *expected: int,
-                               allowed_keywords: List[str] = [], required_keywords: List[str] = []):
+                               allowed_keywords: List[str] = [], required_keywords: List[str] = [],
+                               resources: int = 0):
     _check(len(node.args) in expected, node, 'invalid.no.args')
     for kw in node.keywords:
         _check(kw.name in allowed_keywords, node, 'invalid.no.args')
 
     for kw in required_keywords:
         _check(any(k.name == kw for k in node.keywords), node, 'invalid.no.args')
+
+    if node.resource:
+        if resources == 1:
+            cond = not isinstance(node.resource, ast.Exchange)
+        elif resources == 2:
+            cond = isinstance(node.resource, ast.Exchange)
+        else:
+            cond = False
+
+        _check(cond, node, 'invalid.no.resources')
 
 
 class TypeAnnotator(NodeVisitor):
@@ -310,18 +321,7 @@ class TypeAnnotator(NodeVisitor):
         name = node.name
 
         if node.resource:
-            if isinstance(node.resource, ast.Name):
-                resource = self.program.resources.get(node.resource.id)
-            elif isinstance(node.resource, ast.FunctionCall):
-                resource = self.program.resources.get(node.resource.name)
-                _check_number_of_arguments(node.resource, len(resource.type.member_types))
-                for type, arg in zip(resource.type.member_types.values(), node.resource.args):
-                    self.annotate_expected(arg, type)
-            else:
-                assert False
-
-            if not resource:
-                raise InvalidProgramException(node.resource, 'invalid.resource')
+            self._visit_resource(node.resource)
 
         with switch(name) as case:
             if case(names.CONVERT):
@@ -510,7 +510,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[0], is_numeric_map)
                 return [node.args[0].type.value_type], [node]
             elif case(names.SENT) or case(names.RECEIVED) or case(names.ALLOCATED):
-                _check_number_of_arguments(node, 0, 1)
+                _check_number_of_arguments(node, 0, 1, resources=1 if case(names.ALLOCATED) else 0)
 
                 if not node.args:
                     type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
@@ -543,7 +543,7 @@ class TypeAnnotator(NodeVisitor):
                     names.REALLOCATE_TO: types.VYPER_ADDRESS,
                     names.REALLOCATE_TIMES: types.VYPER_UINT256
                 }
-                _check_number_of_arguments(node, 1, allowed_keywords=keywords.keys(), required_keywords=keywords.keys())
+                _check_number_of_arguments(node, 1, allowed_keywords=keywords.keys(), required_keywords=keywords.keys(), resources=1)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
                 for kw in node.keywords:
                     self.annotate_expected(kw.value, keywords[kw.name])
@@ -554,7 +554,7 @@ class TypeAnnotator(NodeVisitor):
                     names.OFFER_TO: types.VYPER_ADDRESS,
                     names.OFFER_TIMES: types.VYPER_UINT256
                 }
-                _check_number_of_arguments(node, 2, allowed_keywords=keywords.keys(), required_keywords=keywords.keys())
+                _check_number_of_arguments(node, 2, allowed_keywords=keywords.keys(), required_keywords=keywords.keys(), resources=2)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
                 for kw in node.keywords:
@@ -562,14 +562,14 @@ class TypeAnnotator(NodeVisitor):
                 return [None], [node]
             elif case(names.REVOKE):
                 keywords = [names.REVOKE_TO]
-                _check_number_of_arguments(node, 2, allowed_keywords=keywords, required_keywords=keywords)
+                _check_number_of_arguments(node, 2, allowed_keywords=keywords, required_keywords=keywords, resources=2)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.keywords[0].value, types.VYPER_ADDRESS)
                 return [None], [node]
             elif case(names.EXCHANGE):
                 keywords = [names.EXCHANGE_TIMES]
-                _check_number_of_arguments(node, 4, allowed_keywords=keywords, required_keywords=keywords)
+                _check_number_of_arguments(node, 4, allowed_keywords=keywords, required_keywords=keywords, resources=2)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.args[2], types.VYPER_ADDRESS)
@@ -577,7 +577,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.keywords[0].value, types.VYPER_UINT256)
                 return [None], [node]
             elif case(names.OFFERED):
-                _check_number_of_arguments(node, 4)
+                _check_number_of_arguments(node, 4, resources=2)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.args[2], types.VYPER_ADDRESS)
@@ -644,6 +644,24 @@ class TypeAnnotator(NodeVisitor):
             interface = self.program.interfaces[receiver_type.name]
             function = interface.functions[node.name]
             return [function.type.return_type], [node]
+
+    def _visit_resource(self, node: ast.Node):
+        if isinstance(node, ast.Name):
+            resource = self.program.resources.get(node.id)
+        elif isinstance(node, ast.FunctionCall):
+            resource = self.program.resources.get(node.name)
+            _check_number_of_arguments(node, len(resource.type.member_types))
+            for type, arg in zip(resource.type.member_types.values(), node.args):
+                self.annotate_expected(arg, type)
+        elif isinstance(node, ast.Exchange):
+            self._visit_resource(node.value1)
+            self._visit_resource(node.value2)
+            return
+        else:
+            assert False
+
+        if not resource:
+            raise InvalidProgramException(node.resource, 'invalid.resource')
 
     def _visit_forall(self, node: ast.FunctionCall):
         with self._quantified_vars_scope():

@@ -242,6 +242,16 @@ class Ellipsis(Expr):
     pass
 
 
+class Exchange(Expr):
+
+    _children = ['value1', 'value2']
+
+    def __init__(self, value1: Expr, value2: Expr):
+        super().__init__()
+        self.value1 = value1
+        self.value2 = value2
+
+
 class Attribute(Expr):
 
     _children = ['value']

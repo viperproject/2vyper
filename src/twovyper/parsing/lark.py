@@ -419,6 +419,12 @@ class _PythonTransformer(Transformer):
         return ast.Attribute(value, attr)
 
     @copy_pos
+    def exchange(self, children, meta):
+        value1 = children[0]
+        value2 = children[1]
+        return ast.Exchange(value1, value2)
+
+    @copy_pos
     def list(self, children, meta):
         return ast.List(children[0])
 

@@ -44,7 +44,7 @@ class ProgramChecker(NodeVisitor):
             if names.RAW_CALL_DELEGATE_CALL in [kw.name for kw in node.keywords]:
                 raise UnsupportedException(node, 'Delegate calls are not supported.')
 
-        if node.name in names.GHOST_STATEMENTS:
+        if node.name in names.ALLOCATION_FUNCTIONS:
             if not self.program.config.has_option(names.CONFIG_ALLOCATION):
                 msg = "Allocation statements require allocation config option."
                 raise InvalidProgramException(node, 'alloc.not.alloc', msg)
@@ -53,12 +53,16 @@ class ProgramChecker(NodeVisitor):
                 raise InvalidProgramException(node, 'alloc.in.constant', msg)
 
         if node.resource:
-            if node.name not in names.RESOURCE_ALLOWED:
-                msg = "Resource specifier only allowed in allocation functions."
-                raise InvalidProgramException(node, 'resource.not.allocation')
 
-            if not isinstance(node.resource, (ast.Name, ast.FunctionCall)):
-                raise InvalidProgramException(node, 'invalid.resource')
+            def check_resource(resource: ast.Node):
+                if not isinstance(resource, (ast.Name, ast.FunctionCall)):
+                    raise InvalidProgramException(node, 'invalid.resource')
+
+            if isinstance(node.resource, ast.Exchange):
+                check_resource(node.resource.value1)
+                check_resource(node.resource.value2)
+            else:
+                check_resource(node.resource)
 
         self.generic_visit(node)
 
