@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import List, Iterable
+from typing import List, Iterable, Tuple
 
 from twovyper.ast import ast_nodes as ast
 from twovyper.ast.visitors import NodeVisitor
@@ -17,7 +17,7 @@ from twovyper.verification.error import ErrorInfo, ModelTransformation, Via
 from twovyper.verification.rules import Rules
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Stmt, StmtsAndExpr
+from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
 from twovyper.viper.typedefs import Position, Info
 
 
@@ -71,7 +71,7 @@ class CommonTranslator:
     def no_info(self) -> Info:
         return self.to_info([])
 
-    def collect(self, se: Iterable[StmtsAndExpr]):
+    def collect(self, se: Iterable[StmtsAndExpr]) -> Tuple[List[Stmt], List[Expr]]:
         stmts = []
         exprs = []
         for stmt, expr in se:

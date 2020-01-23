@@ -74,7 +74,7 @@ def contracts_type():
 
 
 def allocated_type():
-    return MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+    return MapType(AnyStructType(), MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE))
 
 
 def offer_type():

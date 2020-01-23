@@ -15,6 +15,7 @@ from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context
 from twovyper.translation.allocation import AllocationTranslator
 from twovyper.translation.expression import ExpressionTranslator
+from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.variable import TranslatedVar
 
 from twovyper.utils import switch
@@ -31,6 +32,7 @@ class SpecificationTranslator(ExpressionTranslator):
         super().__init__(viper_ast)
 
         self.allocation_translator = AllocationTranslator(viper_ast)
+        self.resource_translator = ResourceTranslator(viper_ast)
 
     @property
     def no_reverts(self):
@@ -206,12 +208,13 @@ class SpecificationTranslator(ExpressionTranslator):
             else:
                 return [], self.balance_translator.sent(self_var, ctx, pos)
         elif name == names.ALLOCATED:
+            resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
             if node.args:
                 address_stmts, address = self.translate(node.args[0], ctx)
-                return address_stmts, self.allocation_translator.get_allocated(allocated, address, ctx)
+                return resource_stmts + address_stmts, self.allocation_translator.get_allocated(allocated, resource, address, ctx)
             else:
-                return [], allocated
+                return resource_stmts, self.allocation_translator.get_allocated_map(allocated, resource, ctx, pos)
         elif name == names.OFFERED:
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
             args_stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
@@ -355,7 +358,8 @@ class SpecificationTranslator(ExpressionTranslator):
         pos = self.to_position(node, ctx)
         name = node.name
         if name == names.REALLOCATE:
-            stmts = []
+            stmts, resource = self.resource_translator.translate(node.resource, ctx)
+
             for kw in node.keywords:
                 if kw.name == names.REALLOCATE_TO:
                     to_stmts, to = self.translate(kw.value, ctx)
@@ -369,7 +373,7 @@ class SpecificationTranslator(ExpressionTranslator):
             amount_stmts, amount = self.translate(node.args[0], ctx)
             stmts.extend(amount_stmts)
             value = self.viper_ast.Mul(times, amount, pos)
-            stmts.extend(self.allocation_translator.reallocate(node, allocated, msg_sender, to, value, ctx, pos))
+            stmts.extend(self.allocation_translator.reallocate(node, allocated, resource, msg_sender, to, value, ctx, pos))
             return stmts, None
         elif name == names.OFFER:
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)

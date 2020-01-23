@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from functools import reduce
 from typing import List
 
 from twovyper.ast import ast_nodes as ast, names, types
@@ -13,6 +14,7 @@ from twovyper.translation import helpers, mangled
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.context import Context
 from twovyper.translation.model import ModelTranslator
+from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
 
@@ -29,6 +31,7 @@ class AllocationTranslator(CommonTranslator):
         self.viper_ast = viper_ast
 
         self.model_translator = ModelTranslator(viper_ast)
+        self.resource_translator = ResourceTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
     @property
@@ -36,10 +39,30 @@ class AllocationTranslator(CommonTranslator):
         from twovyper.translation.specification import SpecificationTranslator
         return SpecificationTranslator(self.viper_ast)
 
-    def get_allocated(self, allocated: Expr, address: Expr, ctx: Context, pos=None, info=None) -> Expr:
-        key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
-        value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
-        return helpers.map_get(self.viper_ast, allocated, address, key_type, value_type, pos, info)
+    def get_allocated_map(self, allocated: Expr, resource: Expr, ctx: Context, pos=None, info=None) -> Expr:
+        """
+        Returns the allocated map for a resource.
+        """
+        allocated_type = helpers.allocated_type()
+        key_type = self.type_translator.translate(allocated_type.key_type, ctx)
+        value_type = self.type_translator.translate(allocated_type.value_type, ctx)
+        return helpers.map_get(self.viper_ast, allocated, resource, key_type, value_type, pos)
+
+    def set_allocated_map(self, allocated: Expr, resource: Expr, new_value: Expr, ctx: Context, pos=None) -> Expr:
+        allocated_type = helpers.allocated_type()
+        key_type = self.type_translator.translate(allocated_type.key_type, ctx)
+        value_type = self.type_translator.translate(allocated_type.value_type, ctx)
+        return helpers.map_set(self.viper_ast, allocated, resource, new_value, key_type, value_type, pos)
+
+    def get_allocated(self,
+                      allocated: Expr, resource: Expr,
+                      address: Expr,
+                      ctx: Context, pos=None, info=None) -> Expr:
+        allocated_type = helpers.allocated_type()
+        key_type = self.type_translator.translate(allocated_type.value_type.key_type, ctx)
+        value_type = self.type_translator.translate(allocated_type.value_type.value_type, ctx)
+        allocated_map = self.get_allocated_map(allocated, resource, ctx, pos)
+        return helpers.map_get(self.viper_ast, allocated_map, address, key_type, value_type, pos, info)
 
     def get_offered(self, offered: Expr, from_val: Expr, to_val: Expr, from_addr: Expr, to_addr: Expr, ctx: Context, pos=None, info=None) -> Expr:
         offered_type = helpers.offered_type()
@@ -48,8 +71,11 @@ class AllocationTranslator(CommonTranslator):
         value_type = self.type_translator.translate(offered_type.value_type, ctx)
         return helpers.map_get(self.viper_ast, offered, offer, key_type, value_type, pos)
 
-    def _check_allocation(self, node: ast.Node, allocated: Expr, address: Expr, value: Expr, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
-        get_alloc = self.get_allocated(allocated, address, ctx, pos)
+    def _check_allocation(self, node: ast.Node,
+                          allocated: Expr, resource: Expr,
+                          address: Expr, value: Expr,
+                          rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
+        get_alloc = self.get_allocated(allocated, resource, address, ctx, pos)
         cond = self.viper_ast.LeCmp(value, get_alloc, pos)
         stmts, modelt = self.model_translator.save_variables(ctx)
         apos = self.to_position(node, ctx, rule, modelt=modelt)
@@ -72,14 +98,20 @@ class AllocationTranslator(CommonTranslator):
         stmts.append(self.viper_ast.Assert(cond, apos))
         return stmts
 
-    def _change_allocation(self, allocated: Expr, address: Expr, value: Expr, increase: bool, ctx: Context, pos=None, info=None) -> List[Stmt]:
-        get_alloc = self.get_allocated(allocated, address, ctx, pos)
+    def _change_allocation(self,
+                           allocated: Expr, resource: Expr,
+                           address: Expr,
+                           value: Expr, increase: bool,
+                           ctx: Context, pos=None, info=None) -> List[Stmt]:
+        get_alloc = self.get_allocated(allocated, resource, address, ctx, pos)
         func = self.viper_ast.Add if increase else self.viper_ast.Sub
         new_value = func(get_alloc, value, pos)
         key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
         value_type = self.type_translator.translate(types.VYPER_WEI_VALUE, ctx)
-        set_alloc = helpers.map_set(self.viper_ast, allocated, address, new_value, key_type, value_type, pos)
-        alloc_assign = self.viper_ast.LocalVarAssign(allocated, set_alloc, pos, info)
+        alloc_map = self.get_allocated_map(allocated, resource, ctx, pos)
+        set_alloc = helpers.map_set(self.viper_ast, alloc_map, address, new_value, key_type, value_type, pos)
+        set_alloc_map = self.set_allocated_map(allocated, resource, set_alloc, ctx, pos)
+        alloc_assign = self.viper_ast.LocalVarAssign(allocated, set_alloc_map, pos, info)
         return [alloc_assign]
 
     def _set_offered(self, offered: Expr,
@@ -107,27 +139,36 @@ class AllocationTranslator(CommonTranslator):
 
         return self._set_offered(offered, from_val, to_val, from_addr, to_addr, new_value, ctx, pos)
 
-    def allocate(self, allocated: Expr, address: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def allocate(self,
+                 allocated: Expr, resource: Expr,
+                 address: Expr, amount: Expr,
+                 ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Adds `amount` wei to the allocation map entry of `address`.
         """
-        return self._change_allocation(allocated, address, amount, True, ctx, pos, info)
+        return self._change_allocation(allocated, resource, address, amount, True, ctx, pos, info)
 
-    def reallocate(self, node: ast.Node, allocated: Expr, frm: Expr, to: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def reallocate(self, node: ast.Node,
+                   allocated: Expr, resource: Expr,
+                   frm: Expr, to: Expr, amount: Expr,
+                   ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `from` has sufficient allocation and then moves `amount` wei from `frm` to `to`.
         """
-        check_allocation = self._check_allocation(node, allocated, frm, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
-        decs = self._change_allocation(allocated, frm, amount, False, ctx, pos)
-        incs = self._change_allocation(allocated, to, amount, True, ctx, pos)
+        check_allocation = self._check_allocation(node, allocated, resource, frm, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
+        decs = self._change_allocation(allocated, resource, frm, amount, False, ctx, pos)
+        incs = self._change_allocation(allocated, resource, to, amount, True, ctx, pos)
         return check_allocation + decs + incs
 
-    def deallocate(self, node: ast.Node, allocated: Expr, address: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def deallocate(self, node: ast.Node,
+                   allocated: Expr, resource: Expr,
+                   address: Expr, amount: Expr,
+                   ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `address` has sufficient allocation and then removes `amount` wei from the allocation map entry of `address`.
         """
-        check_allocation = self._check_allocation(node, allocated, address, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
-        decs = self._change_allocation(allocated, address, amount, False, ctx, pos, info)
+        check_allocation = self._check_allocation(node, allocated, resource, address, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
+        decs = self._change_allocation(allocated, resource, address, amount, False, ctx, pos, info)
         return check_allocation + decs
 
     def _leak_check(self, node: ast.Node, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
@@ -167,26 +208,41 @@ class AllocationTranslator(CommonTranslator):
                     stmts.extend(inv_stmts)
                     stmts.append(self.viper_ast.Inhale(expr, ppos))
 
-        address = self.viper_ast.LocalVarDecl('$a', self.viper_ast.Int, pos)
-        address_var = address.localVar()
-        cond = self.viper_ast.LeCmp(self.viper_ast.IntLit(0, pos), address_var, pos)
-        if not ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
-            cmpm = self.viper_ast.LeCmp(address_var, self.viper_ast.IntLit(types.VYPER_ADDRESS.upper, pos), pos)
-            cond = self.viper_ast.And(cond, cmpm, pos)
-        allocated_get = self.get_allocated(allocated.local_var(ctx, pos), address_var, ctx, pos)
-        fresh_allocated_get = self.get_allocated(fresh_allocated_var, address_var, ctx, pos)
-        allocated_eq = self.viper_ast.EqCmp(allocated_get, fresh_allocated_get, pos)
-        trigger = self.viper_ast.Trigger([allocated_get, fresh_allocated_get], pos)
-        assertion = self.viper_ast.Forall([address], [trigger], self.viper_ast.Implies(cond, allocated_eq, pos), pos)
-        if ctx.function.name == names.INIT:
-            # Leak check only has to hold if __init__ succeeds
-            succ = ctx.success_var.local_var(ctx)
-            assertion = self.viper_ast.Implies(succ, assertion, pos)
-
         model_stmts, modelt = self.model_translator.save_variables(ctx)
         stmts.extend(model_stmts)
-        apos = self.to_position(node, ctx, rule, modelt=modelt)
-        stmts.append(self.viper_ast.Assert(assertion, apos, info))
+
+        # We create the following check for each resource r:
+        #   forall a: address, arg0, arg1, ... :: <type_assumptions> ==>
+        #      allocated[r(arg0, arg1, ...)](a) == fresh_allocated[r(arg0, arg1, ...)](a)
+        address = self.viper_ast.LocalVarDecl('$a', self.viper_ast.Int, pos)
+        address_var = address.localVar()
+        address_assumptions = self.type_translator.type_assumptions(address_var, types.VYPER_ADDRESS, ctx)
+
+        for resource in ctx.program.resources.values():
+            type_assumptions = address_assumptions.copy()
+            args = []
+            for idx, arg_type in enumerate(resource.type.member_types.values()):
+                type = self.type_translator.translate(arg_type, ctx)
+                arg = self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos)
+                args.append(arg)
+                arg_var = arg.localVar()
+                type_assumptions.extend(self.type_translator.type_assumptions(arg_var, arg_type, ctx))
+
+            cond = reduce(lambda l, r: self.viper_ast.And(l, r, pos), type_assumptions)
+
+            resource = self.resource_translator.resource(resource.name, [arg.localVar() for arg in args], ctx)
+            allocated_get = self.get_allocated(allocated.local_var(ctx, pos), resource, address_var, ctx, pos)
+            fresh_allocated_get = self.get_allocated(fresh_allocated_var, resource, address_var, ctx, pos)
+            allocated_eq = self.viper_ast.EqCmp(allocated_get, fresh_allocated_get, pos)
+            trigger = self.viper_ast.Trigger([allocated_get, fresh_allocated_get], pos)
+            assertion = self.viper_ast.Forall([address, *args], [trigger], self.viper_ast.Implies(cond, allocated_eq, pos), pos)
+            if ctx.function.name == names.INIT:
+                # Leak check only has to hold if __init__ succeeds
+                succ = ctx.success_var.local_var(ctx)
+                assertion = self.viper_ast.Implies(succ, assertion, pos)
+
+            apos = self.to_position(node, ctx, rule, modelt=modelt)
+            stmts.append(self.viper_ast.Assert(assertion, apos, info))
 
         return stmts
 
@@ -235,16 +291,18 @@ class AllocationTranslator(CommonTranslator):
         is_not_zero2 = self.viper_ast.NeCmp(value2, zero)
         ex2 = self.viper_ast.If(is_not_zero2, [*allowed2, *dec_offered2], [], pos)
 
+        resource = self.resource_translator.resource(names.WEI, [], ctx, pos)
+
         amount1 = self.viper_ast.Mul(times, value1)
-        check1 = self._check_allocation(node, allocated, owner1, amount1, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
+        check1 = self._check_allocation(node, allocated, resource, owner1, amount1, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
 
         amount2 = self.viper_ast.Mul(times, value2)
-        check2 = self._check_allocation(node, allocated, owner2, amount2, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
+        check2 = self._check_allocation(node, allocated, resource, owner2, amount2, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
 
         inc1 = self.viper_ast.Sub(amount2, amount1)
-        change1 = self._change_allocation(allocated, owner1, inc1, True, ctx, pos)
+        change1 = self._change_allocation(allocated, resource, owner1, inc1, True, ctx, pos)
 
         inc2 = self.viper_ast.Sub(amount1, amount2)
-        change2 = self._change_allocation(allocated, owner2, inc2, True, ctx, pos, info)
+        change2 = self._change_allocation(allocated, resource, owner2, inc2, True, ctx, pos, info)
 
         return [ex1, ex2, *check1, *check2, *change1, *change2]

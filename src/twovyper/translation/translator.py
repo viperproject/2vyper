@@ -16,15 +16,17 @@ from twovyper.utils import flatten, seq_to_list
 from twovyper.ast import names
 from twovyper.ast import types
 from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction
-from twovyper.ast.types import AnyStructType, StructType
+from twovyper.ast.types import AnyStructType
 
 from twovyper.exceptions import ConsistencyException
 
 from twovyper.translation import helpers, mangled, State
 from twovyper.translation.context import Context
 from twovyper.translation.abstract import CommonTranslator
+from twovyper.translation.allocation import AllocationTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.function import FunctionTranslator
+from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
@@ -74,8 +76,10 @@ class ProgramTranslator(CommonTranslator):
     def __init__(self, viper_ast: ViperAST, builtins: Program):
         self.viper_ast = viper_ast
         self.builtins = builtins
+        self.allocation_translator = AllocationTranslator(viper_ast)
         self.function_translator = FunctionTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
+        self.resource_translator = ResourceTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
         self.state_translator = StateTranslator(viper_ast)
         self.balance_translator = BalanceTranslator(viper_ast)
@@ -105,10 +109,6 @@ class ProgramTranslator(CommonTranslator):
         # For each nonreentrant key add a boolean flag whether it is set
         for key in vyper_program.nonreentrant_keys():
             vyper_program.fields.type.add_member(mangled.lock_name(key), types.VYPER_BOOL)
-        # Add wei resource
-        wei_type = StructType(names.WEI, {})
-        wei_resource = VyperStruct(names.WEI, wei_type, None)
-        vyper_program.resources[names.WEI] = wei_resource
 
         ctx = Context()
         ctx.program = vyper_program
@@ -144,7 +144,9 @@ class ProgramTranslator(CommonTranslator):
                 # self.balance >= sum(allocated())
                 balance = self.balance_translator.get_balance(self_var, ctx)
                 allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
-                allocated_sum = helpers.map_sum(self.viper_ast, allocated, address_type)
+                wei_resource = self.resource_translator.resource(names.WEI, [], ctx)
+                allocated_map = self.allocation_translator.get_allocated_map(allocated, wei_resource, ctx)
+                allocated_sum = helpers.map_sum(self.viper_ast, allocated_map, address_type)
                 balance_geq_sum = self.viper_ast.GeCmp(balance, allocated_sum)
                 return [sent_inc, balance_geq_sum]
             else:

@@ -24,6 +24,7 @@ from twovyper.translation.allocation import AllocationTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.model import ModelTranslator
+from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
@@ -44,7 +45,8 @@ class ExpressionTranslator(NodeTranslator):
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.arithmetic_translator = ArithmeticTranslator(viper_ast, self.no_reverts)
         self.balance_translator = BalanceTranslator(viper_ast)
-        self.model_translsator = ModelTranslator(viper_ast)
+        self.model_translator = ModelTranslator(viper_ast)
+        self.resource_translator = ResourceTranslator(viper_ast)
         self.state_translator = StateTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
@@ -718,12 +720,14 @@ class ExpressionTranslator(NodeTranslator):
 
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                 allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
-                dealloc = self.allocation_translator.deallocate(node, allocated, to, amount, ctx, pos)
+                resource_stmts, resource = self.resource_translator.translate(None, ctx)
+                dealloc = self.allocation_translator.deallocate(node, allocated, resource, to, amount, ctx, pos)
             else:
+                resource_stmts = []
                 dealloc = []
 
             sub = self.balance_translator.decrease_balance(amount, ctx, pos)
-            stmts = [check, sent, *dealloc, sub]
+            stmts = [check, sent, *resource_stmts, *dealloc, sub]
         else:
             stmts = []
 
@@ -732,7 +736,7 @@ class ExpressionTranslator(NodeTranslator):
         if ctx.function.name == names.INIT:
             stmts.append(self.state_translator.check_first_public_state(ctx, True))
 
-        check_assertions, modelt = self.model_translsator.save_variables(ctx, pos)
+        check_assertions, modelt = self.model_translator.save_variables(ctx, pos)
         for check in chain(ctx.function.checks, ctx.program.general_checks):
             check_stmts, check_cond = self.spec_translator.translate_check(check, ctx)
             via = [Via('check', check_cond.pos())]

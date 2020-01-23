@@ -52,6 +52,14 @@ class ProgramChecker(NodeVisitor):
                 msg = "Allocation statements are not allowed in constant functions."
                 raise InvalidProgramException(node, 'alloc.in.constant', msg)
 
+        if node.resource:
+            if node.name not in names.RESOURCE_ALLOWED:
+                msg = "Resource specifier only allowed in allocation functions."
+                raise InvalidProgramException(node, 'resource.not.allocation')
+
+            if not isinstance(node.resource, (ast.Name, ast.FunctionCall)):
+                raise InvalidProgramException(node, 'invalid.resource')
+
         self.generic_visit(node)
 
 

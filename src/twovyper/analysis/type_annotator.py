@@ -309,6 +309,20 @@ class TypeAnnotator(NodeVisitor):
     def visit_FunctionCall(self, node: ast.FunctionCall):
         name = node.name
 
+        if node.resource:
+            if isinstance(node.resource, ast.Name):
+                resource = self.program.resources.get(node.resource.id)
+            elif isinstance(node.resource, ast.FunctionCall):
+                resource = self.program.resources.get(node.resource.name)
+                _check_number_of_arguments(node.resource, len(resource.type.member_types))
+                for type, arg in zip(resource.type.member_types.values(), node.resource.args):
+                    self.annotate_expected(arg, type)
+            else:
+                assert False
+
+            if not resource:
+                raise InvalidProgramException(node.resource, 'invalid.resource')
+
         with switch(name) as case:
             if case(names.CONVERT):
                 _check_number_of_arguments(node, 2)

@@ -19,6 +19,7 @@ from twovyper.translation.allocation import AllocationTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.model import ModelTranslator
+from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.statement import StatementTranslator
@@ -40,6 +41,7 @@ class FunctionTranslator(CommonTranslator):
         self.balance_translator = BalanceTranslator(viper_ast)
         self.expression_translator = ExpressionTranslator(viper_ast)
         self.model_translator = ModelTranslator(viper_ast)
+        self.resource_translator = ResourceTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
         self.statement_translator = StatementTranslator(viper_ast)
         self.state_translator = StateTranslator(viper_ast)
@@ -263,7 +265,8 @@ class FunctionTranslator(CommonTranslator):
                 # Allocate the received ether to the sender
                 if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                     allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
-                    body.extend(self.allocation_translator.allocate(allocated, msg_sender, msg_value, ctx))
+                    resource = self.resource_translator.resource(names.WEI, [], ctx)
+                    body.extend(self.allocation_translator.allocate(allocated, resource, msg_sender, msg_value, ctx))
 
             # If we are in a synthesized init, we don't have a function body
             if function.node:

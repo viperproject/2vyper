@@ -20,7 +20,7 @@ from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
     Config, VyperInterface, GhostFunction
 )
-from twovyper.ast.types import TypeBuilder, FunctionType, EventType, SelfType, InterfaceType
+from twovyper.ast.types import TypeBuilder, FunctionType, EventType, SelfType, InterfaceType, StructType
 
 from twovyper.exceptions import InvalidProgramException
 
@@ -73,6 +73,11 @@ class ProgramBuilder(NodeVisitor):
         self.checks = []
 
         self.is_preserves = False
+
+        # Add wei resource
+        wei_type = StructType(names.WEI, {})
+        wei_resource = VyperStruct(names.WEI, wei_type, None)
+        self.resources[names.WEI] = wei_resource
 
     @property
     def type_builder(self):
