@@ -691,7 +691,7 @@ class ExpressionTranslator(NodeTranslator):
                                  amount: Optional[Expr],
                                  constant: bool,
                                  ctx: Context,
-                                 known: Tuple[VyperInterface, VyperFunction, List[Expr]] = []) -> Tuple[List[Stmt], Expr, Expr]:
+                                 known: Tuple[VyperInterface, VyperFunction, List[Expr]] = None) -> Tuple[List[Stmt], Expr, Expr]:
         # Sends are translated as follows:
         #    - Evaluate arguments to and amount
         #    - Check that balance is sufficient (self.balance >= amount) else revert
