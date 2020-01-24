@@ -213,6 +213,9 @@ class ProgramBuilder(NodeVisitor):
         # A function stub on the top-level is a resource declaration
         self._check_no_local_spec()
 
+        if node.name in self.resources:
+            raise InvalidProgramException(node, 'duplicate.resource')
+
         type = self.type_builder.build(node)
         resource = VyperStruct(node.name, type, node)
         self.resources[node.name] = resource
