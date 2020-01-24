@@ -74,11 +74,6 @@ class ProgramBuilder(NodeVisitor):
 
         self.is_preserves = False
 
-        # Add wei resource
-        wei_type = StructType(names.WEI, {})
-        wei_resource = VyperStruct(names.WEI, wei_type, None)
-        self.resources[names.WEI] = wei_resource
-
     @property
     def type_builder(self):
         type_map = {}
@@ -112,6 +107,13 @@ class ProgramBuilder(NodeVisitor):
             # Create the self-type
             self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
+
+            # Add wei resource
+            if self.config.has_option(names.CONFIG_ALLOCATION):
+                wei_type = StructType(names.WEI, {})
+                wei_resource = VyperStruct(names.WEI, wei_type, None)
+                self.resources[names.WEI] = wei_resource
+
             return VyperProgram(node,
                                 self.path,
                                 self.config,

@@ -34,6 +34,11 @@ class ProgramChecker(NodeVisitor):
         self.function = None
 
     def check(self):
+        if self.program.resources and not self.program.config.has_option(names.CONFIG_ALLOCATION):
+            resource = next(iter(self.program.resources.values()))
+            msg = "Resources require allocation config option."
+            raise InvalidProgramException(resource.node, 'alloc.not.alloc', msg)
+
         for func in self.program.functions.values():
             self.function = func
             self.visit(func.node)
@@ -42,7 +47,7 @@ class ProgramChecker(NodeVisitor):
     def visit_FunctionCall(self, node: ast.FunctionCall):
         if node.name == names.RAW_CALL:
             if names.RAW_CALL_DELEGATE_CALL in [kw.name for kw in node.keywords]:
-                raise UnsupportedException(node, 'Delegate calls are not supported.')
+                raise UnsupportedException(node, "Delegate calls are not supported.")
 
         if node.name in names.ALLOCATION_FUNCTIONS:
             if not self.program.config.has_option(names.CONFIG_ALLOCATION):
