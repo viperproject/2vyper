@@ -298,8 +298,12 @@ class SpecificationTranslator(ExpressionTranslator):
             one = self.viper_ast.IntLit(1, pos)
             num_stmts, num = self.translate(node.args[1], ctx) if len(node.args) == 2 else ([], one)
             stmts.extend(num_stmts)
-            perm = self.viper_ast.IntPermMul(num, full_perm, pos)
             pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
+            # If this is a trigger, we just return the predicate access without the surrounding perm-expression and
+            # comparison (which is not valid as a trigger).
+            if ctx.inside_trigger:
+                return stmts, pred_acc
+            perm = self.viper_ast.IntPermMul(num, full_perm, pos)
             current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
             return stmts, self.viper_ast.EqCmp(current_perm, perm, pos)
         elif name == names.SELFDESTRUCT:
