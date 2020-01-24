@@ -291,7 +291,7 @@ class AllocationTranslator(CommonTranslator):
             assertion = self.viper_ast.Forall([address, *args], [trigger], self.viper_ast.Implies(cond, allocated_eq, pos), pos)
             if ctx.function.name == names.INIT:
                 # Leak check only has to hold if __init__ succeeds
-                succ = ctx.success_var.local_var(ctx)
+                succ = ctx.success_var.local_var(ctx, pos)
                 assertion = self.viper_ast.Implies(succ, assertion, pos)
 
             apos = self.to_position(node, ctx, rule, modelt=modelt)
@@ -300,7 +300,7 @@ class AllocationTranslator(CommonTranslator):
         return stmts
 
     def function_leak_check(self, ctx: Context, pos=None, info=None) -> List[Stmt]:
-        return self._leak_check(ctx.function.node, rules.ALLOCATION_LEAK_CHECK_FAIL, ctx, pos, info)
+        return self._leak_check(ctx.function.node or ctx.program.node, rules.ALLOCATION_LEAK_CHECK_FAIL, ctx, pos, info)
 
     def send_leak_check(self, node: ast.Node, ctx: Context, pos=None, info=None) -> List[Stmt]:
         return self._leak_check(node, rules.CALL_LEAK_CHECK_FAIL, ctx, pos, info)

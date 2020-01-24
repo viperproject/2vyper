@@ -53,7 +53,7 @@ class FunctionTranslator(CommonTranslator):
             if function.node:
                 pos = self.to_position(function.node, ctx)
             else:
-                pos = self.no_position()
+                pos = self.to_position(ctx.program.node, ctx)
 
             ctx.function = function
             is_init = (function.name == names.INIT)
