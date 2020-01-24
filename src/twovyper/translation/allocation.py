@@ -197,7 +197,7 @@ class AllocationTranslator(CommonTranslator):
                  address: Expr, amount: Expr,
                  ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
-        Adds `amount` wei to the allocation map entry of `address`.
+        Adds `amount` allocation to the allocation map entry of `address`.
         """
         return self._change_allocation(allocated, resource, address, amount, True, ctx, pos, info)
 
@@ -206,7 +206,7 @@ class AllocationTranslator(CommonTranslator):
                    frm: Expr, to: Expr, amount: Expr,
                    ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
-        Checks that `from` has sufficient allocation and then moves `amount` wei from `frm` to `to`.
+        Checks that `from` has sufficient allocation and then moves `amount` allocation from `frm` to `to`.
         """
         check_allocation = self._check_allocation(node, allocated, resource, frm, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
         decs = self._change_allocation(allocated, resource, frm, amount, False, ctx, pos)
@@ -218,7 +218,7 @@ class AllocationTranslator(CommonTranslator):
                    address: Expr, amount: Expr,
                    ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
-        Checks that `address` has sufficient allocation and then removes `amount` wei from the allocation map entry of `address`.
+        Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
         check_allocation = self._check_allocation(node, allocated, resource, address, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
         decs = self._change_allocation(allocated, resource, address, amount, False, ctx, pos, info)
@@ -352,10 +352,14 @@ class AllocationTranslator(CommonTranslator):
         amount2 = self.viper_ast.Mul(times, value2)
         check2 = self._check_allocation(node, allocated, resource2, owner2, amount2, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
 
-        inc1 = self.viper_ast.Sub(amount2, amount1)
-        change1 = self._change_allocation(allocated, resource1, owner1, inc1, True, ctx, pos)
+        # owner1 gives up amount1 of resource1
+        dec1 = self._change_allocation(allocated, resource1, owner1, amount1, False, ctx, pos)
+        # owner1 gets amount2 of resource2
+        inc1 = self._change_allocation(allocated, resource2, owner1, amount2, True, ctx, pos)
 
-        inc2 = self.viper_ast.Sub(amount1, amount2)
-        change2 = self._change_allocation(allocated, resource2, owner2, inc2, True, ctx, pos, info)
+        # owner2 gives up amount2 of resource2
+        dec2 = self._change_allocation(allocated, resource2, owner2, amount2, False, ctx, pos)
+        # owner2 gets amount1 of resource1
+        inc2 = self._change_allocation(allocated, resource1, owner2, amount1, True, ctx, pos)
 
-        return [ex1, ex2, *check1, *check2, *change1, *change2]
+        return [ex1, ex2, *check1, *check2, *dec1, *inc1, *dec2, *inc2]
