@@ -103,7 +103,7 @@ def received():
 
     self.state = RECEIVED
 
-    #@ reallocate(self.value, to=self.seller, times=1)
+    #@ reallocate(self.value, to=self.seller)
 
     self.pending_returns[self.buyer] += self.value
     self.pending_returns[self.seller] += 3 * self.value

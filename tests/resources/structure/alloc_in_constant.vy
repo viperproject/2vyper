@@ -13,5 +13,5 @@
 @constant
 def get_zero() -> int128:
     #:: ExpectedOutput(invalid.program:alloc.in.constant)
-    #@ reallocate(1, to=msg.sender, times=1)
+    #@ reallocate(1, to=msg.sender)
     return 0

@@ -117,7 +117,7 @@ def transfer(_to: address, _value: uint256) -> bool:
     # NOTE: vyper does not allow underflows
     #       so the following subtraction would revert on insufficient balance
     self.balanceOf[msg.sender] -= _value
-    #@ reallocate[token](_value, to=_to, times=1)
+    #@ reallocate[token](_value, to=_to)
     self.balanceOf[_to] += _value
     log.Transfer(msg.sender, _to, _value)
     return True
@@ -143,7 +143,7 @@ def transferFrom(_from : address, _to: address, _value: uint256) -> bool:
     #      so the following subtraction would revert on insufficient allowance
     self.allowances[_from][msg.sender] -= _value
     #@ exchange[token <-> nothing](1, 0, _from, msg.sender, times=_value)
-    #@ reallocate[token](_value, to=_to, times=1)
+    #@ reallocate[token](_value, to=_to)
     log.Transfer(_from, _to, _value)
     return True
 
@@ -181,7 +181,7 @@ def mint(_to: address, _value: uint256):
     self.total_supply += _value
     #@ create[token](_value)
     self.balanceOf[_to] += _value
-    #@ reallocate[token](_value, to=_to, times=1)
+    #@ reallocate[token](_value, to=_to)
     log.Transfer(ZERO_ADDRESS, _to, _value)
 
 

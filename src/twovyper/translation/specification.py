@@ -360,21 +360,15 @@ class SpecificationTranslator(ExpressionTranslator):
         name = node.name
         if name == names.REALLOCATE:
             stmts, resource = self.resource_translator.translate(node.resource, ctx)
-
-            for kw in node.keywords:
-                if kw.name == names.REALLOCATE_TO:
-                    to_stmts, to = self.translate(kw.value, ctx)
-                    stmts.extend(to_stmts)
-                elif kw.name == names.REALLOCATE_TIMES:
-                    times_stmts, times = self.translate(kw.value, ctx)
-                    stmts.extend(times_stmts)
-
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
+
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             amount_stmts, amount = self.translate(node.args[0], ctx)
             stmts.extend(amount_stmts)
-            value = self.viper_ast.Mul(times, amount, pos)
-            stmts.extend(self.allocation_translator.reallocate(node, allocated, resource, msg_sender, to, value, ctx, pos))
+            to_stmts, to = self.translate(node.keywords[0].value, ctx)
+            stmts.extend(to_stmts)
+            stmts.extend(self.allocation_translator.reallocate(node, allocated, resource, msg_sender, to, amount, ctx, pos))
+
             return stmts, None
         elif name == names.OFFER:
             resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)

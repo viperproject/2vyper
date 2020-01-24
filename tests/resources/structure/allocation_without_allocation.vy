@@ -9,5 +9,5 @@
 @public
 def get_zero() -> int128:
     #:: ExpectedOutput(invalid.program:alloc.not.alloc)
-    #@ reallocate(1, to=msg.sender, times=1)
+    #@ reallocate(1, to=msg.sender)
     return 0

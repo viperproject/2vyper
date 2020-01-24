@@ -197,7 +197,6 @@ OFFERED = 'offered'
 
 REALLOCATE = 'reallocate'
 REALLOCATE_TO = 'to'
-REALLOCATE_TIMES = 'times'
 
 OFFER = 'offer'
 OFFER_TO = 'to'

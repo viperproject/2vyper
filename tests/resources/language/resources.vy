@@ -51,7 +51,7 @@ def transfer(to: address, amount: uint256(wei)):
     assert not self.buyers[to]
 
     self.balance_of[msg.sender] -= amount
-    #@ reallocate[wei](amount, to=to, times=1)
+    #@ reallocate[wei](amount, to=to)
     self.balance_of[to] += amount
 
 

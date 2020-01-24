@@ -46,7 +46,7 @@ def withdraw_fail():
 @public
 def transfer(to: address, amount: wei_value):
     self.balance_of[msg.sender] -= amount
-    #@ reallocate(amount, to=to, times=1)
+    #@ reallocate(amount, to=to)
     self.balance_of[to] += amount
 
 
@@ -62,5 +62,5 @@ def transfer_no_realloc_fail(to: address, amount: wei_value):
 def transfer_no_funds_fail(to: address, amount: wei_value):
     self.balance_of[msg.sender] -= amount
     #:: ExpectedOutput(reallocate.failed:insufficient.funds)
-    #@ reallocate(amount, to=to, times=2)
+    #@ reallocate(2 * amount, to=to)
     self.balance_of[to] += amount
