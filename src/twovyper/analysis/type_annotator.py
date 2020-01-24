@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
-from typing import List, Union
+from typing import List, Optional, Union
 
 from twovyper.utils import first_index, switch
 
@@ -21,9 +21,9 @@ from twovyper.ast.visitors import NodeVisitor
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
 
-def _check(condition: bool, node: ast.Node, reason_code: str):
+def _check(condition: bool, node: ast.Node, reason_code: str, msg: Optional[str] = None):
     if not condition:
-        raise InvalidProgramException(node, reason_code)
+        raise InvalidProgramException(node, reason_code, msg)
 
 
 def _check_number_of_arguments(node: ast.FunctionCall, *expected: int,
@@ -571,7 +571,10 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[3], types.VYPER_ADDRESS)
                 self.annotate_expected(node.keywords[0].value, types.VYPER_UINT256)
                 return [None], [node]
-            elif case(names.CREATE):
+            elif case(names.CREATE) or case(names.DESTROY):
+                msg = "Ether cannot be created or destroyed."
+                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
+                _check(not is_wei, node, 'ether.change', msg)
                 _check_number_of_arguments(node, 1, resources=1)
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 return [None], [node]

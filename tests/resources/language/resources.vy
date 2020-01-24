@@ -61,3 +61,11 @@ def offer():
     #@ revoke[GOOD <-> ALLOC(self.owner)](1, 1, to=self.owner)
     #@ offer[GOOD <-> ALLOC(self.owner)](1, 1, to=self.owner, times=10)
     self.buyers[msg.sender] = True
+
+
+@public
+def do_nothing():
+    assert msg.sender == self.owner
+
+    #@ create[GOOD](1)
+    #@ destroy[GOOD](1)
