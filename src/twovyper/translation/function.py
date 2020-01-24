@@ -521,13 +521,9 @@ class FunctionTranslator(CommonTranslator):
             pos = self.to_position(function.node, ctx)
             body = []
 
-            # Define new msg variable
-            # This is only necessary for msg.gas, as msg.sender and msg.value are not
-            # allowed in private functions
-            msg_name = ctx.inline_prefix + mangled.MSG
-            msg_var = TranslatedVar(names.MSG, msg_name, types.MSG_TYPE, self.viper_ast, pos)
-            ctx.locals[names.MSG] = msg_var
-            ctx.new_local_vars.append(msg_var.var_decl(ctx))
+            # We keep the msg variable the same, as only msg.gas is allowed in the body of a private function.
+            # In specifications we assume inline semantics, i.e., msg.sender and msg.value in the inlined function
+            # correspond to msg.sender and msg.value in the caller function.
 
             # Add arguments to local vars, assign passed args or default argument
             for (name, var), arg in zip_longest(function.args.items(), args):
