@@ -22,7 +22,8 @@ buyers: map(address, bool)
 
 #@ invariant: allocated() == self.balance_of
 #@ invariant: allocated[wei]() == self.balance_of
-#@ invariant: forall({a: address}, {allocated[GOOD](a)}, allocated[GOOD](a) == 0)
+#@ invariant: allocated[GOOD](self.owner) == 1
+#@ invariant: forall({a: address}, {allocated[GOOD](a)}, a != self.owner ==> allocated[GOOD](a) == 0)
 #@ invariant: forall({a: address, o: address}, allocated[ALLOC(o)](a) == 0)
 #@ invariant: forall({a: address, o1: address, o2: address}, allocated[DOUBLE(o1, o2)](a) == 0)
 
@@ -33,6 +34,7 @@ buyers: map(address, bool)
 @public
 def __init__():
     self.owner = msg.sender
+    #@ create[GOOD](1)
 
 
 @public

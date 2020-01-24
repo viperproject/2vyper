@@ -425,5 +425,14 @@ class SpecificationTranslator(ExpressionTranslator):
             exchange_stmts = exchange(node, allocated, offered, resource1, resource2, value1, value2, owner1, owner2, times, ctx, pos)
 
             return [*resource_stmts, *value1_stmts, *value2_stmts, *owner1_stmts, *owner2_stmts, *times_stmts, *exchange_stmts], None
+        elif name == names.CREATE:
+            resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
+            amount_stmts, amount = self.translate(node.args[0], ctx)
+            to = helpers.msg_sender(self.viper_ast, ctx, pos)
+
+            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
+            allocation_stmts = self.allocation_translator.allocate(allocated, resource, to, amount, ctx, pos)
+
+            return resource_stmts + amount_stmts + allocation_stmts, None
         else:
             assert False
