@@ -196,24 +196,26 @@ def _burn(_to: address, _value: uint256):
     assert _to != ZERO_ADDRESS
     self.total_supply -= _value
     self.balanceOf[_to] -= _value
+    #@ destroy[token](_value)
     log.Transfer(_to, ZERO_ADDRESS, _value)
 
 
-# @public
-# def burn(_value: uint256):
-#     """
-#     @dev Burn an amount of the token of msg.sender.
-#     @param _value The amount that will be burned.
-#     """
-#     self._burn(msg.sender, _value)
+@public
+def burn(_value: uint256):
+    """
+    @dev Burn an amount of the token of msg.sender.
+    @param _value The amount that will be burned.
+    """
+    self._burn(msg.sender, _value)
 
 
-# @public
-# def burnFrom(_to: address, _value: uint256):
-#     """
-#     @dev Burn an amount of the token from a given account.
-#     @param _to The account whose tokens will be burned.
-#     @param _value The amount that will be burned.
-#     """
-#     self.allowances[_to][msg.sender] -= _value
-#     self._burn(_to, _value)
+@public
+def burnFrom(_to: address, _value: uint256):
+    """
+    @dev Burn an amount of the token from a given account.
+    @param _to The account whose tokens will be burned.
+    @param _value The amount that will be burned.
+    """
+    self.allowances[_to][msg.sender] -= _value
+    #@ exchange[token <-> nothing](1, 0, _to, msg.sender, times=min(_value, self.balanceOf[_to]))
+    self._burn(_to, _value)
