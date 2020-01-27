@@ -283,9 +283,9 @@ class AllocationTranslator(CommonTranslator):
 
             cond = reduce(lambda l, r: self.viper_ast.And(l, r, pos), type_assumptions)
 
-            resource = self.resource_translator.resource(resource.name, [arg.localVar() for arg in args], ctx)
-            allocated_get = self.get_allocated(allocated.local_var(ctx, pos), resource, address_var, ctx, pos)
-            fresh_allocated_get = self.get_allocated(fresh_allocated_var, resource, address_var, ctx, pos)
+            res = self.resource_translator.resource(resource.name, [arg.localVar() for arg in args], ctx)
+            allocated_get = self.get_allocated(allocated.local_var(ctx, pos), res, address_var, ctx, pos)
+            fresh_allocated_get = self.get_allocated(fresh_allocated_var, res, address_var, ctx, pos)
             allocated_eq = self.viper_ast.EqCmp(allocated_get, fresh_allocated_get, pos)
             trigger = self.viper_ast.Trigger([allocated_get, fresh_allocated_get], pos)
             assertion = self.viper_ast.Forall([address, *args], [trigger], self.viper_ast.Implies(cond, allocated_eq, pos), pos)
@@ -294,7 +294,7 @@ class AllocationTranslator(CommonTranslator):
                 succ = ctx.success_var.local_var(ctx, pos)
                 assertion = self.viper_ast.Implies(succ, assertion, pos)
 
-            apos = self.to_position(node, ctx, rule, modelt=modelt)
+            apos = self.to_position(node, ctx, rule, modelt=modelt, values={'resource': resource})
             stmts.append(self.viper_ast.Assert(assertion, apos, info))
 
         return stmts

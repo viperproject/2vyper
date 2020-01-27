@@ -16,7 +16,7 @@ ERRORS = {
     'call.failed':
         lambda i: "Method call might fail.",
     'not.wellformed':
-        lambda i: f"Function {i.function} might not be well-formed.",
+        lambda i: f"Function {i.function.name} might not be well-formed.",
     'call.invariant':
         lambda i: f"An invariant might not hold before the call {pprint(i.node)}.",
     'call.check':
@@ -38,13 +38,13 @@ ERRORS = {
     'assert.failed':
         lambda i: "Assert might fail.",
     'postcondition.violated':
-        lambda i: f"Postcondition of {i.function} might not hold.",
+        lambda i: f"Postcondition of {i.function.name} might not hold.",
     'postcondition.not.implemented':
-        lambda i: f"Function {i.function} might not correctly implement an interface.",
+        lambda i: f"Function {i.function.name} might not correctly implement an interface.",
     'invariant.violated':
-        lambda i: f"Invariant not preserved by {i.function}.",
+        lambda i: f"Invariant not preserved by {i.function.name}.",
     'check.violated':
-        lambda i: f"A check might not hold after the body of {i.function}.",
+        lambda i: f"A check might not hold after the body of {i.function.name}.",
     'invariant.not.wellformed':
         lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
     'postcondition.not.wellformed':
@@ -56,7 +56,7 @@ ERRORS = {
     'exchange.failed':
         lambda i: f"Exchange {pprint(i.node)} might fail.",
     'leakcheck.failed':
-        lambda i: f"Leak check might fail in {i.function}.",
+        lambda i: f"Leak check for resource {i.resource.name} might fail in {i.function.name}.",
     'fold.failed':
         lambda i: "Fold might fail.",
     'unfold.failed':

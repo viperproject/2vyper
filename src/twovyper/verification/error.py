@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from twovyper.ast import ast_nodes as ast
 
@@ -59,14 +59,23 @@ class Via:
 class ErrorInfo:
 
     def __init__(self,
-                 function: str,
                  node: ast.Node,
                  vias: List[Via],
-                 model_transformation: Optional[ModelTransformation]):
-        self.function = function
+                 model_transformation: Optional[ModelTransformation],
+                 values: Dict[str, Any]):
         self.node = node
         self.vias = vias
         self.model_transformation = model_transformation
+        self.values = values
+
+    def __getattribute__(self, name: str) -> Any:
+        try:
+            return super().__getattribute__(name)
+        except AttributeError:
+            try:
+                return self.values.get(name)
+            except KeyError:
+                raise AttributeError(f"'ErrorInfo' object has no attribute '{name}'")
 
 
 class Reason:
