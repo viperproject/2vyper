@@ -63,11 +63,15 @@ class ArrayType(VyperType):
 class StructType(VyperType):
 
     def __init__(self, name: str, member_types: Dict[str, VyperType]):
-        id = f'struct {name}'
+        id = f'{self.kind} {name}'
         super().__init__(id)
         self.name = name
         self.member_types = member_types
         self.member_indices = {k: i for i, k in enumerate(member_types)}
+
+    @property
+    def kind(self) -> str:
+        return 'struct'
 
     def add_member(self, name: str, type: VyperType):
         self.member_types[name] = type
@@ -103,6 +107,13 @@ class SelfType(AnyAddressType):
 
     def __init__(self, member_types: Dict[str, VyperType]):
         super().__init__(names.SELF, member_types)
+
+
+class ResourceType(StructType):
+
+    @property
+    def kind(self) -> str:
+        return 'resource'
 
 
 class ContractType(VyperType):
@@ -288,9 +299,8 @@ class TypeBuilder(NodeVisitor):
         return StructType(node.name, members)
 
     def _visit_FunctionStub(self, node: ast.FunctionStub) -> VyperType:
-        # A resource declaration
         members = {n.name: self.visit(n.annotation) for n in node.args}
-        return StructType(node.name, members)
+        return ResourceType(node.name, members)
 
     def _visit_ContractDef(self, node: ast.ContractDef) -> VyperType:
         functions = {}

@@ -181,7 +181,7 @@ class ProgramTranslator(CommonTranslator):
     def _translate_struct(self, struct: VyperStruct, ctx: Context):
         # For structs we need to synthesize an initializer and an equality domain function with
         # their corresponding axioms
-        domain = mangled.struct_name(struct.name)
+        domain = mangled.struct_name(struct.name, struct.type.kind)
         struct_type = self.type_translator.translate(struct.type, ctx)
 
         members = [None] * len(struct.type.member_types)
@@ -191,11 +191,11 @@ class ProgramTranslator(CommonTranslator):
             var_decl = self.viper_ast.LocalVarDecl(f'$arg_{idx}', member_type)
             members[idx] = (name, var_decl)
 
-        init_name = mangled.struct_init_name(struct.name)
+        init_name = mangled.struct_init_name(struct.name, struct.type.kind)
         init_parms = [var for _, var in members]
         init_f = self.viper_ast.DomainFunc(init_name, init_parms, struct_type, False, domain)
 
-        eq_name = mangled.struct_eq_name(struct.name)
+        eq_name = mangled.struct_eq_name(struct.name, struct.type.kind)
         eq_left_decl = self.viper_ast.LocalVarDecl('$l', struct_type)
         eq_right_decl = self.viper_ast.LocalVarDecl('$r', struct_type)
         eq_parms = [eq_left_decl, eq_right_decl]

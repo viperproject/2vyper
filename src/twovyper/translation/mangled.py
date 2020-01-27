@@ -116,20 +116,20 @@ def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
 
 
-def struct_name(vyper_struct_name: str) -> str:
-    return f's${vyper_struct_name}'
+def struct_name(vyper_struct_name: str, kind: str) -> str:
+    return f's${kind}${vyper_struct_name}'
 
 
 def resource_name(vyper_resource_name: str) -> str:
     return f'r${vyper_resource_name}'
 
 
-def struct_init_name(vyper_struct_name: str) -> str:
-    return f'{struct_name(vyper_struct_name)}$init'
+def struct_init_name(vyper_struct_name: str, kind: str) -> str:
+    return f'{struct_name(vyper_struct_name, kind)}$init'
 
 
-def struct_eq_name(vyper_struct_name: str) -> str:
-    return f'{struct_name(vyper_struct_name)}$eq'
+def struct_eq_name(vyper_struct_name: str, kind: str) -> str:
+    return f'{struct_name(vyper_struct_name, kind)}$eq'
 
 
 def interface_name(vyper_interface_name: str) -> str:

@@ -328,15 +328,15 @@ def struct_loc(viper_ast: ViperAST, ref, idx, pos=None, info=None):
 
 
 def struct_init(viper_ast: ViperAST, args, struct: StructType, pos=None, info=None):
-    domain = mangled.struct_name(struct.name)
-    init_name = mangled.struct_init_name(struct.name)
+    domain = mangled.struct_name(struct.name, struct.kind)
+    init_name = mangled.struct_init_name(struct.name, struct.kind)
     type = struct_type(viper_ast)
     return viper_ast.DomainFuncApp(init_name, args, type, pos, info, domain)
 
 
 def struct_eq(viper_ast: ViperAST, left, right, struct: StructType, pos=None, info=None):
-    domain = mangled.struct_name(struct.name)
-    eq = mangled.struct_eq_name(struct.name)
+    domain = mangled.struct_name(struct.name, struct.kind)
+    eq = mangled.struct_eq_name(struct.name, struct.kind)
     return viper_ast.DomainFuncApp(eq, [left, right], viper_ast.Bool, pos, info, domain)
 
 
