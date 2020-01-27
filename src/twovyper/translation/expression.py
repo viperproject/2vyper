@@ -506,10 +506,19 @@ class ExpressionTranslator(NodeTranslator):
             else:
                 return stmts, helpers.ecmul(self.viper_ast, args, pos)
         elif name == names.SELFDESTRUCT:
-            arg_stmts, arg = self.translate(node.args[0], ctx)
+            to_stmts, to = self.translate(node.args[0], ctx)
 
             self_var = ctx.self_var.local_var(ctx)
             self_type = ctx.self_type
+
+            balance = self.balance_translator.get_balance(self_var, ctx, pos)
+
+            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+                resource = self.resource_translator.resource(names.WEI, [], ctx)
+                dealloc = self.allocation_translator.deallocate(node, allocated, resource, to, balance, ctx, pos)
+            else:
+                dealloc = []
 
             val = self.viper_ast.TrueLit(pos)
             member = mangled.SELFDESTRUCT_FIELD
@@ -517,15 +526,14 @@ class ExpressionTranslator(NodeTranslator):
             sset = helpers.struct_set(self.viper_ast, self_var, val, member, type, self_type, pos)
             self_s_assign = self.viper_ast.LocalVarAssign(self_var, sset, pos)
 
-            balance = self.balance_translator.get_balance(self_var, ctx, pos)
-            sent = self.balance_translator.increase_sent(arg, balance, ctx, pos)
+            sent = self.balance_translator.increase_sent(to, balance, ctx, pos)
 
             zero = self.viper_ast.IntLit(0, pos)
             bset = self.balance_translator.set_balance(self_var, zero, ctx, pos)
             self_b_assign = self.viper_ast.LocalVarAssign(self_var, bset, pos)
 
             goto_return = self.viper_ast.Goto(ctx.return_label, pos)
-            return [*arg_stmts, self_s_assign, sent, self_b_assign, goto_return], None
+            return [*to_stmts, *dealloc, self_s_assign, sent, self_b_assign, goto_return], None
         elif name == names.ASSERT_MODIFIABLE:
             cond_stmts, cond = self.translate(node.args[0], ctx)
             not_cond = self.viper_ast.Not(cond, pos)
@@ -720,14 +728,13 @@ class ExpressionTranslator(NodeTranslator):
 
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                 allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
-                resource_stmts, resource = self.resource_translator.translate(None, ctx)
+                resource = self.resource_translator.resource(names.WEI, [], ctx, pos)
                 dealloc = self.allocation_translator.deallocate(node, allocated, resource, to, amount, ctx, pos)
             else:
-                resource_stmts = []
                 dealloc = []
 
             sub = self.balance_translator.decrease_balance(amount, ctx, pos)
-            stmts = [check, sent, *resource_stmts, *dealloc, sub]
+            stmts = [check, sent, *dealloc, sub]
         else:
             stmts = []
 
