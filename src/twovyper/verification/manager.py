@@ -50,8 +50,8 @@ class ErrorManager:
         It does that by wrapping in ``Error`` subclasses.
         """
         def eq(e1: Error, e2: Error) -> bool:
-            ide = e1.string(True, True) == e2.string(True, True)
-            normal = e1.string(False, True) == e2.string(False, True)
+            ide = e1.string(True, False) == e2.string(True, False)
+            normal = e1.string(False, False) == e2.string(False, False)
             return ide and normal
 
         return unique(eq, [self._convert_error(error, jvm) for error in errors])

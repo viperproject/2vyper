@@ -12,7 +12,7 @@ from twovyper.ast import ast_nodes as ast
 from twovyper.viper.typedefs import Node, AbstractSourcePosition
 from twovyper.viper.typedefs import AbstractVerificationError, AbstractErrorReason
 
-from twovyper.verification.messages import ERRORS, REASONS, VAGUE_REASONS
+from twovyper.verification.messages import ERRORS, REASONS
 from twovyper.verification.model import Model, ModelTransformation
 from twovyper.verification.rules import Rules
 
@@ -62,13 +62,11 @@ class ErrorInfo:
                  function: str,
                  node: ast.Node,
                  vias: List[Via],
-                 model_transformation: Optional[ModelTransformation],
-                 reason_string: str):
+                 model_transformation: Optional[ModelTransformation]):
         self.function = function
         self.node = node
         self.vias = vias
         self.model_transformation = model_transformation
-        self.reason_string = reason_string
 
 
 class Reason:
@@ -82,22 +80,10 @@ class Reason:
         self.position = Position(self.offending_node.pos())
 
     def __str__(self) -> str:
-        return self.string(False)
-
-    def string(self, show_viper_reason: bool) -> str:
         """
         Creates a string representation of this reason including a reference to the Python
         AST node that caused it.
-        If no such node is available, either returns a partial message that describes the
-        kind of error in general, or outputs the concrete Viper-level description of the
-        error, depending on the parameter ``show_viper_reason``.
         """
-        reason = self._reason_info.reason_string or self._reason_info.node
-        if reason is None and self.identifier in VAGUE_REASONS:
-            if not show_viper_reason:
-                return VAGUE_REASONS[self.identifier]
-            else:
-                return self._reason.readableMessage()
         return REASONS[self.identifier](self._reason_info)
 
 
@@ -172,7 +158,7 @@ class Error:
     def __str__(self) -> str:
         return self.string(False, False)
 
-    def string(self, ide_mode: bool, show_viper_errors: bool, include_model: bool = False) -> str:
+    def string(self, ide_mode: bool, include_model: bool = False) -> str:
         """
         Format error.
 
@@ -191,11 +177,11 @@ class Error:
             line = self.position.line
             col = self.position.column
             msg = self.message
-            reason = self.reason.string(False)
+            reason = self.reason
             return f"{file_name}:{line}:{col}: error: {msg} {reason}"
         else:
             msg = self.message
-            reason = self.reason.string(show_viper_errors)
+            reason = self.reason
             pos = self.position_string
             error_msg = f"{msg} {reason} ({pos})"
             if include_model and self.model:

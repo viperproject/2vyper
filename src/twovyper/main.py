@@ -142,11 +142,6 @@ def main() -> None:
         help='write generated Viper program to specified file'
     )
     parser.add_argument(
-        '--show-viper-errors',
-        action='store_true',
-        help='show Viper-level error messages if no Python errors are available'
-    )
-    parser.add_argument(
         '--log',
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
         help='log level',
@@ -212,7 +207,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
                 print(f"{i}, {args.benchmark}, {start}, {end}, {end - start}")
         else:
             vresult = tw.verify(program, vyper_file, backend)
-        print(vresult.to_string(args.ide_mode, args.show_viper_errors, include_model=args.model))
+        print(vresult.string(args.ide_mode, include_model=args.model))
         end = time()
         duration = end - start
         print(f"Verification took {duration:.2f} seconds.")

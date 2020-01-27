@@ -101,11 +101,3 @@ REASONS = {
     'insufficient.permission':
         lambda i: f"There might be insufficient permission to access {pprint(i.node)}."
 }
-
-VAGUE_REASONS = {
-    'assertion.false': "",
-    'receiver.null': "Receiver might be null.",
-    'division.by.zero': "Divisor might be zero.",
-    'negative.permission': "Fraction might be negative.",
-    'insufficient.permission': "There might be insufficient permission."
-}
