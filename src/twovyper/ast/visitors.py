@@ -43,6 +43,11 @@ class NodeVisitor:
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node, *args)
 
+    def visit_nodes(self, nodes: List[ast.Node], *args):
+        for node in nodes:
+            self.visit(node, *args)
+        return None
+
     def generic_visit(self, node, *args):
         for _, value in children(node):
             if value is None:

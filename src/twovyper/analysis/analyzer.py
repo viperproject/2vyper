@@ -26,14 +26,19 @@ def analyze(program: VyperProgram):
     TypeAnnotator(program).annotate_program()
     check_symbols(program)
 
+    function_analyzer = _FunctionAnalyzer()
+    program_analyzer = _ProgramAnalyzer()
+    invariant_analyzer = _InvariantAnalyzer()
+
     for function in program.functions.values():
         function.analysis = FunctionAnalysis()
-        _FunctionAnalyzer(function).analyze()
+        function_analyzer.analyze(function)
 
     program.analysis = ProgramAnalysis()
     # The heuristics are need for analysis, therefore do them first
     heuristics.compute(program)
-    _ProgramAnalyzer(program).analyze()
+    program_analyzer.analyze(program)
+    invariant_analyzer.analyze(program)
 
 
 class ProgramAnalysis:
@@ -51,6 +56,8 @@ class ProgramAnalysis:
         self.inv_tags = {}
         # Maps accessible ast.ReceiverCall nodes to their tag
         self.accessible_tags = {}
+        # All invariants that contain allocated
+        self.allocated_invariants = []
 
 
 class FunctionAnalysis:
@@ -64,58 +71,54 @@ class FunctionAnalysis:
 
 class _ProgramAnalyzer(NodeVisitor):
 
-    def __init__(self, program: VyperProgram):
-        self.program = program
-        self.tag = None
+    def analyze(self, program: VyperProgram):
+        self.visit_nodes(program.invariants, program)
+        self.visit_nodes(program.general_postconditions, program)
+        self.visit_nodes(program.transitive_postconditions, program)
+        self.visit_nodes(program.general_checks, program)
 
-    def analyze(self):
-        for tag, inv in enumerate(self.program.invariants):
-            self.tag = tag
-            self.program.analysis.inv_tags[tag] = inv
-            self.visit(inv)
-
-        for post in self.program.general_postconditions:
-            self.visit(post)
-
-        for post in self.program.transitive_postconditions:
-            self.visit(post)
-
-        for check in self.program.general_checks:
-            self.visit(check)
-
-    def visit_FunctionCall(self, node: ast.FunctionCall):
+    def visit_FunctionCall(self, node: ast.FunctionCall, program: VyperProgram):
         if node.name == names.ISSUED:
-            self.program.analysis.uses_issued = True
-            for function in self.program.functions.values():
+            program.analysis.uses_issued = True
+            for function in program.functions.values():
                 function.analysis.uses_issued = True
+
+        self.generic_visit(node, program)
+
+
+class _InvariantAnalyzer(NodeVisitor):
+
+    def analyze(self, program: VyperProgram):
+        for tag, inv in enumerate(program.invariants):
+            program.analysis.inv_tags[tag] = inv
+            self.visit(inv, program, inv, tag)
+
+    def visit_FunctionCall(self, node: ast.FunctionCall, program: VyperProgram, inv: ast.Expr, tag: int):
+        if node.name == names.ALLOCATED:
+            program.analysis.allocated_invariants.append(inv)
+            return
         elif node.name == names.ACCESSIBLE:
-            self.program.analysis.accessible_tags[node] = self.tag
+            program.analysis.accessible_tags[node] = tag
             if len(node.args) == 3:
                 function_name = node.args[2].name
             else:
-                if not self.program.analysis.accessible_function:
+                if not program.analysis.accessible_function:
                     msg = "No matching function for accessible could be determined."
                     raise UnsupportedException(node, msg)
-                function_name = self.program.analysis.accessible_function.name
-            self.program.functions[function_name].analysis.accessible_tags.add(self.tag)
+                function_name = program.analysis.accessible_function.name
+            program.functions[function_name].analysis.accessible_tags.add(tag)
 
-        self.generic_visit(node)
+        self.generic_visit(node, program, inv, tag)
 
 
 class _FunctionAnalyzer(NodeVisitor):
 
-    def __init__(self, function: VyperFunction):
-        self.function = function
+    def analyze(self, function: VyperFunction):
+        self.visit_nodes(function.postconditions, function)
+        self.visit_nodes(function.checks, function)
 
-    def analyze(self):
-        for post in self.function.postconditions:
-            self.visit(post)
-
-        for check in self.function.checks:
-            self.visit(check)
-
-    def visit_FunctionCall(self, node: ast.FunctionCall):
+    def visit_FunctionCall(self, node: ast.FunctionCall, function: VyperFunction):
         if node.name == names.ISSUED:
-            self.function.analysis.uses_issued = True
+            function.analysis.uses_issued = True
 
-        self.generic_visit(node)
+        self.generic_visit(node, function)

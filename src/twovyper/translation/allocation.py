@@ -230,6 +230,11 @@ class AllocationTranslator(CommonTranslator):
         given only the invariant and the state it is known for each address how much of the ether is
         allocated to them.
         """
+
+        # To do a leak check we create a fresh allocation map, assume the invariants for the current state and
+        # the fresh map and then check that the fresh map only specified from the invariants is equal to the
+        # actual map. This ensures that the invariant fully specifies the allocation map.
+
         spec_translator = self.specification_translator
 
         allocated = ctx.current_state[mangled.ALLOCATED]
@@ -255,7 +260,9 @@ class AllocationTranslator(CommonTranslator):
                 for inv in ctx.unchecked_invariants():
                     stmts.append(self.viper_ast.Inhale(inv))
 
-                for inv in ctx.program.invariants:
+                # As an optimization we only assume invariants that mention allocated(), all other invariants
+                # are already known since we only changed the allocation map to a fresh one
+                for inv in ctx.program.analysis.allocated_invariants:
                     ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                     inv_stmts, expr = spec_translator.translate_invariant(inv, ctx, True)
                     stmts.extend(inv_stmts)
