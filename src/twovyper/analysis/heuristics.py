@@ -5,6 +5,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from typing import List
+
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.nodes import VyperProgram, VyperFunction
 from twovyper.ast.visitors import NodeVisitor
@@ -18,13 +20,11 @@ def compute(program: VyperProgram):
 
 class _AccessibleHeuristics(NodeVisitor):
 
-    def __init__(self):
-        self.send_functions = []
-        self.current_function = None
-
     def compute(self, program: VyperProgram):
+        send_functions = []
+
         for function in program.functions.values():
-            self.check(function)
+            self.visit(function.node, function, send_functions)
 
         def is_canditate(f: VyperFunction) -> bool:
             if not f.is_public():
@@ -33,8 +33,6 @@ class _AccessibleHeuristics(NodeVisitor):
                 return first(f.args.values()).type == types.VYPER_WEI_VALUE
             else:
                 return not f.args
-
-        candidates = [f for f in self.send_functions if is_canditate(f)]
 
         def val(f: VyperFunction):
             name = f.name.lower()
@@ -45,18 +43,14 @@ class _AccessibleHeuristics(NodeVisitor):
             else:
                 return 3
 
-        candidates = sorted(candidates, key=val)
+        candidates = sorted((f for f in send_functions if is_canditate(f)), key=val)
         program.analysis.accessible_function = first(candidates)
 
-    def check(self, function: VyperFunction):
-        self.current_function = function
-        self.visit(function.node)
-
-    def visit_FunctionCall(self, node: ast.FunctionCall):
+    def visit_FunctionCall(self, node: ast.FunctionCall, function: VyperFunction, send_functions: List[VyperFunction]):
         is_send = node.name == names.SEND
         is_rawcall = node.name == names.RAW_CALL
         is_raw_send = names.RAW_CALL_VALUE in [kw.name for kw in node.keywords]
         if is_send or (is_rawcall and is_raw_send):
-            self.send_functions.append(self.current_function)
+            send_functions.append(function)
 
-        self.generic_visit(node)
+        self.generic_visit(node, function, send_functions)
