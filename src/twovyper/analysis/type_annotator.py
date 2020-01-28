@@ -571,8 +571,20 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[3], types.VYPER_ADDRESS)
                 self.annotate_expected(node.keywords[0].value, types.VYPER_UINT256)
                 return [None], [node]
-            elif case(names.CREATE) or case(names.DESTROY):
-                msg = "Ether cannot be created or destroyed."
+            elif case(names.CREATE):
+                msg = "Ether cannot be created."
+                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
+                _check(not is_wei, node, 'ether.change', msg)
+                keywords = {
+                    names.CREATE_TO: types.VYPER_ADDRESS
+                }
+                _check_number_of_arguments(node, 1, allowed_keywords=keywords.keys(), resources=1)
+                self.annotate_expected(node.args[0], types.VYPER_UINT256)
+                for kw in node.keywords:
+                    self.annotate_expected(kw.value, keywords[kw.name])
+                return [None], [node]
+            elif case(names.DESTROY):
+                msg = "Ether cannot be destroyed."
                 is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
                 _check(not is_wei, node, 'ether.change', msg)
                 _check_number_of_arguments(node, 1, resources=1)

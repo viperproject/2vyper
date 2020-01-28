@@ -423,20 +423,29 @@ class SpecificationTranslator(ExpressionTranslator):
             exchange_stmts = exchange(node, allocated, offered, resource1, resource2, value1, value2, owner1, owner2, times, ctx, pos)
 
             return [*resource_stmts, *value1_stmts, *value2_stmts, *owner1_stmts, *owner2_stmts, *times_stmts, *exchange_stmts], None
-        elif name == names.CREATE or name == names.DESTROY:
+        elif name == names.CREATE:
+            resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
+            amount_stmts, amount = self.translate(node.args[0], ctx)
+
+            to_stmts, to = [], helpers.msg_sender(self.viper_ast, ctx, pos)
+
+            for kw in node.keywords:
+                if kw.name == names.CREATE_TO:
+                    to_stmts, to = self.translate(kw.value, ctx)
+
+            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
+            is_init = ctx.function.name == names.INIT
+            allocation_stmts = self.allocation_translator.create(node, allocated, resource, to, amount, is_init, ctx, pos)
+
+            return resource_stmts + amount_stmts + to_stmts + allocation_stmts, None
+        elif name == names.DESTROY:
             resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
             amount_stmts, amount = self.translate(node.args[0], ctx)
             to = helpers.msg_sender(self.viper_ast, ctx, pos)
 
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
-            if name == names.CREATE:
-                is_init = ctx.function.name == names.INIT
-                allocation_stmts = self.allocation_translator.create(node, allocated, resource, to, amount, is_init, ctx, pos)
-            elif name == names.DESTROY:
-                allocation_stmts = self.allocation_translator.deallocate(node, allocated, resource, to, amount, ctx, pos)
-            else:
-                assert False
+            deallocation_stmts = self.allocation_translator.deallocate(node, allocated, resource, to, amount, ctx, pos)
 
-            return resource_stmts + amount_stmts + allocation_stmts, None
+            return resource_stmts + amount_stmts + deallocation_stmts, None
         else:
             assert False

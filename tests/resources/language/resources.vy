@@ -37,8 +37,7 @@ buyers: map(address, bool)
 def __init__(_good_creator: address):
     self.owner = msg.sender
     self.good_creator = _good_creator
-    #@ create[creator(GOOD)](1)
-    #@ reallocate[creator(GOOD)](1, to=self.good_creator)
+    #@ create[creator(GOOD)](1, to=self.good_creator)
     # This is allowed since the initializer is always allowed to create resources
     #@ create[GOOD](1)
 
