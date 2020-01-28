@@ -129,12 +129,27 @@ class AllocationTranslator(CommonTranslator):
                           allocated: Expr, resource: Expr,
                           address: Expr, value: Expr,
                           rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
+        """
+        Checks that `address` has at least `amount` of `resource` allocated to them.
+        """
         get_alloc = self.get_allocated(allocated, resource, address, ctx, pos)
         cond = self.viper_ast.LeCmp(value, get_alloc, pos)
         stmts, modelt = self.model_translator.save_variables(ctx)
         apos = self.to_position(node, ctx, rule, modelt=modelt)
         stmts.append(self.viper_ast.Assert(cond, apos, info))
         return stmts
+
+    def _check_creator(self, node: ast.Node,
+                       allocated: Expr, creator_resource: Expr,
+                       address: Expr,
+                       ctx: Context, pos=None, info=None) -> List[Stmt]:
+        """
+        Checks that `address` is allowed to create a resource by checking that the
+        allocated amount of `creator_resource` is positive.
+        """
+        one = self.viper_ast.IntLit(1, pos)
+        rule = rules.CREATE_FAIL
+        return self._check_allocation(node, allocated, creator_resource, address, one, rule, ctx, pos)
 
     def _check_from_agrees(self, node: ast.Node,
                            offered: Expr,
@@ -223,6 +238,15 @@ class AllocationTranslator(CommonTranslator):
         check_allocation = self._check_allocation(node, allocated, resource, address, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
         decs = self._change_allocation(allocated, resource, address, amount, False, ctx, pos, info)
         return check_allocation + decs
+
+    def create(self, node: ast.Node,
+               allocated: Expr,
+               resource: Expr, creator_resource: Expr,
+               to: Expr, amount: Expr,
+               ctx: Context, pos=None) -> List[Stmt]:
+        check_creator = self._check_creator(node, allocated, creator_resource, to, ctx, pos)
+        allocate = self.allocate(allocated, resource, to, amount, ctx, pos)
+        return check_creator + allocate
 
     def _leak_check(self, node: ast.Node, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """

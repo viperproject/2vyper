@@ -53,6 +53,8 @@ ERRORS = {
         lambda i: f"Postcondition of {pprint(i.node)} might not be well-formed.",
     'reallocate.failed':
         lambda i: f"Reallocate might fail.",
+    'create.failed':
+        lambda i: f"Create might fail.",
     'exchange.failed':
         lambda i: f"Exchange {pprint(i.node)} might fail.",
     'leakcheck.failed':
@@ -88,6 +90,8 @@ REASONS = {
         lambda i: f"Receiver might not implement the interface.",
     'insufficient.funds':
         lambda i: f"There might be insufficient allocated funds.",
+    'not.a.creator':
+        lambda i: f"There might not be an appropriate creator resource.",
     'no.offer':
         lambda i: f"There might not be an appropriate offer.",
     'allocation.leaked':
