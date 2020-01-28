@@ -66,6 +66,7 @@ minter: address
 
 #@ invariant: sum(allocated[wei]()) == 0 and sum(allocated[nothing]()) == 0
 #@ invariant: allocated[token]() == self.balanceOf
+#@ invariant: forall({a: address}, {allocated[creator(token)](a)}, allocated[creator(token)](a) == (1 if a == self.minter else 0))
 
 #@ invariant: forall({o: address, s: address}, self.allowances[o][s] == offered[token <-> nothing](1, 0, o, s))
 
@@ -80,6 +81,7 @@ def __init__(_name: string[64], _symbol: string[32], _decimals: uint256, _supply
     self.total_supply = init_supply
     #@ create[token](init_supply)
     self.minter = msg.sender
+    #@ create[creator(token)](1)
     log.Transfer(ZERO_ADDRESS, msg.sender, init_supply)
 
 
