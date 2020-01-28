@@ -124,6 +124,10 @@ def resource_name(vyper_resource_name: str) -> str:
     return f'r${vyper_resource_name}'
 
 
+def struct_type_tag(name: str) -> int:
+    return int.from_bytes(name.encode('utf-8'), 'big')
+
+
 def struct_init_name(vyper_struct_name: str, kind: str) -> str:
     return f'{struct_name(vyper_struct_name, kind)}$init'
 
@@ -194,7 +198,3 @@ def quantifier_var_name(vyper_name: str) -> str:
 
 def model_var_name(*components: str) -> str:
     return f'm${"$".join(components)}'
-
-
-def struct_type_tag(name: str) -> int:
-    return int.from_bytes(name.encode('utf-8'), 'big')
