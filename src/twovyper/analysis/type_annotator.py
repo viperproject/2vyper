@@ -648,13 +648,15 @@ class TypeAnnotator(NodeVisitor):
             return [function.type.return_type], [node]
 
     def _visit_resource(self, node: ast.Node):
+        if isinstance(node, ast.FunctionCall) and node.name == names.CREATOR:
+            node = node.args[0]
+
         if isinstance(node, ast.Name):
             resource = self.program.resources.get(node.id)
+            args = []
         elif isinstance(node, ast.FunctionCall):
             resource = self.program.resources.get(node.name)
-            _check_number_of_arguments(node, len(resource.type.member_types))
-            for type, arg in zip(resource.type.member_types.values(), node.args):
-                self.annotate_expected(arg, type)
+            args = node.args
         elif isinstance(node, ast.Exchange):
             self._visit_resource(node.value1)
             self._visit_resource(node.value2)
@@ -662,8 +664,13 @@ class TypeAnnotator(NodeVisitor):
         else:
             assert False
 
-        if not resource:
-            raise InvalidProgramException(node.resource, 'invalid.resource')
+        if not resource or len(args) != len(resource.type.member_types):
+            raise InvalidProgramException(node, 'invalid.resource')
+
+        node.type = resource.type
+
+        for type, arg in zip(resource.type.member_types.values(), args):
+            self.annotate_expected(arg, type)
 
     def _visit_forall(self, node: ast.FunctionCall):
         with self._quantified_vars_scope():

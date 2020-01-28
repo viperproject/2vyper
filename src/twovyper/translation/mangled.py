@@ -19,6 +19,8 @@ OFFERED = '$offered'
 
 OFFER = '$offer'
 
+CREATOR_RESOURCE = '$resource'
+
 MSG = names.MSG
 BLOCK = names.BLOCK
 CHAIN = names.CHAIN
@@ -122,6 +124,10 @@ def struct_name(vyper_struct_name: str, kind: str) -> str:
 
 def resource_name(vyper_resource_name: str) -> str:
     return f'r${vyper_resource_name}'
+
+
+def creator_resource_name(vyper_resource_name: str) -> str:
+    return f'{resource_name(vyper_resource_name)}$creator'
 
 
 def struct_type_tag(name: str) -> int:

@@ -9,7 +9,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.types import (
-    VyperType, FunctionType, StructType, ContractType, EventType, InterfaceType
+    VyperType, FunctionType, StructType, ResourceType, ContractType, EventType, InterfaceType
 )
 
 
@@ -90,10 +90,24 @@ class GhostFunction:
 
 class VyperStruct:
 
-    def __init__(self, name: str, type: StructType, node: Optional[ast.Node]):
+    def __init__(self,
+                 name: str,
+                 type: StructType,
+                 node: Optional[ast.Node]):
         self.name = name
         self.type = type
         self.node = node
+
+
+class Resource(VyperStruct):
+
+    def __init__(self,
+                 name: str,
+                 type: ResourceType,
+                 leak_checked: bool,
+                 node: Optional[ast.Node]):
+        super().__init__(name, type, node)
+        self.leak_checked = leak_checked
 
 
 class VyperContract:

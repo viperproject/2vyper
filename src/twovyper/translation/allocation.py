@@ -279,6 +279,9 @@ class AllocationTranslator(CommonTranslator):
         address_assumptions = self.type_translator.type_assumptions(address_var, types.VYPER_ADDRESS, ctx)
 
         for resource in ctx.program.resources.values():
+            if not resource.leak_checked:
+                continue
+
             type_assumptions = address_assumptions.copy()
             args = []
             for idx, arg_type in enumerate(resource.type.member_types.values()):

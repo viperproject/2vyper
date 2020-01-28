@@ -10,6 +10,7 @@
 
 
 owner: address
+good_creator: address
 balance_of: map(address, uint256(wei))
 buyers: map(address, bool)
 
@@ -22,8 +23,8 @@ buyers: map(address, bool)
 
 #@ invariant: allocated() == self.balance_of
 #@ invariant: allocated[wei]() == self.balance_of
-#@ invariant: allocated[GOOD](self.owner) == 1
-#@ invariant: forall({a: address}, {allocated[GOOD](a)}, a != self.owner ==> allocated[GOOD](a) == 0)
+#@ invariant: forall({a: address}, {allocated[creator(GOOD)](a)}, allocated[creator(GOOD)](a) == (1 if a == self.good_creator else 0))
+#@ invariant: forall({a: address}, {allocated[GOOD](a)}, allocated[GOOD](a) == (1 if a == self.owner else 0))
 #@ invariant: forall({a: address, o: address}, allocated[ALLOC(o)](a) == 0)
 #@ invariant: forall({a: address, o1: address, o2: address}, allocated[DOUBLE(o1, o2)](a) == 0)
 
@@ -32,8 +33,12 @@ buyers: map(address, bool)
 
 
 @public
-def __init__():
+def __init__(_good_creator: address):
     self.owner = msg.sender
+    self.good_creator = _good_creator
+    #@ create[creator(GOOD)](1)
+    #@ reallocate[creator(GOOD)](1, to=self.good_creator)
+    # This is allowed since the initializer is always allowed to create resources
     #@ create[GOOD](1)
 
 
@@ -64,8 +69,16 @@ def offer():
 
 
 @public
+def change_good_creator(to: address):
+    assert msg.sender == self.good_creator
+
+    self.good_creator = to
+    #@ reallocate[creator(GOOD)](1, to=to)
+
+
+@public
 def do_nothing():
-    assert msg.sender == self.owner
+    assert msg.sender == self.good_creator
 
     #@ create[GOOD](1)
     #@ destroy[GOOD](1)

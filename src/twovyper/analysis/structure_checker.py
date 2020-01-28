@@ -66,6 +66,11 @@ class ProgramChecker(NodeVisitor):
             if isinstance(node.resource, ast.Exchange):
                 check_resource(node.resource.value1)
                 check_resource(node.resource.value2)
+            elif isinstance(node.resource, ast.FunctionCall) and node.resource.name == names.CREATOR:
+                if len(node.resource.args) != 1 or len(node.resource.keywords) != 0:
+                    raise InvalidProgramException(node, 'invalid.resource')
+
+                check_resource(node.resource.args[0])
             else:
                 check_resource(node.resource)
 

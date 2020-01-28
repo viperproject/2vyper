@@ -18,7 +18,7 @@ from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
-    Config, VyperInterface, GhostFunction
+    Config, VyperInterface, GhostFunction, Resource
 )
 from twovyper.ast.types import TypeBuilder, FunctionType, EventType, SelfType, InterfaceType, ResourceType
 
@@ -111,7 +111,7 @@ class ProgramBuilder(NodeVisitor):
             # Add wei resource
             if self.config.has_option(names.CONFIG_ALLOCATION):
                 wei_type = ResourceType(names.WEI, {})
-                wei_resource = VyperStruct(names.WEI, wei_type, None)
+                wei_resource = Resource(names.WEI, wei_type, True, None)
                 self.resources[names.WEI] = wei_resource
 
             return VyperProgram(node,
@@ -213,11 +213,11 @@ class ProgramBuilder(NodeVisitor):
         # A function stub on the top-level is a resource declaration
         self._check_no_local_spec()
 
-        if node.name in self.resources:
+        if node.name in self.resources or node.name == names.CREATOR:
             raise InvalidProgramException(node, 'duplicate.resource')
 
         type = self.type_builder.build(node)
-        resource = VyperStruct(node.name, type, node)
+        resource = Resource(node.name, type, True, node)
         self.resources[node.name] = resource
 
     def visit_ContractDef(self, node: ast.ContractDef):
