@@ -111,7 +111,7 @@ class ProgramBuilder(NodeVisitor):
             # Add wei resource
             if self.config.has_option(names.CONFIG_ALLOCATION):
                 wei_type = ResourceType(names.WEI, {})
-                wei_resource = Resource(names.WEI, wei_type, True, None)
+                wei_resource = Resource(names.WEI, wei_type, None)
                 self.resources[names.WEI] = wei_resource
 
             return VyperProgram(node,
@@ -217,7 +217,7 @@ class ProgramBuilder(NodeVisitor):
             raise InvalidProgramException(node, 'duplicate.resource')
 
         type = self.type_builder.build(node)
-        resource = Resource(node.name, type, True, node)
+        resource = Resource(node.name, type, node)
         self.resources[node.name] = resource
 
     def visit_ContractDef(self, node: ast.ContractDef):

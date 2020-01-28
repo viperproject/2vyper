@@ -23,6 +23,7 @@ buyers: map(address, bool)
 
 #@ invariant: allocated() == self.balance_of
 #@ invariant: allocated[wei]() == self.balance_of
+#:: Label(CREATOR)
 #@ invariant: forall({a: address}, {allocated[creator(GOOD)](a)}, allocated[creator(GOOD)](a) == (1 if a == self.good_creator else 0))
 #@ invariant: forall({a: address}, {allocated[GOOD](a)}, allocated[GOOD](a) == (1 if a == self.owner else 0))
 #@ invariant: forall({a: address, o: address}, allocated[ALLOC(o)](a) == 0)
@@ -76,9 +77,34 @@ def change_good_creator(to: address):
     #@ reallocate[creator(GOOD)](1, to=to)
 
 
+#:: ExpectedOutput(invariant.violated:assertion.false, CREATOR)
+@public
+def change_good_creator_fail(to: address):
+    assert msg.sender == self.good_creator
+
+    self.good_creator = to
+
+
 @public
 def do_nothing():
     assert msg.sender == self.good_creator
 
     #@ create[GOOD](1)
     #@ destroy[GOOD](1)
+
+
+@public
+def do_nothing_fail():
+    #:: ExpectedOutput(create.failed:not.a.creator)
+    #@ create[GOOD](1)
+    #@ destroy[GOOD](1)
+    pass
+
+
+#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, CREATOR)
+@public
+def create_creator_fail():
+    assert msg.sender == self.good_creator
+
+    #:: ExpectedOutput(create.failed:not.a.creator)
+    #@ create[creator(GOOD)](1)

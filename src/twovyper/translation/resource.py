@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 
 from twovyper.ast import ast_nodes as ast, names
 
-from twovyper.translation import helpers, mangled
+from twovyper.translation import helpers
 from twovyper.translation.abstract import NodeTranslator
 from twovyper.translation.context import Context
 
@@ -31,9 +31,8 @@ class ResourceTranslator(NodeTranslator):
         resource_type = ctx.program.resources[name].type
         return helpers.struct_init(self.viper_ast, args, resource_type, pos)
 
-    def creator_resource(self, name: str, resource: Expr, ctx: Context, pos=None) -> Expr:
-        creator_name = mangled.creator_resource_name(name)
-        creator_resource_type = ctx.program.resources[creator_name].type
+    def creator_resource(self, resource: Expr, ctx: Context, pos=None) -> Expr:
+        creator_resource_type = helpers.creator_resource().type
         return helpers.struct_init(self.viper_ast, [resource], creator_resource_type, pos)
 
     def translate(self, resource: Optional[ast.Node], ctx: Context) -> StmtsAndExpr:
@@ -59,7 +58,7 @@ class ResourceTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
         if node.name == names.CREATOR:
             resource_stmts, resource = self.translate(node.args[0], ctx)
-            return resource_stmts, self.creator_resource(node.args[0].type.name, resource, ctx, pos)
+            return resource_stmts, self.creator_resource(resource, ctx, pos)
         else:
             args_stmts, args = self.collect(self.specification_translator.translate(arg, ctx) for arg in node.args)
             return args_stmts, self.resource(node.name, args, ctx, pos)

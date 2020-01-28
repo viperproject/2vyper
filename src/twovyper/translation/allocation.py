@@ -240,11 +240,16 @@ class AllocationTranslator(CommonTranslator):
         return check_allocation + decs
 
     def create(self, node: ast.Node,
-               allocated: Expr,
-               resource: Expr, creator_resource: Expr,
+               allocated: Expr, resource: Expr,
                to: Expr, amount: Expr,
+               is_init: bool,
                ctx: Context, pos=None) -> List[Stmt]:
-        check_creator = self._check_creator(node, allocated, creator_resource, to, ctx, pos)
+        if is_init:
+            # The initializer is allowed to create all resources unchecked.
+            check_creator = []
+        else:
+            creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
+            check_creator = self._check_creator(node, allocated, creator_resource, to, ctx, pos)
         allocate = self.allocate(allocated, resource, to, amount, ctx, pos)
         return check_creator + allocate
 
@@ -303,9 +308,6 @@ class AllocationTranslator(CommonTranslator):
         address_assumptions = self.type_translator.type_assumptions(address_var, types.VYPER_ADDRESS, ctx)
 
         for resource in ctx.program.resources.values():
-            if not resource.leak_checked:
-                continue
-
             type_assumptions = address_assumptions.copy()
             args = []
             for idx, arg_type in enumerate(resource.type.member_types.values()):

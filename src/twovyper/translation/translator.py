@@ -15,8 +15,8 @@ from twovyper.utils import flatten, seq_to_list
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction, Resource
-from twovyper.ast.types import AnyStructType, ResourceType
+from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction
+from twovyper.ast.types import AnyStructType
 
 from twovyper.exceptions import ConsistencyException
 
@@ -110,17 +110,6 @@ class ProgramTranslator(CommonTranslator):
         for key in vyper_program.nonreentrant_keys():
             vyper_program.fields.type.add_member(mangled.lock_name(key), types.VYPER_BOOL)
 
-        # For each resource except wei we add a creator resource. A creator resource indicates
-        # who is allowed to create a particular resource. For example, to create a resource TOKEN
-        # one has to own a non-zero amount of the creator(TOKEN) resource for the operation to be
-        # allowed.
-        current_resources = list(vyper_program.resources.values())
-        for resource in current_resources:
-            if resource.name != names.WEI:
-                creator_name = mangled.creator_resource_name(resource.name)
-                creator_type = ResourceType(creator_name, {mangled.CREATOR_RESOURCE: resource.type})
-                vyper_program.resources[creator_name] = Resource(creator_name, creator_type, False, None)
-
         ctx = Context()
         ctx.program = vyper_program
         ctx.current_program = vyper_program
@@ -172,6 +161,7 @@ class ProgramTranslator(CommonTranslator):
         # Resources
         resources = vyper_program.resources.values()
         domains.extend(self._translate_resource(resource, ctx) for resource in resources)
+        domains.append(self._translate_resource(helpers.creator_resource(), ctx))
 
         # Ghost functions
         functions.extend(self._translate_ghost_function(func, ctx) for func in vyper_program.ghost_functions.values())

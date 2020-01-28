@@ -104,10 +104,8 @@ class Resource(VyperStruct):
     def __init__(self,
                  name: str,
                  type: ResourceType,
-                 leak_checked: bool,
                  node: Optional[ast.Node]):
         super().__init__(name, type, node)
-        self.leak_checked = leak_checked
 
 
 class VyperContract:

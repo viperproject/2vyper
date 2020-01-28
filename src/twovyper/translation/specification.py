@@ -430,11 +430,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
             if name == names.CREATE:
-                if ctx.function.name == names.INIT:
-                    allocation_stmts = self.allocation_translator.allocate(allocated, resource, to, amount, ctx, pos)
-                else:
-                    creator_resource = self.resource_translator.creator_resource(node.resource.type.name, resource, ctx, pos)
-                    allocation_stmts = self.allocation_translator.create(node, allocated, resource, creator_resource, to, amount, ctx, pos)
+                is_init = ctx.function.name == names.INIT
+                allocation_stmts = self.allocation_translator.create(node, allocated, resource, to, amount, is_init, ctx, pos)
             elif name == names.DESTROY:
                 allocation_stmts = self.allocation_translator.deallocate(node, allocated, resource, to, amount, ctx, pos)
             else:
