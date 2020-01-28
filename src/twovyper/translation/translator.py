@@ -215,7 +215,7 @@ class ProgramTranslator(CommonTranslator):
         init_args = [param.localVar() for param in init_parms]
         init = helpers.struct_init(self.viper_ast, init_args, struct.type)
         # The type tag of the initializer is always the type tag of the struct being initialized
-        type_tag = self.viper_ast.IntLit(mangled.struct_type_tag(struct.name))
+        type_tag = self.viper_ast.IntLit(mangled.struct_type_tag(struct.type.name, struct.type.kind))
         init_expr = self.viper_ast.EqCmp(helpers.struct_type_tag(self.viper_ast, init), type_tag)
 
         eq_left = eq_left_decl.localVar()

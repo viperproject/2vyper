@@ -177,7 +177,7 @@ class TypeTranslator(CommonTranslator):
                     get = helpers.struct_get(self.viper_ast, node, member_name, viper_type, type)
                     ret.extend(construct(member_type, get))
 
-                type_tag = self.viper_ast.IntLit(mangled.struct_type_tag(type.name))
+                type_tag = self.viper_ast.IntLit(mangled.struct_type_tag(type.name, type.kind))
                 get_tag = helpers.struct_type_tag(self.viper_ast, node)
                 ret.append(self.viper_ast.EqCmp(get_tag, type_tag))
 

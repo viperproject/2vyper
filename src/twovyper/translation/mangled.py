@@ -130,7 +130,8 @@ def creator_resource_name(vyper_resource_name: str) -> str:
     return f'{resource_name(vyper_resource_name)}$creator'
 
 
-def struct_type_tag(name: str) -> int:
+def struct_type_tag(vyper_struct_name: str, kind: str) -> int:
+    name = struct_name(vyper_struct_name, kind)
     return int.from_bytes(name.encode('utf-8'), 'big')
 
 
