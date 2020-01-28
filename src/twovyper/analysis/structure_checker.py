@@ -20,8 +20,8 @@ def _assert(cond: bool, node: ast.Node, error_code: str):
 
 
 def check_structure(program: VyperProgram):
-    ProgramChecker(program).check()
-    GhostFunctionChecker(program).check()
+    ProgramChecker().check(program)
+    GhostFunctionChecker().check(program)
     InvariantChecker(program).check()
     CheckChecker(program).check()
     PostconditionChecker(program).check()
@@ -29,31 +29,25 @@ def check_structure(program: VyperProgram):
 
 class ProgramChecker(NodeVisitor):
 
-    def __init__(self, program: VyperProgram):
-        self.program = program
-        self.function = None
-
-    def check(self):
-        if self.program.resources and not self.program.config.has_option(names.CONFIG_ALLOCATION):
-            resource = next(iter(self.program.resources.values()))
+    def check(self, program: VyperProgram):
+        if program.resources and not program.config.has_option(names.CONFIG_ALLOCATION):
+            resource = next(iter(program.resources.values()))
             msg = "Resources require allocation config option."
             raise InvalidProgramException(resource.node, 'alloc.not.alloc', msg)
 
-        for func in self.program.functions.values():
-            self.function = func
-            self.visit(func.node)
-            self.function = None
+        for function in program.functions.values():
+            self.visit(function.node, program, function)
 
-    def visit_FunctionCall(self, node: ast.FunctionCall):
+    def visit_FunctionCall(self, node: ast.FunctionCall, program: VyperProgram, function: VyperFunction):
         if node.name == names.RAW_CALL:
             if names.RAW_CALL_DELEGATE_CALL in [kw.name for kw in node.keywords]:
                 raise UnsupportedException(node, "Delegate calls are not supported.")
 
         if node.name in names.ALLOCATION_FUNCTIONS:
-            if not self.program.config.has_option(names.CONFIG_ALLOCATION):
+            if not program.config.has_option(names.CONFIG_ALLOCATION):
                 msg = "Allocation statements require allocation config option."
                 raise InvalidProgramException(node, 'alloc.not.alloc', msg)
-            elif self.function.is_constant():
+            elif function.is_constant():
                 msg = "Allocation statements are not allowed in constant functions."
                 raise InvalidProgramException(node, 'alloc.in.constant', msg)
 
@@ -74,16 +68,13 @@ class ProgramChecker(NodeVisitor):
             else:
                 check_resource(node.resource)
 
-        self.generic_visit(node)
+        self.generic_visit(node, program, function)
 
 
 class GhostFunctionChecker(NodeVisitor):
 
-    def __init__(self, program: VyperProgram):
-        self.program = program
-
-    def check(self):
-        for func in self.program.ghost_function_implementations.values():
+    def check(self, program: VyperProgram):
+        for func in program.ghost_function_implementations.values():
             self.visit(func.node)
 
     def visit_Name(self, node: ast.Name):
