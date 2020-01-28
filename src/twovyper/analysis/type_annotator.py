@@ -648,12 +648,12 @@ class TypeAnnotator(NodeVisitor):
             return [function.type.return_type], [node]
 
     def _visit_resource(self, node: ast.Node):
-        if isinstance(node, ast.FunctionCall) and node.name == names.CREATOR:
-            node = node.args[0]
-
         if isinstance(node, ast.Name):
             resource = self.program.resources.get(node.id)
             args = []
+        elif isinstance(node, ast.FunctionCall) and node.name == names.CREATOR:
+            self._visit_resource(node.args[0])
+            return
         elif isinstance(node, ast.FunctionCall):
             resource = self.program.resources.get(node.name)
             args = node.args
