@@ -91,6 +91,14 @@ def offered_type():
     return MapType(AnyStructType(), MapType(AnyStructType(), MapType(offer_type(), types.VYPER_UINT256)))
 
 
+def offer(viper_ast: ViperAST, from_val, to_val, from_addr, to_addr, pos=None):
+    return struct_init(viper_ast, [from_val, to_val, from_addr, to_addr], offer_type(), pos)
+
+
+def offer_predicate(viper_ast: ViperAST, from_val, to_val, from_addr, to_addr, pos=None):
+    return viper_ast.PredicateAccess([from_val, to_val, from_addr, to_addr], mangled.OFFER, pos)
+
+
 def creator_resource() -> Resource:
     creator_name = mangled.CREATOR
     creator_type = ResourceType(creator_name, {mangled.CREATOR_RESOURCE: AnyStructType()})

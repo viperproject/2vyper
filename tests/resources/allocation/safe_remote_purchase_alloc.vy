@@ -41,6 +41,8 @@ state: public(int128)
 
 pending_returns: public(map(address, wei_value))
 
+#@ resource: good()
+
 #@ invariant: self.seller == old(self.seller)
 #@ invariant: old(self.buyer) != ZERO_ADDRESS ==> self.buyer == old(self.buyer)
 #@ invariant: self.seller != self.buyer
@@ -61,6 +63,13 @@ pending_returns: public(map(address, wei_value))
 #@ invariant: self.state == RECEIVED ==> allocated(self.seller) == 3 * self.value and sent(self.seller) == 0 or (allocated(self.seller) == 0 and sent(self.seller) == 3 * self.value)
 #@ invariant: self.state == RECEIVED ==> allocated(self.buyer) == self.value and sent(self.buyer) == 0 or (allocated(self.buyer) == 0 and sent(self.buyer) == self.value)
 
+#@ invariant: self.state in [OPEN, ABORTED, PURCHASED] ==> forall({a: address}, {allocated[good](a)},
+    #@ allocated[good](a) == (1 if a == self.seller else 0))
+#@ invariant: self.state == RECEIVED ==> forall({a: address}, {allocated[good](a)}, allocated[good](a) == (1 if a == self.buyer else 0))
+
+#@ invariant: self.state in [OPEN, PURCHASED] ==> forall({a: address}, offered[good <-> wei](1, self.value, self.seller, a) == 1)
+#@ invariant: self.state == PURCHASED ==> offered[wei <-> good](self.value, 1, self.buyer, self.seller) >= 1
+
 #@ invariant: forall({a: address}, accessible(a, self.pending_returns[a]))
 
 @public
@@ -71,6 +80,9 @@ def __init__():
     self.value = msg.value / 2
     self.seller = msg.sender
     self.state = OPEN
+
+    #@ create[good](1)
+    #@ foreach({a: address}, offer[good <-> wei](1, self.value, to=a, times=1))
 
 @public
 def withdraw():
@@ -86,6 +98,8 @@ def abort():
     self.state = ABORTED
     self.pending_returns[self.seller] += 2 * self.value
 
+    #@ foreach({a: address}, revoke[good <-> wei](1, self.value, to=a))
+
 @public
 @payable
 def purchase():
@@ -96,6 +110,8 @@ def purchase():
     self.state = PURCHASED
     self.buyer = msg.sender
 
+    #@ offer[wei <-> good](self.value, 1, to=self.seller, times=1)
+
 @public
 def received():
     assert self.state == PURCHASED
@@ -103,7 +119,7 @@ def received():
 
     self.state = RECEIVED
 
-    #@ reallocate(self.value, to=self.seller)
+    #@ exchange[good <-> wei](1, self.value, self.seller, self.buyer, times=1)
 
     self.pending_returns[self.buyer] += self.value
     self.pending_returns[self.seller] += 3 * self.value

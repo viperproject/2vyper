@@ -544,6 +544,8 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.keywords[0].value, types.VYPER_ADDRESS)
                 return [None], [node]
+            elif case(names.FOREACH):
+                return self._visit_foreach(node)
             elif case(names.OFFER):
                 keywords = {
                     names.OFFER_TO: types.VYPER_ADDRESS,
@@ -684,14 +686,18 @@ class TypeAnnotator(NodeVisitor):
         for type, arg in zip(resource.type.member_types.values(), args):
             self.annotate_expected(arg, type)
 
+    def _add_quantified_vars(self, var_decls: ast.Dict):
+        vars_types = zip(var_decls.keys, var_decls.values)
+        for name, type_annotation in vars_types:
+            type = self.type_builder.build(type_annotation)
+            self.variables[name.id] = [type]
+            name.type = type
+
     def _visit_forall(self, node: ast.FunctionCall):
         with self._quantified_vars_scope():
-            var_decls = node.args[0]  # This is a dictionary of variable declarations
-            vars_types = zip(var_decls.keys, var_decls.values)
-            for name, type_ann in vars_types:
-                type = self.type_builder.build(type_ann)
-                self.variables[name.id] = [type]
-                name.type = type
+            # Add the quantified variables {<x1>: <t1>, <x2>: <t2>, ...} to the
+            # variable map
+            self._add_quantified_vars(node.args[0])
 
             # Triggers can have any type
             for arg in node.args[1:len(node.args) - 1]:
@@ -702,13 +708,26 @@ class TypeAnnotator(NodeVisitor):
 
         return [types.VYPER_BOOL], [node]
 
+    def _visit_foreach(self, node: ast.FunctionCall):
+        with self._quantified_vars_scope():
+            # Add the quantified variables {<x1>: <t1>, <x2>: <t2>, ...} to the
+            # variable map
+            self._add_quantified_vars(node.args[0])
+
+            # Annotate the body
+            self.annotate(node.args[1])
+
+        return [None], [node]
+
     def _visit_accessible(self, node: ast.FunctionCall):
         self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
         self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
+
         if len(node.args) == 3:
             function = self.program.functions[node.args[2].name]
             for arg, type in zip(node.args[2].args, function.type.arg_types):
                 self.annotate_expected(arg, type)
+
         return [types.VYPER_BOOL], [node]
 
     def _visit_event(self, node: ast.FunctionCall):

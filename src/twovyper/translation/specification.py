@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from functools import reduce
+from typing import List
 
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.types import VyperType
@@ -23,7 +24,7 @@ from twovyper.utils import switch
 from twovyper.verification import rules
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import StmtsAndExpr
+from twovyper.viper.typedefs import Expr, StmtsAndExpr
 
 
 class SpecificationTranslator(ExpressionTranslator):
@@ -68,6 +69,20 @@ class SpecificationTranslator(ExpressionTranslator):
         assert not stmts
         return expr
 
+    def _translate_quantified_vars(self, node: ast.Dict, ctx: Context) -> (List[TranslatedVar], List[Expr]):
+        quants = []
+        type_assumptions = []
+        # The first argument to forall is the variable declaration dict
+        for var_name in node.keys:
+            name_pos = self.to_position(var_name, ctx)
+            qname = mangled.quantifier_var_name(var_name.id)
+            qvar = TranslatedVar(var_name.id, qname, var_name.type, self.viper_ast, name_pos)
+            tassps = self.type_translator.type_assumptions(qvar.local_var(ctx), qvar.type, ctx)
+            type_assumptions.extend(tassps)
+            quants.append(qvar)
+
+        return quants, type_assumptions
+
     def translate_FunctionCall(self, node: ast.FunctionCall, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
 
@@ -79,18 +94,12 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.FORALL:
             with ctx.quantified_var_scope():
                 num_args = len(node.args)
-                quants = []
-                type_assumptions = []
+
                 # The first argument to forall is the variable declaration dict
-                for var_name in node.args[0].keys:
-                    name_pos = self.to_position(var_name, ctx)
-                    type = self.type_translator.translate(var_name.type, ctx)
-                    qname = mangled.quantifier_var_name(var_name.id)
-                    qvar = TranslatedVar(var_name.id, qname, var_name.type, self.viper_ast, name_pos)
-                    tassps = self.type_translator.type_assumptions(qvar.local_var(ctx), qvar.type, ctx)
-                    type_assumptions.extend(tassps)
-                    quants.append(qvar.var_decl(ctx))
-                    ctx.quantified_vars[var_name.id] = qvar
+                quants, type_assumptions = self._translate_quantified_vars(node.args[0], ctx)
+                # Add the quantified variables to the context
+                for var in quants:
+                    ctx.quantified_vars[var.name] = var
 
                 # The last argument to forall is the quantified expression
                 expr = self._translate_spec(node.args[num_args - 1], ctx)
@@ -116,7 +125,8 @@ class SpecificationTranslator(ExpressionTranslator):
                         trigger = self.viper_ast.Trigger(trigger_exprs, trigger_pos)
                         triggers.append(trigger)
 
-                return [], self.viper_ast.Forall(quants, triggers, expr, pos)
+                quant_var_decls = [var.var_decl(ctx) for var in quants]
+                return [], self.viper_ast.Forall(quant_var_decls, triggers, expr, pos)
         elif name == names.RESULT:
             return [], ctx.result_var.local_var(ctx, pos)
         elif name == names.SUCCESS:
@@ -447,5 +457,12 @@ class SpecificationTranslator(ExpressionTranslator):
             deallocation_stmts = self.allocation_translator.deallocate(node, allocated, resource, to, amount, ctx, pos)
 
             return resource_stmts + amount_stmts + deallocation_stmts, None
+        elif name == names.FOREACH:
+            with ctx.quantified_var_scope():
+                quants, _ = self._translate_quantified_vars(node.args[0], ctx)
+                for var in quants:
+                    ctx.quantified_vars[var.name] = var
+
+                return self.translate_ghost_statement(node.args[1], ctx)
         else:
             assert False

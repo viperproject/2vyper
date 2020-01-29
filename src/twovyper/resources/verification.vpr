@@ -6,3 +6,5 @@
 */
 
 predicate $failed($address: Int)
+
+predicate $offer($from_amount: Int, $to_amount: Int, $from_address: Int, $to_address: Int)
