@@ -693,6 +693,7 @@ class TypeAnnotator(NodeVisitor):
                 self.variables[name.id] = [type]
                 name.type = type
 
+            # Triggers can have any type
             for arg in node.args[1:len(node.args) - 1]:
                 self.annotate(arg)
 
