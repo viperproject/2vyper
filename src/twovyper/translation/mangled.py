@@ -17,6 +17,7 @@ CONTRACTS = '$contracts'
 ALLOCATED = '$allocated'
 OFFERED = '$offered'
 
+ALLOCATION = '$allocation'
 OFFER = '$offer'
 
 CREATOR = '$creator'

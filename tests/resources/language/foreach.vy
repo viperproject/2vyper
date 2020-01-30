@@ -14,8 +14,8 @@ sold: bool
 aborted: bool
 
 
-#@ resource: good()
 #@ resource: nothing()
+#@ resource: good()
 
 
 #@ invariant: self.owner == old(self.owner)
@@ -24,6 +24,8 @@ aborted: bool
 
 #@ invariant: sum(allocated[wei]()) == 0 and sum(allocated[nothing]()) == 0
 #@ invariant: forall({a: address}, {allocated[good](a)}, allocated[good](a) == (1 if a == self.owner and not self.sold else 0))
+
+#@ invariant: forall({a: address}, {allocated[creator(good)](a)}, allocated[creator(good)](a) == 1)
 
 #@ invariant: not self.sold and not self.aborted ==> forall({a: address}, offered[good <-> nothing](1, 0, self.owner, a) == 1)
 #@ invariant: self.aborted ==> forall({a: address}, offered[good <-> nothing](1, 0, self.owner, a) == 0)
@@ -34,6 +36,7 @@ aborted: bool
 def __init__(t: address):
     self.owner = msg.sender
     #@ create[good](1)
+    #@ foreach({a: address}, create[creator(good)](1, to=a))
     #@ foreach({a: address}, offer[good <-> nothing](1, 0, to=a, times=1))
 
 
@@ -61,3 +64,10 @@ def get():
     #@ destroy[good](1)
 
     self.sold = True
+
+
+@public
+def do_nothing():
+    #@ create[good](1)
+    pass
+    #@ destroy[good](1)

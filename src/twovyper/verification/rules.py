@@ -137,6 +137,11 @@ ALLOCATION_LEAK_CHECK_FAIL = {
         ('leakcheck.failed', 'allocation.leaked')
 }
 
+CREATE_INJECTIVITY_CHECK_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('create.failed', 'offer.not.injective')
+}
+
 OFFER_INJECTIVITY_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('offer.failed', 'offer.not.injective')

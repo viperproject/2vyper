@@ -382,10 +382,12 @@ class SpecificationTranslator(ExpressionTranslator):
         # i.e. that if any two quantified variables are different, at least one pair of arguments is also different if
         # the amount offered is non-zero.
         assert qvars
-        assert args
 
         pos = self.to_position(node, ctx)
         stmts = []
+
+        true = self.viper_ast.TrueLit(pos)
+        false = self.viper_ast.FalseLit(pos)
 
         qtvars = [[], []]
         qtlocals = [[], []]
@@ -398,7 +400,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 qtlocals[i].append(local)
                 type_assumptions[i].extend(self.type_translator.type_assumptions(local, var.type, ctx))
 
-        tas = reduce(lambda a, b: self.viper_ast.And(a, b, pos), chain(*type_assumptions), self.viper_ast.TrueLit(pos))
+        tas = reduce(lambda a, b: self.viper_ast.And(a, b, pos), chain(*type_assumptions), true)
 
         or_op = lambda a, b: self.viper_ast.Or(a, b, pos)
         ne_op = lambda a, b: self.viper_ast.NeCmp(a, b, pos)
@@ -421,7 +423,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     stmts.extend(amount_stmts)
                     is_zero.append(self.viper_ast.EqCmp(tamount, zero, pos))
 
-        arg_neq = reduce(or_op, starmap(ne_op, zip(*targs)))
+        arg_neq = reduce(or_op, starmap(ne_op, zip(*targs)), false)
         if is_zero:
             arg_neq = self.viper_ast.Or(arg_neq, reduce(or_op, is_zero))
 
@@ -518,16 +520,24 @@ class SpecificationTranslator(ExpressionTranslator):
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             to_stmts, to = [], msg_sender
+            args = []
 
             for kw in node.keywords:
                 if kw.name == names.CREATE_TO:
                     to_stmts, to = self.translate(kw.value, ctx)
+                    args.append(kw.value)
+
+            if ctx.quantified_vars:
+                rule = rules.CREATE_INJECTIVITY_CHECK_FAIL
+                injectivity_stmts = self._injectivity_check(node, ctx.quantified_vars.values(), args, node.args[0], rule, ctx)
+            else:
+                injectivity_stmts = []
 
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
             is_init = ctx.function.name == names.INIT
             allocation_stmts = self.allocation_translator.create(node, allocated, resource, msg_sender, to, amount, is_init, ctx, pos)
 
-            return resource_stmts + amount_stmts + to_stmts + allocation_stmts, None
+            return resource_stmts + amount_stmts + to_stmts + injectivity_stmts + allocation_stmts, None
         elif name == names.DESTROY:
             resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
             amount_stmts, amount = self.translate(node.args[0], ctx)

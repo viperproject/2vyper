@@ -184,6 +184,38 @@ class AllocationTranslator(CommonTranslator):
         alloc_assign = self.viper_ast.LocalVarAssign(allocated, set_alloc_map, pos, info)
         return [alloc_assign]
 
+    def _inhale_allocation(self,
+                           address: Expr, amount: Expr,
+                           ctx: Context, pos=None) -> Stmt:
+        # TODO: merge with inhale offer
+        type_assumptions = []
+        quant_decls = []
+        for quant in ctx.quantified_vars.values():
+            type_assumptions.extend(self.type_translator.type_assumptions(quant.local_var(ctx, pos), quant.type, ctx))
+            quant_decls.append(quant.var_decl(ctx))
+
+        cond = reduce(lambda a, b: self.viper_ast.And(a, b, pos), type_assumptions, self.viper_ast.TrueLit(pos))
+        allocation = helpers.allocation_predicate(self.viper_ast, address, pos)
+        perm = self.viper_ast.IntPermMul(amount, self.viper_ast.FullPerm(pos), pos)
+        acc_allocation = self.viper_ast.PredicateAccessPredicate(allocation, perm, pos)
+        trigger = self.viper_ast.Trigger([allocation], pos)
+        quant = self.viper_ast.Forall(quant_decls, [trigger], self.viper_ast.Implies(cond, acc_allocation, pos), pos)
+        # TODO: rule
+        return self.viper_ast.Inhale(quant, pos)
+
+    def _exhale_allocation(self, ctx: Context, pos=None) -> Stmt:
+        # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
+        # to exhale no permissions under a quantifier.
+        qvar = self.viper_ast.LocalVarDecl('$a', self.viper_ast.Int, pos)
+        allocation = helpers.allocation_predicate(self.viper_ast, qvar.localVar(), pos)
+        perm = self.viper_ast.CurrentPerm(allocation, pos)
+        cond = self.viper_ast.GtCmp(perm, self.viper_ast.NoPerm(pos), pos)
+        acc_allocation = self.viper_ast.PredicateAccessPredicate(allocation, perm, pos)
+        trigger = self.viper_ast.Trigger([allocation], pos)
+        quant = self.viper_ast.Forall([qvar], [trigger], self.viper_ast.Implies(cond, acc_allocation, pos), pos)
+        # TODO: rule
+        return self.viper_ast.Exhale(quant, pos)
+
     def _set_offered(self, offered: Expr,
                      from_resource: Expr, to_resource: Expr,
                      from_val: Expr, to_val: Expr,
@@ -275,6 +307,46 @@ class AllocationTranslator(CommonTranslator):
         decs = self._change_allocation(allocated, resource, address, amount, False, ctx, pos, info)
         return check_allocation + decs
 
+    def _foreach_change_allocation(self,
+                                   allocated: Expr, resource: Expr,
+                                   address: Expr, amount: Expr,
+                                   op: Callable[[Expr, Expr, Expr], Expr],
+                                   ctx: Context, pos=None) -> List[Stmt]:
+        inhale = self._inhale_allocation(address, amount, ctx, pos)
+
+        # Declare the new offered
+        allocated_map_type = helpers.allocated_type().value_type
+        allocated_map_type_t = self.type_translator.translate(allocated_map_type, ctx)
+        key_type_t = self.type_translator.translate(allocated_map_type.key_type, ctx)
+        value_type_t = self.type_translator.translate(allocated_map_type.value_type, ctx)
+        fresh_allocated_map_name = ctx.new_local_var_name('$allocated_map')
+        fresh_allocated_map = self.viper_ast.LocalVarDecl(fresh_allocated_map_name, allocated_map_type_t, pos)
+        ctx.new_local_vars.append(fresh_allocated_map)
+        fresh_allocated_map_var = fresh_allocated_map.localVar()
+
+        # Assume the values of the new map
+        qvar = self.viper_ast.LocalVarDecl(f'$a', self.viper_ast.Int, pos)
+        addr = qvar.localVar()
+        type_assumptions = self.type_translator.type_assumptions(addr, types.VYPER_ADDRESS, ctx)
+
+        cond = reduce(lambda a, b: self.viper_ast.And(a, b, pos), type_assumptions, self.viper_ast.TrueLit(pos))
+        fresh_allocated_get = helpers.map_get(self.viper_ast, fresh_allocated_map_var, addr, key_type_t, value_type_t, pos)
+        old_allocated_get = self.get_allocated(allocated, resource, addr, ctx, pos)
+        allocation_pred = helpers.allocation_predicate(self.viper_ast, addr, pos)
+        perm = self.viper_ast.CurrentPerm(allocation_pred, pos)
+        expr = op(fresh_allocated_get, old_allocated_get, perm)
+        trigger = self.viper_ast.Trigger([fresh_allocated_get], pos)
+        quant = self.viper_ast.Forall([qvar], [trigger], self.viper_ast.Implies(cond, expr, pos), pos)
+        assume = self.viper_ast.Inhale(quant, pos)
+
+        # Set the new offered map entry for [from_resource <-> to_resource]
+        set_allocated = self.set_allocated_map(allocated, resource, fresh_allocated_map_var, ctx, pos)
+        allocated_assign = self.viper_ast.LocalVarAssign(allocated, set_allocated, pos)
+
+        # Heap clean-up
+        exhale = self._exhale_allocation(ctx, pos)
+        return [inhale, assume, allocated_assign, exhale]
+
     def create(self, node: ast.Node,
                allocated: Expr, resource: Expr,
                frm: Expr, to: Expr, amount: Expr,
@@ -282,12 +354,25 @@ class AllocationTranslator(CommonTranslator):
                ctx: Context, pos=None) -> List[Stmt]:
         if is_init:
             # The initializer is allowed to create all resources unchecked.
-            check_creator = []
+            stmts = []
         else:
             creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
-            check_creator = self._check_creator(node, allocated, creator_resource, frm, ctx, pos)
-        allocate = self.allocate(allocated, resource, to, amount, ctx, pos)
-        return check_creator + allocate
+            stmts = self._check_creator(node, allocated, creator_resource, frm, ctx, pos)
+
+        if ctx.quantified_vars:
+
+            def op(fresh: Expr, old: Expr, perm: Expr) -> Expr:
+                write = self.viper_ast.FullPerm(pos)
+                fresh_mul = self.viper_ast.IntPermMul(fresh, write, pos)
+                old_mul = self.viper_ast.IntPermMul(old, write, pos)
+                perm_add = self.viper_ast.PermAdd(old_mul, perm, pos)
+                return self.viper_ast.EqCmp(fresh_mul, perm_add, pos)
+
+            stmts.extend(self._foreach_change_allocation(allocated, resource, to, amount, op, ctx, pos))
+        else:
+            stmts.extend(self.allocate(allocated, resource, to, amount, ctx, pos))
+
+        return stmts
 
     def _leak_check(self, node: ast.Node, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """

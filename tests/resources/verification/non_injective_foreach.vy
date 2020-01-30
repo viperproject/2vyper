@@ -9,17 +9,29 @@
 #@ config: allocation
 
 
-#@ invariant: sum(allocated[wei]()) == 0
+#@ resource: good()
+
+
+#:: Label(INV)
+#@ invariant: sum(allocated[wei]()) == 0 and sum(allocated[good]()) == 0
 
 
 @public
-def foo():
+def non_injective_offer():
     #:: ExpectedOutput(offer.failed:offer.not.injective)
     #@ foreach({i: uint256}, offer(i % 2, i % 2, to=ZERO_ADDRESS, times=i))
     pass
 
 
 @public
-def bar():
+def injective_offer_all_zero():
     #@ foreach({i: uint256}, offer(i % 2, i % 2, to=ZERO_ADDRESS, times=0))
+    pass
+
+
+#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, INV) | ExpectedOutput(carbon)(leakcheck.failed:allocation.leaked)
+@public
+def non_injective_create():
+    #:: ExpectedOutput(create.failed:offer.not.injective) | ExpectedOutput(carbon)(create.failed:not.a.creator)
+    #@ foreach({a: address, i: int128}, create[good](i, to=a if i > 12 else ZERO_ADDRESS))
     pass
