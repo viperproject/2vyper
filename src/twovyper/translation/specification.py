@@ -516,7 +516,8 @@ class SpecificationTranslator(ExpressionTranslator):
             resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
             amount_stmts, amount = self.translate(node.args[0], ctx)
 
-            to_stmts, to = [], helpers.msg_sender(self.viper_ast, ctx, pos)
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            to_stmts, to = [], msg_sender
 
             for kw in node.keywords:
                 if kw.name == names.CREATE_TO:
@@ -524,7 +525,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
             is_init = ctx.function.name == names.INIT
-            allocation_stmts = self.allocation_translator.create(node, allocated, resource, to, amount, is_init, ctx, pos)
+            allocation_stmts = self.allocation_translator.create(node, allocated, resource, msg_sender, to, amount, is_init, ctx, pos)
 
             return resource_stmts + amount_stmts + to_stmts + allocation_stmts, None
         elif name == names.DESTROY:

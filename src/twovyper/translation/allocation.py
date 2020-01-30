@@ -277,7 +277,7 @@ class AllocationTranslator(CommonTranslator):
 
     def create(self, node: ast.Node,
                allocated: Expr, resource: Expr,
-               to: Expr, amount: Expr,
+               frm: Expr, to: Expr, amount: Expr,
                is_init: bool,
                ctx: Context, pos=None) -> List[Stmt]:
         if is_init:
@@ -285,7 +285,7 @@ class AllocationTranslator(CommonTranslator):
             check_creator = []
         else:
             creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
-            check_creator = self._check_creator(node, allocated, creator_resource, to, ctx, pos)
+            check_creator = self._check_creator(node, allocated, creator_resource, frm, ctx, pos)
         allocate = self.allocate(allocated, resource, to, amount, ctx, pos)
         return check_creator + allocate
 
