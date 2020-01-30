@@ -7,7 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from functools import reduce
-from typing import List
+from itertools import chain, starmap
+from typing import List, Optional
 
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.types import VyperType
@@ -24,7 +25,7 @@ from twovyper.utils import switch
 from twovyper.verification import rules
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, StmtsAndExpr
+from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
 
 
 class SpecificationTranslator(ExpressionTranslator):
@@ -369,6 +370,71 @@ class SpecificationTranslator(ExpressionTranslator):
         else:
             return self.viper_ast.Low(expr, position=pos, info=info)
 
+    def _injectivity_check(self, node: ast.Node,
+                           qvars: List[TranslatedVar],
+                           args: List[ast.Expr],
+                           amount: Optional[ast.Expr],
+                           rule: rules.Rules, ctx: Context) -> List[Stmt]:
+        # To check injectivity we do the following:
+        #   forall q1_1, q1_2, q2_1, q2_2, ... :: q1_1 != q1_2 or q2_1 != q2_2 or ... ==>
+        #     arg1(q1_1, q2_1, ...) != arg1(q1_2, q2_2, ...) or arg2(q1_1, q2_1, ...) != arg2(q1_2, q2_2, ...) or ...
+        #       or amount(q1_1, q2_1, ...) == 0 or amount(q1_2, q2_2) == 0 or ...
+        # i.e. that if any two quantified variables are different, at least one pair of arguments is also different if
+        # the amount offered is non-zero.
+        assert qvars
+        assert args
+
+        pos = self.to_position(node, ctx)
+        stmts = []
+
+        qtvars = [[], []]
+        qtlocals = [[], []]
+        type_assumptions = [[], []]
+        for i in range(2):
+            for idx, var in enumerate(qvars):
+                new_var = TranslatedVar(var.name, f'$arg{idx}{i}', var.type, self.viper_ast, pos)
+                qtvars[i].append(new_var)
+                local = new_var.local_var(ctx)
+                qtlocals[i].append(local)
+                type_assumptions[i].extend(self.type_translator.type_assumptions(local, var.type, ctx))
+
+        tas = reduce(lambda a, b: self.viper_ast.And(a, b, pos), chain(*type_assumptions), self.viper_ast.TrueLit(pos))
+
+        or_op = lambda a, b: self.viper_ast.Or(a, b, pos)
+        ne_op = lambda a, b: self.viper_ast.NeCmp(a, b, pos)
+        cond = reduce(or_op, starmap(ne_op, zip(*qtlocals)))
+
+        zero = self.viper_ast.IntLit(0, pos)
+
+        targs = [[], []]
+        is_zero = []
+        for i in range(2):
+            with ctx.quantified_var_scope():
+                ctx.quantified_vars.update((var.name, var) for var in qtvars[i])
+                for arg in args:
+                    arg_stmts, targ = self.translate(arg, ctx)
+                    stmts.extend(arg_stmts)
+                    targs[i].append(targ)
+
+                if amount:
+                    amount_stmts, tamount = self.translate(amount, ctx)
+                    stmts.extend(amount_stmts)
+                    is_zero.append(self.viper_ast.EqCmp(tamount, zero, pos))
+
+        arg_neq = reduce(or_op, starmap(ne_op, zip(*targs)))
+        if is_zero:
+            arg_neq = self.viper_ast.Or(arg_neq, reduce(or_op, is_zero))
+
+        expr = self.viper_ast.Implies(tas, self.viper_ast.Implies(cond, arg_neq, pos), pos)
+        quant = self.viper_ast.Forall([var.var_decl(ctx) for var in chain(*qtvars)], [], expr, pos)
+
+        model_stmts, modelt = self.model_translator.save_variables(ctx, pos)
+        stmts.extend(model_stmts)
+
+        apos = self.to_position(node, ctx, rule, modelt=modelt)
+        stmts.append(self.viper_ast.Assert(quant, apos))
+        return stmts
+
     def translate_ghost_statement(self, node: ast.FunctionCall, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
         name = node.name
@@ -393,13 +459,20 @@ class SpecificationTranslator(ExpressionTranslator):
             value2_stmts, value2 = self.translate(node.args[1], ctx)
 
             stmts = [*resource_stmts, *value1_stmts, *value2_stmts]
+            all_args = node.args.copy()
             for kw in node.keywords:
                 if kw.name == names.OFFER_TO:
                     to_stmts, to = self.translate(kw.value, ctx)
                     stmts.extend(to_stmts)
+                    all_args.append(kw.value)
                 elif kw.name == names.OFFER_TIMES:
                     times_stmts, times = self.translate(kw.value, ctx)
                     stmts.extend(times_stmts)
+                    times_arg = kw.value
+
+            if ctx.quantified_vars:
+                rule = rules.OFFER_INJECTIVITY_CHECK_FAIL
+                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), all_args, times_arg, rule, ctx))
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             stmts.extend(self.allocation_translator.offer(offered, from_resource, to_resource, value1, value2, msg_sender, to, times, ctx, pos))
@@ -414,6 +487,12 @@ class SpecificationTranslator(ExpressionTranslator):
             to_stmts, to = self.translate(node.keywords[0].value, ctx)
 
             stmts = [*resource_stmts, *value1_stmts, *value2_stmts, *to_stmts]
+
+            if ctx.quantified_vars:
+                all_args = [*node.args, node.keywords[0].value]
+                rule = rules.REVOKE_INJECTIVITY_CHECK_FAIL
+                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), all_args, None, rule, ctx))
+
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             stmts.extend(self.allocation_translator.revoke(offered, from_resource, to_resource, value1, value2, msg_sender, to, ctx, pos))
             return stmts, None

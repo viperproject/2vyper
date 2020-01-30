@@ -55,6 +55,10 @@ ERRORS = {
         lambda i: f"Reallocate might fail.",
     'create.failed':
         lambda i: f"Create might fail.",
+    'offer.failed':
+        lambda i: f"Offer might fail.",
+    'revoke.failed':
+        lambda i: f"Revoke might fail.",
     'exchange.failed':
         lambda i: f"Exchange {pprint(i.node)} might fail.",
     'leakcheck.failed':
@@ -94,6 +98,8 @@ REASONS = {
         lambda i: f"There might not be an appropriate creator resource.",
     'no.offer':
         lambda i: f"There might not be an appropriate offer.",
+    'offer.not.injective':
+        lambda i: f"The offer might not be injective.",
     'allocation.leaked':
         lambda i: f"Some allocation might be leaked.",
     'receiver.not.injective':
