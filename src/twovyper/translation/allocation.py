@@ -286,6 +286,53 @@ class AllocationTranslator(CommonTranslator):
 
         return self._set_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, new_value, ctx, pos)
 
+    def _foreach_change_offer(self, offered: Expr,
+                              from_resource: Expr, to_resource: Expr,
+                              from_value: Expr, to_value: Expr,
+                              from_owner: Expr, to_owner: Expr,
+                              times: Expr, op: Callable[[Expr, Expr, Expr], Expr],
+                              ctx: Context, pos=None) -> List[Stmt]:
+        inhale = self._inhale_offers(from_value, to_value, from_owner, to_owner, times, ctx, pos)
+
+        # Declare the new offered
+        offered_map_type = helpers.offered_type().value_type.value_type
+        offered_map_type_t = self.type_translator.translate(offered_map_type, ctx)
+        key_type_t = self.type_translator.translate(offered_map_type.key_type, ctx)
+        value_type_t = self.type_translator.translate(offered_map_type.value_type, ctx)
+        fresh_offered_map_name = ctx.new_local_var_name('$offered_map')
+        fresh_offered_map = self.viper_ast.LocalVarDecl(fresh_offered_map_name, offered_map_type_t, pos)
+        ctx.new_local_vars.append(fresh_offered_map)
+        fresh_offered_map_var = fresh_offered_map.localVar()
+
+        # Assume the values of the new map
+        offer_type = helpers.offer_type()
+        qvars = []
+        type_assumptions = []
+        for idx, type in enumerate(offer_type.member_types.values()):
+            var = self.viper_ast.LocalVarDecl(f'$arg{idx}', self.type_translator.translate(type, ctx), pos)
+            qvars.append(var)
+            type_assumptions.extend(self.type_translator.type_assumptions(var.localVar(), type, ctx))
+
+        qlocals = [var.localVar() for var in qvars]
+        cond = reduce(lambda a, b: self.viper_ast.And(a, b, pos), type_assumptions, self.viper_ast.TrueLit(pos))
+        offer = helpers.offer(self.viper_ast, *qlocals, pos)
+        fresh_offered_get = helpers.map_get(self.viper_ast, fresh_offered_map_var, offer, key_type_t, value_type_t, pos)
+        old_offered_get = self.get_offered(offered, from_resource, to_resource, *qlocals, ctx, pos)
+        offer_pred = helpers.offer_predicate(self.viper_ast, *qlocals, pos)
+        perm = self.viper_ast.CurrentPerm(offer_pred, pos)
+        expr = op(fresh_offered_get, old_offered_get, perm)
+        trigger = self.viper_ast.Trigger([fresh_offered_get], pos)
+        quant = self.viper_ast.Forall(qvars, [trigger], self.viper_ast.Implies(cond, expr, pos), pos)
+        assume = self.viper_ast.Inhale(quant, pos)
+
+        # Set the new offered map entry for [from_resource <-> to_resource]
+        set_offered = self.set_offered_map(offered, from_resource, to_resource, fresh_offered_map_var, ctx, pos)
+        offered_assign = self.viper_ast.LocalVarAssign(offered, set_offered, pos)
+
+        # Heap clean-up
+        exhale = self._exhale_offers(ctx, pos)
+        return [inhale, assume, offered_assign, exhale]
+
     def _inhale_offers(self,
                        from_val: Expr, to_val: Expr,
                        from_addr: Expr, to_addr: Expr,
@@ -461,53 +508,6 @@ class AllocationTranslator(CommonTranslator):
 
     def send_leak_check(self, node: ast.Node, ctx: Context, pos=None, info=None) -> List[Stmt]:
         return self._leak_check(node, rules.CALL_LEAK_CHECK_FAIL, ctx, pos, info)
-
-    def _foreach_change_offer(self, offered: Expr,
-                              from_resource: Expr, to_resource: Expr,
-                              from_value: Expr, to_value: Expr,
-                              from_owner: Expr, to_owner: Expr,
-                              times: Expr, op: Callable[[Expr, Expr, Expr], Expr],
-                              ctx: Context, pos=None) -> List[Stmt]:
-        inhale = self._inhale_offers(from_value, to_value, from_owner, to_owner, times, ctx, pos)
-
-        # Declare the new offered
-        offered_map_type = helpers.offered_type().value_type.value_type
-        offered_map_type_t = self.type_translator.translate(offered_map_type, ctx)
-        key_type_t = self.type_translator.translate(offered_map_type.key_type, ctx)
-        value_type_t = self.type_translator.translate(offered_map_type.value_type, ctx)
-        fresh_offered_map_name = ctx.new_local_var_name('$offered_map')
-        fresh_offered_map = self.viper_ast.LocalVarDecl(fresh_offered_map_name, offered_map_type_t, pos)
-        ctx.new_local_vars.append(fresh_offered_map)
-        fresh_offered_map_var = fresh_offered_map.localVar()
-
-        # Assume the values of the new map
-        offer_type = helpers.offer_type()
-        qvars = []
-        type_assumptions = []
-        for idx, type in enumerate(offer_type.member_types.values()):
-            var = self.viper_ast.LocalVarDecl(f'$arg{idx}', self.type_translator.translate(type, ctx), pos)
-            qvars.append(var)
-            type_assumptions.extend(self.type_translator.type_assumptions(var.localVar(), type, ctx))
-
-        qlocals = [var.localVar() for var in qvars]
-        cond = reduce(lambda a, b: self.viper_ast.And(a, b, pos), type_assumptions, self.viper_ast.TrueLit(pos))
-        offer = helpers.offer(self.viper_ast, *qlocals, pos)
-        fresh_offered_get = helpers.map_get(self.viper_ast, fresh_offered_map_var, offer, key_type_t, value_type_t, pos)
-        old_offered_get = self.get_offered(offered, from_resource, to_resource, *qlocals, ctx, pos)
-        offer_pred = helpers.offer_predicate(self.viper_ast, *qlocals, pos)
-        perm = self.viper_ast.CurrentPerm(offer_pred, pos)
-        expr = op(fresh_offered_get, old_offered_get, perm)
-        trigger = self.viper_ast.Trigger([fresh_offered_get], pos)
-        quant = self.viper_ast.Forall(qvars, [trigger], self.viper_ast.Implies(cond, expr, pos), pos)
-        assume = self.viper_ast.Inhale(quant, pos)
-
-        # Set the new offered map entry for [from_resource <-> to_resource]
-        set_offered = self.set_offered_map(offered, from_resource, to_resource, fresh_offered_map_var, ctx, pos)
-        offered_assign = self.viper_ast.LocalVarAssign(offered, set_offered, pos)
-
-        # Heap clean-up
-        exhale = self._exhale_offers(ctx, pos)
-        return [inhale, assume, offered_assign, exhale]
 
     def offer(self, offered: Expr,
               from_resource: Expr, to_resource: Expr,
