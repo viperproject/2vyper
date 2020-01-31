@@ -364,6 +364,9 @@ class SpecificationTranslator(ExpressionTranslator):
         else:
             assert False
 
+    def translate_ReceiverCall(self, node: ast.ReceiverCall, ctx: Context) -> StmtsAndExpr:
+        assert False
+
     def _low(self, expr, type: VyperType, ctx: Context, pos=None, info=None):
         comp = self.type_translator.comparator(type, ctx)
         if comp:
