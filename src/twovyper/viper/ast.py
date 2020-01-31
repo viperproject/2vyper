@@ -113,7 +113,8 @@ class ViperAST:
         info = info or self.NoInfo
         return self.ast.Program(self.to_seq(domains), self.to_seq(fields),
                                 self.to_seq(functions), self.to_seq(predicates),
-                                self.to_seq(methods), position, info, self.NoTrafos)
+                                self.to_seq(methods), self.to_seq([]),
+                                position, info, self.NoTrafos)
 
     def Function(self, name, args, type, pres, posts, body, position=None, info=None):
         position = position or self.NoPosition
