@@ -12,8 +12,8 @@
 #@ resource: good()
 
 
-#:: Label(INV)
 #@ invariant: forall({a: address}, {allocated[wei](a)}, allocated[wei](a) == 0)
+#:: Label(INV)
 #@ invariant: forall({a: address}, {allocated[good](a)}, allocated[good](a) == 0)
 
 
@@ -30,7 +30,7 @@ def injective_offer_all_zero():
     pass
 
 
-#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, INV) | ExpectedOutput(carbon)(leakcheck.failed:allocation.leaked)
+#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, INV)
 @public
 def non_injective_create():
     #:: ExpectedOutput(create.failed:offer.not.injective) | ExpectedOutput(carbon)(create.failed:not.a.creator)
