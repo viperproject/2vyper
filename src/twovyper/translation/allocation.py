@@ -412,6 +412,30 @@ class AllocationTranslator(CommonTranslator):
 
         return self.seqn_with_info(stmts, "Create")
 
+    def destroy(self, node: ast.Node,
+                allocated: Expr, resource: Expr,
+                address: Expr, amount: Expr,
+                ctx: Context, pos=None, info=None) -> List[Stmt]:
+        """
+        Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
+        """
+        check_allocation = self._check_allocation(node, allocated, resource, address, amount, rules.DESTROY_FAIL, ctx, pos, info)
+
+        if ctx.quantified_vars:
+
+            def op(fresh: Expr, old: Expr, perm: Expr) -> Expr:
+                write = self.viper_ast.FullPerm(pos)
+                fresh_mul = self.viper_ast.IntPermMul(fresh, write, pos)
+                old_mul = self.viper_ast.IntPermMul(old, write, pos)
+                perm_sub = self.viper_ast.PermSub(old_mul, perm, pos)
+                return self.viper_ast.EqCmp(fresh_mul, perm_sub, pos)
+
+            decs = self._foreach_change_allocation(allocated, resource, address, amount, op, ctx, pos)
+        else:
+            decs = self._change_allocation(allocated, resource, address, amount, False, ctx, pos, info)
+
+        return check_allocation + decs
+
     def _leak_check(self, node: ast.Node, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that the invariant knows about all ether allocated to the individual addresses, i.e., that

@@ -547,10 +547,16 @@ class SpecificationTranslator(ExpressionTranslator):
             amount_stmts, amount = self.translate(node.args[0], ctx)
             to = helpers.msg_sender(self.viper_ast, ctx, pos)
 
-            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
-            deallocation_stmts = self.allocation_translator.deallocate(node, allocated, resource, to, amount, ctx, pos)
+            if ctx.quantified_vars:
+                rule = rules.DESTROY_INJECTIVITY_CHECK_FAIL
+                injectivity_stmts = self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0], rule, ctx)
+            else:
+                injectivity_stmts = []
 
-            return resource_stmts + amount_stmts + deallocation_stmts, None
+            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
+            deallocation_stmts = self.allocation_translator.destroy(node, allocated, resource, to, amount, ctx, pos)
+
+            return resource_stmts + amount_stmts + injectivity_stmts + deallocation_stmts, None
         elif name == names.FOREACH:
             with ctx.quantified_var_scope():
                 quants, _ = self._translate_quantified_vars(node.args[0], ctx)

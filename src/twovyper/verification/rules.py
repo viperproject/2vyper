@@ -122,6 +122,11 @@ CREATE_FAIL = {
         ('create.failed', 'not.a.creator')
 }
 
+DESTROY_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('destroy.failed', 'insufficient.funds')
+}
+
 EXCHANGE_FAIL_NO_OFFER = {
     ('assert.failed', 'assertion.false'):
         ('exchange.failed', 'no.offer')
@@ -140,6 +145,11 @@ ALLOCATION_LEAK_CHECK_FAIL = {
 CREATE_INJECTIVITY_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('create.failed', 'offer.not.injective')
+}
+
+DESTROY_INJECTIVITY_CHECK_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('destroy.failed', 'offer.not.injective')
 }
 
 OFFER_INJECTIVITY_CHECK_FAIL = {

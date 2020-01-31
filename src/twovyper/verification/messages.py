@@ -55,6 +55,8 @@ ERRORS = {
         lambda i: f"Reallocate might fail.",
     'create.failed':
         lambda i: f"Create might fail.",
+    'destroy.failed':
+        lambda i: f"Destroy might fail.",
     'offer.failed':
         lambda i: f"Offer might fail.",
     'revoke.failed':

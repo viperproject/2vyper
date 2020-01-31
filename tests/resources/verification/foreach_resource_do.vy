@@ -13,14 +13,19 @@ owner: address
 
 
 #@ resource: token(owner: address)
+#@ resource: free(owner: address)
 
 
 #@ invariant: forall({a: address}, {allocated[wei](a)}, allocated[wei](a) == 0)
+
 #:: Label(ALLOC_OWNER)
 #@ invariant: forall({o: address}, {allocated[token(o)](self.owner)}, allocated[token(o)](self.owner) == (2 if o == self.owner else 1))
 #:: Label(ALLOC_ALL)
 #@ invariant: forall({o: address, a: address}, {allocated[token(o)](a)}, a != self.owner ==> allocated[token(o)](a) == (1 if o == a else 0))
 #@ invariant: forall({o: address}, {allocated[creator(token(o))](o)}, allocated[creator(token(o))](o) == 1)
+
+#@ invariant: forall({o: address, a: address}, {allocated[free(o)](a)}, allocated[free(o)](a) == 0)
+#@ invariant: forall({o: address, a: address}, {allocated[creator(free(o))](a)}, allocated[creator(free(o))](a) == 1)
 
 
 @public
@@ -30,6 +35,7 @@ def __init__():
     #@ foreach({a: address}, create[token(a)](1, to=a))
     #@ foreach({a: address}, create[token(a)](1))
     #@ foreach({a: address}, create[creator(token(a))](1, to=a))
+    #@ foreach({o: address, a: address}, create[creator(free(o))](1, to=a))
 
 
 #:: ExpectedOutput(invariant.violated:assertion.false, ALLOC_OWNER) | ExpectedOutput(carbon)(invariant.violated:assertion.false, ALLOC_ALL)
@@ -51,4 +57,18 @@ def foreach_create_create_fail():
 def foreach_offer():
     #@ foreach({o: address}, offer[wei <-> token(o)](1, 1, to=o, times=1))
     #@ foreach({o: address}, revoke[wei <-> token(o)](1, 1, to=o))
+    pass
+
+
+@public
+def do_nothing():
+    #@ foreach({o: address}, create[free(o)](1))
+    #@ foreach({o: address}, destroy[free(o)](1))
+    pass
+
+
+@public
+def do_nothing_fail():
+    #:: ExpectedOutput(destroy.failed:insufficient.funds)
+    #@ foreach({o: address}, destroy[free(o)](1))
     pass
