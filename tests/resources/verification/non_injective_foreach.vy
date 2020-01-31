@@ -13,7 +13,8 @@
 
 
 #:: Label(INV)
-#@ invariant: sum(allocated[wei]()) == 0 and sum(allocated[good]()) == 0
+#@ invariant: forall({a: address}, {allocated[wei](a)}, allocated[wei](a) == 0)
+#@ invariant: forall({a: address}, {allocated[good](a)}, allocated[good](a) == 0)
 
 
 @public

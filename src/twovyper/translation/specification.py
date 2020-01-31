@@ -12,6 +12,7 @@ from typing import List, Optional
 
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.types import VyperType
+from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context
@@ -372,6 +373,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
     def _injectivity_check(self, node: ast.Node,
                            qvars: List[TranslatedVar],
+                           resource: Optional[ast.Expr],
                            args: List[ast.Expr],
                            amount: Optional[ast.Expr],
                            rule: rules.Rules, ctx: Context) -> List[Stmt]:
@@ -382,6 +384,8 @@ class SpecificationTranslator(ExpressionTranslator):
         # i.e. that if any two quantified variables are different, at least one pair of arguments is also different if
         # the amount offered is non-zero.
         assert qvars
+
+        all_args = [] if resource is None else _ResourceArgumentExtractor().extract_args(resource) + args
 
         pos = self.to_position(node, ctx)
         stmts = []
@@ -413,7 +417,7 @@ class SpecificationTranslator(ExpressionTranslator):
         for i in range(2):
             with ctx.quantified_var_scope():
                 ctx.quantified_vars.update((var.name, var) for var in qtvars[i])
-                for arg in args:
+                for arg in all_args:
                     arg_stmts, targ = self.translate(arg, ctx)
                     stmts.extend(arg_stmts)
                     targs[i].append(targ)
@@ -474,7 +478,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
             if ctx.quantified_vars:
                 rule = rules.OFFER_INJECTIVITY_CHECK_FAIL
-                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), all_args, times_arg, rule, ctx))
+                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg, rule, ctx))
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             stmts.extend(self.allocation_translator.offer(offered, from_resource, to_resource, value1, value2, msg_sender, to, times, ctx, pos))
@@ -493,7 +497,7 @@ class SpecificationTranslator(ExpressionTranslator):
             if ctx.quantified_vars:
                 all_args = [*node.args, node.keywords[0].value]
                 rule = rules.REVOKE_INJECTIVITY_CHECK_FAIL
-                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), all_args, None, rule, ctx))
+                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None, rule, ctx))
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             stmts.extend(self.allocation_translator.revoke(offered, from_resource, to_resource, value1, value2, msg_sender, to, ctx, pos))
@@ -529,7 +533,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
             if ctx.quantified_vars:
                 rule = rules.CREATE_INJECTIVITY_CHECK_FAIL
-                injectivity_stmts = self._injectivity_check(node, ctx.quantified_vars.values(), args, node.args[0], rule, ctx)
+                injectivity_stmts = self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0], rule, ctx)
             else:
                 injectivity_stmts = []
 
@@ -556,3 +560,24 @@ class SpecificationTranslator(ExpressionTranslator):
                 return self.translate_ghost_statement(node.args[1], ctx)
         else:
             assert False
+
+
+class _ResourceArgumentExtractor(NodeVisitor):
+
+    def extract_args(self, node: ast.Expr) -> List[ast.Expr]:
+        return self.visit(node)
+
+    def visit_Name(self, node: ast.Name) -> List[ast.Expr]:
+        return []
+
+    def visit_Exchange(self, node: ast.Exchange) -> List[ast.Expr]:
+        return self.visit(node.value1) + self.visit(node.value2)
+
+    def visit_FunctionCall(self, node: ast.FunctionCall) -> List[ast.Expr]:
+        if node.name == names.CREATOR:
+            return self.visit(node.args[0])
+        else:
+            return node.args
+
+    def generic_visit(self, node: ast.Node) -> List[ast.Expr]:
+        assert False

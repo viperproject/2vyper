@@ -30,6 +30,8 @@ Type = Any  # 'silver.ast.Type'
 
 Seqn = Any  # 'silver.ast.Seqn'
 
+Trigger = Any  # 'silver.ast.Trigger'
+
 Var = Any  # 'silver.ast.LocalVar'
 VarDecl = Any  # 'silver.ast.LocalVarDecl'
 VarAssign = Any  # 'silver.ast.LocalVarAssign'

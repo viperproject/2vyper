@@ -22,7 +22,8 @@ aborted: bool
 #@ invariant: old(self.aborted) ==> self.aborted
 #@ invariant: old(self.sold) ==> self.sold
 
-#@ invariant: sum(allocated[wei]()) == 0 and sum(allocated[nothing]()) == 0
+#@ invariant: forall({a: address}, {allocated[wei](a)}, allocated[wei](a) == 0)
+#@ invariant: forall({a: address}, {allocated[nothing](a)}, allocated[nothing](a) == 0)
 #@ invariant: forall({a: address}, {allocated[good](a)}, allocated[good](a) == (1 if a == self.owner and not self.sold else 0))
 
 #@ invariant: forall({a: address}, {allocated[creator(good)](a)}, allocated[creator(good)](a) == 1)

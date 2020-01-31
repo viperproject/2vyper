@@ -5,8 +5,11 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+import "struct.vpr"
+
+
 predicate $failed($address: Int)
 
-predicate $allocation($address: Int)
+predicate $allocation($resource: $Struct, $address: Int)
 
 predicate $offer($from_amount: Int, $to_amount: Int, $from_address: Int, $to_address: Int)
