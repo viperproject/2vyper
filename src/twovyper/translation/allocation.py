@@ -47,7 +47,8 @@ class AllocationTranslator(CommonTranslator):
             qvars.append(var.var_decl(ctx))
 
         cond = reduce(lambda a, b: self.viper_ast.And(a, b, pos), type_assumptions, self.viper_ast.TrueLit(pos))
-        return self.viper_ast.Forall(qvars, triggers, self.viper_ast.Implies(cond, expr, pos), pos)
+        # TODO: select good triggers
+        return self.viper_ast.Forall(qvars, [], self.viper_ast.Implies(cond, expr, pos), pos)
 
     def get_allocated_map(self, allocated: Expr, resource: Expr, ctx: Context, pos=None, info=None) -> Expr:
         """
