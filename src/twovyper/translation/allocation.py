@@ -141,15 +141,18 @@ class AllocationTranslator(CommonTranslator):
 
     def _check_creator(self, node: ast.Node,
                        allocated: Expr, creator_resource: Expr,
-                       address: Expr,
+                       address: Expr, amount: Expr,
                        ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
-        Checks that `address` is allowed to create a resource by checking that the
-        allocated amount of `creator_resource` is positive.
+        Checks that `address` is allowed to create `amount` resources by checking that the
+        allocated amount of `creator_resource` is positive if `amount` > 0
         """
+        zero = self.viper_ast.IntLit(0, pos)
         one = self.viper_ast.IntLit(1, pos)
+        gtz = self.viper_ast.GtCmp(amount, zero, pos)
+        cond = self.viper_ast.CondExp(gtz, one, zero, pos)
         rule = rules.CREATE_FAIL
-        return self._check_allocation(node, allocated, creator_resource, address, one, rule, ctx, pos)
+        return self._check_allocation(node, allocated, creator_resource, address, cond, rule, ctx, pos)
 
     def _check_from_agrees(self, node: ast.Node,
                            offered: Expr,
@@ -357,7 +360,7 @@ class AllocationTranslator(CommonTranslator):
             stmts = []
         else:
             creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
-            stmts = self._check_creator(node, allocated, creator_resource, frm, ctx, pos)
+            stmts = self._check_creator(node, allocated, creator_resource, frm, amount, ctx, pos)
 
         if ctx.quantified_vars:
 
