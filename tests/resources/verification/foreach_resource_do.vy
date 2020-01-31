@@ -45,3 +45,10 @@ def foreach_create_create_fail():
     #:: ExpectedOutput(create.failed:not.a.creator)
     #@ foreach({a: address}, create[token(a)](1, to=a))
     pass
+
+
+@public
+def foreach_offer():
+    #@ foreach({o: address}, offer[wei <-> token(o)](1, 1, to=o, times=1))
+    #@ foreach({o: address}, revoke[wei <-> token(o)](1, 1, to=o))
+    pass

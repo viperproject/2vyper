@@ -286,59 +286,49 @@ class AllocationTranslator(CommonTranslator):
 
         return self._set_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, new_value, ctx, pos)
 
-    def _foreach_change_offer(self, offered: Expr,
-                              from_resource: Expr, to_resource: Expr,
-                              from_value: Expr, to_value: Expr,
-                              from_owner: Expr, to_owner: Expr,
-                              times: Expr, op: Callable[[Expr, Expr, Expr], Expr],
-                              ctx: Context, pos=None) -> List[Stmt]:
-        inhale = self._inhale_offers(from_value, to_value, from_owner, to_owner, times, ctx, pos)
+    def _foreach_change_offered(self, offered: Expr,
+                                from_resource: Expr, to_resource: Expr,
+                                from_value: Expr, to_value: Expr,
+                                from_owner: Expr, to_owner: Expr,
+                                times: Expr, op: Callable[[Expr, Expr, Expr], Expr],
+                                ctx: Context, pos=None) -> List[Stmt]:
+        inhale = self._inhale_offers(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, ctx, pos)
 
         # Declare the new offered
-        offered_map_type = helpers.offered_type().value_type.value_type
-        offered_map_type_t = self.type_translator.translate(offered_map_type, ctx)
-        key_type_t = self.type_translator.translate(offered_map_type.key_type, ctx)
-        value_type_t = self.type_translator.translate(offered_map_type.value_type, ctx)
-        fresh_offered_map_name = ctx.new_local_var_name('$offered_map')
-        fresh_offered_map = self.viper_ast.LocalVarDecl(fresh_offered_map_name, offered_map_type_t, pos)
-        ctx.new_local_vars.append(fresh_offered_map)
-        fresh_offered_map_var = fresh_offered_map.localVar()
+        offered_type = self.type_translator.translate(helpers.offered_type(), ctx)
+        fresh_offered_name = ctx.new_local_var_name(names.OFFERED)
+        fresh_offered_decl = self.viper_ast.LocalVarDecl(fresh_offered_name, offered_type, pos)
+        ctx.new_local_vars.append(fresh_offered_decl)
+        fresh_offered = fresh_offered_decl.localVar()
 
         # Assume the values of the new map
-        offer_type = helpers.offer_type()
-        qvars = []
-        type_assumptions = []
-        for idx, type in enumerate(offer_type.member_types.values()):
-            var = self.viper_ast.LocalVarDecl(f'$arg{idx}', self.type_translator.translate(type, ctx), pos)
-            qvars.append(var)
-            type_assumptions.extend(self.type_translator.type_assumptions(var.localVar(), type, ctx))
-
+        qvar_types = 2 * [helpers.struct_type(self.viper_ast)] + 4 * [self.viper_ast.Int]
+        qvars = [self.viper_ast.LocalVarDecl(f'$arg{i}', t, pos) for i, t in enumerate(qvar_types)]
         qlocals = [var.localVar() for var in qvars]
-        cond = reduce(lambda a, b: self.viper_ast.And(a, b, pos), type_assumptions, self.viper_ast.TrueLit(pos))
-        offer = helpers.offer(self.viper_ast, *qlocals, pos)
-        fresh_offered_get = helpers.map_get(self.viper_ast, fresh_offered_map_var, offer, key_type_t, value_type_t, pos)
-        old_offered_get = self.get_offered(offered, from_resource, to_resource, *qlocals, ctx, pos)
+
+        fresh_offered_get = self.get_offered(fresh_offered, *qlocals, ctx, pos)
+        old_offered_get = self.get_offered(offered, *qlocals, ctx, pos)
         offer_pred = helpers.offer_predicate(self.viper_ast, *qlocals, pos)
         perm = self.viper_ast.CurrentPerm(offer_pred, pos)
         expr = op(fresh_offered_get, old_offered_get, perm)
         trigger = self.viper_ast.Trigger([fresh_offered_get], pos)
-        quant = self.viper_ast.Forall(qvars, [trigger], self.viper_ast.Implies(cond, expr, pos), pos)
+        quant = self.viper_ast.Forall(qvars, [trigger], expr, pos)
         assume = self.viper_ast.Inhale(quant, pos)
 
-        # Set the new offered map entry for [from_resource <-> to_resource]
-        set_offered = self.set_offered_map(offered, from_resource, to_resource, fresh_offered_map_var, ctx, pos)
-        offered_assign = self.viper_ast.LocalVarAssign(offered, set_offered, pos)
+        # Set the new offered
+        offered_assign = self.viper_ast.LocalVarAssign(offered, fresh_offered, pos)
 
         # Heap clean-up
         exhale = self._exhale_offers(ctx, pos)
         return [inhale, assume, offered_assign, exhale]
 
     def _inhale_offers(self,
+                       from_resource: Expr, to_resource: Expr,
                        from_val: Expr, to_val: Expr,
                        from_addr: Expr, to_addr: Expr,
                        amount: Expr,
                        ctx: Context, pos=None) -> Stmt:
-        offer = helpers.offer_predicate(self.viper_ast, from_val, to_val, from_addr, to_addr, pos)
+        offer = helpers.offer_predicate(self.viper_ast, from_resource, to_resource, from_val, to_val, from_addr, to_addr, pos)
         perm = self.viper_ast.IntPermMul(amount, self.viper_ast.FullPerm(pos), pos)
         acc_offer = self.viper_ast.PredicateAccessPredicate(offer, perm, pos)
         trigger = self.viper_ast.Trigger([offer], pos)
@@ -351,7 +341,8 @@ class AllocationTranslator(CommonTranslator):
         #   exhale forall a, b, c, d: Int :: perm(offer(a, b, c, d)) > none ==> acc(offer(a, b, c, d), perm(offer(a, b, c, d)))
         # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
         # to exhale no permissions under a quantifier.
-        qvars = [self.viper_ast.LocalVarDecl(f'$arg{i}', self.viper_ast.Int, pos) for i in range(4)]
+        qvar_types = 2 * [helpers.struct_type(self.viper_ast)] + 4 * [self.viper_ast.Int]
+        qvars = [self.viper_ast.LocalVarDecl(f'$arg{i}', t, pos) for i, t in enumerate(qvar_types)]
         qvars_locals = [var.localVar() for var in qvars]
         offer = helpers.offer_predicate(self.viper_ast, *qvars_locals, pos)
         perm = self.viper_ast.CurrentPerm(offer, pos)
@@ -520,9 +511,8 @@ class AllocationTranslator(CommonTranslator):
             #   foreach({x1: t1, x2: t2, ...}, offer(e1(x1, x2, ...), e2(x1, x2, ...), to=e3(x1, x2, ...), times=t))
             # To do that, we first inhale the offer predicate
             #   inhale forall x1: t1, x2: t2, ... :: acc(offer(e1(...), e2(...), ..., e3(...)), t * write)
-            # to get an injectivity check. For all offers we inhaled some permission to we then set the 'times'
-            # entries in a new map to the sum of the old map entries and the current permissions to the respective
-            # offer.
+            # For all offers we inhaled some permission to we then set the 'times'  entries in a new map to the
+            # sum of the old map entries and the current permissions to the respective offer.
             # assume forall $i, $j, $a, $b: Int ::
             #    fresh_offered[{$i, $j, $a, $b}] * write == old_offered[...] * write + perm(offer($i, $j, $a, $b))
 
@@ -533,7 +523,7 @@ class AllocationTranslator(CommonTranslator):
                 perm_add = self.viper_ast.PermAdd(old_mul, perm, pos)
                 return self.viper_ast.EqCmp(fresh_mul, perm_add, pos)
 
-            stmts = self._foreach_change_offer(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, op, ctx, pos)
+            stmts = self._foreach_change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, op, ctx, pos)
         else:
             stmts = self._change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, True, ctx, pos)
 
@@ -549,9 +539,8 @@ class AllocationTranslator(CommonTranslator):
             #   foreach({x1: t1, x2: t2, ...}, revoke(e1(x1, x2, ...), e2(x1, x2, ...), to=e3(x1, x2, ...)))
             # To do that, we first inhale the offer predicate
             #   inhale forall x1: t1, x2: t2, ... :: offer(e1(...), e2(...), ..., e3(...))
-            # to get an injectivity check. For all offers we inhaled some permission to we then set the 'times'
-            # entries to zero in a new map, all others stay the same.
-            # assume forall $i, $j, $a, $b: Int ::
+            # For all offers we inhaled some permission to we then set the 'times' entries to zero in a
+            # new map, all others stay the same. assume forall $i, $j, $a, $b: Int ::
             #    fresh_offered[{$i, $j, $a, $b}] == perm(offer($i, $j, $a, $b)) > none ? 0 : old_offered[...]
             one = self.viper_ast.IntLit(1, pos)
 
@@ -560,7 +549,7 @@ class AllocationTranslator(CommonTranslator):
                 cond_expr = self.viper_ast.CondExp(gez, self.viper_ast.IntLit(0, pos), old, pos)
                 return self.viper_ast.EqCmp(fresh, cond_expr, pos)
 
-            stmts = self._foreach_change_offer(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, one, op, ctx, pos)
+            stmts = self._foreach_change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, one, op, ctx, pos)
         else:
             zero = self.viper_ast.IntLit(0, pos)
             stmts = self._set_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, zero, ctx, pos)
