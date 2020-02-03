@@ -6,12 +6,14 @@
 #
 
 
-#@ ghost:
-    #@ @implements
-    #:: ExpectedOutput(invalid.program:ghost.function.call)
-    #@ def some() -> int128: 0 if accessible(self, self.balance) else 1
+#@ config: allocation
 
 
+a: map(int128, int128)
+
+
+#:: ExpectedOutput(invalid.program:exchange.not.resource)
+#@ ensures: self.a[wei <-> wei] == old(self).a[wei <-> wei]
 @public
-def id(i: int128) -> int128:
-    return i
+def foo():
+    pass

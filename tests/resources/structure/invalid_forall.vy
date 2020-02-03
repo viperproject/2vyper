@@ -6,12 +6,10 @@
 #
 
 
-#@ ghost:
-    #@ @implements
-    #:: ExpectedOutput(invalid.program:ghost.function.call)
-    #@ def some() -> int128: 0 if accessible(self, self.balance) else 1
+#:: ExpectedOutput(invalid.program:invalid.forall)
+#@ invariant: forall(True, True)
 
 
 @public
-def id(i: int128) -> int128:
-    return i
+def foo():
+    pass
