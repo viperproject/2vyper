@@ -231,8 +231,7 @@ class StructureChecker(NodeVisitor):
 
             check_resource(node.resource, True)
         else:
-            for n in chain(node.args, node.keywords):
-                self.visit(n, arg_ctx, program, function)
+            self.visit_nodes(chain(node.args, node.keywords), arg_ctx, program, function)
 
     def visit_ReceiverCall(self, node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         if ctx.is_specification:
