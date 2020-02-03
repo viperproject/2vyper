@@ -244,12 +244,12 @@ class Ellipsis(Expr):
 
 class Exchange(Expr):
 
-    _children = ['value1', 'value2']
+    _children = ['left', 'right']
 
-    def __init__(self, value1: Expr, value2: Expr):
+    def __init__(self, left: Expr, right: Expr):
         super().__init__()
-        self.value1 = value1
-        self.value2 = value2
+        self.left = left
+        self.right = right
 
 
 class Attribute(Expr):

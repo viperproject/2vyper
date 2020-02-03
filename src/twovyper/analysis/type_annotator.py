@@ -672,8 +672,8 @@ class TypeAnnotator(NodeVisitor):
             resource = self.program.resources.get(node.name)
             args = node.args
         elif isinstance(node, ast.Exchange):
-            self._visit_resource(node.value1)
-            self._visit_resource(node.value2)
+            self._visit_resource(node.left)
+            self._visit_resource(node.right)
             return
         else:
             assert False

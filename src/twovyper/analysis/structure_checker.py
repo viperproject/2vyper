@@ -218,8 +218,8 @@ class StructureChecker(NodeVisitor):
                 if isinstance(resource, ast.Name):
                     return
                 elif isinstance(resource, ast.Exchange) and top:
-                    check_resource(resource.value1, False)
-                    check_resource(resource.value2, False)
+                    check_resource(resource.left, False)
+                    check_resource(resource.right, False)
                 elif isinstance(resource, ast.FunctionCall):
                     if resource.name == names.CREATOR:
                         _assert(len(resource.args) == 1 and not resource.keywords, resource, 'invalid.resource')

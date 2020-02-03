@@ -46,8 +46,8 @@ class ResourceTranslator(NodeTranslator):
             wei_resource = self.resource(names.WEI, [], ctx)
             return [], wei_resource, wei_resource
 
-        stmts1, r1 = self.translate(exchange.value1, ctx)
-        stmts2, r2 = self.translate(exchange.value2, ctx)
+        stmts1, r1 = self.translate(exchange.left, ctx)
+        stmts2, r2 = self.translate(exchange.right, ctx)
         return stmts1 + stmts2, r1, r2
 
     def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:

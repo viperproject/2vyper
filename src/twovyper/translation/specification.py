@@ -580,7 +580,7 @@ class _ResourceArgumentExtractor(NodeVisitor):
         return []
 
     def visit_Exchange(self, node: ast.Exchange) -> List[ast.Expr]:
-        return self.visit(node.value1) + self.visit(node.value2)
+        return self.visit(node.left) + self.visit(node.right)
 
     def visit_FunctionCall(self, node: ast.FunctionCall) -> List[ast.Expr]:
         if node.name == names.CREATOR:
