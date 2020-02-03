@@ -165,9 +165,8 @@ class StructureChecker(NodeVisitor):
             body = node.args[-1]
 
             if node.name == names.FOREACH:
-                allowed = [names.CREATE, names.DESTROY, names.OFFER, names.REVOKE]
                 _assert(isinstance(body, ast.FunctionCall), body, 'invalid.foreach')
-                _assert(body.name in allowed, body, 'invalid.foreach')
+                _assert(body.name in names.QUANTIFIED_GHOST_STATEMENTS, body, 'invalid.foreach')
 
             self.visit(body, ctx, program, function)
             return
