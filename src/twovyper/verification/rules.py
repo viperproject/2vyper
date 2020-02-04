@@ -112,7 +112,7 @@ PRECONDITION_IMPLEMENTS_INTERFACE = {
         ('application.precondition', 'not.implements.interface')
 }
 
-REALLOCATE_FAIL = {
+REALLOCATE_FAIL_INSUFFICIENT_FUNDS = {
     ('assert.failed', 'assertion.false'):
         ('reallocate.failed', 'insufficient.funds')
 }
@@ -122,7 +122,7 @@ REALLOCATE_FAIL_NOT_TRUSTED = {
         ('reallocate.failed', 'not.trusted')
 }
 
-CREATE_FAIL = {
+CREATE_FAIL_INSUFFICIENT_FUNDS = {
     ('assert.failed', 'assertion.false'):
         ('create.failed', 'not.a.creator')
 }
@@ -132,7 +132,7 @@ CREATE_FAIL_NOT_TRUSTED = {
         ('create.failed', 'not.trusted')
 }
 
-DESTROY_FAIL = {
+DESTROY_FAIL_INSUFFICIENT_FUNDS = {
     ('assert.failed', 'assertion.false'):
         ('destroy.failed', 'insufficient.funds')
 }
