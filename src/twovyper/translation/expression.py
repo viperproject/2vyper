@@ -514,9 +514,8 @@ class ExpressionTranslator(NodeTranslator):
             balance = self.balance_translator.get_balance(self_var, ctx, pos)
 
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-                allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
                 resource = self.resource_translator.resource(names.WEI, [], ctx)
-                dealloc = self.allocation_translator.deallocate(node, allocated, resource, to, balance, ctx, pos)
+                dealloc = self.allocation_translator.deallocate(node, resource, to, balance, ctx, pos)
             else:
                 dealloc = []
 
@@ -727,9 +726,8 @@ class ExpressionTranslator(NodeTranslator):
             sent = self.balance_translator.increase_sent(to, amount, ctx, pos)
 
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-                allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
                 resource = self.resource_translator.resource(names.WEI, [], ctx, pos)
-                dealloc = self.allocation_translator.deallocate(node, allocated, resource, to, amount, ctx, pos)
+                dealloc = self.allocation_translator.deallocate(node, resource, to, amount, ctx, pos)
             else:
                 dealloc = []
 

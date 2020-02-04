@@ -454,7 +454,6 @@ class SpecificationTranslator(ExpressionTranslator):
         name = node.name
         if name == names.REALLOCATE:
             stmts, resource = self.resource_translator.translate(node.resource, ctx)
-            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
             amount_stmts, amount = self.translate(node.args[0], ctx)
             stmts.extend(amount_stmts)
 
@@ -472,13 +471,11 @@ class SpecificationTranslator(ExpressionTranslator):
                 else:
                     assert False
 
-            stmts.extend(self.allocation_translator.reallocate(node, allocated, resource, frm, to, amount, msg_sender, ctx, pos))
+            stmts.extend(self.allocation_translator.reallocate(node, resource, frm, to, amount, msg_sender, ctx, pos))
 
             return stmts, None
         elif name == names.OFFER:
             resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
-
-            offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
 
             left_stmts, left = self.translate(node.args[0], ctx)
             right_stmts, right = self.translate(node.args[1], ctx)
@@ -506,19 +503,17 @@ class SpecificationTranslator(ExpressionTranslator):
                 rule = rules.OFFER_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg, rule, ctx))
 
-            stmts.extend(self.allocation_translator.offer(node, offered, from_resource, to_resource, left, right, frm, to, times, msg_sender, ctx, pos))
+            stmts.extend(self.allocation_translator.offer(node, from_resource, to_resource, left, right, frm, to, times, msg_sender, ctx, pos))
             return stmts, None
         elif name == names.REVOKE:
             resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
 
-            offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
-
-            value1_stmts, value1 = self.translate(node.args[0], ctx)
-            value2_stmts, value2 = self.translate(node.args[1], ctx)
+            left_stmts, left = self.translate(node.args[0], ctx)
+            right_stmts, right = self.translate(node.args[1], ctx)
             to_stmts, to = self.translate(node.keywords[0].value, ctx)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-            stmts = [*resource_stmts, *value1_stmts, *value2_stmts, *to_stmts]
+            stmts = [*resource_stmts, *left_stmts, *right_stmts, *to_stmts]
             all_args = node.args.copy()
             frm = msg_sender
             for kw in node.keywords:
@@ -536,24 +531,22 @@ class SpecificationTranslator(ExpressionTranslator):
                 rule = rules.REVOKE_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None, rule, ctx))
 
-            stmts.extend(self.allocation_translator.revoke(node, offered, from_resource, to_resource, value1, value2, frm, to, msg_sender, ctx, pos))
+            stmts.extend(self.allocation_translator.revoke(node, from_resource, to_resource, left, right, frm, to, msg_sender, ctx, pos))
             return stmts, None
         elif name == names.EXCHANGE:
             resource_stmts, resource1, resource2 = self.resource_translator.translate_exchange(node.resource, ctx)
 
-            value1_stmts, value1 = self.translate(node.args[0], ctx)
-            value2_stmts, value2 = self.translate(node.args[1], ctx)
-            owner1_stmts, owner1 = self.translate(node.args[2], ctx)
-            owner2_stmts, owner2 = self.translate(node.args[3], ctx)
+            left_stmts, left = self.translate(node.args[0], ctx)
+            right_stmts, right = self.translate(node.args[1], ctx)
+            left_owner_stmts, left_owner = self.translate(node.args[2], ctx)
+            right_owner_stmts, right_owner = self.translate(node.args[3], ctx)
 
             times_stmts, times = self.translate(node.keywords[0].value, ctx)
 
-            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
-            offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
             exchange = self.allocation_translator.exchange
-            exchange_stmts = exchange(node, allocated, offered, resource1, resource2, value1, value2, owner1, owner2, times, ctx, pos)
+            exchange_stmts = exchange(node, resource1, resource2, left, right, left_owner, right_owner, times, ctx, pos)
 
-            return [*resource_stmts, *value1_stmts, *value2_stmts, *owner1_stmts, *owner2_stmts, *times_stmts, *exchange_stmts], None
+            return [*resource_stmts, *left_stmts, *right_stmts, *left_owner_stmts, *right_owner_stmts, *times_stmts, *exchange_stmts], None
         elif name == names.CREATE:
             resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
             amount_stmts, amount = self.translate(node.args[0], ctx)
@@ -581,9 +574,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 rule = rules.CREATE_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0], rule, ctx))
 
-            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
             is_init = ctx.function.name == names.INIT
-            stmts.extend(self.allocation_translator.create(node, allocated, resource, frm, to, amount, msg_sender, is_init, ctx, pos))
+            stmts.extend(self.allocation_translator.create(node, resource, frm, to, amount, msg_sender, is_init, ctx, pos))
 
             return stmts, None
         elif name == names.DESTROY:
@@ -604,16 +596,14 @@ class SpecificationTranslator(ExpressionTranslator):
                 rule = rules.DESTROY_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0], rule, ctx))
 
-            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
-            stmts.extend(self.allocation_translator.destroy(node, allocated, resource, frm, amount, msg_sender, ctx, pos))
+            stmts.extend(self.allocation_translator.destroy(node, resource, frm, amount, msg_sender, ctx, pos))
 
             return stmts, None
         elif name == names.TRUST:
             address_stmts, address = self.translate(node.args[0], ctx)
             val_stmts, val = self.translate(node.args[1], ctx)
             by = helpers.msg_sender(self.viper_ast, ctx, pos)
-            trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
-            trust_stmts = self.allocation_translator.trust(trusted, address, by, val, ctx, pos)
+            trust_stmts = self.allocation_translator.trust(address, by, val, ctx, pos)
             return address_stmts + val_stmts + trust_stmts, None
         elif name == names.FOREACH:
             with ctx.quantified_var_scope():

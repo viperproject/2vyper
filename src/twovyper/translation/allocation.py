@@ -170,12 +170,12 @@ class AllocationTranslator(CommonTranslator):
         return helpers.map_set(self.viper_ast, trusted, address, new_inner, outer_key_type, outer_value_type, pos)
 
     def _check_allocation(self, node: ast.Node,
-                          allocated: Expr, resource: Expr,
-                          address: Expr, value: Expr,
+                          resource: Expr, address: Expr, value: Expr,
                           rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `address` has at least `amount` of `resource` allocated to them.
         """
+        allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
         get_alloc = self.get_allocated(allocated, resource, address, ctx, pos)
         cond = self.viper_ast.LeCmp(value, get_alloc, pos)
         if ctx.quantified_vars:
@@ -188,7 +188,7 @@ class AllocationTranslator(CommonTranslator):
         return stmts
 
     def _check_creator(self, node: ast.Node,
-                       allocated: Expr, creator_resource: Expr,
+                       creator_resource: Expr,
                        address: Expr, amount: Expr,
                        ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
@@ -200,10 +200,9 @@ class AllocationTranslator(CommonTranslator):
         gtz = self.viper_ast.GtCmp(amount, zero, pos)
         cond = self.viper_ast.CondExp(gtz, one, zero, pos)
         rule = rules.CREATE_FAIL
-        return self._check_allocation(node, allocated, creator_resource, address, cond, rule, ctx, pos)
+        return self._check_allocation(node, creator_resource, address, cond, rule, ctx, pos)
 
     def _check_from_agrees(self, node: ast.Node,
-                           offered: Expr,
                            from_resource: Expr, to_resource: Expr,
                            from_val: Expr, to_val: Expr,
                            from_addr: Expr, to_addr: Expr,
@@ -212,6 +211,7 @@ class AllocationTranslator(CommonTranslator):
         """
         Checks that `from_addr` offered to exchange `from_val` for `to_val` to `to_addr`.
         """
+        offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
         stmts, modelt = self.model_translator.save_variables(ctx, pos)
         get_offered = self.get_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, ctx, pos)
         cond = self.viper_ast.LeCmp(amount, get_offered, pos)
@@ -220,10 +220,10 @@ class AllocationTranslator(CommonTranslator):
         return stmts
 
     def _change_allocation(self,
-                           allocated: Expr, resource: Expr,
-                           address: Expr,
+                           resource: Expr, address: Expr,
                            value: Expr, increase: bool,
                            ctx: Context, pos=None, info=None) -> List[Stmt]:
+        allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
         get_alloc = self.get_allocated(allocated, resource, address, ctx, pos)
         func = self.viper_ast.Add if increase else self.viper_ast.Sub
         new_value = func(get_alloc, value, pos)
@@ -236,10 +236,11 @@ class AllocationTranslator(CommonTranslator):
         return [alloc_assign]
 
     def _foreach_change_allocation(self,
-                                   allocated: Expr, resource: Expr,
-                                   address: Expr, amount: Expr,
+                                   resource: Expr, address: Expr, amount: Expr,
                                    op: Callable[[Expr, Expr, Expr], Expr],
                                    ctx: Context, pos=None) -> List[Stmt]:
+        allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
+
         inhale = self._inhale_allocation(resource, address, amount, ctx, pos)
 
         allocated_type = self.type_translator.translate(helpers.allocated_type(), ctx)
@@ -296,35 +297,39 @@ class AllocationTranslator(CommonTranslator):
         # TODO: rule
         return self.viper_ast.Exhale(quant, pos)
 
-    def _set_offered(self, offered: Expr,
+    def _set_offered(self,
                      from_resource: Expr, to_resource: Expr,
                      from_val: Expr, to_val: Expr,
                      from_addr: Expr, to_addr: Expr,
                      new_value: Expr,
                      ctx: Context, pos=None):
+        offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
         set_offered = self.set_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, new_value, ctx, pos)
         offered_assign = self.viper_ast.LocalVarAssign(offered, set_offered, pos)
 
         return [offered_assign]
 
-    def _change_offered(self, offered: Expr,
+    def _change_offered(self,
                         from_resource: Expr, to_resource: Expr,
                         from_val: Expr, to_val: Expr,
                         from_addr: Expr, to_addr: Expr,
                         amount: Expr, increase: bool,
                         ctx: Context, pos=None) -> List[Stmt]:
+        offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
         get_offered = self.get_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, ctx, pos)
         func = self.viper_ast.Add if increase else self.viper_ast.Sub
         new_value = func(get_offered, amount, pos)
 
-        return self._set_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, new_value, ctx, pos)
+        return self._set_offered(from_resource, to_resource, from_val, to_val, from_addr, to_addr, new_value, ctx, pos)
 
-    def _foreach_change_offered(self, offered: Expr,
+    def _foreach_change_offered(self,
                                 from_resource: Expr, to_resource: Expr,
                                 from_value: Expr, to_value: Expr,
                                 from_owner: Expr, to_owner: Expr,
                                 times: Expr, op: Callable[[Expr, Expr, Expr], Expr],
                                 ctx: Context, pos=None) -> List[Stmt]:
+        offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
+
         inhale = self._inhale_offers(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, ctx, pos)
 
         # Declare the new offered
@@ -399,41 +404,37 @@ class AllocationTranslator(CommonTranslator):
         return stmts
 
     def allocate(self,
-                 allocated: Expr, resource: Expr,
-                 address: Expr, amount: Expr,
+                 resource: Expr, address: Expr, amount: Expr,
                  ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Adds `amount` allocation to the allocation map entry of `address`.
         """
-        return self._change_allocation(allocated, resource, address, amount, True, ctx, pos, info)
+        return self._change_allocation(resource, address, amount, True, ctx, pos, info)
 
     def reallocate(self, node: ast.Node,
-                   allocated: Expr, resource: Expr,
-                   frm: Expr, to: Expr, amount: Expr, actor: Expr,
+                   resource: Expr, frm: Expr, to: Expr, amount: Expr, actor: Expr,
                    ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `from` has sufficient allocation and then moves `amount` allocation from `frm` to `to`.
         """
         check_trusted = self._check_trust(node, actor, frm, rules.REALLOCATE_FAIL_NOT_TRUSTED, ctx, pos)
-        check_allocation = self._check_allocation(node, allocated, resource, frm, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
-        decs = self._change_allocation(allocated, resource, frm, amount, False, ctx, pos)
-        incs = self._change_allocation(allocated, resource, to, amount, True, ctx, pos)
+        check_allocation = self._check_allocation(node, resource, frm, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
+        decs = self._change_allocation(resource, frm, amount, False, ctx, pos)
+        incs = self._change_allocation(resource, to, amount, True, ctx, pos)
         return check_trusted + check_allocation + decs + incs
 
     def deallocate(self, node: ast.Node,
-                   allocated: Expr, resource: Expr,
-                   address: Expr, amount: Expr,
+                   resource: Expr, address: Expr, amount: Expr,
                    ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
-        check_allocation = self._check_allocation(node, allocated, resource, address, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
-        decs = self._change_allocation(allocated, resource, address, amount, False, ctx, pos, info)
+        check_allocation = self._check_allocation(node, resource, address, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
+        decs = self._change_allocation(resource, address, amount, False, ctx, pos, info)
         return check_allocation + decs
 
     def create(self, node: ast.Node,
-               allocated: Expr, resource: Expr,
-               frm: Expr, to: Expr, amount: Expr, actor: Expr,
+               resource: Expr, frm: Expr, to: Expr, amount: Expr, actor: Expr,
                is_init: bool,
                ctx: Context, pos=None) -> List[Stmt]:
         stmts = []
@@ -442,7 +443,7 @@ class AllocationTranslator(CommonTranslator):
             # The initializer is allowed to create all resources unchecked.
             stmts.extend(self._check_trust(node, actor, frm, rules.CREATE_FAIL_NOT_TRUSTED, ctx, pos))
             creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
-            stmts.extend(self._check_creator(node, allocated, creator_resource, frm, amount, ctx, pos))
+            stmts.extend(self._check_creator(node, creator_resource, frm, amount, ctx, pos))
 
         if ctx.quantified_vars:
 
@@ -453,21 +454,20 @@ class AllocationTranslator(CommonTranslator):
                 perm_add = self.viper_ast.PermAdd(old_mul, perm, pos)
                 return self.viper_ast.EqCmp(fresh_mul, perm_add, pos)
 
-            stmts.extend(self._foreach_change_allocation(allocated, resource, to, amount, op, ctx, pos))
+            stmts.extend(self._foreach_change_allocation(resource, to, amount, op, ctx, pos))
         else:
-            stmts.extend(self.allocate(allocated, resource, to, amount, ctx, pos))
+            stmts.extend(self.allocate(resource, to, amount, ctx, pos))
 
         return self.seqn_with_info(stmts, "Create")
 
     def destroy(self, node: ast.Node,
-                allocated: Expr, resource: Expr,
-                address: Expr, amount: Expr, actor: Expr,
+                resource: Expr, address: Expr, amount: Expr, actor: Expr,
                 ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
         check_trusted = self._check_trust(node, actor, address, rules.DESTROY_FAIL_NOT_TRUSTED, ctx, pos)
-        check_allocation = self._check_allocation(node, allocated, resource, address, amount, rules.DESTROY_FAIL, ctx, pos, info)
+        check_allocation = self._check_allocation(node, resource, address, amount, rules.DESTROY_FAIL, ctx, pos, info)
 
         if ctx.quantified_vars:
 
@@ -478,9 +478,9 @@ class AllocationTranslator(CommonTranslator):
                 perm_sub = self.viper_ast.PermSub(old_mul, perm, pos)
                 return self.viper_ast.EqCmp(fresh_mul, perm_sub, pos)
 
-            decs = self._foreach_change_allocation(allocated, resource, address, amount, op, ctx, pos)
+            decs = self._foreach_change_allocation(resource, address, amount, op, ctx, pos)
         else:
-            decs = self._change_allocation(allocated, resource, address, amount, False, ctx, pos, info)
+            decs = self._change_allocation(resource, address, amount, False, ctx, pos, info)
 
         return check_trusted + check_allocation + decs
 
@@ -573,7 +573,6 @@ class AllocationTranslator(CommonTranslator):
         return self._leak_check(node, rules.CALL_LEAK_CHECK_FAIL, ctx, pos, info)
 
     def offer(self, node: ast.Node,
-              offered: Expr,
               from_resource: Expr, to_resource: Expr,
               from_value: Expr, to_value: Expr,
               from_owner: Expr, to_owner: Expr,
@@ -596,15 +595,14 @@ class AllocationTranslator(CommonTranslator):
                 perm_add = self.viper_ast.PermAdd(old_mul, perm, pos)
                 return self.viper_ast.EqCmp(fresh_mul, perm_add, pos)
 
-            stmts = self._foreach_change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, op, ctx, pos)
+            stmts = self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, op, ctx, pos)
         else:
             stmts = self._check_trust(node, actor, from_owner, rules.OFFER_FAIL_NOT_TRUSTED, ctx, pos)
-            stmts.extend(self._change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, True, ctx, pos))
+            stmts.extend(self._change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, True, ctx, pos))
 
         return self.seqn_with_info(stmts, "Offer")
 
     def revoke(self, node: ast.Node,
-               offered: Expr,
                from_resource: Expr, to_resource: Expr,
                from_value: Expr, to_value: Expr,
                from_owner: Expr, to_owner: Expr,
@@ -625,17 +623,16 @@ class AllocationTranslator(CommonTranslator):
                 cond_expr = self.viper_ast.CondExp(gez, self.viper_ast.IntLit(0, pos), old, pos)
                 return self.viper_ast.EqCmp(fresh, cond_expr, pos)
 
-            stmts = self._foreach_change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, one, op, ctx, pos)
+            stmts = self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, one, op, ctx, pos)
         else:
             stmts = self._check_trust(node, actor, from_owner, rules.REVOKE_FAIL_NOT_TRUSTED, ctx, pos)
             zero = self.viper_ast.IntLit(0, pos)
-            stmts.extend(self._set_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, zero, ctx, pos))
+            stmts.extend(self._set_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, zero, ctx, pos))
 
         return self.seqn_with_info(stmts, "Revoke")
 
     def exchange(self,
                  node: ast.Node,
-                 allocated: Expr, offered: Expr,
                  resource1: Expr, resource2: Expr,
                  value1: Expr, value2: Expr,
                  owner1: Expr, owner2: Expr,
@@ -645,40 +642,40 @@ class AllocationTranslator(CommonTranslator):
         zero = self.viper_ast.IntLit(0, pos)
         # If value1 == 0, owner1 will definitely agree, else we check that they offered the exchange, and decrease
         # the offer map by the amount of exchanges we do
-        allowed1 = self._check_from_agrees(node, offered, resource1, resource2, value1, value2, owner1, owner2, times, ctx, pos)
-        dec_offered1 = self._change_offered(offered, resource1, resource2, value1, value2, owner1, owner2, times, False, ctx, pos)
+        allowed1 = self._check_from_agrees(node, resource1, resource2, value1, value2, owner1, owner2, times, ctx, pos)
+        dec_offered1 = self._change_offered(resource1, resource2, value1, value2, owner1, owner2, times, False, ctx, pos)
         is_not_zero1 = self.viper_ast.NeCmp(value1, zero)
         ex1 = self.viper_ast.If(is_not_zero1, [*allowed1, *dec_offered1], [], pos)
 
         # We do the same for owner2
-        allowed2 = self._check_from_agrees(node, offered, resource2, resource1, value2, value1, owner2, owner1, times, ctx, pos)
-        dec_offered2 = self._change_offered(offered, resource2, resource1, value2, value1, owner2, owner1, times, False, ctx, pos)
+        allowed2 = self._check_from_agrees(node, resource2, resource1, value2, value1, owner2, owner1, times, ctx, pos)
+        dec_offered2 = self._change_offered(resource2, resource1, value2, value1, owner2, owner1, times, False, ctx, pos)
         is_not_zero2 = self.viper_ast.NeCmp(value2, zero)
         ex2 = self.viper_ast.If(is_not_zero2, [*allowed2, *dec_offered2], [], pos)
 
         amount1 = self.viper_ast.Mul(times, value1)
-        check1 = self._check_allocation(node, allocated, resource1, owner1, amount1, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
+        check1 = self._check_allocation(node, resource1, owner1, amount1, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
 
         amount2 = self.viper_ast.Mul(times, value2)
-        check2 = self._check_allocation(node, allocated, resource2, owner2, amount2, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
+        check2 = self._check_allocation(node, resource2, owner2, amount2, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, ctx, pos)
 
         # owner1 gives up amount1 of resource1
-        dec1 = self._change_allocation(allocated, resource1, owner1, amount1, False, ctx, pos)
+        dec1 = self._change_allocation(resource1, owner1, amount1, False, ctx, pos)
         # owner1 gets amount2 of resource2
-        inc1 = self._change_allocation(allocated, resource2, owner1, amount2, True, ctx, pos)
+        inc1 = self._change_allocation(resource2, owner1, amount2, True, ctx, pos)
 
         # owner2 gives up amount2 of resource2
-        dec2 = self._change_allocation(allocated, resource2, owner2, amount2, False, ctx, pos)
+        dec2 = self._change_allocation(resource2, owner2, amount2, False, ctx, pos)
         # owner2 gets amount1 of resource1
-        inc2 = self._change_allocation(allocated, resource1, owner2, amount1, True, ctx, pos)
+        inc2 = self._change_allocation(resource1, owner2, amount1, True, ctx, pos)
 
         return [ex1, ex2, *check1, *check2, *dec1, *inc1, *dec2, *inc2]
 
     def trust(self,
-              trusted: Expr,
               address: Expr, by_address: Expr,
               new_value: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
+        trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
         set_trusted = self.set_trusted(trusted, address, by_address, new_value, ctx, pos)
         trusted_assign = self.viper_ast.LocalVarAssign(trusted, set_trusted, pos)
         return [trusted_assign]

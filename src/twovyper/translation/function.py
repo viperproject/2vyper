@@ -264,9 +264,8 @@ class FunctionTranslator(CommonTranslator):
 
                 # Allocate the received ether to the sender
                 if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-                    allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
                     resource = self.resource_translator.resource(names.WEI, [], ctx)
-                    body.extend(self.allocation_translator.allocate(allocated, resource, msg_sender, msg_value, ctx))
+                    body.extend(self.allocation_translator.allocate(resource, msg_sender, msg_value, ctx))
 
             # If we are in a synthesized init, we don't have a function body
             if function.node:
