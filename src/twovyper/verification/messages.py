@@ -64,7 +64,7 @@ ERRORS = {
     'exchange.failed':
         lambda i: f"Exchange {pprint(i.node)} might fail.",
     'trust.failed':
-        lambda i: f"Operation {pprint(i.node)} might fail.",
+        lambda i: f"Trust might fail.",
     'leakcheck.failed':
         lambda i: f"Leak check for resource {i.resource.name} might fail in {i.function.name}.",
     'fold.failed':
