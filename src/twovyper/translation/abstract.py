@@ -14,7 +14,7 @@ from twovyper.translation.context import Context
 
 from twovyper.verification import error_manager
 from twovyper.verification.error import ErrorInfo, ModelTransformation, Via
-from twovyper.verification.rules import Rules
+from twovyper.verification.rules import Rule
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
@@ -29,7 +29,7 @@ class CommonTranslator:
     def _register_potential_error(self,
                                   node,
                                   ctx: Context,
-                                  rules: Rules = None,
+                                  rules: Rule = None,
                                   vias: List[Via] = [],
                                   modelt: ModelTransformation = None,
                                   values: Dict[str, Any] = {}) -> str:
@@ -45,7 +45,7 @@ class CommonTranslator:
     def to_position(self,
                     node: ast.Node,
                     ctx: Context,
-                    rules: Rules = None,
+                    rules: Rule = None,
                     vias: List[Via] = [],
                     modelt: ModelTransformation = None,
                     values: Dict[str, Any] = {}) -> Position:

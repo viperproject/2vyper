@@ -14,7 +14,7 @@ from twovyper.viper.typedefs import AbstractVerificationError, AbstractErrorReas
 
 from twovyper.verification.messages import ERRORS, REASONS
 from twovyper.verification.model import Model, ModelTransformation
-from twovyper.verification.rules import Rules
+from twovyper.verification.rules import Rule
 
 
 """Wrappers for Scala error objects."""
@@ -99,7 +99,7 @@ class Reason:
 class Error:
     """Wrapper around ``AbstractVerificationError``."""
 
-    def __init__(self, error: AbstractVerificationError, rules: Rules,
+    def __init__(self, error: AbstractVerificationError, rules: Rule,
                  reason_item: ErrorInfo, error_item: ErrorInfo) -> None:
 
         # Translate error id.

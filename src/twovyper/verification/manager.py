@@ -15,7 +15,7 @@ from twovyper.viper.jvmaccess import JVM
 from twovyper.viper.typedefs import Node, AbstractSourcePosition
 from twovyper.viper.typedefs import AbstractVerificationError
 from twovyper.verification.error import Error, ErrorInfo
-from twovyper.verification.rules import Rules
+from twovyper.verification.rules import Rule
 
 """Error handling state is stored in singleton ``manager``."""
 
@@ -25,9 +25,9 @@ class ErrorManager:
 
     def __init__(self) -> None:
         self._items: Dict[str, ErrorInfo] = {}
-        self._conversion_rules: Dict[str, Rules] = {}
+        self._conversion_rules: Dict[str, Rule] = {}
 
-    def add_error_information(self, error_info: ErrorInfo, conversion_rules: Rules) -> str:
+    def add_error_information(self, error_info: ErrorInfo, conversion_rules: Rule) -> str:
         """Add error information to state."""
         item_id = str(uuid1())
         assert item_id not in self._items
@@ -68,7 +68,7 @@ class ErrorManager:
         return None
 
     def _get_conversion_rules(
-            self, position: AbstractSourcePosition) -> Optional[Rules]:
+            self, position: AbstractSourcePosition) -> Optional[Rule]:
         if hasattr(position, 'id'):
             node_id = position.id()
             return self._conversion_rules.get(node_id)
@@ -76,7 +76,7 @@ class ErrorManager:
             return None
 
     def _try_get_rules_workaround(
-            self, node: Node, jvm: Optional[JVM]) -> Optional[Rules]:
+            self, node: Node, jvm: Optional[JVM]) -> Optional[Rule]:
         """Try to extract rules out of ``node``.
 
         Due to optimizations, Silicon sometimes returns not the correct

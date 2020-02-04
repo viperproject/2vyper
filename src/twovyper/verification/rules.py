@@ -9,7 +9,7 @@ from typing import Dict, Tuple
 
 
 """Conversion rules from Silver level errors to 2vyper errors."""
-Rules = Dict[Tuple[str, str], Tuple[str, str]]
+Rule = Dict[Tuple[str, str], Tuple[str, str]]
 
 
 INVARIANT_FAIL = {

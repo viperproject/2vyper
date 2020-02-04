@@ -384,7 +384,7 @@ class SpecificationTranslator(ExpressionTranslator):
                            resource: Optional[ast.Expr],
                            args: List[ast.Expr],
                            amount: Optional[ast.Expr],
-                           rule: rules.Rules, ctx: Context) -> List[Stmt]:
+                           rule: rules.Rule, ctx: Context) -> List[Stmt]:
         # To check injectivity we do the following:
         #   forall q1_1, q1_2, q2_1, q2_2, ... :: q1_1 != q1_2 or q2_1 != q2_2 or ... ==>
         #     arg1(q1_1, q2_1, ...) != arg1(q1_2, q2_2, ...) or arg2(q1_1, q2_1, ...) != arg2(q1_2, q2_2, ...) or ...

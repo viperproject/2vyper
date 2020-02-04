@@ -19,7 +19,7 @@ from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
 
 from twovyper.verification import rules
-from twovyper.verification.rules import Rules
+from twovyper.verification.rules import Rule
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt, Trigger
@@ -171,7 +171,7 @@ class AllocationTranslator(CommonTranslator):
 
     def _check_allocation(self, node: ast.Node,
                           resource: Expr, address: Expr, value: Expr,
-                          rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
+                          rule: Rule, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `address` has at least `amount` of `resource` allocated to them.
         """
@@ -393,7 +393,7 @@ class AllocationTranslator(CommonTranslator):
 
     def _check_trust(self, node: ast.Node,
                      address: Expr, by_address: Expr,
-                     rule: rules.Rules, ctx: Context, pos=None) -> Stmt:
+                     rule: rules.Rule, ctx: Context, pos=None) -> Stmt:
         trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
         get_trusted = self.get_trusted(trusted, address, by_address, ctx, pos)
         eq = self.viper_ast.EqCmp(address, by_address, pos)
@@ -484,7 +484,7 @@ class AllocationTranslator(CommonTranslator):
 
         return check_trusted + check_allocation + decs
 
-    def _leak_check(self, node: ast.Node, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def _leak_check(self, node: ast.Node, rule: Rule, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that the invariant knows about all ether allocated to the individual addresses, i.e., that
         given only the invariant and the state it is known for each address how much of the ether is
