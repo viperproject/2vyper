@@ -603,8 +603,14 @@ class SpecificationTranslator(ExpressionTranslator):
             address_stmts, address = self.translate(node.args[0], ctx)
             val_stmts, val = self.translate(node.args[1], ctx)
             by = helpers.msg_sender(self.viper_ast, ctx, pos)
-            trust_stmts = self.allocation_translator.trust(address, by, val, ctx, pos)
-            return address_stmts + val_stmts + trust_stmts, None
+
+            stmts = [*address_stmts, *val_stmts]
+            if ctx.quantified_vars:
+                rule = rules.TRUST_INJECTIVITY_CHECK_FAIL
+                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0]], None, rule, ctx))
+            stmts.extend(self.allocation_translator.trust(address, by, val, ctx, pos))
+
+            return stmts, None
         elif name == names.FOREACH:
             with ctx.quantified_var_scope():
                 quants, _ = self._translate_quantified_vars(node.args[0], ctx)

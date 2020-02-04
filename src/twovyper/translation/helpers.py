@@ -107,6 +107,10 @@ def offer_predicate(viper_ast: ViperAST, from_resource, to_resource, from_val, t
     return viper_ast.PredicateAccess([from_resource, to_resource, from_val, to_val, from_addr, to_addr], mangled.OFFER, pos)
 
 
+def trust_predicate(viper_ast: ViperAST, address, by_address, pos=None):
+    return viper_ast.PredicateAccess([address, by_address], mangled.TRUST, pos)
+
+
 def creator_resource() -> Resource:
     creator_name = mangled.CREATOR
     creator_type = ResourceType(creator_name, {mangled.CREATOR_RESOURCE: AnyStructType()})

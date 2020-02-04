@@ -13,3 +13,5 @@ predicate $failed($address: Int)
 predicate $allocation($resource: $Struct, $address: Int)
 
 predicate $offer($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_address: Int)
+
+predicate $trust($address: Int, $by_address: Int)

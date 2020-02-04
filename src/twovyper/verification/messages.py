@@ -63,6 +63,8 @@ ERRORS = {
         lambda i: f"Revoke might fail.",
     'exchange.failed':
         lambda i: f"Exchange {pprint(i.node)} might fail.",
+    'trust.failed':
+        lambda i: f"Operation {pprint(i.node)} might fail.",
     'leakcheck.failed':
         lambda i: f"Leak check for resource {i.resource.name} might fail in {i.function.name}.",
     'fold.failed':
@@ -104,6 +106,8 @@ REASONS = {
         lambda i: f"There might not be an appropriate offer.",
     'offer.not.injective':
         lambda i: f"The offer might not be injective.",
+    'trust.not.injective':
+        lambda i: f"Trust might not be injective.",
     'allocation.leaked':
         lambda i: f"Some allocation might be leaked.",
     'receiver.not.injective':

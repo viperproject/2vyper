@@ -186,3 +186,8 @@ REVOKE_INJECTIVITY_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('revoke.failed', 'offer.not.injective')
 }
+
+TRUST_INJECTIVITY_CHECK_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('trust.failed', 'trust.not.injective')
+}

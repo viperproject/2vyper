@@ -391,9 +391,9 @@ class AllocationTranslator(CommonTranslator):
         # TODO: rule
         return self.viper_ast.Exhale(quant, pos)
 
-    def _check_trust(self, node: ast.Node,
-                     address: Expr, by_address: Expr,
-                     rule: rules.Rule, ctx: Context, pos=None) -> Stmt:
+    def _check_trusted(self, node: ast.Node,
+                       address: Expr, by_address: Expr,
+                       rule: rules.Rule, ctx: Context, pos=None) -> List[Stmt]:
         trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
         get_trusted = self.get_trusted(trusted, address, by_address, ctx, pos)
         eq = self.viper_ast.EqCmp(address, by_address, pos)
@@ -406,6 +406,76 @@ class AllocationTranslator(CommonTranslator):
         apos = self.to_position(node, ctx, rule, modelt=modelt)
         stmts.append(self.viper_ast.Assert(cond, apos))
         return stmts
+
+    def _change_trusted(self,
+                        address: Expr, by_address: Expr,
+                        new_value: Expr,
+                        ctx: Context, pos=None) -> List[Stmt]:
+        trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
+        set_trusted = self.set_trusted(trusted, address, by_address, new_value, ctx, pos)
+        trusted_assign = self.viper_ast.LocalVarAssign(trusted, set_trusted, pos)
+        return [trusted_assign]
+
+    def _foreach_change_trusted(self,
+                                address: Expr, by_address: Expr,
+                                new_value: Expr,
+                                ctx: Context, pos=None) -> List[Stmt]:
+        trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
+
+        inhale = self._inhale_trust(address, by_address, ctx, pos)
+
+        trusted_type = self.type_translator.translate(helpers.trusted_type(), ctx)
+        fresh_trusted_name = ctx.new_local_var_name(names.TRUSTED)
+        fresh_trusted_decl = self.viper_ast.LocalVarDecl(fresh_trusted_name, trusted_type, pos)
+        ctx.new_local_vars.append(fresh_trusted_decl)
+        fresh_trusted = fresh_trusted_decl.localVar()
+
+        # Assume the values of the new map
+        qaddr = self.viper_ast.LocalVarDecl('$a', self.viper_ast.Int, pos)
+        qaddr_var = qaddr.localVar()
+        qby = self.viper_ast.LocalVarDecl('$b', self.viper_ast.Int, pos)
+        qby_var = qby.localVar()
+
+        fresh_trusted_get = self.get_trusted(fresh_trusted, qaddr_var, qby_var, ctx, pos)
+        old_trusted_get = self.get_trusted(trusted, qaddr_var, qby_var, ctx, pos)
+        trust_pred = helpers.trust_predicate(self.viper_ast, qaddr_var, qby_var, pos)
+        perm = self.viper_ast.CurrentPerm(trust_pred, pos)
+        gtz = self.viper_ast.PermGtCmp(perm, self.viper_ast.NoPerm(pos), pos)
+        cond = self.viper_ast.CondExp(gtz, new_value, old_trusted_get, pos)
+        eq = self.viper_ast.EqCmp(fresh_trusted_get, cond, pos)
+        trigger = self.viper_ast.Trigger([fresh_trusted_get], pos)
+        quant = self.viper_ast.Forall([qaddr, qby], [trigger], eq, pos)
+        assume = self.viper_ast.Inhale(quant, pos)
+
+        # Set the new allocated
+        trusted_assign = self.viper_ast.LocalVarAssign(trusted, fresh_trusted, pos)
+
+        # Heap clean-up
+        exhale = self._exhale_allocation(ctx, pos)
+        return [inhale, assume, trusted_assign, exhale]
+
+    def _inhale_trust(self, address: Expr, by_address: Expr, ctx: Context, pos=None) -> Stmt:
+        trust = helpers.trust_predicate(self.viper_ast, address, by_address, pos)
+        perm = self.viper_ast.FullPerm(pos)
+        acc_trust = self.viper_ast.PredicateAccessPredicate(trust, perm, pos)
+        trigger = self.viper_ast.Trigger([trust], pos)
+        quant = self._quantifier(acc_trust, [trigger], ctx, pos)
+        # TODO: rule
+        return self.viper_ast.Inhale(quant, pos)
+
+    def _exhale_trusted(self, ctx: Context, pos=None) -> Stmt:
+        # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
+        # to exhale no permissions under a quantifier.
+        qaddr = self.viper_ast.LocalVarDecl('$a', self.viper_ast.Int, pos)
+        qby = self.viper_ast.LocalVarDecl('$b', self.viper_ast.Int, pos)
+        trust = helpers.trust_predicate(self.viper_ast, qaddr.localVar(), qby.localVar(), pos)
+        perm = self.viper_ast.CurrentPerm(trust, pos)
+        cond = self.viper_ast.GtCmp(perm, self.viper_ast.NoPerm(pos), pos)
+        acc_trust = self.viper_ast.PredicateAccessPredicate(trust, perm, pos)
+        trigger = self.viper_ast.Trigger([trust], pos)
+        quant = self.viper_ast.Forall([qaddr, qby], [trigger], self.viper_ast.Implies(cond, acc_trust, pos), pos)
+        # TODO: rule
+        return self.viper_ast.Exhale(quant, pos)
 
     def allocate(self,
                  resource: Expr, address: Expr, amount: Expr,
@@ -421,7 +491,7 @@ class AllocationTranslator(CommonTranslator):
         """
         Checks that `from` has sufficient allocation and then moves `amount` allocation from `frm` to `to`.
         """
-        check_trusted = self._check_trust(node, actor, frm, rules.REALLOCATE_FAIL_NOT_TRUSTED, ctx, pos)
+        check_trusted = self._check_trusted(node, actor, frm, rules.REALLOCATE_FAIL_NOT_TRUSTED, ctx, pos)
         check_allocation = self._check_allocation(node, resource, frm, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS, ctx, pos, info)
         decs = self._change_allocation(resource, frm, amount, False, ctx, pos)
         incs = self._change_allocation(resource, to, amount, True, ctx, pos)
@@ -445,7 +515,7 @@ class AllocationTranslator(CommonTranslator):
 
         if not is_init:
             # The initializer is allowed to create all resources unchecked.
-            stmts.extend(self._check_trust(node, actor, frm, rules.CREATE_FAIL_NOT_TRUSTED, ctx, pos))
+            stmts.extend(self._check_trusted(node, actor, frm, rules.CREATE_FAIL_NOT_TRUSTED, ctx, pos))
             creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
             stmts.extend(self._check_creator(node, creator_resource, frm, amount, ctx, pos))
 
@@ -470,7 +540,7 @@ class AllocationTranslator(CommonTranslator):
         """
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
-        check_trusted = self._check_trust(node, actor, address, rules.DESTROY_FAIL_NOT_TRUSTED, ctx, pos)
+        check_trusted = self._check_trusted(node, actor, address, rules.DESTROY_FAIL_NOT_TRUSTED, ctx, pos)
         check_allocation = self._check_allocation(node, resource, address, amount, rules.DESTROY_FAIL_INSUFFICIENT_FUNDS, ctx, pos, info)
 
         if ctx.quantified_vars:
@@ -582,7 +652,7 @@ class AllocationTranslator(CommonTranslator):
               from_owner: Expr, to_owner: Expr,
               times: Expr, actor: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
-        stmts = self._check_trust(node, actor, from_owner, rules.OFFER_FAIL_NOT_TRUSTED, ctx, pos)
+        stmts = self._check_trusted(node, actor, from_owner, rules.OFFER_FAIL_NOT_TRUSTED, ctx, pos)
 
         if ctx.quantified_vars:
             # We are translating a
@@ -630,7 +700,7 @@ class AllocationTranslator(CommonTranslator):
 
             stmts = self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, one, op, ctx, pos)
         else:
-            stmts = self._check_trust(node, actor, from_owner, rules.REVOKE_FAIL_NOT_TRUSTED, ctx, pos)
+            stmts = self._check_trusted(node, actor, from_owner, rules.REVOKE_FAIL_NOT_TRUSTED, ctx, pos)
             zero = self.viper_ast.IntLit(0, pos)
             stmts.extend(self._set_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, zero, ctx, pos))
 
@@ -680,7 +750,7 @@ class AllocationTranslator(CommonTranslator):
               address: Expr, by_address: Expr,
               new_value: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
-        trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
-        set_trusted = self.set_trusted(trusted, address, by_address, new_value, ctx, pos)
-        trusted_assign = self.viper_ast.LocalVarAssign(trusted, set_trusted, pos)
-        return [trusted_assign]
+        if ctx.quantified_vars:
+            return self._foreach_change_trusted(address, by_address, new_value, ctx, pos)
+        else:
+            return self._change_trusted(address, by_address, new_value, ctx, pos)

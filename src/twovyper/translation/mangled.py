@@ -20,6 +20,7 @@ TRUSTED = '$trusted'
 
 ALLOCATION = '$allocation'
 OFFER = '$offer'
+TRUST = '$trust'
 
 CREATOR = '$creator'
 CREATOR_RESOURCE = '$resource'
