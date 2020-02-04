@@ -122,7 +122,7 @@ REALLOCATE_FAIL_NOT_TRUSTED = {
         ('reallocate.failed', 'not.trusted')
 }
 
-CREATE_FAIL_INSUFFICIENT_FUNDS = {
+CREATE_FAIL_NOT_A_CREATOR = {
     ('assert.failed', 'assertion.false'):
         ('create.failed', 'not.a.creator')
 }

@@ -199,7 +199,7 @@ class AllocationTranslator(CommonTranslator):
         one = self.viper_ast.IntLit(1, pos)
         gtz = self.viper_ast.GtCmp(amount, zero, pos)
         cond = self.viper_ast.CondExp(gtz, one, zero, pos)
-        rule = rules.CREATE_FAIL_INSUFFICIENT_FUNDS
+        rule = rules.CREATE_FAIL_NOT_A_CREATOR
         return self._check_allocation(node, creator_resource, address, cond, rule, ctx, pos)
 
     def _check_from_agrees(self, node: ast.Node,
