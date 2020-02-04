@@ -397,10 +397,14 @@ class AllocationTranslator(CommonTranslator):
         trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
         get_trusted = self.get_trusted(trusted, address, by_address, ctx, pos)
         eq = self.viper_ast.EqCmp(address, by_address, pos)
-        is_trusted = self.viper_ast.Or(eq, get_trusted, pos)
+        cond = self.viper_ast.Or(eq, get_trusted, pos)
+        if ctx.quantified_vars:
+            trigger = self.viper_ast.Trigger([get_trusted], pos)
+            cond = self._quantifier(cond, [trigger], ctx, pos)
+
         stmts, modelt = self.model_translator.save_variables(ctx, pos)
         apos = self.to_position(node, ctx, rule, modelt=modelt)
-        stmts.append(self.viper_ast.Assert(is_trusted, apos))
+        stmts.append(self.viper_ast.Assert(cond, apos))
         return stmts
 
     def allocate(self,
@@ -578,6 +582,8 @@ class AllocationTranslator(CommonTranslator):
               from_owner: Expr, to_owner: Expr,
               times: Expr, actor: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
+        stmts = self._check_trust(node, actor, from_owner, rules.OFFER_FAIL_NOT_TRUSTED, ctx, pos)
+
         if ctx.quantified_vars:
             # We are translating a
             #   foreach({x1: t1, x2: t2, ...}, offer(e1(x1, x2, ...), e2(x1, x2, ...), to=e3(x1, x2, ...), times=t))
@@ -595,9 +601,8 @@ class AllocationTranslator(CommonTranslator):
                 perm_add = self.viper_ast.PermAdd(old_mul, perm, pos)
                 return self.viper_ast.EqCmp(fresh_mul, perm_add, pos)
 
-            stmts = self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, op, ctx, pos)
+            stmts.extend(self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, op, ctx, pos))
         else:
-            stmts = self._check_trust(node, actor, from_owner, rules.OFFER_FAIL_NOT_TRUSTED, ctx, pos)
             stmts.extend(self._change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, True, ctx, pos))
 
         return self.seqn_with_info(stmts, "Offer")
