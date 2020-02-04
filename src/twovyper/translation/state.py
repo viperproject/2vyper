@@ -41,6 +41,10 @@ class StateTranslator(CommonTranslator):
             offered_type = helpers.offered_type()
             return TranslatedVar(mangled.OFFERED, name, offered_type, self.viper_ast)
 
+        def trusted_var(name):
+            trusted_type = helpers.trusted_type()
+            return TranslatedVar(mangled.TRUSTED, name, trusted_type, self.viper_ast)
+
         s = {
             names.SELF: self_var(name_transformation(mangled.SELF)),
             mangled.CONTRACTS: contract_var(name_transformation(mangled.CONTRACTS))
@@ -49,6 +53,7 @@ class StateTranslator(CommonTranslator):
         if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
             s[mangled.ALLOCATED] = allocated_var(name_transformation(mangled.ALLOCATED))
             s[mangled.OFFERED] = offered_var(name_transformation(mangled.OFFERED))
+            s[mangled.TRUSTED] = trusted_var(name_transformation(mangled.TRUSTED))
 
         return s
 

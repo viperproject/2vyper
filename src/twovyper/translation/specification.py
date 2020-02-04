@@ -232,6 +232,11 @@ class SpecificationTranslator(ExpressionTranslator):
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
             args_stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
             return resource_stmts + args_stmts, self.allocation_translator.get_offered(offered, from_resource, to_resource, *args, ctx, pos)
+        elif name == names.TRUSTED:
+            address_stmts, address = self.translate(node.args[0], ctx)
+            by_stmts, by = self.translate(node.keywords[0].value, ctx)
+            trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
+            return address_stmts + by_stmts, self.allocation_translator.get_trusted(trusted, address, by, ctx, pos)
         elif name == names.ACCESSIBLE:
             # The function necessary for accessible is either the one used as the third argument
             # or the one the heuristics determined
@@ -560,6 +565,13 @@ class SpecificationTranslator(ExpressionTranslator):
             deallocation_stmts = self.allocation_translator.destroy(node, allocated, resource, to, amount, ctx, pos)
 
             return resource_stmts + amount_stmts + injectivity_stmts + deallocation_stmts, None
+        elif name == names.TRUST:
+            address_stmts, address = self.translate(node.args[0], ctx)
+            val_stmts, val = self.translate(node.args[1], ctx)
+            by = helpers.msg_sender(self.viper_ast, ctx, pos)
+            trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
+            trust_stmts = self.allocation_translator.trust(trusted, address, by, val, ctx, pos)
+            return address_stmts + val_stmts + trust_stmts, None
         elif name == names.FOREACH:
             with ctx.quantified_var_scope():
                 quants, _ = self._translate_quantified_vars(node.args[0], ctx)

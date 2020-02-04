@@ -91,6 +91,10 @@ def offered_type():
     return MapType(AnyStructType(), MapType(AnyStructType(), MapType(offer_type(), types.VYPER_UINT256)))
 
 
+def trusted_type():
+    return MapType(types.VYPER_ADDRESS, MapType(types.VYPER_ADDRESS, types.VYPER_BOOL))
+
+
 def allocation_predicate(viper_ast: ViperAST, resource, address, pos=None):
     return viper_ast.PredicateAccess([resource, address], mangled.ALLOCATION, pos)
 

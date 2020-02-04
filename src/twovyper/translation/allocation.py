@@ -136,6 +136,39 @@ class AllocationTranslator(CommonTranslator):
         set_offered = helpers.map_set(self.viper_ast, offered_map, offer, new_value, key_type, value_type, pos)
         return self.set_offered_map(offered, from_resource, to_resource, set_offered, ctx, pos)
 
+    def get_trusted(self,
+                    trusted: Expr,
+                    address: Expr, by_address: Expr,
+                    ctx: Context, pos=None) -> Expr:
+        """
+        Returns the offered map for a pair of resources.
+        """
+        trusted_type = helpers.trusted_type()
+
+        key1_type = self.type_translator.translate(trusted_type.key_type, ctx)
+        value1_type = self.type_translator.translate(trusted_type.value_type, ctx)
+        trusted1 = helpers.map_get(self.viper_ast, trusted, address, key1_type, value1_type, pos)
+
+        key2_type = self.type_translator.translate(trusted_type.value_type.key_type, ctx)
+        value2_type = self.type_translator.translate(trusted_type.value_type.value_type, ctx)
+        return helpers.map_get(self.viper_ast, trusted1, by_address, key2_type, value2_type, pos)
+
+    def set_trusted(self,
+                    trusted: Expr,
+                    address: Expr, by_address: Expr,
+                    new_value: Expr,
+                    ctx: Context, pos=None) -> Expr:
+        trusted_type = helpers.trusted_type()
+
+        outer_key_type = self.type_translator.translate(trusted_type.key_type, ctx)
+        outer_value_type = self.type_translator.translate(trusted_type.value_type, ctx)
+        inner_key_type = self.type_translator.translate(trusted_type.value_type.key_type, ctx)
+        inner_value_type = self.type_translator.translate(trusted_type.value_type.value_type, ctx)
+
+        inner_map = helpers.map_get(self.viper_ast, trusted, address, outer_key_type, outer_value_type, pos)
+        new_inner = helpers.map_set(self.viper_ast, inner_map, by_address, new_value, inner_key_type, inner_value_type, pos)
+        return helpers.map_set(self.viper_ast, trusted, address, new_inner, outer_key_type, outer_value_type, pos)
+
     def _check_allocation(self, node: ast.Node,
                           allocated: Expr, resource: Expr,
                           address: Expr, value: Expr,
@@ -620,3 +653,12 @@ class AllocationTranslator(CommonTranslator):
         inc2 = self._change_allocation(allocated, resource1, owner2, amount1, True, ctx, pos)
 
         return [ex1, ex2, *check1, *check2, *dec1, *inc1, *dec2, *inc2]
+
+    def trust(self,
+              trusted: Expr,
+              address: Expr, by_address: Expr,
+              new_value: Expr,
+              ctx: Context, pos=None) -> List[Stmt]:
+        set_trusted = self.set_trusted(trusted, address, by_address, new_value, ctx, pos)
+        trusted_assign = self.viper_ast.LocalVarAssign(trusted, set_trusted, pos)
+        return [trusted_assign]

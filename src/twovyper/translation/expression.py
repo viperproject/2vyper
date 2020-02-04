@@ -633,7 +633,7 @@ class ExpressionTranslator(NodeTranslator):
         elif name in names.GHOST_STATEMENTS:
             return self.spec_translator.translate_ghost_statement(node, ctx)
         else:
-            raise UnsupportedException(node, "Unsupported function call")
+            assert False
 
     def translate_ReceiverCall(self, node: ast.ReceiverCall, ctx: Context) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)

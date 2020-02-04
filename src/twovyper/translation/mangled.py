@@ -16,6 +16,7 @@ SELF = names.SELF
 CONTRACTS = '$contracts'
 ALLOCATED = '$allocated'
 OFFERED = '$offered'
+TRUSTED = '$trusted'
 
 ALLOCATION = '$allocation'
 OFFER = '$offer'

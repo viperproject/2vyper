@@ -592,6 +592,11 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 1, resources=1)
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 return [None], [node]
+            elif case(names.TRUST):
+                _check_number_of_arguments(node, 2)
+                self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                self.annotate_expected(node.args[1], types.VYPER_BOOL)
+                return [None], [node]
             elif case(names.OFFERED):
                 _check_number_of_arguments(node, 4, resources=2)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
@@ -599,6 +604,12 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[2], types.VYPER_ADDRESS)
                 self.annotate_expected(node.args[3], types.VYPER_ADDRESS)
                 return [types.VYPER_INT128], [node]
+            elif case(names.TRUSTED):
+                keywords = [names.TRUSTED_BY]
+                _check_number_of_arguments(node, 1, allowed_keywords=keywords, required_keywords=keywords)
+                self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                self.annotate_expected(node.keywords[0].value, types.VYPER_ADDRESS)
+                return [types.VYPER_BOOL], [node]
             elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                 # This is a struct inizializer
                 _check_number_of_arguments(node, 1)
