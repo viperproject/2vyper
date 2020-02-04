@@ -467,7 +467,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
                 if kw.name == names.REALLOCATE_TO:
                     to = kw_val
-                elif kw.name == names.REALLOCATE_BY:
+                elif kw.name == names.REALLOCATE_ACTING_FOR:
                     frm = kw_val
                 else:
                     assert False
@@ -494,7 +494,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 if kw.name == names.OFFER_TO:
                     to = kw_val
                     all_args.append(kw.value)
-                elif kw.name == names.OFFER_BY:
+                elif kw.name == names.OFFER_ACTING_FOR:
                     frm = kw_val
                 elif kw.name == names.OFFER_TIMES:
                     times = kw_val
@@ -527,7 +527,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 if kw.name == names.REVOKE_TO:
                     to = kw_val
                     all_args.append(kw.value)
-                elif kw.name == names.REVOKE_BY:
+                elif kw.name == names.REVOKE_ACTING_FOR:
                     frm = kw_val
                 else:
                     assert False
@@ -569,7 +569,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     to_stmts, to = self.translate(kw.value, ctx)
                     stmts.extend(to_stmts)
                     args.append(kw.value)
-                elif kw.name == names.CREATE_BY:
+                elif kw.name == names.CREATE_ACTING_FOR:
                     frm_stmts, frm = self.translate(kw.value, ctx)
                     stmts.extend(frm_stmts)
                     # The 'by' parameter is not part of the injectivity check as
@@ -597,7 +597,7 @@ class SpecificationTranslator(ExpressionTranslator):
             for kw in node.keywords:
                 kw_stmts, kw_val = self.translate(kw.value, ctx)
                 stmts.extend(kw_stmts)
-                if kw.name == names.DESTROY_BY:
+                if kw.name == names.DESTROY_ACTING_FOR:
                     frm = kw_val
 
             if ctx.quantified_vars:

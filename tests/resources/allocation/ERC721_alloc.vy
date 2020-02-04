@@ -289,11 +289,11 @@ def _transferFrom(_from: address, _to: address, _tokenId: uint256, _sender: addr
     self._addTokenTo(_to, _tokenId)
 
     #@ if _sender == _from or self.ownerToOperators[_from][_sender]:
-        #@ revoke[token(_tokenId) <-> nothing](1, 0, to=old(self.idToApprovals[_tokenId]), by=_from)
+        #@ revoke[token(_tokenId) <-> nothing](1, 0, to=old(self.idToApprovals[_tokenId]), acting_for=_from)
     #@ else:
         #@ exchange[token(_tokenId) <-> nothing](1, 0, _from, _sender, times=1)
 
-    #@ reallocate[token(_tokenId)](1, to=_to, by=_from if self.ownerToOperators[_from][_sender] else _sender)
+    #@ reallocate[token(_tokenId)](1, to=_to, acting_for=_from if self.ownerToOperators[_from][_sender] else _sender)
 
     # Log the transfer
     log.Transfer(_from, _to, _tokenId)
@@ -366,10 +366,10 @@ def approve(_approved: address, _tokenId: uint256):
     senderIsOwner: bool = self.idToOwner[_tokenId] == msg.sender
     senderIsApprovedForAll: bool = (self.ownerToOperators[owner])[msg.sender]
     assert (senderIsOwner or senderIsApprovedForAll)
-    #@ revoke[token(_tokenId) <-> nothing](1, 0, to=self.idToApprovals[_tokenId], by=owner)
+    #@ revoke[token(_tokenId) <-> nothing](1, 0, to=self.idToApprovals[_tokenId], acting_for=owner)
     # Set the approval
     self.idToApprovals[_tokenId] = _approved
-    #@ offer[token(_tokenId) <-> nothing](1, 0, to=_approved, by=owner, times=1 if _approved != ZERO_ADDRESS else 0)
+    #@ offer[token(_tokenId) <-> nothing](1, 0, to=_approved, acting_for=owner, times=1 if _approved != ZERO_ADDRESS else 0)
     log.Approval(owner, _approved, _tokenId)
 
 
@@ -432,13 +432,13 @@ def burn(_tokenId: uint256):
     assert owner != ZERO_ADDRESS
 
     #@ if msg.sender == owner or self.ownerToOperators[owner][msg.sender]:
-        #@ revoke[token(_tokenId) <-> nothing](1, 0, to=self.idToApprovals[_tokenId], by=owner)
+        #@ revoke[token(_tokenId) <-> nothing](1, 0, to=self.idToApprovals[_tokenId], acting_for=owner)
     #@ else:
         #@ exchange[token(_tokenId) <-> nothing](1, 0, owner, msg.sender, times=1)
     
     self._clearApproval(owner, _tokenId)
     self._removeTokenFrom(owner, _tokenId)
 
-    #@ destroy[token(_tokenId)](1, by=owner if self.ownerToOperators[owner][msg.sender] else msg.sender)
+    #@ destroy[token(_tokenId)](1, acting_for=owner if self.ownerToOperators[owner][msg.sender] else msg.sender)
     
     log.Transfer(owner, ZERO_ADDRESS, _tokenId)

@@ -539,7 +539,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(address, types.VYPER_ADDRESS)
                 return [types.VYPER_BOOL], [node]
             elif case(names.REALLOCATE):
-                keywords = [names.REALLOCATE_TO, names.REALLOCATE_BY]
+                keywords = [names.REALLOCATE_TO, names.REALLOCATE_ACTING_FOR]
                 required = [names.REALLOCATE_TO]
                 _check_number_of_arguments(node, 1, allowed_keywords=keywords, required_keywords=required, resources=1)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
@@ -552,7 +552,7 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.OFFER):
                 keywords = {
                     names.OFFER_TO: types.VYPER_ADDRESS,
-                    names.OFFER_BY: types.VYPER_ADDRESS,
+                    names.OFFER_ACTING_FOR: types.VYPER_ADDRESS,
                     names.OFFER_TIMES: types.VYPER_UINT256
                 }
                 required = [names.OFFER_TO, names.OFFER_TIMES]
@@ -565,7 +565,7 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.REVOKE):
                 keywords = {
                     names.REVOKE_TO: types.VYPER_ADDRESS,
-                    names.REVOKE_BY: types.VYPER_ADDRESS
+                    names.REVOKE_ACTING_FOR: types.VYPER_ADDRESS
                 }
                 required = [names.REVOKE_TO]
                 _check_number_of_arguments(node, 2, allowed_keywords=keywords.keys(), required_keywords=required, resources=2)
@@ -589,7 +589,7 @@ class TypeAnnotator(NodeVisitor):
                 _check(not is_wei, node, 'ether.change', msg)
                 keywords = {
                     names.CREATE_TO: types.VYPER_ADDRESS,
-                    names.CREATE_BY: types.VYPER_ADDRESS
+                    names.CREATE_ACTING_FOR: types.VYPER_ADDRESS
                 }
                 _check_number_of_arguments(node, 1, allowed_keywords=keywords.keys(), resources=1)
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
@@ -600,7 +600,7 @@ class TypeAnnotator(NodeVisitor):
                 msg = "Ether cannot be destroyed."
                 is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
                 _check(not is_wei, node, 'ether.change', msg)
-                keywords = [names.DESTROY_BY]
+                keywords = [names.DESTROY_ACTING_FOR]
                 _check_number_of_arguments(node, 1, resources=1, allowed_keywords=keywords)
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 for kw in node.keywords:

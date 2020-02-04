@@ -200,28 +200,28 @@ TRUSTED_BY = 'by'
 
 REALLOCATE = 'reallocate'
 REALLOCATE_TO = 'to'
-REALLOCATE_BY = 'by'
+REALLOCATE_ACTING_FOR = 'acting_for'
 
 FOREACH = 'foreach'
 
 OFFER = 'offer'
 OFFER_TO = 'to'
-OFFER_BY = 'by'
+OFFER_ACTING_FOR = 'acting_for'
 OFFER_TIMES = 'times'
 
 REVOKE = 'revoke'
 REVOKE_TO = 'to'
-REVOKE_BY = 'by'
+REVOKE_ACTING_FOR = 'acting_for'
 
 EXCHANGE = 'exchange'
 EXCHANGE_TIMES = 'times'
 
 CREATE = 'create'
 CREATE_TO = 'to'
-CREATE_BY = 'by'
+CREATE_ACTING_FOR = 'acting_for'
 
 DESTROY = 'destroy'
-DESTROY_BY = 'by'
+DESTROY_ACTING_FOR = 'acting_for'
 
 TRUST = 'trust'
 
