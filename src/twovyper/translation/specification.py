@@ -393,7 +393,7 @@ class SpecificationTranslator(ExpressionTranslator):
         # the amount offered is non-zero.
         assert qvars
 
-        all_args = [] if resource is None else _ResourceArgumentExtractor().extract_args(resource) + args
+        all_args = ([] if resource is None else _ResourceArgumentExtractor().extract_args(resource)) + args
 
         pos = self.to_position(node, ctx)
         stmts = []
