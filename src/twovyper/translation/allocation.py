@@ -386,6 +386,18 @@ class AllocationTranslator(CommonTranslator):
         # TODO: rule
         return self.viper_ast.Exhale(quant, pos)
 
+    def _check_trust(self, node: ast.Node,
+                     address: Expr, by_address: Expr,
+                     rule: rules.Rules, ctx: Context, pos=None) -> Stmt:
+        trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
+        get_trusted = self.get_trusted(trusted, address, by_address, ctx, pos)
+        eq = self.viper_ast.EqCmp(address, by_address, pos)
+        is_trusted = self.viper_ast.Or(eq, get_trusted, pos)
+        stmts, modelt = self.model_translator.save_variables(ctx, pos)
+        apos = self.to_position(node, ctx, rule, modelt=modelt)
+        stmts.append(self.viper_ast.Assert(is_trusted, apos))
+        return stmts
+
     def allocate(self,
                  allocated: Expr, resource: Expr,
                  address: Expr, amount: Expr,
@@ -397,15 +409,16 @@ class AllocationTranslator(CommonTranslator):
 
     def reallocate(self, node: ast.Node,
                    allocated: Expr, resource: Expr,
-                   frm: Expr, to: Expr, amount: Expr,
+                   frm: Expr, to: Expr, amount: Expr, actor: Expr,
                    ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `from` has sufficient allocation and then moves `amount` allocation from `frm` to `to`.
         """
+        check_trusted = self._check_trust(node, actor, frm, rules.REALLOCATE_FAIL_NOT_TRUSTED, ctx, pos)
         check_allocation = self._check_allocation(node, allocated, resource, frm, amount, rules.REALLOCATE_FAIL, ctx, pos, info)
         decs = self._change_allocation(allocated, resource, frm, amount, False, ctx, pos)
         incs = self._change_allocation(allocated, resource, to, amount, True, ctx, pos)
-        return check_allocation + decs + incs
+        return check_trusted + check_allocation + decs + incs
 
     def deallocate(self, node: ast.Node,
                    allocated: Expr, resource: Expr,
@@ -420,15 +433,16 @@ class AllocationTranslator(CommonTranslator):
 
     def create(self, node: ast.Node,
                allocated: Expr, resource: Expr,
-               frm: Expr, to: Expr, amount: Expr,
+               frm: Expr, to: Expr, amount: Expr, actor: Expr,
                is_init: bool,
                ctx: Context, pos=None) -> List[Stmt]:
-        if is_init:
+        stmts = []
+
+        if not is_init:
             # The initializer is allowed to create all resources unchecked.
-            stmts = []
-        else:
+            stmts.extend(self._check_trust(node, actor, frm, rules.CREATE_FAIL_NOT_TRUSTED, ctx, pos))
             creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
-            stmts = self._check_creator(node, allocated, creator_resource, frm, amount, ctx, pos)
+            stmts.extend(self._check_creator(node, allocated, creator_resource, frm, amount, ctx, pos))
 
         if ctx.quantified_vars:
 
@@ -447,11 +461,12 @@ class AllocationTranslator(CommonTranslator):
 
     def destroy(self, node: ast.Node,
                 allocated: Expr, resource: Expr,
-                address: Expr, amount: Expr,
+                address: Expr, amount: Expr, actor: Expr,
                 ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
+        check_trusted = self._check_trust(node, actor, address, rules.DESTROY_FAIL_NOT_TRUSTED, ctx, pos)
         check_allocation = self._check_allocation(node, allocated, resource, address, amount, rules.DESTROY_FAIL, ctx, pos, info)
 
         if ctx.quantified_vars:
@@ -467,7 +482,7 @@ class AllocationTranslator(CommonTranslator):
         else:
             decs = self._change_allocation(allocated, resource, address, amount, False, ctx, pos, info)
 
-        return check_allocation + decs
+        return check_trusted + check_allocation + decs
 
     def _leak_check(self, node: ast.Node, rule: Rules, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
@@ -557,11 +572,12 @@ class AllocationTranslator(CommonTranslator):
     def send_leak_check(self, node: ast.Node, ctx: Context, pos=None, info=None) -> List[Stmt]:
         return self._leak_check(node, rules.CALL_LEAK_CHECK_FAIL, ctx, pos, info)
 
-    def offer(self, offered: Expr,
+    def offer(self, node: ast.Node,
+              offered: Expr,
               from_resource: Expr, to_resource: Expr,
               from_value: Expr, to_value: Expr,
               from_owner: Expr, to_owner: Expr,
-              times: Expr,
+              times: Expr, actor: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
         if ctx.quantified_vars:
             # We are translating a
@@ -582,14 +598,17 @@ class AllocationTranslator(CommonTranslator):
 
             stmts = self._foreach_change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, op, ctx, pos)
         else:
-            stmts = self._change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, True, ctx, pos)
+            stmts = self._check_trust(node, actor, from_owner, rules.OFFER_FAIL_NOT_TRUSTED, ctx, pos)
+            stmts.extend(self._change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, True, ctx, pos))
 
         return self.seqn_with_info(stmts, "Offer")
 
-    def revoke(self, offered: Expr,
+    def revoke(self, node: ast.Node,
+               offered: Expr,
                from_resource: Expr, to_resource: Expr,
                from_value: Expr, to_value: Expr,
                from_owner: Expr, to_owner: Expr,
+               actor: Expr,
                ctx: Context, pos=None) -> List[Stmt]:
         if ctx.quantified_vars:
             # We are translating a
@@ -608,8 +627,9 @@ class AllocationTranslator(CommonTranslator):
 
             stmts = self._foreach_change_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, one, op, ctx, pos)
         else:
+            stmts = self._check_trust(node, actor, from_owner, rules.REVOKE_FAIL_NOT_TRUSTED, ctx, pos)
             zero = self.viper_ast.IntLit(0, pos)
-            stmts = self._set_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, zero, ctx, pos)
+            stmts.extend(self._set_offered(offered, from_resource, to_resource, from_value, to_value, from_owner, to_owner, zero, ctx, pos))
 
         return self.seqn_with_info(stmts, "Revoke")
 

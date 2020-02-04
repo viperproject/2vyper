@@ -117,14 +117,39 @@ REALLOCATE_FAIL = {
         ('reallocate.failed', 'insufficient.funds')
 }
 
+REALLOCATE_FAIL_NOT_TRUSTED = {
+    ('assert.failed', 'assertion.false'):
+        ('reallocate.failed', 'not.trusted')
+}
+
 CREATE_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('create.failed', 'not.a.creator')
 }
 
+CREATE_FAIL_NOT_TRUSTED = {
+    ('assert.failed', 'assertion.false'):
+        ('create.failed', 'not.trusted')
+}
+
 DESTROY_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('destroy.failed', 'insufficient.funds')
+}
+
+DESTROY_FAIL_NOT_TRUSTED = {
+    ('assert.failed', 'assertion.false'):
+        ('destroy.failed', 'not.trusted')
+}
+
+OFFER_FAIL_NOT_TRUSTED = {
+    ('assert.failed', 'assertion.false'):
+        ('offer.failed', 'not.trusted')
+}
+
+REVOKE_FAIL_NOT_TRUSTED = {
+    ('assert.failed', 'assertion.false'):
+        ('revoke.failed', 'not.trusted')
 }
 
 EXCHANGE_FAIL_NO_OFFER = {

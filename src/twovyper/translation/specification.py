@@ -455,13 +455,24 @@ class SpecificationTranslator(ExpressionTranslator):
         if name == names.REALLOCATE:
             stmts, resource = self.resource_translator.translate(node.resource, ctx)
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
-
-            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             amount_stmts, amount = self.translate(node.args[0], ctx)
             stmts.extend(amount_stmts)
-            to_stmts, to = self.translate(node.keywords[0].value, ctx)
-            stmts.extend(to_stmts)
-            stmts.extend(self.allocation_translator.reallocate(node, allocated, resource, msg_sender, to, amount, ctx, pos))
+
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            to = None
+            frm = msg_sender
+            for kw in node.keywords:
+                kw_stmts, kw_val = self.translate(kw.value, ctx)
+                stmts.extend(kw_stmts)
+
+                if kw.name == names.REALLOCATE_TO:
+                    to = kw_val
+                elif kw.name == names.REALLOCATE_BY:
+                    frm = kw_val
+                else:
+                    assert False
+
+            stmts.extend(self.allocation_translator.reallocate(node, allocated, resource, frm, to, amount, msg_sender, ctx, pos))
 
             return stmts, None
         elif name == names.OFFER:
@@ -469,27 +480,33 @@ class SpecificationTranslator(ExpressionTranslator):
 
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
 
-            value1_stmts, value1 = self.translate(node.args[0], ctx)
-            value2_stmts, value2 = self.translate(node.args[1], ctx)
+            left_stmts, left = self.translate(node.args[0], ctx)
+            right_stmts, right = self.translate(node.args[1], ctx)
 
-            stmts = [*resource_stmts, *value1_stmts, *value2_stmts]
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+
+            stmts = [*resource_stmts, *left_stmts, *right_stmts]
             all_args = node.args.copy()
+            frm = msg_sender
             for kw in node.keywords:
+                kw_stmts, kw_val = self.translate(kw.value, ctx)
+                stmts.extend(kw_stmts)
                 if kw.name == names.OFFER_TO:
-                    to_stmts, to = self.translate(kw.value, ctx)
-                    stmts.extend(to_stmts)
+                    to = kw_val
                     all_args.append(kw.value)
+                elif kw.name == names.OFFER_BY:
+                    frm = kw_val
                 elif kw.name == names.OFFER_TIMES:
-                    times_stmts, times = self.translate(kw.value, ctx)
-                    stmts.extend(times_stmts)
+                    times = kw_val
                     times_arg = kw.value
+                else:
+                    assert False
 
             if ctx.quantified_vars:
                 rule = rules.OFFER_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg, rule, ctx))
 
-            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-            stmts.extend(self.allocation_translator.offer(offered, from_resource, to_resource, value1, value2, msg_sender, to, times, ctx, pos))
+            stmts.extend(self.allocation_translator.offer(node, offered, from_resource, to_resource, left, right, frm, to, times, msg_sender, ctx, pos))
             return stmts, None
         elif name == names.REVOKE:
             resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
@@ -500,15 +517,26 @@ class SpecificationTranslator(ExpressionTranslator):
             value2_stmts, value2 = self.translate(node.args[1], ctx)
             to_stmts, to = self.translate(node.keywords[0].value, ctx)
 
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             stmts = [*resource_stmts, *value1_stmts, *value2_stmts, *to_stmts]
+            all_args = node.args.copy()
+            frm = msg_sender
+            for kw in node.keywords:
+                kw_stmts, kw_val = self.translate(kw.value, ctx)
+                stmts.extend(kw_stmts)
+                if kw.name == names.REVOKE_TO:
+                    to = kw_val
+                    all_args.append(kw.value)
+                elif kw.name == names.REVOKE_BY:
+                    frm = kw_val
+                else:
+                    assert False
 
             if ctx.quantified_vars:
-                all_args = [*node.args, node.keywords[0].value]
                 rule = rules.REVOKE_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None, rule, ctx))
 
-            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-            stmts.extend(self.allocation_translator.revoke(offered, from_resource, to_resource, value1, value2, msg_sender, to, ctx, pos))
+            stmts.extend(self.allocation_translator.revoke(node, offered, from_resource, to_resource, value1, value2, frm, to, msg_sender, ctx, pos))
             return stmts, None
         elif name == names.EXCHANGE:
             resource_stmts, resource1, resource2 = self.resource_translator.translate_exchange(node.resource, ctx)
@@ -530,41 +558,56 @@ class SpecificationTranslator(ExpressionTranslator):
             resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
             amount_stmts, amount = self.translate(node.args[0], ctx)
 
+            stmts = [*resource_stmts, *amount_stmts]
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-            to_stmts, to = [], msg_sender
+            to = msg_sender
+            frm = msg_sender
             args = []
 
             for kw in node.keywords:
                 if kw.name == names.CREATE_TO:
                     to_stmts, to = self.translate(kw.value, ctx)
+                    stmts.extend(to_stmts)
                     args.append(kw.value)
+                elif kw.name == names.CREATE_BY:
+                    frm_stmts, frm = self.translate(kw.value, ctx)
+                    stmts.extend(frm_stmts)
+                    # The 'by' parameter is not part of the injectivity check as
+                    # it does not make a difference as to which resource is created
+                else:
+                    assert False
 
             if ctx.quantified_vars:
                 rule = rules.CREATE_INJECTIVITY_CHECK_FAIL
-                injectivity_stmts = self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0], rule, ctx)
-            else:
-                injectivity_stmts = []
+                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0], rule, ctx))
 
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
             is_init = ctx.function.name == names.INIT
-            allocation_stmts = self.allocation_translator.create(node, allocated, resource, msg_sender, to, amount, is_init, ctx, pos)
+            stmts.extend(self.allocation_translator.create(node, allocated, resource, frm, to, amount, msg_sender, is_init, ctx, pos))
 
-            return resource_stmts + amount_stmts + to_stmts + injectivity_stmts + allocation_stmts, None
+            return stmts, None
         elif name == names.DESTROY:
             resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
             amount_stmts, amount = self.translate(node.args[0], ctx)
-            to = helpers.msg_sender(self.viper_ast, ctx, pos)
+
+            stmts = [*resource_stmts, *amount_stmts]
+
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            frm = msg_sender
+            for kw in node.keywords:
+                kw_stmts, kw_val = self.translate(kw.value, ctx)
+                stmts.extend(kw_stmts)
+                if kw.name == names.DESTROY_BY:
+                    frm = kw_val
 
             if ctx.quantified_vars:
                 rule = rules.DESTROY_INJECTIVITY_CHECK_FAIL
-                injectivity_stmts = self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0], rule, ctx)
-            else:
-                injectivity_stmts = []
+                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0], rule, ctx))
 
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
-            deallocation_stmts = self.allocation_translator.destroy(node, allocated, resource, to, amount, ctx, pos)
+            stmts.extend(self.allocation_translator.destroy(node, allocated, resource, frm, amount, msg_sender, ctx, pos))
 
-            return resource_stmts + amount_stmts + injectivity_stmts + deallocation_stmts, None
+            return stmts, None
         elif name == names.TRUST:
             address_stmts, address = self.translate(node.args[0], ctx)
             val_stmts, val = self.translate(node.args[1], ctx)

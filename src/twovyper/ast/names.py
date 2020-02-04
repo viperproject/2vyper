@@ -200,23 +200,28 @@ TRUSTED_BY = 'by'
 
 REALLOCATE = 'reallocate'
 REALLOCATE_TO = 'to'
+REALLOCATE_BY = 'by'
 
 FOREACH = 'foreach'
 
 OFFER = 'offer'
 OFFER_TO = 'to'
+OFFER_BY = 'by'
 OFFER_TIMES = 'times'
 
 REVOKE = 'revoke'
 REVOKE_TO = 'to'
+REVOKE_BY = 'by'
 
 EXCHANGE = 'exchange'
 EXCHANGE_TIMES = 'times'
 
 CREATE = 'create'
 CREATE_TO = 'to'
+CREATE_BY = 'by'
 
 DESTROY = 'destroy'
+DESTROY_BY = 'by'
 
 TRUST = 'trust'
 

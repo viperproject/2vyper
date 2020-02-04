@@ -98,6 +98,8 @@ REASONS = {
         lambda i: f"There might be insufficient allocated funds.",
     'not.a.creator':
         lambda i: f"There might not be an appropriate creator resource.",
+    'not.trusted':
+        lambda i: f"Message sender might not be trusted.",
     'no.offer':
         lambda i: f"There might not be an appropriate offer.",
     'offer.not.injective':
