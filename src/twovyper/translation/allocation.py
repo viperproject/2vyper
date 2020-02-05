@@ -692,7 +692,7 @@ class AllocationTranslator(CommonTranslator):
 
     def function_leak_check(self, ctx: Context, pos=None, info=None) -> List[Stmt]:
         alc = self._allocation_leak_check(ctx.function.node or ctx.program.node, rules.ALLOCATION_LEAK_CHECK_FAIL, ctx, pos, info)
-        plc = self._performs_leak_check(ctx.function.node, ctx, pos)
+        plc = self._performs_leak_check(ctx.function.node or ctx.program.node, ctx, pos)
         return alc + plc
 
     def send_leak_check(self, node: ast.Node, ctx: Context, pos=None, info=None) -> List[Stmt]:
