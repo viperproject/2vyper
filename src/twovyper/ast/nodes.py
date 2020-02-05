@@ -39,6 +39,7 @@ class VyperFunction:
                  type: FunctionType,
                  postconditions: List[ast.Expr],
                  checks: List[ast.Expr],
+                 performs: List[ast.Expr],
                  decorators: List[ast.Decorator],
                  node: Optional[ast.FunctionDef]):
         self.name = name
@@ -47,6 +48,7 @@ class VyperFunction:
         self.type = type
         self.postconditions = postconditions
         self.checks = checks
+        self.performs = performs
         self.decorators = decorators
         self.node = node
         # Gets set in the analyzer

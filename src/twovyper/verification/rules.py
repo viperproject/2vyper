@@ -122,6 +122,11 @@ REALLOCATE_FAIL_NOT_TRUSTED = {
         ('reallocate.failed', 'not.trusted')
 }
 
+REALLOCATE_FAIL_NO_PERFORMS = {
+    ('exhale.failed', 'insufficient.permission'):
+        ('reallocate.failed', 'no.performs')
+}
+
 CREATE_FAIL_NOT_A_CREATOR = {
     ('assert.failed', 'assertion.false'):
         ('create.failed', 'not.a.creator')
@@ -130,6 +135,11 @@ CREATE_FAIL_NOT_A_CREATOR = {
 CREATE_FAIL_NOT_TRUSTED = {
     ('assert.failed', 'assertion.false'):
         ('create.failed', 'not.trusted')
+}
+
+CREATE_FAIL_NO_PERFORMS = {
+    ('exhale.failed', 'insufficient.permission'):
+        ('create.failed', 'no.performs')
 }
 
 DESTROY_FAIL_INSUFFICIENT_FUNDS = {
@@ -142,14 +152,29 @@ DESTROY_FAIL_NOT_TRUSTED = {
         ('destroy.failed', 'not.trusted')
 }
 
+DESTROY_FAIL_NO_PERFORMS = {
+    ('exhale.failed', 'insufficient.permission'):
+        ('destroy.failed', 'no.performs')
+}
+
 OFFER_FAIL_NOT_TRUSTED = {
     ('assert.failed', 'assertion.false'):
         ('offer.failed', 'not.trusted')
 }
 
+OFFER_FAIL_NO_PERFORMS = {
+    ('exhale.failed', 'insufficient.permission'):
+        ('offer.failed', 'no.performs')
+}
+
 REVOKE_FAIL_NOT_TRUSTED = {
     ('assert.failed', 'assertion.false'):
         ('revoke.failed', 'not.trusted')
+}
+
+REVOKE_FAIL_NO_PERFORMS = {
+    ('exhale.failed', 'insufficient.permission'):
+        ('revoke.failed', 'no.performs')
 }
 
 EXCHANGE_FAIL_NO_OFFER = {
@@ -167,9 +192,19 @@ TRUST_FAIL_NOT_TRUSTED = {
         ('trust.failed', 'not.trusted')
 }
 
+TRUST_FAIL_NO_PERFORMS = {
+    ('exhale.failed', 'insufficient.permission'):
+        ('trust.failed', 'no.performs')
+}
+
 ALLOCATION_LEAK_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('leakcheck.failed', 'allocation.leaked')
+}
+
+PERFORMS_LEAK_CHECK_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('performs.leakcheck.failed', 'performs.leaked')
 }
 
 CREATE_INJECTIVITY_CHECK_FAIL = {

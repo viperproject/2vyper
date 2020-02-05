@@ -25,6 +25,8 @@ TRUST = '$trust'
 CREATOR = '$creator'
 CREATOR_RESOURCE = '$resource'
 
+PERFORMS = '$performs'
+
 MSG = names.MSG
 BLOCK = names.BLOCK
 CHAIN = names.CHAIN
@@ -205,3 +207,7 @@ def quantifier_var_name(vyper_name: str) -> str:
 
 def model_var_name(*components: str) -> str:
     return f'm${"$".join(components)}'
+
+
+def performs_predicate_name(vyper_name: str) -> str:
+    return f'{PERFORMS}${vyper_name}'

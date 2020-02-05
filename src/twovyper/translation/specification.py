@@ -449,7 +449,7 @@ class SpecificationTranslator(ExpressionTranslator):
         stmts.append(self.viper_ast.Assert(quant, apos))
         return stmts
 
-    def translate_ghost_statement(self, node: ast.FunctionCall, ctx: Context) -> StmtsAndExpr:
+    def translate_ghost_statement(self, node: ast.FunctionCall, ctx: Context, is_performs: bool = False) -> StmtsAndExpr:
         pos = self.to_position(node, ctx)
         name = node.name
         if name == names.REALLOCATE:
@@ -471,7 +471,10 @@ class SpecificationTranslator(ExpressionTranslator):
                 else:
                     assert False
 
-            stmts.extend(self.allocation_translator.reallocate(node, resource, frm, to, amount, msg_sender, ctx, pos))
+            if is_performs:
+                stmts.extend(self.allocation_translator.performs(node, [resource, frm, to, amount], ctx, pos))
+            else:
+                stmts.extend(self.allocation_translator.reallocate(node, resource, frm, to, amount, msg_sender, ctx, pos))
 
             return stmts, None
         elif name == names.OFFER:
@@ -503,7 +506,11 @@ class SpecificationTranslator(ExpressionTranslator):
                 rule = rules.OFFER_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg, rule, ctx))
 
-            stmts.extend(self.allocation_translator.offer(node, from_resource, to_resource, left, right, frm, to, times, msg_sender, ctx, pos))
+            if is_performs:
+                stmts.extend(self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to, times], ctx, pos))
+            else:
+                stmts.extend(self.allocation_translator.offer(node, from_resource, to_resource, left, right, frm, to, times, msg_sender, ctx, pos))
+
             return stmts, None
         elif name == names.REVOKE:
             resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
@@ -531,9 +538,15 @@ class SpecificationTranslator(ExpressionTranslator):
                 rule = rules.REVOKE_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None, rule, ctx))
 
-            stmts.extend(self.allocation_translator.revoke(node, from_resource, to_resource, left, right, frm, to, msg_sender, ctx, pos))
+            if is_performs:
+                stmts.extend(self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to], ctx, pos))
+            else:
+                stmts.extend(self.allocation_translator.revoke(node, from_resource, to_resource, left, right, frm, to, msg_sender, ctx, pos))
+
             return stmts, None
         elif name == names.EXCHANGE:
+            assert not is_performs
+
             resource_stmts, resource1, resource2 = self.resource_translator.translate_exchange(node.resource, ctx)
 
             left_stmts, left = self.translate(node.args[0], ctx)
@@ -574,8 +587,11 @@ class SpecificationTranslator(ExpressionTranslator):
                 rule = rules.CREATE_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0], rule, ctx))
 
-            is_init = ctx.function.name == names.INIT
-            stmts.extend(self.allocation_translator.create(node, resource, frm, to, amount, msg_sender, is_init, ctx, pos))
+            if is_performs:
+                stmts.extend(self.allocation_translator.performs(node, [resource, frm, to, amount], ctx, pos))
+            else:
+                is_init = ctx.function.name == names.INIT
+                stmts.extend(self.allocation_translator.create(node, resource, frm, to, amount, msg_sender, is_init, ctx, pos))
 
             return stmts, None
         elif name == names.DESTROY:
@@ -596,7 +612,10 @@ class SpecificationTranslator(ExpressionTranslator):
                 rule = rules.DESTROY_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0], rule, ctx))
 
-            stmts.extend(self.allocation_translator.destroy(node, resource, frm, amount, msg_sender, ctx, pos))
+            if is_performs:
+                stmts.extend(self.allocation_translator.performs(node, [resource, frm, amount], ctx, pos))
+            else:
+                stmts.extend(self.allocation_translator.destroy(node, resource, frm, amount, msg_sender, ctx, pos))
 
             return stmts, None
         elif name == names.TRUST:
@@ -616,7 +635,11 @@ class SpecificationTranslator(ExpressionTranslator):
             if ctx.quantified_vars:
                 rule = rules.TRUST_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0]], None, rule, ctx))
-            stmts.extend(self.allocation_translator.trust(node, address, frm, val, msg_sender, ctx, pos))
+
+            if is_performs:
+                stmts.extend(self.allocation_translator.performs(node, [address, frm, val], ctx, pos))
+            else:
+                stmts.extend(self.allocation_translator.trust(node, address, frm, val, msg_sender, ctx, pos))
 
             return stmts, None
         elif name == names.FOREACH:

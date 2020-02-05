@@ -30,6 +30,7 @@ def preprocess(program: str) -> str:
     replace(r'#@\s*resource\s*:', replacement('def ', ''))
     replace(r'#@\s*ensures\s*:', replacement('ensures', '='))
     replace(r'#@\s*check\s*:', replacement('check', '='))
+    replace(r'#@\s*performs\s*:', replacement('performs', '='))
     replace(r'#@\s*invariant\s*:', replacement('invariant', '='))
     replace(r'#@\s*always\s*ensures\s*:', replacement('always_ensures', '='))
     replace(r'#@\s*always\s*check\s*:', replacement('always_check', '='))

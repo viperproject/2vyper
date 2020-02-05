@@ -71,6 +71,7 @@ class ProgramBuilder(NodeVisitor):
 
         self.postconditions = []
         self.checks = []
+        self.performs = []
 
         self.is_preserves = False
 
@@ -143,6 +144,9 @@ class ProgramBuilder(NodeVisitor):
         elif self.checks:
             cond = "Check"
             node = self.checks[0]
+        elif self.performs:
+            cond = "Performs"
+            node = self.performs[0]
         else:
             return
         raise InvalidProgramException(node, 'local.spec', f"{cond} only allowed before function")
@@ -286,6 +290,8 @@ class ProgramBuilder(NodeVisitor):
             self.postconditions.append(node.value)
         elif name == names.CHECK:
             self.checks.append(node.value)
+        elif name == names.PERFORMS:
+            self.performs.append(node.value)
         else:
             assert False
 
@@ -348,8 +354,9 @@ class ProgramBuilder(NodeVisitor):
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
         decs = node.decorators
-        function = VyperFunction(node.name, args, defaults, type, self.postconditions, self.checks, decs, node)
+        function = VyperFunction(node.name, args, defaults, type, self.postconditions, self.checks, self.performs, decs, node)
         self.functions[node.name] = function
         # Reset local specs
         self.postconditions = []
         self.checks = []
+        self.performs = []

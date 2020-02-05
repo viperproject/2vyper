@@ -23,7 +23,7 @@ from twovyper.utils import first_index
 
 def init_function() -> ast.FunctionDef:
     type = FunctionType([], None)
-    function = VyperFunction(mangled.INIT, {}, {}, type, [], [], [ast.Decorator(names.PUBLIC, [])], None)
+    function = VyperFunction(mangled.INIT, {}, {}, type, [], [], [], [ast.Decorator(names.PUBLIC, [])], None)
     function.analysis = FunctionAnalysis()
     return function
 
@@ -109,6 +109,11 @@ def offer_predicate(viper_ast: ViperAST, from_resource, to_resource, from_val, t
 
 def trust_predicate(viper_ast: ViperAST, address, by_address, pos=None):
     return viper_ast.PredicateAccess([address, by_address], mangled.TRUST, pos)
+
+
+def performs_predicate(viper_ast: ViperAST, function: str, args, pos=None):
+    name = mangled.performs_predicate_name(function)
+    return viper_ast.PredicateAccess(args, name, pos)
 
 
 def creator_resource() -> Resource:

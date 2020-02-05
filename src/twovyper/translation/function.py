@@ -228,6 +228,11 @@ class FunctionTranslator(CommonTranslator):
                 var_assign = self.viper_ast.LocalVarAssign(fps, self.viper_ast.TrueLit())
                 body.append(var_assign)
 
+            # Translate the performs clauses
+            for performs in function.performs:
+                performs_stmts, _ = self.specification_translator.translate_ghost_statement(performs, ctx, is_performs=True)
+                body.extend(performs_stmts)
+
             # Revert if a @nonreentrant lock is set
             body.extend(self._assert_unlocked(function, ctx))
             # Set all @nonreentrant locks
@@ -446,6 +451,8 @@ class FunctionTranslator(CommonTranslator):
             body.extend(self.seqn_with_info(invariant_stmts, "Assert Invariants"))
 
             # We check that the invariant tracks all allocation by doing a leak check.
+            # We also check that all necessary operations stated in perform clauses were
+            # performed.
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                 body.extend(self.allocation_translator.function_leak_check(ctx, pos))
 

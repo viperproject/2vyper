@@ -67,6 +67,8 @@ ERRORS = {
         lambda i: f"Trust might fail.",
     'leakcheck.failed':
         lambda i: f"Leak check for resource {i.resource.name} might fail in {i.function.name}.",
+    'performs.leakcheck.failed':
+        lambda i: f"Leakcheck for performs clauses might fail.",
     'fold.failed':
         lambda i: "Fold might fail.",
     'unfold.failed':
@@ -104,12 +106,16 @@ REASONS = {
         lambda i: f"Message sender might not be trusted.",
     'no.offer':
         lambda i: f"There might not be an appropriate offer.",
+    'no.performs':
+        lambda i: f"The function might not be allowed to perform this operation.",
     'offer.not.injective':
         lambda i: f"The offer might not be injective.",
     'trust.not.injective':
         lambda i: f"Trust might not be injective.",
     'allocation.leaked':
         lambda i: f"Some allocation might be leaked.",
+    'performs.leaked':
+        lambda i: f"The function might not perform all required operations.",
     'receiver.not.injective':
         lambda i: f"Receiver of {pprint(i.node)} might not be injective.",
     'receiver.null':

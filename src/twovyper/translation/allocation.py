@@ -477,6 +477,23 @@ class AllocationTranslator(CommonTranslator):
         # TODO: rule
         return self.viper_ast.Exhale(quant, pos)
 
+    def _performs_acc_predicate(self, function: str, args: List[Expr], ctx: Context, pos=None) -> Expr:
+        pred = helpers.performs_predicate(self.viper_ast, function, args, pos)
+        cond = self.viper_ast.PredicateAccessPredicate(pred, self.viper_ast.FullPerm(pos), pos)
+        if ctx.quantified_vars:
+            cond = self._quantifier(cond, [], ctx, pos)
+
+        return cond
+
+    def _exhale_performs(self, node: ast.Node, function: str, args: List[Expr], rule: Rule, ctx: Context, pos=None) -> List[Stmt]:
+        if ctx.program.config.has_option(names.CONFIG_NO_PERFORMS):
+            return []
+        else:
+            pred = self._performs_acc_predicate(function, args, ctx, pos)
+            model_stmts, modelt = self.model_translator.save_variables(ctx, pos)
+            apos = self.to_position(node, ctx, rule, modelt=modelt)
+            return [*model_stmts, self.viper_ast.Exhale(pred, apos)]
+
     def allocate(self,
                  resource: Expr, address: Expr, amount: Expr,
                  ctx: Context, pos=None, info=None) -> List[Stmt]:
@@ -491,11 +508,12 @@ class AllocationTranslator(CommonTranslator):
         """
         Checks that `from` has sufficient allocation and then moves `amount` allocation from `frm` to `to`.
         """
+        check_performs = self._exhale_performs(node, names.REALLOCATE, [resource, frm, to, amount], rules.REALLOCATE_FAIL_NO_PERFORMS, ctx, pos)
         check_trusted = self._check_trusted(node, actor, frm, rules.REALLOCATE_FAIL_NOT_TRUSTED, ctx, pos)
         check_allocation = self._check_allocation(node, resource, frm, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS, ctx, pos, info)
         decs = self._change_allocation(resource, frm, amount, False, ctx, pos)
         incs = self._change_allocation(resource, to, amount, True, ctx, pos)
-        return check_trusted + check_allocation + decs + incs
+        return check_performs + check_trusted + check_allocation + decs + incs
 
     def deallocate(self, node: ast.Node,
                    resource: Expr, address: Expr, amount: Expr,
@@ -511,7 +529,7 @@ class AllocationTranslator(CommonTranslator):
                resource: Expr, frm: Expr, to: Expr, amount: Expr, actor: Expr,
                is_init: bool,
                ctx: Context, pos=None) -> List[Stmt]:
-        stmts = []
+        stmts = self._exhale_performs(node, names.CREATE, [resource, frm, to, amount], rules.CREATE_FAIL_NO_PERFORMS, ctx, pos)
 
         if not is_init:
             # The initializer is allowed to create all resources unchecked.
@@ -540,6 +558,7 @@ class AllocationTranslator(CommonTranslator):
         """
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
+        check_performs = self._exhale_performs(node, names.DESTROY, [resource, address, amount], rules.DESTROY_FAIL_NO_PERFORMS, ctx, pos)
         check_trusted = self._check_trusted(node, actor, address, rules.DESTROY_FAIL_NOT_TRUSTED, ctx, pos)
         check_allocation = self._check_allocation(node, resource, address, amount, rules.DESTROY_FAIL_INSUFFICIENT_FUNDS, ctx, pos, info)
 
@@ -556,9 +575,9 @@ class AllocationTranslator(CommonTranslator):
         else:
             decs = self._change_allocation(resource, address, amount, False, ctx, pos, info)
 
-        return check_trusted + check_allocation + decs
+        return check_performs + check_trusted + check_allocation + decs
 
-    def _leak_check(self, node: ast.Node, rule: Rule, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def _allocation_leak_check(self, node: ast.Node, rule: Rule, ctx: Context, pos=None, info=None) -> List[Stmt]:
         """
         Checks that the invariant knows about all ether allocated to the individual addresses, i.e., that
         given only the invariant and the state it is known for each address how much of the ether is
@@ -640,11 +659,44 @@ class AllocationTranslator(CommonTranslator):
 
         return stmts
 
+    def _performs_leak_check(self, node: ast.Node, ctx: Context, pos=None) -> List[Stmt]:
+        if ctx.program.config.has_option(names.CONFIG_NO_PERFORMS):
+            return []
+
+        struct_t = helpers.struct_type(self.viper_ast)
+        int_t = self.viper_ast.Int
+        bool_t = self.viper_ast.Bool
+
+        predicate_types = {
+            names.CREATE: [struct_t, int_t, int_t, int_t],
+            names.DESTROY: [struct_t, int_t, int_t],
+            names.REALLOCATE: [struct_t, int_t, int_t, int_t],
+            names.OFFER: [struct_t, struct_t, int_t, int_t, int_t, int_t, int_t],
+            names.REVOKE: [struct_t, struct_t, int_t, int_t, int_t, int_t],
+            names.TRUST: [int_t, int_t, bool_t]
+        }
+
+        stmts, modelt = self.model_translator.save_variables(ctx, pos)
+
+        for function, arg_types in predicate_types.items():
+            quant_decls = [self.viper_ast.LocalVarDecl(f'$a{idx}', t, pos) for idx, t in enumerate(arg_types)]
+            quant_vars = [decl.localVar() for decl in quant_decls]
+            pred = helpers.performs_predicate(self.viper_ast, function, quant_vars, pos)
+            false = self.viper_ast.FalseLit(pos)
+            succ = ctx.success_var.local_var(ctx, pos)
+            cond = self.viper_ast.Implies(succ, self.viper_ast.ForPerm(quant_decls, pred, false, pos), pos)
+            apos = self.to_position(node, ctx, rules.PERFORMS_LEAK_CHECK_FAIL, modelt=modelt)
+            stmts.append(self.viper_ast.Assert(cond, apos))
+
+        return stmts
+
     def function_leak_check(self, ctx: Context, pos=None, info=None) -> List[Stmt]:
-        return self._leak_check(ctx.function.node or ctx.program.node, rules.ALLOCATION_LEAK_CHECK_FAIL, ctx, pos, info)
+        alc = self._allocation_leak_check(ctx.function.node or ctx.program.node, rules.ALLOCATION_LEAK_CHECK_FAIL, ctx, pos, info)
+        plc = self._performs_leak_check(ctx.function.node, ctx, pos)
+        return alc + plc
 
     def send_leak_check(self, node: ast.Node, ctx: Context, pos=None, info=None) -> List[Stmt]:
-        return self._leak_check(node, rules.CALL_LEAK_CHECK_FAIL, ctx, pos, info)
+        return self._allocation_leak_check(node, rules.CALL_LEAK_CHECK_FAIL, ctx, pos, info)
 
     def offer(self, node: ast.Node,
               from_resource: Expr, to_resource: Expr,
@@ -652,7 +704,9 @@ class AllocationTranslator(CommonTranslator):
               from_owner: Expr, to_owner: Expr,
               times: Expr, actor: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
-        stmts = self._check_trusted(node, actor, from_owner, rules.OFFER_FAIL_NOT_TRUSTED, ctx, pos)
+        prule = rules.OFFER_FAIL_NO_PERFORMS
+        stmts = self._exhale_performs(node, names.OFFER, [from_resource, to_resource, from_value, to_value, from_owner, to_owner, times], prule, ctx, pos)
+        stmts.extend(self._check_trusted(node, actor, from_owner, rules.OFFER_FAIL_NOT_TRUSTED, ctx, pos))
 
         if ctx.quantified_vars:
             # We are translating a
@@ -683,7 +737,9 @@ class AllocationTranslator(CommonTranslator):
                from_owner: Expr, to_owner: Expr,
                actor: Expr,
                ctx: Context, pos=None) -> List[Stmt]:
-        stmts = self._check_trusted(node, actor, from_owner, rules.REVOKE_FAIL_NOT_TRUSTED, ctx, pos)
+        prule = rules.REVOKE_FAIL_NO_PERFORMS
+        stmts = self._exhale_performs(node, names.REVOKE, [from_resource, to_resource, from_value, to_value, from_owner, to_owner], prule, ctx, pos)
+        stmts.extend(self._check_trusted(node, actor, from_owner, rules.REVOKE_FAIL_NOT_TRUSTED, ctx, pos))
         if ctx.quantified_vars:
             # We are translating a
             #   foreach({x1: t1, x2: t2, ...}, revoke(e1(x1, x2, ...), e2(x1, x2, ...), to=e3(x1, x2, ...)))
@@ -750,8 +806,14 @@ class AllocationTranslator(CommonTranslator):
               address: Expr, from_address: Expr,
               new_value: Expr, actor: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
-        stmts = self._check_trusted(node, actor, from_address, rules.TRUST_FAIL_NOT_TRUSTED, ctx, pos)
+        stmts = self._exhale_performs(node, names.TRUST, [address, from_address, new_value], rules.TRUST_FAIL_NO_PERFORMS, ctx, pos)
+        stmts.extend(self._check_trusted(node, actor, from_address, rules.TRUST_FAIL_NOT_TRUSTED, ctx, pos))
         if ctx.quantified_vars:
             return stmts + self._foreach_change_trusted(address, from_address, new_value, ctx, pos)
         else:
             return stmts + self._change_trusted(address, from_address, new_value, ctx, pos)
+
+    def performs(self, node: ast.FunctionCall, args: List[Expr], ctx: Context, pos=None) -> List[Stmt]:
+        pred = self._performs_acc_predicate(node.name, args, ctx, pos)
+        # TODO: rule
+        return [self.viper_ast.Inhale(pred, pos)]
