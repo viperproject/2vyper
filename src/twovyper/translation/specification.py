@@ -648,7 +648,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 for var in quants:
                     ctx.quantified_vars[var.name] = var
 
-                return self.translate_ghost_statement(node.args[1], ctx)
+                return self.translate_ghost_statement(node.args[1], ctx, is_performs)
         else:
             assert False
 

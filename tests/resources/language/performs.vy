@@ -118,3 +118,24 @@ def trust_no_performs_fail(a: address):
 @public
 def trust_no_trust_fail(a: address):
     pass
+
+
+#@ performs: foreach({a: address}, trust(a, True))
+@public
+def trust_all():
+    pass
+    #@ foreach({a: address}, trust(a, True))
+
+
+@public
+def trust_all_no_performs_fail():
+    pass
+    #:: ExpectedOutput(trust.failed:no.performs)
+    #@ foreach({a: address}, trust(a, True))
+
+
+#@ performs: foreach({a: address}, trust(a, True))
+#:: ExpectedOutput(performs.leakcheck.failed:performs.leaked)
+@public
+def trust_all_no_trust_fail():
+    pass

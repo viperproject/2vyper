@@ -84,6 +84,9 @@ class StructureChecker(NodeVisitor):
             for check in function.checks:
                 self.visit(check, _Context.CHECK, program, function)
 
+            for performs in function.performs:
+                self.visit(performs, _Context.GHOST_STATEMENT, program, function)
+
         for invariant in program.invariants:
             self.visit(invariant, _Context.INVARIANT, program, None)
 
