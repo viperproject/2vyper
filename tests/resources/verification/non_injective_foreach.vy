@@ -6,7 +6,7 @@
 #
 
 
-#@ config: allocation
+#@ config: allocation, no_performs
 
 
 #@ resource: good()
