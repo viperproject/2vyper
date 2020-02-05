@@ -602,13 +602,21 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.TRUST:
             address_stmts, address = self.translate(node.args[0], ctx)
             val_stmts, val = self.translate(node.args[1], ctx)
-            by = helpers.msg_sender(self.viper_ast, ctx, pos)
 
             stmts = [*address_stmts, *val_stmts]
+
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            frm = msg_sender
+            for kw in node.keywords:
+                kw_stmts, kw_val = self.translate(kw.value, ctx)
+                stmts.extend(kw_stmts)
+                if kw.name == names.TRUST_ACTING_FOR:
+                    frm = kw_val
+
             if ctx.quantified_vars:
                 rule = rules.TRUST_INJECTIVITY_CHECK_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0]], None, rule, ctx))
-            stmts.extend(self.allocation_translator.trust(address, by, val, ctx, pos))
+            stmts.extend(self.allocation_translator.trust(node, address, frm, val, msg_sender, ctx, pos))
 
             return stmts, None
         elif name == names.FOREACH:

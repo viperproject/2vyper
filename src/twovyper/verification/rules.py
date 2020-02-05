@@ -162,6 +162,11 @@ EXCHANGE_FAIL_INSUFFICIENT_FUNDS = {
         ('exchange.failed', 'insufficient.funds')
 }
 
+TRUST_FAIL_NOT_TRUSTED = {
+    ('assert.failed', 'assertion.false'):
+        ('trust.failed', 'not.trusted')
+}
+
 ALLOCATION_LEAK_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('leakcheck.failed', 'allocation.leaked')

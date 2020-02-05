@@ -607,9 +607,12 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(kw.value, types.VYPER_ADDRESS)
                 return [None], [node]
             elif case(names.TRUST):
-                _check_number_of_arguments(node, 2)
+                keywords = [names.TRUST_ACTING_FOR]
+                _check_number_of_arguments(node, 2, allowed_keywords=keywords)
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                 self.annotate_expected(node.args[1], types.VYPER_BOOL)
+                for kw in node.keywords:
+                    self.annotate_expected(kw.value, types.VYPER_ADDRESS)
                 return [None], [node]
             elif case(names.OFFERED):
                 _check_number_of_arguments(node, 4, resources=2)

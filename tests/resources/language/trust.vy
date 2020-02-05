@@ -39,10 +39,17 @@ def trust(a: address):
 
 @public
 def untrust(a: address):
-    assert msg.sender == self.minter
+    assert msg.sender == self.minter or self.trusted[msg.sender]
 
     self.trusted[a] = False
-    #@ trust(a, False)
+    #@ trust(a, False, acting_for=self.minter)
+
+
+@public
+def untrust_fail(a: address):
+    self.trusted[a] = False
+    #:: ExpectedOutput(trust.failed:not.trusted)
+    #@ trust(a, False, acting_for=self.minter)
 
 
 @public

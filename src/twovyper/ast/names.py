@@ -224,6 +224,7 @@ DESTROY = 'destroy'
 DESTROY_ACTING_FOR = 'acting_for'
 
 TRUST = 'trust'
+TRUST_ACTING_FOR = 'acting_for'
 
 CREATOR = 'creator'
 

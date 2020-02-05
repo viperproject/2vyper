@@ -683,6 +683,7 @@ class AllocationTranslator(CommonTranslator):
                from_owner: Expr, to_owner: Expr,
                actor: Expr,
                ctx: Context, pos=None) -> List[Stmt]:
+        stmts = self._check_trusted(node, actor, from_owner, rules.REVOKE_FAIL_NOT_TRUSTED, ctx, pos)
         if ctx.quantified_vars:
             # We are translating a
             #   foreach({x1: t1, x2: t2, ...}, revoke(e1(x1, x2, ...), e2(x1, x2, ...), to=e3(x1, x2, ...)))
@@ -698,9 +699,8 @@ class AllocationTranslator(CommonTranslator):
                 cond_expr = self.viper_ast.CondExp(gez, self.viper_ast.IntLit(0, pos), old, pos)
                 return self.viper_ast.EqCmp(fresh, cond_expr, pos)
 
-            stmts = self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, one, op, ctx, pos)
+            stmts.extend(self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, one, op, ctx, pos))
         else:
-            stmts = self._check_trusted(node, actor, from_owner, rules.REVOKE_FAIL_NOT_TRUSTED, ctx, pos)
             zero = self.viper_ast.IntLit(0, pos)
             stmts.extend(self._set_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, zero, ctx, pos))
 
@@ -746,11 +746,12 @@ class AllocationTranslator(CommonTranslator):
 
         return [ex1, ex2, *check1, *check2, *dec1, *inc1, *dec2, *inc2]
 
-    def trust(self,
-              address: Expr, by_address: Expr,
-              new_value: Expr,
+    def trust(self, node: ast.Node,
+              address: Expr, from_address: Expr,
+              new_value: Expr, actor: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
+        stmts = self._check_trusted(node, actor, from_address, rules.TRUST_FAIL_NOT_TRUSTED, ctx, pos)
         if ctx.quantified_vars:
-            return self._foreach_change_trusted(address, by_address, new_value, ctx, pos)
+            return stmts + self._foreach_change_trusted(address, from_address, new_value, ctx, pos)
         else:
-            return self._change_trusted(address, by_address, new_value, ctx, pos)
+            return stmts + self._change_trusted(address, from_address, new_value, ctx, pos)
