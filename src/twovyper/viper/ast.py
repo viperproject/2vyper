@@ -329,12 +329,10 @@ class ViperAST:
         info = info or self.NoInfo
         return self.ast.CurrentPerm(location, position, info, self.NoTrafos)
 
-    def ForPerm(self, variable, access, body, position=None, info=None):
+    def ForPerm(self, variables, access, body, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        variables = self.to_seq([variable])
-        return self.ast.ForPerm(variables, access, body,
-                                position, info, self.NoTrafos)
+        return self.ast.ForPerm(self.to_seq(variables), access, body, position, info, self.NoTrafos)
 
     def PermMinus(self, exp, position=None, info=None):
         position = position or self.NoPosition
