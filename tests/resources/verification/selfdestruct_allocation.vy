@@ -6,7 +6,7 @@
 #
 
 
-#@ config: allocation
+#@ config: allocation, no_performs
 
 
 balance_of: map(address, uint256(wei))

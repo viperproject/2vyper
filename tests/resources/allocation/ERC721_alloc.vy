@@ -31,7 +31,7 @@ from vyper.interfaces import ERC721
 
 implements: ERC721
 
-#@ config: allocation
+#@ config: allocation, no_performs
 
 # Interface for the contract called by safeTransferFrom()
 contract ERC721Receiver:

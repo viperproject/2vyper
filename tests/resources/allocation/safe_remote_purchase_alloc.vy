@@ -27,7 +27,7 @@
 # https://github.com/ethereum/solidity/blob/develop/docs/solidity-by-example.rst
 # Ported to vyper and optimized.
 
-#@ config: allocation
+#@ config: allocation, no_performs
 
 OPEN: constant(int128) = 0
 PURCHASED: constant(int128) = 1

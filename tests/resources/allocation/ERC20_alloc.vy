@@ -33,7 +33,7 @@ from vyper.interfaces import ERC20
 
 implements: ERC20
 
-#@ config: allocation
+#@ config: allocation, no_performs
 
 Transfer: event({_from: indexed(address), _to: indexed(address), _value: uint256})
 Approval: event({_owner: indexed(address), _spender: indexed(address), _value: uint256})
