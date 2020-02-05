@@ -85,7 +85,7 @@ class StructureChecker(NodeVisitor):
                 self.visit(check, _Context.CHECK, program, function)
 
             for performs in function.performs:
-                self.visit(performs, _Context.GHOST_STATEMENT, program, function)
+                self._visit_performs(performs, program, function)
 
         for invariant in program.invariants:
             self.visit(invariant, _Context.INVARIANT, program, None)
@@ -101,6 +101,10 @@ class StructureChecker(NodeVisitor):
 
         for ghost_function in program.ghost_function_implementations.values():
             self.visit(ghost_function.node, _Context.GHOST_FUNCTION, program, None)
+
+    def _visit_performs(self, node: ast.Expr, program: VyperProgram, function: VyperFunction):
+        _assert(isinstance(node, ast.FunctionCall) and node.name in names.GHOST_STATEMENTS, node, 'invalid.performs')
+        self.visit(node, _Context.CODE, program, function)
 
     def visit_Name(self, node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         if ctx == _Context.GHOST_FUNCTION and node.id in names.ENV_VARIABLES:
