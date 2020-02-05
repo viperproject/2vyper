@@ -679,14 +679,18 @@ class AllocationTranslator(CommonTranslator):
         stmts, modelt = self.model_translator.save_variables(ctx, pos)
 
         for function, arg_types in predicate_types.items():
+            # We could use forperm instead, but Carbon doesn't support multiple variables
+            # in forperm (TODO: issue #243)
             quant_decls = [self.viper_ast.LocalVarDecl(f'$a{idx}', t, pos) for idx, t in enumerate(arg_types)]
             quant_vars = [decl.localVar() for decl in quant_decls]
             pred = helpers.performs_predicate(self.viper_ast, function, quant_vars, pos)
-            false = self.viper_ast.FalseLit(pos)
             succ = ctx.success_var.local_var(ctx, pos)
-            cond = self.viper_ast.Implies(succ, self.viper_ast.ForPerm(quant_decls, pred, false, pos), pos)
+            perm = self.viper_ast.CurrentPerm(pred, pos)
+            cond = self.viper_ast.Implies(succ, self.viper_ast.EqCmp(perm, self.viper_ast.NoPerm(pos), pos), pos)
+            trigger = self.viper_ast.Trigger([pred], pos)
+            quant = self.viper_ast.Forall(quant_decls, [trigger], cond, pos)
             apos = self.to_position(node, ctx, rules.PERFORMS_LEAK_CHECK_FAIL, modelt=modelt)
-            stmts.append(self.viper_ast.Assert(cond, apos))
+            stmts.append(self.viper_ast.Assert(quant, apos))
 
         return stmts
 
