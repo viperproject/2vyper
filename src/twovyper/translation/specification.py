@@ -26,7 +26,7 @@ from twovyper.utils import switch
 from twovyper.verification import rules
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
+from twovyper.viper.typedefs import Expr, Stmt
 
 
 class SpecificationTranslator(ExpressionTranslator):
@@ -49,25 +49,26 @@ class SpecificationTranslator(ExpressionTranslator):
 
         del self._ignore_accessible
 
-    def translate_postcondition(self, post: ast.Node, ctx: Context):
-        return self.translate(post, ctx)
+    def translate_postcondition(self, post: ast.Node, res: List[Stmt], ctx: Context) -> Expr:
+        return self.translate(post, res, ctx)
 
-    def translate_check(self, check: ast.Node, ctx: Context, is_fail=False):
-        stmts, expr = self.translate(check, ctx)
+    def translate_check(self, check: ast.Node, res: List[Stmt], ctx: Context, is_fail=False) -> Expr:
+        expr = self.translate(check, res, ctx)
         if is_fail:
             # We evaluate the check on failure in the old heap because events didn't
             # happen there
             pos = self.to_position(check, ctx)
-            return stmts, self.viper_ast.Old(expr, pos)
+            return self.viper_ast.Old(expr, pos)
         else:
-            return stmts, expr
+            return expr
 
-    def translate_invariant(self, inv: ast.Node, ctx: Context, ignore_accessible=False):
+    def translate_invariant(self, inv: ast.Node, res: List[Stmt], ctx: Context, ignore_accessible=False) -> Expr:
         with self._ignore_accessible_scope(ignore_accessible):
-            return self.translate(inv, ctx)
+            return self.translate(inv, res, ctx)
 
-    def _translate_spec(self, node: ast.Node, ctx: Context):
-        stmts, expr = self.translate(node, ctx)
+    def _translate_spec(self, node: ast.Node, ctx: Context) -> Expr:
+        stmts = []
+        expr = self.translate(node, stmts, ctx)
         assert not stmts
         return expr
 
@@ -85,14 +86,14 @@ class SpecificationTranslator(ExpressionTranslator):
 
         return quants, type_assumptions
 
-    def translate_FunctionCall(self, node: ast.FunctionCall, ctx: Context) -> StmtsAndExpr:
+    def translate_FunctionCall(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
         name = node.name
         if name == names.IMPLIES:
-            lhs_stmts, lhs = self.translate(node.args[0], ctx)
-            rhs_stmts, rhs = self.translate(node.args[1], ctx)
-            return lhs_stmts + rhs_stmts, self.viper_ast.Implies(lhs, rhs, pos)
+            lhs = self.translate(node.args[0], res, ctx)
+            rhs = self.translate(node.args[1], res, ctx)
+            return self.viper_ast.Implies(lhs, rhs, pos)
         elif name == names.FORALL:
             with ctx.quantified_var_scope():
                 num_args = len(node.args)
@@ -128,9 +129,9 @@ class SpecificationTranslator(ExpressionTranslator):
                         triggers.append(trigger)
 
                 quant_var_decls = [var.var_decl(ctx) for var in quants]
-                return [], self.viper_ast.Forall(quant_var_decls, triggers, expr, pos)
+                return self.viper_ast.Forall(quant_var_decls, triggers, expr, pos)
         elif name == names.RESULT:
-            return [], ctx.result_var.local_var(ctx, pos)
+            return ctx.result_var.local_var(ctx, pos)
         elif name == names.SUCCESS:
             # The syntax for success is either
             #   - success()
@@ -169,31 +170,31 @@ class SpecificationTranslator(ExpressionTranslator):
                 or_conds = [translate_condition(c) for c in conds]
                 or_op = reduce(lambda l, r: self.viper_ast.Or(l, r, pos), or_conds)
                 not_or_op = self.viper_ast.Not(or_op, pos)
-                return [], self.viper_ast.Implies(not_or_op, success, pos)
+                return self.viper_ast.Implies(not_or_op, success, pos)
             else:
-                return [], success
+                return success
         elif name == names.REVERT:
             success = ctx.success_var.local_var(ctx, pos)
-            return [], self.viper_ast.Not(success, pos)
+            return self.viper_ast.Not(success, pos)
         elif name == names.OLD or name == names.ISSUED:
             self_state = ctx.current_old_state if name == names.OLD else ctx.issued_state
             with ctx.state_scope(self_state, self_state):
                 arg = node.args[0]
-                return self.translate(arg, ctx)
+                return self.translate(arg, res, ctx)
         elif name == names.SUM:
             arg = node.args[0]
-            stmts, expr = self.translate(arg, ctx)
+            expr = self.translate(arg, res, ctx)
             key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
-            return stmts, helpers.map_sum(self.viper_ast, expr, key_type, pos)
+            return helpers.map_sum(self.viper_ast, expr, key_type, pos)
         elif name == names.LOCKED:
             lock_name = node.args[0].s
-            return [], helpers.get_lock(self.viper_ast, lock_name, ctx, pos)
+            return helpers.get_lock(self.viper_ast, lock_name, ctx, pos)
         elif name == names.STORAGE:
             args = node.args
             # We translate storage(self) just as the self variable, otherwise we look up
             # the struct in the contract state map
-            stmts, arg = self.translate(args[0], ctx)
+            arg = self.translate(args[0], res, ctx)
             contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
             key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
             value_type = helpers.struct_type(self.viper_ast)
@@ -202,41 +203,41 @@ class SpecificationTranslator(ExpressionTranslator):
             eq = self.viper_ast.EqCmp(arg, self_address)
             self_var = ctx.self_var.local_var(ctx, pos)
             if ctx.inside_trigger:
-                return stmts, get_storage
+                return get_storage
             else:
-                return stmts, self.viper_ast.CondExp(eq, self_var, get_storage, pos)
+                return self.viper_ast.CondExp(eq, self_var, get_storage, pos)
         elif name == names.RECEIVED:
             self_var = ctx.self_var.local_var(ctx)
             if node.args:
-                stmts, arg = self.translate(node.args[0], ctx)
-                return stmts, self.balance_translator.get_received(self_var, arg, ctx, pos)
+                arg = self.translate(node.args[0], res, ctx)
+                return self.balance_translator.get_received(self_var, arg, ctx, pos)
             else:
-                return [], self.balance_translator.received(self_var, ctx, pos)
+                return self.balance_translator.received(self_var, ctx, pos)
         elif name == names.SENT:
             self_var = ctx.self_var.local_var(ctx)
             if node.args:
-                stmts, arg = self.translate(node.args[0], ctx)
-                return stmts, self.balance_translator.get_sent(self_var, arg, ctx, pos)
+                arg = self.translate(node.args[0], res, ctx)
+                return self.balance_translator.get_sent(self_var, arg, ctx, pos)
             else:
-                return [], self.balance_translator.sent(self_var, ctx, pos)
+                return self.balance_translator.sent(self_var, ctx, pos)
         elif name == names.ALLOCATED:
-            resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
+            resource = self.resource_translator.translate(node.resource, res, ctx)
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
             if node.args:
-                address_stmts, address = self.translate(node.args[0], ctx)
-                return resource_stmts + address_stmts, self.allocation_translator.get_allocated(allocated, resource, address, ctx)
+                address = self.translate(node.args[0], res, ctx)
+                return self.allocation_translator.get_allocated(allocated, resource, address, ctx)
             else:
-                return resource_stmts, self.allocation_translator.get_allocated_map(allocated, resource, ctx, pos)
+                return self.allocation_translator.get_allocated_map(allocated, resource, ctx, pos)
         elif name == names.OFFERED:
-            resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
+            from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, res, ctx)
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
-            args_stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
-            return resource_stmts + args_stmts, self.allocation_translator.get_offered(offered, from_resource, to_resource, *args, ctx, pos)
+            args = [self.translate(arg, res, ctx) for arg in node.args]
+            return self.allocation_translator.get_offered(offered, from_resource, to_resource, *args, ctx, pos)
         elif name == names.TRUSTED:
-            address_stmts, address = self.translate(node.args[0], ctx)
-            by_stmts, by = self.translate(node.keywords[0].value, ctx)
+            address = self.translate(node.args[0], res, ctx)
+            by = self.translate(node.keywords[0].value, res, ctx)
             trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
-            return address_stmts + by_stmts, self.allocation_translator.get_trusted(trusted, address, by, ctx, pos)
+            return self.allocation_translator.get_trusted(trusted, address, by, ctx, pos)
         elif name == names.ACCESSIBLE:
             # The function necessary for accessible is either the one used as the third argument
             # or the one the heuristics determined
@@ -251,29 +252,31 @@ class SpecificationTranslator(ExpressionTranslator):
             # Triggers, however, always need to be translated correctly, because every trigger
             # has to mention all quantified variables
             if (self._ignore_accessible or is_wrong_func) and not ctx.inside_trigger:
-                return [], self.viper_ast.TrueLit(pos)
+                return self.viper_ast.TrueLit(pos)
             else:
+                stmts = []
+
                 tag = self.viper_ast.IntLit(ctx.program.analysis.accessible_tags[node], pos)
-                to_stmts, to = self.translate(node.args[0], ctx)
-                amount_stmts, amount = self.translate(node.args[1], ctx)
-                stmts = to_stmts + amount_stmts
+                to = self.translate(node.args[0], stmts, ctx)
+                amount = self.translate(node.args[1], stmts, ctx)
                 if len(node.args) == 2:
                     func_args = [amount] if ctx.program.analysis.accessible_function.args else []
                 else:
                     args = node.args[2].args
-                    func_stmts, func_args = self.collect(self.translate(arg, ctx) for arg in args)
-                    stmts.extend(func_stmts)
+                    func_args = [self.translate(arg, stmts, ctx) for arg in args]
+
                 acc_name = mangled.accessible_name(func_name)
                 acc_args = [tag, to, amount, *func_args]
                 pred_acc = self.viper_ast.PredicateAccess(acc_args, acc_name, pos)
                 # Inside triggers we need to use the predicate access, not the permission amount
                 if ctx.inside_trigger:
                     assert not stmts
-                    return [], pred_acc
-                full_perm = self.viper_ast.FullPerm(pos)
-                return stmts, self.viper_ast.PredicateAccessPredicate(pred_acc, full_perm, pos)
+                    return pred_acc
+
+                res.extend(stmts)
+                return self.viper_ast.PredicateAccessPredicate(pred_acc, self.viper_ast.FullPerm(pos), pos)
         elif name == names.INDEPENDENT:
-            stmts, res = self.translate(node.args[0], ctx)
+            res = self.translate(node.args[0], res, ctx)
 
             def unless(node):
                 if isinstance(node, ast.FunctionCall):
@@ -282,7 +285,8 @@ class SpecificationTranslator(ExpressionTranslator):
                         return unless(node.args[0])
                 elif isinstance(node, ast.Attribute):
                     struct_type = node.value.type
-                    stmts, ref = self.translate(node.value, ctx)
+                    stmts = []
+                    ref = self.translate(node.value, stmts, ctx)
                     assert not stmts
                     tt = lambda t: self.type_translator.translate(t, ctx)
                     get = lambda m, t: helpers.struct_get(self.viper_ast, ref, m, tt(t), struct_type, pos)
@@ -297,53 +301,53 @@ class SpecificationTranslator(ExpressionTranslator):
             lows = unless(node.args[1])
             lhs = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), lows)
             rhs = self._low(res, node.args[0].type, ctx, pos)
-            return stmts, self.viper_ast.Implies(lhs, rhs, pos)
+            return self.viper_ast.Implies(lhs, rhs, pos)
         elif name == names.REORDER_INDEPENDENT:
-            stmts, arg = self.translate(node.args[0], ctx)
+            arg = self.translate(node.args[0], res, ctx)
             # Using the current msg_var is ok since we don't use msg.gas, but always return fresh values,
             # therefore msg is constant
             variables = [ctx.issued_self_var, ctx.chain_var, ctx.tx_var, ctx.msg_var, *ctx.args.values()]
             low_variables = [self.viper_ast.Low(var.local_var(ctx), position=pos) for var in variables]
             cond = reduce(lambda v1, v2: self.viper_ast.And(v1, v2, pos), low_variables)
             implies = self.viper_ast.Implies(cond, self._low(arg, node.args[0].type, ctx, pos), pos)
-            return stmts, implies
+            return implies
         elif name == names.EVENT:
             event = node.args[0]
             event_name = mangled.event_name(event.name)
-            stmts, args = self.collect(self.translate(arg, ctx) for arg in event.args)
+            args = [self.translate(arg, res, ctx) for arg in event.args]
             full_perm = self.viper_ast.FullPerm(pos)
             one = self.viper_ast.IntLit(1, pos)
-            num_stmts, num = self.translate(node.args[1], ctx) if len(node.args) == 2 else ([], one)
-            stmts.extend(num_stmts)
+            num = self.translate(node.args[1], res, ctx) if len(node.args) == 2 else one
             pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
             # If this is a trigger, we just return the predicate access without the surrounding perm-expression and
             # comparison (which is not valid as a trigger).
             if ctx.inside_trigger:
-                return stmts, pred_acc
-            perm = self.viper_ast.IntPermMul(num, full_perm, pos)
-            current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
-            return stmts, self.viper_ast.EqCmp(current_perm, perm, pos)
+                return pred_acc
+            else:
+                perm = self.viper_ast.IntPermMul(num, full_perm, pos)
+                current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
+                return self.viper_ast.EqCmp(current_perm, perm, pos)
         elif name == names.SELFDESTRUCT:
             self_var = ctx.self_var.local_var(ctx)
             self_type = ctx.self_type
             member = mangled.SELFDESTRUCT_FIELD
             type = self.type_translator.translate(self_type.member_types[member], ctx)
             sget = helpers.struct_get(self.viper_ast, self_var, member, type, self_type, pos)
-            return [], sget
+            return sget
         elif name == names.OVERFLOW:
-            return [], helpers.overflow_var(self.viper_ast, pos).localVar()
+            return helpers.overflow_var(self.viper_ast, pos).localVar()
         elif name == names.OUT_OF_GAS:
-            return [], helpers.out_of_gas_var(self.viper_ast, pos).localVar()
+            return helpers.out_of_gas_var(self.viper_ast, pos).localVar()
         elif name == names.FAILED:
-            stmts, addr = self.translate(node.args[0], ctx)
-            return stmts, helpers.check_call_failed(self.viper_ast, addr, pos)
+            addr = self.translate(node.args[0], res, ctx)
+            return helpers.check_call_failed(self.viper_ast, addr, pos)
         elif name == names.IMPLEMENTS:
-            stmts, address = self.translate(node.args[0], ctx)
+            address = self.translate(node.args[0], res, ctx)
             interface = node.args[1].id
-            return stmts, helpers.implements(self.viper_ast, address, interface, ctx, pos)
+            return helpers.implements(self.viper_ast, address, interface, ctx, pos)
         elif name in ctx.program.ghost_functions:
             function = ctx.program.ghost_functions[name]
-            stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+            args = [self.translate(arg, res, ctx) for arg in node.args]
             address = args[0]
 
             contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
@@ -363,28 +367,28 @@ class SpecificationTranslator(ExpressionTranslator):
             return_type = self.type_translator.translate(function.type.return_type, ctx)
 
             rpos = self.to_position(node, ctx, rules.PRECONDITION_IMPLEMENTS_INTERFACE)
-            return stmts, helpers.ghost_function(self.viper_ast, name, address, struct, args[1:], return_type, rpos)
+            return helpers.ghost_function(self.viper_ast, name, address, struct, args[1:], return_type, rpos)
         elif name not in names.NOT_ALLOWED_IN_SPEC:
-            return super().translate_FunctionCall(node, ctx)
+            return super().translate_FunctionCall(node, res, ctx)
         else:
             assert False
 
-    def translate_ReceiverCall(self, node: ast.ReceiverCall, ctx: Context) -> StmtsAndExpr:
+    def translate_ReceiverCall(self, node: ast.ReceiverCall, res: List[Stmt], ctx: Context) -> Expr:
         assert False
 
-    def _low(self, expr, type: VyperType, ctx: Context, pos=None, info=None):
+    def _low(self, expr, type: VyperType, ctx: Context, pos=None) -> Expr:
         comp = self.type_translator.comparator(type, ctx)
         if comp:
-            return self.viper_ast.Low(expr, *comp, pos, info)
+            return self.viper_ast.Low(expr, *comp, pos)
         else:
-            return self.viper_ast.Low(expr, position=pos, info=info)
+            return self.viper_ast.Low(expr, position=pos)
 
     def _injectivity_check(self, node: ast.Node,
                            qvars: List[TranslatedVar],
                            resource: Optional[ast.Expr],
                            args: List[ast.Expr],
                            amount: Optional[ast.Expr],
-                           rule: rules.Rule, ctx: Context) -> List[Stmt]:
+                           rule: rules.Rule, res: List[Stmt], ctx: Context):
         # To check injectivity we do the following:
         #   forall q1_1, q1_2, q2_1, q2_2, ... :: q1_1 != q1_2 or q2_1 != q2_2 or ... ==>
         #     arg1(q1_1, q2_1, ...) != arg1(q1_2, q2_2, ...) or arg2(q1_1, q2_1, ...) != arg2(q1_2, q2_2, ...) or ...
@@ -396,7 +400,6 @@ class SpecificationTranslator(ExpressionTranslator):
         all_args = ([] if resource is None else _ResourceArgumentExtractor().extract_args(resource)) + args
 
         pos = self.to_position(node, ctx)
-        stmts = []
 
         true = self.viper_ast.TrueLit(pos)
         false = self.viper_ast.FalseLit(pos)
@@ -426,13 +429,11 @@ class SpecificationTranslator(ExpressionTranslator):
             with ctx.quantified_var_scope():
                 ctx.quantified_vars.update((var.name, var) for var in qtvars[i])
                 for arg in all_args:
-                    arg_stmts, targ = self.translate(arg, ctx)
-                    stmts.extend(arg_stmts)
+                    targ = self.translate(arg, res, ctx)
                     targs[i].append(targ)
 
                 if amount:
-                    amount_stmts, tamount = self.translate(amount, ctx)
-                    stmts.extend(amount_stmts)
+                    tamount = self.translate(amount, res, ctx)
                     is_zero.append(self.viper_ast.EqCmp(tamount, zero, pos))
 
         arg_neq = reduce(or_op, starmap(ne_op, zip(*targs)), false)
@@ -442,29 +443,24 @@ class SpecificationTranslator(ExpressionTranslator):
         expr = self.viper_ast.Implies(tas, self.viper_ast.Implies(cond, arg_neq, pos), pos)
         quant = self.viper_ast.Forall([var.var_decl(ctx) for var in chain(*qtvars)], [], expr, pos)
 
-        model_stmts, modelt = self.model_translator.save_variables(ctx, pos)
-        stmts.extend(model_stmts)
+        modelt = self.model_translator.save_variables(res, ctx, pos)
 
         combined_rule = rules.combine(rules.INJECTIVITY_CHECK_FAIL, rule)
         apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
-        stmts.append(self.viper_ast.Assert(quant, apos))
-        return stmts
+        res.append(self.viper_ast.Assert(quant, apos))
 
-    def translate_ghost_statement(self, node: ast.FunctionCall, ctx: Context, is_performs: bool = False) -> StmtsAndExpr:
+    def translate_ghost_statement(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context, is_performs: bool = False) -> Expr:
         pos = self.to_position(node, ctx)
         name = node.name
         if name == names.REALLOCATE:
-            stmts, resource = self.resource_translator.translate(node.resource, ctx)
-            amount_stmts, amount = self.translate(node.args[0], ctx)
-            stmts.extend(amount_stmts)
+            resource = self.resource_translator.translate(node.resource, res, ctx)
+            amount = self.translate(node.args[0], res, ctx)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             to = None
             frm = msg_sender
             for kw in node.keywords:
-                kw_stmts, kw_val = self.translate(kw.value, ctx)
-                stmts.extend(kw_stmts)
-
+                kw_val = self.translate(kw.value, res, ctx)
                 if kw.name == names.REALLOCATE_TO:
                     to = kw_val
                 elif kw.name == names.REALLOCATE_ACTING_FOR:
@@ -473,25 +469,23 @@ class SpecificationTranslator(ExpressionTranslator):
                     assert False
 
             if is_performs:
-                stmts.extend(self.allocation_translator.performs(node, [resource, frm, to, amount], ctx, pos))
+                self.allocation_translator.performs(node, [resource, frm, to, amount], res, ctx, pos)
             else:
-                stmts.extend(self.allocation_translator.reallocate(node, resource, frm, to, amount, msg_sender, ctx, pos))
+                self.allocation_translator.reallocate(node, resource, frm, to, amount, msg_sender, res, ctx, pos)
 
-            return stmts, None
+            return None
         elif name == names.OFFER:
-            resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
+            from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, res, ctx)
 
-            left_stmts, left = self.translate(node.args[0], ctx)
-            right_stmts, right = self.translate(node.args[1], ctx)
+            left = self.translate(node.args[0], res, ctx)
+            right = self.translate(node.args[1], res, ctx)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
 
-            stmts = [*resource_stmts, *left_stmts, *right_stmts]
             all_args = node.args.copy()
             frm = msg_sender
             for kw in node.keywords:
-                kw_stmts, kw_val = self.translate(kw.value, ctx)
-                stmts.extend(kw_stmts)
+                kw_val = self.translate(kw.value, res, ctx)
                 if kw.name == names.OFFER_TO:
                     to = kw_val
                     all_args.append(kw.value)
@@ -505,28 +499,26 @@ class SpecificationTranslator(ExpressionTranslator):
 
             if ctx.quantified_vars:
                 rule = rules.OFFER_FAIL
-                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg, rule, ctx))
+                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg, rule, res, ctx)
 
             if is_performs:
-                stmts.extend(self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to, times], ctx, pos))
+                self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to, times], res, ctx, pos)
             else:
-                stmts.extend(self.allocation_translator.offer(node, from_resource, to_resource, left, right, frm, to, times, msg_sender, ctx, pos))
+                self.allocation_translator.offer(node, from_resource, to_resource, left, right, frm, to, times, msg_sender, res, ctx, pos)
 
-            return stmts, None
+            return None
         elif name == names.REVOKE:
-            resource_stmts, from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, ctx)
+            from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, res, ctx)
 
-            left_stmts, left = self.translate(node.args[0], ctx)
-            right_stmts, right = self.translate(node.args[1], ctx)
-            to_stmts, to = self.translate(node.keywords[0].value, ctx)
+            left = self.translate(node.args[0], res, ctx)
+            right = self.translate(node.args[1], res, ctx)
+            to = self.translate(node.keywords[0].value, res, ctx)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-            stmts = [*resource_stmts, *left_stmts, *right_stmts, *to_stmts]
             all_args = node.args.copy()
             frm = msg_sender
             for kw in node.keywords:
-                kw_stmts, kw_val = self.translate(kw.value, ctx)
-                stmts.extend(kw_stmts)
+                kw_val = self.translate(kw.value, res, ctx)
                 if kw.name == names.REVOKE_TO:
                     to = kw_val
                     all_args.append(kw.value)
@@ -537,35 +529,33 @@ class SpecificationTranslator(ExpressionTranslator):
 
             if ctx.quantified_vars:
                 rule = rules.REVOKE_FAIL
-                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None, rule, ctx))
+                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None, rule, res, ctx)
 
             if is_performs:
-                stmts.extend(self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to], ctx, pos))
+                self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to], res, ctx, pos)
             else:
-                stmts.extend(self.allocation_translator.revoke(node, from_resource, to_resource, left, right, frm, to, msg_sender, ctx, pos))
+                self.allocation_translator.revoke(node, from_resource, to_resource, left, right, frm, to, msg_sender, res, ctx, pos)
 
-            return stmts, None
+            return None
         elif name == names.EXCHANGE:
             assert not is_performs
 
-            resource_stmts, resource1, resource2 = self.resource_translator.translate_exchange(node.resource, ctx)
+            resource1, resource2 = self.resource_translator.translate_exchange(node.resource, res, ctx)
 
-            left_stmts, left = self.translate(node.args[0], ctx)
-            right_stmts, right = self.translate(node.args[1], ctx)
-            left_owner_stmts, left_owner = self.translate(node.args[2], ctx)
-            right_owner_stmts, right_owner = self.translate(node.args[3], ctx)
+            left = self.translate(node.args[0], res, ctx)
+            right = self.translate(node.args[1], res, ctx)
+            left_owner = self.translate(node.args[2], res, ctx)
+            right_owner = self.translate(node.args[3], res, ctx)
 
-            times_stmts, times = self.translate(node.keywords[0].value, ctx)
+            times = self.translate(node.keywords[0].value, res, ctx)
 
-            exchange = self.allocation_translator.exchange
-            exchange_stmts = exchange(node, resource1, resource2, left, right, left_owner, right_owner, times, ctx, pos)
+            self.allocation_translator.exchange(node, resource1, resource2, left, right, left_owner, right_owner, times, res, ctx, pos)
 
-            return [*resource_stmts, *left_stmts, *right_stmts, *left_owner_stmts, *right_owner_stmts, *times_stmts, *exchange_stmts], None
+            return None
         elif name == names.CREATE:
-            resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
-            amount_stmts, amount = self.translate(node.args[0], ctx)
+            resource = self.resource_translator.translate(node.resource, res, ctx)
+            amount = self.translate(node.args[0], res, ctx)
 
-            stmts = [*resource_stmts, *amount_stmts]
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             to = msg_sender
             frm = msg_sender
@@ -573,12 +563,10 @@ class SpecificationTranslator(ExpressionTranslator):
 
             for kw in node.keywords:
                 if kw.name == names.CREATE_TO:
-                    to_stmts, to = self.translate(kw.value, ctx)
-                    stmts.extend(to_stmts)
+                    to = self.translate(kw.value, res, ctx)
                     args.append(kw.value)
                 elif kw.name == names.CREATE_ACTING_FOR:
-                    frm_stmts, frm = self.translate(kw.value, ctx)
-                    stmts.extend(frm_stmts)
+                    frm = self.translate(kw.value, res, ctx)
                     # The 'by' parameter is not part of the injectivity check as
                     # it does not make a difference as to which resource is created
                 else:
@@ -586,70 +574,64 @@ class SpecificationTranslator(ExpressionTranslator):
 
             if ctx.quantified_vars:
                 rule = rules.CREATE_FAIL
-                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0], rule, ctx))
+                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0], rule, res, ctx)
 
             if is_performs:
-                stmts.extend(self.allocation_translator.performs(node, [resource, frm, to, amount], ctx, pos))
+                self.allocation_translator.performs(node, [resource, frm, to, amount], res, ctx, pos)
             else:
                 is_init = ctx.function.name == names.INIT
-                stmts.extend(self.allocation_translator.create(node, resource, frm, to, amount, msg_sender, is_init, ctx, pos))
+                self.allocation_translator.create(node, resource, frm, to, amount, msg_sender, is_init, res, ctx, pos)
 
-            return stmts, None
+            return None
         elif name == names.DESTROY:
-            resource_stmts, resource = self.resource_translator.translate(node.resource, ctx)
-            amount_stmts, amount = self.translate(node.args[0], ctx)
-
-            stmts = [*resource_stmts, *amount_stmts]
+            resource = self.resource_translator.translate(node.resource, res, ctx)
+            amount = self.translate(node.args[0], res, ctx)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             frm = msg_sender
             for kw in node.keywords:
-                kw_stmts, kw_val = self.translate(kw.value, ctx)
-                stmts.extend(kw_stmts)
+                kw_val = self.translate(kw.value, res, ctx)
                 if kw.name == names.DESTROY_ACTING_FOR:
                     frm = kw_val
 
             if ctx.quantified_vars:
                 rule = rules.DESTROY_FAIL
-                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0], rule, ctx))
+                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0], rule, res, ctx)
 
             if is_performs:
-                stmts.extend(self.allocation_translator.performs(node, [resource, frm, amount], ctx, pos))
+                self.allocation_translator.performs(node, [resource, frm, amount], res, ctx, pos)
             else:
-                stmts.extend(self.allocation_translator.destroy(node, resource, frm, amount, msg_sender, ctx, pos))
+                self.allocation_translator.destroy(node, resource, frm, amount, msg_sender, res, ctx, pos)
 
-            return stmts, None
+            return None
         elif name == names.TRUST:
-            address_stmts, address = self.translate(node.args[0], ctx)
-            val_stmts, val = self.translate(node.args[1], ctx)
-
-            stmts = [*address_stmts, *val_stmts]
+            address = self.translate(node.args[0], res, ctx)
+            val = self.translate(node.args[1], res, ctx)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
             frm = msg_sender
             for kw in node.keywords:
-                kw_stmts, kw_val = self.translate(kw.value, ctx)
-                stmts.extend(kw_stmts)
+                kw_val = self.translate(kw.value, res, ctx)
                 if kw.name == names.TRUST_ACTING_FOR:
                     frm = kw_val
 
             if ctx.quantified_vars:
                 rule = rules.TRUST_FAIL
-                stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0]], None, rule, ctx))
+                self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0]], None, rule, res, ctx)
 
             if is_performs:
-                stmts.extend(self.allocation_translator.performs(node, [address, frm, val], ctx, pos))
+                self.allocation_translator.performs(node, [address, frm, val], res, ctx, pos)
             else:
-                stmts.extend(self.allocation_translator.trust(node, address, frm, val, msg_sender, ctx, pos))
+                self.allocation_translator.trust(node, address, frm, val, msg_sender, res, ctx, pos)
 
-            return stmts, None
+            return None
         elif name == names.FOREACH:
             with ctx.quantified_var_scope():
                 quants, _ = self._translate_quantified_vars(node.args[0], ctx)
                 for var in quants:
                     ctx.quantified_vars[var.name] = var
 
-                return self.translate_ghost_statement(node.args[1], ctx, is_performs)
+                return self.translate_ghost_statement(node.args[1], res, ctx, is_performs)
         else:
             assert False
 

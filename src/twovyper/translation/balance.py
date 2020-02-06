@@ -5,6 +5,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from typing import List
+
 from twovyper.ast import names
 
 from twovyper.viper.ast import ViperAST
@@ -32,24 +34,24 @@ class BalanceTranslator(CommonTranslator):
         balance_type = ctx.field_types[names.ADDRESS_BALANCE]
         return helpers.struct_set(self.viper_ast, self_var, value, names.ADDRESS_BALANCE, balance_type, ctx.self_type, pos, info)
 
-    def check_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
+    def check_balance(self, amount: Expr, res: List[Stmt], ctx: Context, pos=None, info=None):
         self_var = ctx.self_var.local_var(ctx)
         get_balance = self.get_balance(self_var, ctx, pos)
-        return self.fail_if(self.viper_ast.LtCmp(get_balance, amount), [], ctx, pos, info)
+        self.fail_if(self.viper_ast.LtCmp(get_balance, amount), [], res, ctx, pos, info)
 
-    def increase_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
+    def increase_balance(self, amount: Expr, res: List[Stmt], ctx: Context, pos=None, info=None):
         self_var = ctx.self_var.local_var(ctx)
         get_balance = self.get_balance(self_var, ctx, pos)
         inc_sum = self.viper_ast.Add(get_balance, amount, pos)
         inc = self.set_balance(self_var, inc_sum, ctx, pos)
-        return self.viper_ast.LocalVarAssign(self_var, inc, pos, info)
+        res.append(self.viper_ast.LocalVarAssign(self_var, inc, pos, info))
 
-    def decrease_balance(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
+    def decrease_balance(self, amount: Expr, res: List[Stmt], ctx: Context, pos=None, info=None):
         self_var = ctx.self_var.local_var(ctx)
         get_balance = self.get_balance(self_var, ctx, pos)
         diff = self.viper_ast.Sub(get_balance, amount)
         sub = self.set_balance(self_var, diff, ctx, pos)
-        return self.viper_ast.LocalVarAssign(self_var, sub, pos, info)
+        res.append(self.viper_ast.LocalVarAssign(self_var, sub, pos, info))
 
     def received(self, self_var: Expr, ctx: Context, pos=None, info=None) -> Expr:
         received_type = ctx.field_types[mangled.RECEIVED_FIELD]
@@ -67,7 +69,7 @@ class BalanceTranslator(CommonTranslator):
         sent = self.sent(self_var, ctx, pos)
         return helpers.map_get(self.viper_ast, sent, address, self.viper_ast.Int, self.viper_ast.Int, pos)
 
-    def increase_received(self, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
+    def increase_received(self, amount: Expr, res: List[Stmt], ctx: Context, pos=None, info=None):
         self_var = ctx.self_var.local_var(ctx)
         # TODO: pass this as an argument
         msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
@@ -77,9 +79,9 @@ class BalanceTranslator(CommonTranslator):
         rec_inc_sum = self.viper_ast.Add(rec_sender, amount, pos)
         rec_set = helpers.map_set(self.viper_ast, rec, msg_sender, rec_inc_sum, self.viper_ast.Int, self.viper_ast.Int, pos)
         self_set = helpers.struct_set(self.viper_ast, self_var, rec_set, mangled.RECEIVED_FIELD, rec_type, ctx.self_type, pos)
-        return self.viper_ast.LocalVarAssign(self_var, self_set, pos, info)
+        res.append(self.viper_ast.LocalVarAssign(self_var, self_set, pos, info))
 
-    def increase_sent(self, to: Expr, amount: Expr, ctx: Context, pos=None, info=None) -> Stmt:
+    def increase_sent(self, to: Expr, amount: Expr, res: List[Stmt], ctx: Context, pos=None, info=None):
         self_var = ctx.self_var.local_var(ctx)
         sent_type = ctx.field_types[mangled.SENT_FIELD]
         sent = helpers.struct_get(self.viper_ast, self_var, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
@@ -87,4 +89,4 @@ class BalanceTranslator(CommonTranslator):
         sent_inc = self.viper_ast.Add(sent_to, amount, pos)
         sent_set = helpers.map_set(self.viper_ast, sent, to, sent_inc, self.viper_ast.Int, self.viper_ast.Int, pos)
         self_set = helpers.struct_set(self.viper_ast, self_var, sent_set, mangled.SENT_FIELD, sent_type, ctx.self_type, pos)
-        return self.viper_ast.LocalVarAssign(self_var, self_set, pos, info)
+        res.append(self.viper_ast.LocalVarAssign(self_var, self_set, pos, info))

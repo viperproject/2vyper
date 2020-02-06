@@ -5,14 +5,13 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import Any, List, Tuple
+from typing import Any
 
 
 # AST abstract
 Node = Any  # 'silver.ast.Node'
 Stmt = Any  # 'silver.ast.Stmt'
 Expr = Any  # 'silver.ast.Exp'
-StmtsAndExpr = Tuple[List[Stmt], Expr]
 
 # AST
 Program = Any  # 'silver.ast.Program'

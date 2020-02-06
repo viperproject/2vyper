@@ -29,13 +29,13 @@ from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
 
-from twovyper.utils import switch, flatten, first_index
+from twovyper.utils import switch, first_index
 
 from twovyper.verification import rules
 from twovyper.verification.error import Via
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
+from twovyper.viper.typedefs import Expr, Stmt
 
 
 class ExpressionTranslator(NodeTranslator):
@@ -77,113 +77,107 @@ class ExpressionTranslator(NodeTranslator):
         from twovyper.translation.function import FunctionTranslator
         return FunctionTranslator(self.viper_ast)
 
-    def translate_Num(self, node: ast.Num, ctx: Context) -> StmtsAndExpr:
+    def translate_Num(self, node: ast.Num, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
         if isinstance(node.n, int):
             if node.type == types.VYPER_BYTES32:
                 bts = node.n.to_bytes(32, byteorder='big')
                 elems = [self.viper_ast.IntLit(b, pos) for b in bts]
-                return [], self.viper_ast.ExplicitSeq(elems, pos)
+                return self.viper_ast.ExplicitSeq(elems, pos)
             else:
-                return [], self.viper_ast.IntLit(node.n, pos)
+                return self.viper_ast.IntLit(node.n, pos)
         elif isinstance(node.n, Decimal):
-            return [], self.viper_ast.IntLit(node.n.scaled_value, pos)
+            return self.viper_ast.IntLit(node.n.scaled_value, pos)
         else:
             assert False
 
-    def translate_Bool(self, node: ast.Bool, ctx: Context) -> StmtsAndExpr:
+    def translate_Bool(self, node: ast.Bool, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
-        return [], self.viper_ast.TrueLit(pos) if node.value else self.viper_ast.FalseLit(pos)
+        return self.viper_ast.TrueLit(pos) if node.value else self.viper_ast.FalseLit(pos)
 
-    def translate_Name(self, node: ast.Name, ctx: Context) -> StmtsAndExpr:
+    def translate_Name(self, node: ast.Name, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
         if node.id == names.SELF and node.type == types.VYPER_ADDRESS:
-            return [], ctx.self_address or helpers.self_address(self.viper_ast, pos)
+            return ctx.self_address or helpers.self_address(self.viper_ast, pos)
         else:
-            return [], ctx.all_vars[node.id].local_var(ctx, pos)
+            return ctx.all_vars[node.id].local_var(ctx, pos)
 
-    def translate_ArithmeticOp(self, node: ast.ArithmeticOp, ctx: Context) -> StmtsAndExpr:
+    def translate_ArithmeticOp(self, node: ast.ArithmeticOp, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        left_stmts, left = self.translate(node.left, ctx)
-        right_stmts, right = self.translate(node.right, ctx)
+        left = self.translate(node.left, res, ctx)
+        right = self.translate(node.right, res, ctx)
 
-        at = self.arithmetic_translator
-        res_stmts, res = at.arithmetic_op(left, node.op, right, node.type, ctx, pos)
-        return left_stmts + right_stmts + res_stmts, res
+        return self.arithmetic_translator.arithmetic_op(left, node.op, right, node.type, res, ctx, pos)
 
-    def translate_BoolOp(self, node: ast.BoolOp, ctx: Context) -> StmtsAndExpr:
+    def translate_BoolOp(self, node: ast.BoolOp, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        left_stmts, left = self.translate(node.left, ctx)
+        left = self.translate(node.left, res, ctx)
         op = self._bool_ops[node.op]
-        right_stmts, right = self.translate(node.right, ctx)
+        right = self.translate(node.right, res, ctx)
 
-        return left_stmts + right_stmts, op(left, right, pos)
+        return op(left, right, pos)
 
-    def translate_Not(self, node: ast.Not, ctx: Context) -> StmtsAndExpr:
+    def translate_Not(self, node: ast.Not, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        stmts, operand = self.translate(node.operand, ctx)
-        return stmts, self.viper_ast.Not(operand, pos)
+        operand = self.translate(node.operand, res, ctx)
+        return self.viper_ast.Not(operand, pos)
 
-    def translate_UnaryArithmeticOp(self, node: ast.UnaryArithmeticOp, ctx: Context) -> StmtsAndExpr:
+    def translate_UnaryArithmeticOp(self, node: ast.UnaryArithmeticOp, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        operand_stmts, operand = self.translate(node.operand, ctx)
-        res_stmts, res = self.arithmetic_translator.unary_arithmetic_op(node.op, operand, node.type, ctx, pos)
-        return operand_stmts + res_stmts, res
+        operand = self.translate(node.operand, res, ctx)
+        return self.arithmetic_translator.unary_arithmetic_op(node.op, operand, node.type, res, ctx, pos)
 
-    def translate_IfExpr(self, node: ast.IfExpr, ctx: Context) -> StmtsAndExpr:
+    def translate_IfExpr(self, node: ast.IfExpr, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
-        test_stmts, test = self.translate(node.test, ctx)
-        body_stmts, body = self.translate(node.body, ctx)
-        orelse_stmts, orelse = self.translate(node.orelse, ctx)
-        expr = self.viper_ast.CondExp(test, body, orelse, pos)
-        return [*test_stmts, *body_stmts, *orelse_stmts], expr
+        test = self.translate(node.test, res, ctx)
+        body = self.translate(node.body, res, ctx)
+        orelse = self.translate(node.orelse, res, ctx)
+        return self.viper_ast.CondExp(test, body, orelse, pos)
 
-    def translate_Comparison(self, node: ast.Comparison, ctx: Context) -> StmtsAndExpr:
+    def translate_Comparison(self, node: ast.Comparison, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        lhs_stmts, lhs = self.translate(node.left, ctx)
+        lhs = self.translate(node.left, res, ctx)
         op = self._comparison_ops[node.op]
-        rhs_stmts, rhs = self.translate(node.right, ctx)
-        return lhs_stmts + rhs_stmts, op(lhs, rhs, pos)
+        rhs = self.translate(node.right, res, ctx)
+        return op(lhs, rhs, pos)
 
-    def translate_Containment(self, node: ast.Containment, ctx: Context) -> StmtsAndExpr:
+    def translate_Containment(self, node: ast.Containment, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        value_stmts, value = self.translate(node.value, ctx)
-        list_stmts, list = self.translate(node.list, ctx)
-        stmts = value_stmts + list_stmts
+        value = self.translate(node.value, res, ctx)
+        list = self.translate(node.list, res, ctx)
 
         if node.op == ast.ContainmentOperator.IN:
-            return stmts, helpers.array_contains(self.viper_ast, value, list, pos)
+            return helpers.array_contains(self.viper_ast, value, list, pos)
         elif node.op == ast.ContainmentOperator.NOT_IN:
-            return stmts, helpers.array_not_contains(self.viper_ast, value, list, pos)
+            return helpers.array_not_contains(self.viper_ast, value, list, pos)
         else:
             assert False
 
-    def translate_Equality(self, node: ast.Equality, ctx: Context) -> StmtsAndExpr:
+    def translate_Equality(self, node: ast.Equality, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        lhs_stmts, lhs = self.translate(node.left, ctx)
-        rhs_stmts, rhs = self.translate(node.right, ctx)
-        stmts = lhs_stmts + rhs_stmts
+        lhs = self.translate(node.left, res, ctx)
+        rhs = self.translate(node.right, res, ctx)
 
         if node.op == ast.EqualityOperator.EQ:
-            return stmts, self.type_translator.eq(lhs, rhs, node.left.type, ctx, pos)
+            return self.type_translator.eq(lhs, rhs, node.left.type, ctx, pos)
         elif node.op == ast.EqualityOperator.NEQ:
-            return stmts, self.type_translator.neq(lhs, rhs, node.left.type, ctx, pos)
+            return self.type_translator.neq(lhs, rhs, node.left.type, ctx, pos)
         else:
             assert False
 
     def translate_operator(self, operator):
         return self._operations[type(operator)]
 
-    def translate_Attribute(self, node: ast.Attribute, ctx: Context) -> StmtsAndExpr:
+    def translate_Attribute(self, node: ast.Attribute, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
         # We don't support precise gas calculations, so we just return an unknown
@@ -196,9 +190,11 @@ class ExpressionTranslator(NodeTranslator):
 
             zero = self.viper_ast.IntLit(0, pos)
             geq = self.viper_ast.GeCmp(gas.localVar(), zero, pos)
-            return [self.viper_ast.Inhale(geq, pos)], gas.localVar()
+            res.append(self.viper_ast.Inhale(geq, pos))
 
-        stmts, expr = self.translate(node.value, ctx)
+            return gas.localVar()
+
+        expr = self.translate(node.value, res, ctx)
 
         if isinstance(node.value.type, StructType):
             # The value is a struct
@@ -214,14 +210,13 @@ class ExpressionTranslator(NodeTranslator):
 
         type = self.type_translator.translate(node.type, ctx)
         get = helpers.struct_get(self.viper_ast, struct, node.attr, type, struct_type, pos)
-        return stmts, get
+        return get
 
-    def translate_Subscript(self, node: ast.Subscript, ctx: Context) -> StmtsAndExpr:
+    def translate_Subscript(self, node: ast.Subscript, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        value_stmts, value = self.translate(node.value, ctx)
-        index_stmts, index = self.translate(node.index, ctx)
-        stmts = []
+        value = self.translate(node.value, res, ctx)
+        index = self.translate(node.index, res, ctx)
 
         node_type = node.value.type
         if isinstance(node_type, MapType):
@@ -230,82 +225,75 @@ class ExpressionTranslator(NodeTranslator):
             call = helpers.map_get(self.viper_ast, value, index, key_type, value_type, pos)
         elif isinstance(node_type, ArrayType):
             if not self.no_reverts:
-                stmts.append(self.type_translator.array_bounds_check(value, index, ctx))
+                self.type_translator.array_bounds_check(value, index, res, ctx)
             element_type = self.type_translator.translate(node_type.element_type, ctx)
             call = helpers.array_get(self.viper_ast, value, index, element_type, pos)
 
-        return value_stmts + index_stmts + stmts, call
+        return call
 
-    def translate_List(self, node: ast.List, ctx: Context) -> StmtsAndExpr:
+    def translate_List(self, node: ast.List, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
         if not node.elements:
             type = self.type_translator.translate(node.type.element_type, ctx)
-            return [], self.viper_ast.EmptySeq(type, pos)
+            return self.viper_ast.EmptySeq(type, pos)
+        else:
+            elems = [self.translate(e, res, ctx) for e in node.elements]
+            return self.viper_ast.ExplicitSeq(elems, pos)
 
-        stmts = []
-        elems = []
-        for e in node.elements:
-            e_stmts, elem = self.translate(e, ctx)
-            stmts.extend(e_stmts)
-            elems.append(elem)
-
-        return stmts, self.viper_ast.ExplicitSeq(elems, pos)
-
-    def translate_Str(self, node: ast.Str, ctx: Context) -> StmtsAndExpr:
+    def translate_Str(self, node: ast.Str, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
         if not node.s:
             type = self.type_translator.translate(node.type.element_type, ctx)
-            return [], self.viper_ast.EmptySeq(type, pos)
+            return self.viper_ast.EmptySeq(type, pos)
         else:
             elems = [self.viper_ast.IntLit(e, pos) for e in bytes(node.s, 'utf-8')]
-            return [], self.viper_ast.ExplicitSeq(elems, pos)
+            return self.viper_ast.ExplicitSeq(elems, pos)
 
-    def translate_Bytes(self, node: ast.Bytes, ctx: Context) -> StmtsAndExpr:
+    def translate_Bytes(self, node: ast.Bytes, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
         if not node.s:
             type = self.type_translator.translate(node.type.element_type, ctx)
-            return [], self.viper_ast.EmptySeq(type, pos)
+            return self.viper_ast.EmptySeq(type, pos)
         else:
             elems = [self.viper_ast.IntLit(e, pos) for e in node.s]
-            return [], self.viper_ast.ExplicitSeq(elems, pos)
+            return self.viper_ast.ExplicitSeq(elems, pos)
 
-    def translate_FunctionCall(self, node: ast.FunctionCall, ctx: Context) -> StmtsAndExpr:
+    def translate_FunctionCall(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
         name = node.name
         is_min = (name == names.MIN)
         is_max = (name == names.MAX)
         if is_min or is_max:
-            lhs_stmts, lhs = self.translate(node.args[0], ctx)
-            rhs_stmts, rhs = self.translate(node.args[1], ctx)
+            lhs = self.translate(node.args[0], res, ctx)
+            rhs = self.translate(node.args[1], res, ctx)
             op = self.viper_ast.GtCmp if is_max else self.viper_ast.LtCmp
             comp = op(lhs, rhs, pos)
-            stmts = lhs_stmts + rhs_stmts
-            return stmts, self.viper_ast.CondExp(comp, lhs, rhs, pos)
+            return self.viper_ast.CondExp(comp, lhs, rhs, pos)
         elif name == names.ADDMOD or name == names.MULMOD:
-            op1_stmts, op1 = self.translate(node.args[0], ctx)
-            op2_stmts, op2 = self.translate(node.args[1], ctx)
-            mod_stmts, mod = self.translate(node.args[2], ctx)
+            op1 = self.translate(node.args[0], res, ctx)
+            op2 = self.translate(node.args[1], res, ctx)
+            mod = self.translate(node.args[2], res, ctx)
 
             cond = self.viper_ast.EqCmp(mod, self.viper_ast.IntLit(0, pos), pos)
-            mod_stmts.append(self.fail_if(cond, [], ctx, pos))
+            self.fail_if(cond, [], res, ctx, pos)
 
             operation = self.viper_ast.Add if name == names.ADDMOD else self.viper_ast.Mul
             op_res = operation(op1, op2, pos)
-            return op1_stmts + op2_stmts + mod_stmts, helpers.mod(self.viper_ast, op_res, mod, pos)
+            return helpers.mod(self.viper_ast, op_res, mod, pos)
         elif name == names.SQRT:
-            arg_stmts, arg = self.translate(node.args[0], ctx)
+            arg = self.translate(node.args[0], res, ctx)
             zero = self.viper_ast.IntLit(0, pos)
             lt = self.viper_ast.LtCmp(arg, zero, pos)
-            fail = self.fail_if(lt, [], ctx, pos)
+            self.fail_if(lt, [], res, ctx, pos)
             sqrt = helpers.sqrt(self.viper_ast, arg, pos)
-            return [*arg_stmts, fail], sqrt
+            return sqrt
         elif name == names.FLOOR or name == names.CEIL:
             # Let s be the scaling factor, then
             #    floor(d) == d < 0 ? (d - (s - 1)) / s : d / s
             #    ceil(d)  == d < 0 ? d / s : (d + s - 1) / s
-            arg_stmts, arg = self.translate(node.args[0], ctx)
+            arg = self.translate(node.args[0], res, ctx)
             scaling_factor = node.args[0].type.scaling_factor
 
             if name == names.FLOOR:
@@ -313,14 +301,14 @@ class ExpressionTranslator(NodeTranslator):
             elif name == names.CEIL:
                 expr = helpers.ceil(self.viper_ast, arg, scaling_factor, pos)
 
-            return arg_stmts, expr
+            return expr
         elif name == names.SHIFT:
-            arg_stmts, arg = self.translate(node.args[0], ctx)
-            shift_stmts, shift = self.translate(node.args[1], ctx)
-            return arg_stmts + shift_stmts, helpers.shift(self.viper_ast, arg, shift, pos)
+            arg = self.translate(node.args[0], res, ctx)
+            shift = self.translate(node.args[1], res, ctx)
+            return helpers.shift(self.viper_ast, arg, shift, pos)
         elif name in [names.BITWISE_AND, names.BITWISE_OR, names.BITWISE_XOR]:
-            a_stmts, a = self.translate(node.args[0], ctx)
-            b_stmts, b = self.translate(node.args[1], ctx)
+            a = self.translate(node.args[0], res, ctx)
+            b = self.translate(node.args[1], res, ctx)
 
             funcs = {
                 names.BITWISE_AND: helpers.bitwise_and,
@@ -328,40 +316,38 @@ class ExpressionTranslator(NodeTranslator):
                 names.BITWISE_XOR: helpers.bitwise_xor
             }
 
-            return a_stmts + b_stmts, funcs[name](self.viper_ast, a, b, pos)
+            return funcs[name](self.viper_ast, a, b, pos)
         elif name == names.BITWISE_NOT:
-            arg_stmts, arg = self.translate(node.args[0], ctx)
-            return arg_stmts, helpers.bitwise_not(self.viper_ast, arg, pos)
+            arg = self.translate(node.args[0], res, ctx)
+            return helpers.bitwise_not(self.viper_ast, arg, pos)
         elif name == names.AS_WEI_VALUE:
-            stmts, arg = self.translate(node.args[0], ctx)
+            arg = self.translate(node.args[0], res, ctx)
             unit = node.args[1].s
             unit_pos = self.to_position(node.args[1], ctx)
             multiplier = next(v for k, v in names.ETHER_UNITS.items() if unit in k)
             multiplier_lit = self.viper_ast.IntLit(multiplier, unit_pos)
-            res = self.viper_ast.Mul(arg, multiplier_lit, pos)
+            num = self.viper_ast.Mul(arg, multiplier_lit, pos)
 
             if types.is_bounded(node.type):
-                oc = self.arithmetic_translator.check_under_overflow(res, node.type, ctx, pos)
-                stmts.extend(oc)
+                self.arithmetic_translator.check_under_overflow(num, node.type, res, ctx, pos)
 
-            return stmts, res
+            return num
         elif name == names.AS_UNITLESS_NUMBER:
-            return self.translate(node.args[0], ctx)
+            return self.translate(node.args[0], res, ctx)
         elif name == names.LEN:
-            arr_stmts, arr = self.translate(node.args[0], ctx)
-            return arr_stmts, helpers.array_length(self.viper_ast, arr, pos)
+            arr = self.translate(node.args[0], res, ctx)
+            return helpers.array_length(self.viper_ast, arr, pos)
         elif name == names.RANGE:
             if len(node.args) == 1:
-                start_stmts, start = [], self.viper_ast.IntLit(0, pos)
-                end_stmts, end = self.translate(node.args[0], ctx)
+                start = self.viper_ast.IntLit(0, pos)
+                end = self.translate(node.args[0], res, ctx)
             else:
-                start_stmts, start = self.translate(node.args[0], ctx)
-                end_stmts, end = self.translate(node.args[1], ctx)
+                start = self.translate(node.args[0], res, ctx)
+                end = self.translate(node.args[1], res, ctx)
 
-            range_func = helpers.range(self.viper_ast, start, end, pos)
-            return [*start_stmts, *end_stmts], range_func
+            return helpers.range(self.viper_ast, start, end, pos)
         elif name == names.CONCAT:
-            concat_stmts, concats = zip(*[self.translate(arg, ctx) for arg in node.args])
+            concats = [self.translate(arg, res, ctx) for arg in node.args]
 
             def concat(args):
                 arg, *tail = args
@@ -370,12 +356,12 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     return self.viper_ast.SeqAppend(arg, concat(tail), pos)
 
-            return flatten(concat_stmts), concat(concats)
+            return concat(concats)
         elif name == names.CONVERT:
             from_type = node.args[0].type
             to_type = node.type
 
-            arg_stmts, arg = self.translate(node.args[0], ctx)
+            arg = self.translate(node.args[0], res, ctx)
 
             if isinstance(from_type, ArrayType) and from_type.element_type == types.VYPER_BYTE:
                 if from_type.size > 32:
@@ -386,7 +372,6 @@ class ExpressionTranslator(NodeTranslator):
                 arg = helpers.pad32(self.viper_ast, arg, pos)
                 from_type = types.VYPER_BYTES32
 
-            stmts = arg_stmts
             zero = self.viper_ast.IntLit(0, pos)
             one = self.viper_ast.IntLit(1, pos)
 
@@ -400,81 +385,76 @@ class ExpressionTranslator(NodeTranslator):
                 # If both types are equal (e.g. if we convert a literal) we simply
                 # return the argument
                 if case(_, _, where=from_type == to_type):
-                    return stmts, arg
+                    return arg
                 # --------------------- bool -> ? ---------------------
                 # If we convert from a bool we translate True as 1 and False as 0
                 elif case(types.VYPER_BOOL, types.VYPER_DECIMAL):
                     d_one = 1 * types.VYPER_DECIMAL.scaling_factor
                     d_one_lit = self.viper_ast.IntLit(d_one, pos)
-                    return stmts, self.viper_ast.CondExp(arg, d_one_lit, zero, pos)
+                    return self.viper_ast.CondExp(arg, d_one_lit, zero, pos)
                 elif case(types.VYPER_BOOL, types.VYPER_BYTES32):
-                    return stmts, self.viper_ast.CondExp(arg, one_array, zero_array, pos)
+                    return self.viper_ast.CondExp(arg, one_array, zero_array, pos)
                 elif case(types.VYPER_BOOL, _):
-                    return stmts, self.viper_ast.CondExp(arg, one, zero, pos)
+                    return self.viper_ast.CondExp(arg, one, zero, pos)
                 # --------------------- ? -> bool ---------------------
                 # If we convert to a bool we check for zero
                 elif case(types.VYPER_BYTES32, types.VYPER_BOOL):
-                    return stmts, self.viper_ast.NeCmp(arg, zero_array, pos)
+                    return self.viper_ast.NeCmp(arg, zero_array, pos)
                 elif case(_, types.VYPER_BOOL):
-                    return stmts, self.viper_ast.NeCmp(arg, zero, pos)
+                    return self.viper_ast.NeCmp(arg, zero, pos)
                 # --------------------- decimal -> ? ---------------------
                 elif case(types.VYPER_DECIMAL, types.VYPER_INT128):
                     s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                    return stmts, helpers.div(self.viper_ast, arg, s, pos)
+                    return helpers.div(self.viper_ast, arg, s, pos)
                 elif case(types.VYPER_DECIMAL, types.VYPER_UINT256):
                     s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                    res = helpers.div(self.viper_ast, arg, s, pos)
-                    uc = self.arithmetic_translator.check_underflow(res, to_type, ctx, pos)
-                    stmts.extend(uc)
-                    return stmts, res
+                    div = helpers.div(self.viper_ast, arg, s, pos)
+                    self.arithmetic_translator.check_underflow(div, to_type, res, ctx, pos)
+                    return div
                 elif case(types.VYPER_DECIMAL, types.VYPER_BYTES32):
-                    return stmts, helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
+                    return helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
                 # --------------------- int128 -> ? ---------------------
                 elif case(types.VYPER_INT128, types.VYPER_DECIMAL):
                     s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                    return stmts, self.viper_ast.Mul(arg, s, pos)
+                    return self.viper_ast.Mul(arg, s, pos)
                 # When converting a signed number to an unsigned number we revert if
                 # the argument is negative
                 elif case(types.VYPER_INT128, types.VYPER_UINT256):
-                    uc = self.arithmetic_translator.check_underflow(arg, to_type, ctx, pos)
-                    stmts.extend(uc)
-                    return stmts, arg
+                    self.arithmetic_translator.check_underflow(arg, to_type, res, ctx, pos)
+                    return arg
                 elif case(types.VYPER_INT128, types.VYPER_BYTES32):
-                    return stmts, helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
+                    return helpers.convert_signed_int_to_bytes32(self.viper_ast, arg, pos)
                 # --------------------- uint256 -> ? ---------------------
                 elif case(types.VYPER_UINT256, types.VYPER_DECIMAL):
                     s = self.viper_ast.IntLit(types.VYPER_DECIMAL.scaling_factor, pos)
-                    res = self.viper_ast.Mul(arg, s, pos)
-                    oc = self.arithmetic_translator.check_overflow(res, to_type, ctx, pos)
-                    stmts.extend(oc)
-                    return stmts, res
+                    mul = self.viper_ast.Mul(arg, s, pos)
+                    self.arithmetic_translator.check_overflow(mul, to_type, res, ctx, pos)
+                    return mul
                 # If we convert an unsigned to a signed value we simply return
                 # the argument, given that it fits
                 elif case(types.VYPER_UINT256, types.VYPER_INT128):
-                    oc = self.arithmetic_translator.check_overflow(arg, to_type, ctx, pos)
-                    stmts.extend(oc)
-                    return stmts, arg
+                    self.arithmetic_translator.check_overflow(arg, to_type, res, ctx, pos)
+                    return arg
                 elif case(types.VYPER_UINT256, types.VYPER_BYTES32):
-                    return stmts, helpers.convert_unsigned_int_to_bytes32(self.viper_ast, arg, pos)
+                    return helpers.convert_unsigned_int_to_bytes32(self.viper_ast, arg, pos)
                 # --------------------- bytes32 -> ? ---------------------
                 elif case(types.VYPER_BYTES32, types.VYPER_DECIMAL) or case(types.VYPER_BYTES32, types.VYPER_INT128):
-                    res = helpers.convert_bytes32_to_signed_int(self.viper_ast, arg, pos)
-                    oc = self.arithmetic_translator.check_under_overflow(res, to_type, ctx, pos)
-                    stmts.extend(oc)
-                    return stmts, res
+                    i = helpers.convert_bytes32_to_signed_int(self.viper_ast, arg, pos)
+                    self.arithmetic_translator.check_under_overflow(i, to_type, res, ctx, pos)
+                    return i
                 elif case(types.VYPER_BYTES32, types.VYPER_UINT256):
                     # uint256 and bytes32 have the same size, so no overflow check is necessary
-                    return stmts, helpers.convert_bytes32_to_unsigned_int(self.viper_ast, arg, pos)
+                    return helpers.convert_bytes32_to_unsigned_int(self.viper_ast, arg, pos)
                 else:
                     raise UnsupportedException(node, 'Unsupported type converison.')
         elif name == names.KECCAK256:
-            arg_stmts, arg = self.translate(node.args[0], ctx)
-            return arg_stmts, helpers.keccak256(self.viper_ast, arg, pos)
+            arg = self.translate(node.args[0], res, ctx)
+            return helpers.keccak256(self.viper_ast, arg, pos)
         elif name == names.SHA256:
-            arg_stmts, arg = self.translate(node.args[0], ctx)
-            return arg_stmts, helpers.sha256(self.viper_ast, arg, pos)
+            arg = self.translate(node.args[0], res, ctx)
+            return helpers.sha256(self.viper_ast, arg, pos)
         elif name == names.BLOCKHASH:
-            stmts, arg = self.translate(node.args[0], ctx)
+            arg = self.translate(node.args[0], res, ctx)
 
             block = ctx.block_var.local_var(ctx)
             number_type = self.type_translator.translate(types.BLOCK_TYPE.member_types[names.BLOCK_NUMBER], ctx)
@@ -485,28 +465,28 @@ class ExpressionTranslator(NodeTranslator):
             last_256 = self.viper_ast.Sub(block_number, self.viper_ast.IntLit(256, pos), pos)
             ge = self.viper_ast.GeCmp(arg, last_256, pos)
             cond = self.viper_ast.Not(self.viper_ast.And(lt, ge, pos), pos)
-            stmts.append(self.fail_if(cond, [], ctx, pos))
+            self.fail_if(cond, [], res, ctx, pos)
 
-            return stmts, helpers.blockhash(self.viper_ast, arg, ctx, pos)
+            return helpers.blockhash(self.viper_ast, arg, ctx, pos)
         elif name == names.METHOD_ID:
-            arg_stmts, arg = self.translate(node.args[0], ctx)
-            return arg_stmts, helpers.method_id(self.viper_ast, arg, node.type.size, pos)
+            arg = self.translate(node.args[0], res, ctx)
+            return helpers.method_id(self.viper_ast, arg, node.type.size, pos)
         elif name == names.ECRECOVER:
-            stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
-            return stmts, helpers.ecrecover(self.viper_ast, args, pos)
+            args = [self.translate(arg, res, ctx) for arg in node.args]
+            return helpers.ecrecover(self.viper_ast, args, pos)
         elif name == names.ECADD or name == names.ECMUL:
-            stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+            args = [self.translate(arg, res, ctx) for arg in node.args]
             fail_var_name = ctx.new_local_var_name('$fail')
             fail_var_decl = self.viper_ast.LocalVarDecl(fail_var_name, self.viper_ast.Bool, pos)
             ctx.new_local_vars.append(fail_var_decl)
             fail_var = fail_var_decl.localVar()
-            stmts.append(self.fail_if(fail_var, [], ctx, pos))
+            self.fail_if(fail_var, [], res, ctx, pos)
             if name == names.ECADD:
-                return stmts, helpers.ecadd(self.viper_ast, args, pos)
+                return helpers.ecadd(self.viper_ast, args, pos)
             else:
-                return stmts, helpers.ecmul(self.viper_ast, args, pos)
+                return helpers.ecmul(self.viper_ast, args, pos)
         elif name == names.SELFDESTRUCT:
-            to_stmts, to = self.translate(node.args[0], ctx)
+            to = self.translate(node.args[0], res, ctx)
 
             self_var = ctx.self_var.local_var(ctx)
             self_type = ctx.self_type
@@ -515,55 +495,49 @@ class ExpressionTranslator(NodeTranslator):
 
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                 resource = self.resource_translator.resource(names.WEI, [], ctx)
-                dealloc = self.allocation_translator.deallocate(node, resource, to, balance, ctx, pos)
-            else:
-                dealloc = []
+                self.allocation_translator.deallocate(node, resource, to, balance, res, ctx, pos)
 
             val = self.viper_ast.TrueLit(pos)
             member = mangled.SELFDESTRUCT_FIELD
             type = self.type_translator.translate(self_type.member_types[member], ctx)
             sset = helpers.struct_set(self.viper_ast, self_var, val, member, type, self_type, pos)
-            self_s_assign = self.viper_ast.LocalVarAssign(self_var, sset, pos)
+            res.append(self.viper_ast.LocalVarAssign(self_var, sset, pos))
 
-            sent = self.balance_translator.increase_sent(to, balance, ctx, pos)
+            self.balance_translator.increase_sent(to, balance, res, ctx, pos)
 
             zero = self.viper_ast.IntLit(0, pos)
             bset = self.balance_translator.set_balance(self_var, zero, ctx, pos)
-            self_b_assign = self.viper_ast.LocalVarAssign(self_var, bset, pos)
+            res.append(self.viper_ast.LocalVarAssign(self_var, bset, pos))
 
-            goto_return = self.viper_ast.Goto(ctx.return_label, pos)
-            return [*to_stmts, *dealloc, self_s_assign, sent, self_b_assign, goto_return], None
+            res.append(self.viper_ast.Goto(ctx.return_label, pos))
+            return None
         elif name == names.ASSERT_MODIFIABLE:
-            cond_stmts, cond = self.translate(node.args[0], ctx)
+            cond = self.translate(node.args[0], res, ctx)
             not_cond = self.viper_ast.Not(cond, pos)
-            fail = self.fail_if(not_cond, [], ctx, pos)
-            return [*cond_stmts, fail], None
+            self.fail_if(not_cond, [], res, ctx, pos)
+            return None
         elif name == names.SEND:
-            to_stmts, to = self.translate(node.args[0], ctx)
-            amount_stmts, amount = self.translate(node.args[1], ctx)
-            call_stmts, _, expr = self._translate_external_call(node, to, amount, False, ctx)
-            return [*to_stmts, *amount_stmts, *call_stmts], expr
+            to = self.translate(node.args[0], res, ctx)
+            amount = self.translate(node.args[1], res, ctx)
+            _, expr = self._translate_external_call(node, to, amount, False, res, ctx)
+            return expr
         elif name == names.RAW_CALL:
             # Translate the callee address
-            to_stmts, to = self.translate(node.args[0], ctx)
+            to = self.translate(node.args[0], res, ctx)
             # Translate the data expression (bytes)
-            function_stmts, _ = self.translate(node.args[1], ctx)
+            _ = self.translate(node.args[1], res, ctx)
 
-            args_stmts = [*to_stmts, *function_stmts]
             amount = self.viper_ast.IntLit(0, pos)
             for kw in node.keywords:
-                arg_stmts, arg = self.translate(kw.value, ctx)
+                arg = self.translate(kw.value, res, ctx)
                 if kw.name == names.RAW_CALL_VALUE:
                     amount = arg
-                args_stmts.extend(arg_stmts)
 
-            call_stmts, _, call = self._translate_external_call(node, to, amount, False, ctx)
-            return [*args_stmts, *call_stmts], call
+            _, call = self._translate_external_call(node, to, amount, False, res, ctx)
+            return call
         elif name == names.RAW_LOG:
-            topic_stmts, _ = self.translate(node.args[0], ctx)
-            data_stmts, _ = self.translate(node.args[1], ctx)
-
-            stmts = topic_stmts + data_stmts
+            _ = self.translate(node.args[0], res, ctx)
+            _ = self.translate(node.args[1], res, ctx)
 
             # Since we don't know what raw_log logs, any event could have been emitted.
             # Therefore we create a fresh var and do
@@ -589,19 +563,18 @@ class ExpressionTranslator(NodeTranslator):
                     ctx.new_local_vars.append(arg)
                     args.append(arg.localVar())
 
-                log_event = self._log_event(event, args, ctx, pos)
-                stmts.append(self.viper_ast.If(condition, log_event, [], pos))
+                log_event = []
+                self._log_event(event, args, log_event, ctx, pos)
+                res.append(self.viper_ast.If(condition, log_event, [], pos))
 
-            return stmts, None
+            return None
         elif name == names.CREATE_FORWARDER_TO:
-            stmts, at = self.translate(node.args[0], ctx)
+            at = self.translate(node.args[0], res, ctx)
             if node.keywords:
-                amount_stmts, amount = self.translate(node.keywords[0].value, ctx)
-                stmts.extend(amount_stmts)
-                check = self.balance_translator.check_balance(amount, ctx, pos)
-                sent = self.balance_translator.increase_sent(at, amount, ctx, pos)
-                sub = self.balance_translator.decrease_balance(amount, ctx, pos)
-                stmts.extend([check, sent, sub])
+                amount = self.translate(node.keywords[0].value, res, ctx)
+                self.balance_translator.check_balance(amount, res, ctx, pos)
+                self.balance_translator.increase_sent(at, amount, res, ctx, pos)
+                self.balance_translator.decrease_balance(amount, res, ctx, pos)
 
             new_name = ctx.new_local_var_name('$new')
             type = self.type_translator.translate(node.type, ctx)
@@ -610,54 +583,50 @@ class ExpressionTranslator(NodeTranslator):
             new_var = new_var_decl.localVar()
 
             eq_zero = self.viper_ast.EqCmp(new_var, self.viper_ast.IntLit(0, pos), pos)
-            stmts.append(self.fail_if(eq_zero, [], ctx, pos))
+            self.fail_if(eq_zero, [], res, ctx, pos)
 
-            return stmts, new_var
+            return new_var
         # This is a struct initializer
         elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
-            stmts = []
             exprs = {}
             for key, value in zip(node.args[0].keys, node.args[0].values):
-                value_stmts, value_expr = self.translate(value, ctx)
-                stmts.extend(value_stmts)
+                value_expr = self.translate(value, res, ctx)
                 idx = node.type.member_indices[key.id]
                 exprs[idx] = value_expr
 
             init_args = [exprs[i] for i in range(len(exprs))]
             init = helpers.struct_init(self.viper_ast, init_args, node.type, pos)
-            return stmts, init
+            return init
         # This is a contract / interface initializer
         elif name in ctx.program.contracts or name in ctx.program.interfaces:
-            return self.translate(node.args[0], ctx)
+            return self.translate(node.args[0], res, ctx)
         elif name in names.GHOST_STATEMENTS:
-            return self.spec_translator.translate_ghost_statement(node, ctx)
+            return self.spec_translator.translate_ghost_statement(node, res, ctx)
         else:
             assert False
 
-    def translate_ReceiverCall(self, node: ast.ReceiverCall, ctx: Context) -> StmtsAndExpr:
+    def translate_ReceiverCall(self, node: ast.ReceiverCall, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
         name = node.name
-        stmts, args = self.collect(self.translate(arg, ctx) for arg in node.args)
+        args = [self.translate(arg, res, ctx) for arg in node.args]
         rec_type = node.receiver.type
 
         if isinstance(rec_type, types.SelfType):
-            call_stmts, res = self.function_translator.inline(node, args, ctx)
-            return stmts + call_stmts, res
+            call_result = self.function_translator.inline(node, args, res, ctx)
+            return call_result
         elif isinstance(rec_type, (ContractType, InterfaceType)):
-            to_stmts, to = self.translate(node.receiver, ctx)
+            to = self.translate(node.receiver, res, ctx)
 
             val_idx = first_index(lambda n: n.name == names.RAW_CALL_VALUE, node.keywords)
             if val_idx >= 0:
-                amount_stmts, amount = self.translate(node.keywords[val_idx].value, ctx)
-                stmts.extend(amount_stmts)
+                amount = self.translate(node.keywords[val_idx].value, res, ctx)
             else:
                 amount = None
 
             if isinstance(rec_type, ContractType):
                 const = rec_type.function_modifiers[node.name] == names.CONSTANT
-                call_stmts, _, res = self._translate_external_call(node, to, amount, const, ctx)
-                stmts.extend(call_stmts)
+                _, call_result = self._translate_external_call(node, to, amount, const, res, ctx)
             else:
                 interface = ctx.program.interfaces[rec_type.name]
                 function = interface.functions[name]
@@ -671,34 +640,34 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     cond = self.viper_ast.NeCmp(amount, zero, pos) if amount else self.viper_ast.FalseLit(pos)
 
-                stmts.append(self.fail_if(cond, [], ctx, pos))
+                self.fail_if(cond, [], res, ctx, pos)
                 known = (interface, function, args)
-                call_stmts, succ, res = self._translate_external_call(node, to, amount, const, ctx, known)
-                stmts.extend(call_stmts)
+                succ, call_result = self._translate_external_call(node, to, amount, const, res, ctx, known)
 
-            return stmts, res
+            return call_result
         elif node.receiver.id == names.LOG:
             event = ctx.program.events[name]
-            stmts.extend(self._log_event(event, args, ctx, pos))
-            return stmts, None
+            self._log_event(event, args, res, ctx, pos)
+            return None
         else:
             assert False
 
-    def _log_event(self, event: VyperEvent, args, ctx, pos=None) -> List[Stmt]:
+    def _log_event(self, event: VyperEvent, args: List[Expr], res: List[Stmt], ctx: Context, pos=None):
         event_name = mangled.event_name(event.name)
         pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
         one = self.viper_ast.FullPerm(pos)
         pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, one, pos)
         log = self.viper_ast.Inhale(pred_acc_pred, pos)
-        return self.seqn_with_info([log], f"Event: {event.name}")
+        self.seqn_with_info([log], f"Event: {event.name}", res)
 
     def _translate_external_call(self,
                                  node: ast.Expr,
                                  to: Expr,
                                  amount: Optional[Expr],
                                  constant: bool,
+                                 res: List[Stmt],
                                  ctx: Context,
-                                 known: Tuple[VyperInterface, VyperFunction, List[Expr]] = None) -> Tuple[List[Stmt], Expr, Expr]:
+                                 known: Tuple[VyperInterface, VyperFunction, List[Expr]] = None) -> Tuple[Expr, Expr]:
         # Sends are translated as follows:
         #    - Evaluate arguments to and amount
         #    - Check that balance is sufficient (self.balance >= amount) else revert
@@ -722,64 +691,54 @@ class ExpressionTranslator(NodeTranslator):
             interface, function, args = known
 
         if amount:
-            check = self.balance_translator.check_balance(amount, ctx, pos)
-            sent = self.balance_translator.increase_sent(to, amount, ctx, pos)
+            self.balance_translator.check_balance(amount, res, ctx, pos)
+            self.balance_translator.increase_sent(to, amount, res, ctx, pos)
 
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                 resource = self.resource_translator.resource(names.WEI, [], ctx, pos)
-                dealloc = self.allocation_translator.deallocate(node, resource, to, amount, ctx, pos)
-            else:
-                dealloc = []
+                self.allocation_translator.deallocate(node, resource, to, amount, res, ctx, pos)
 
-            sub = self.balance_translator.decrease_balance(amount, ctx, pos)
-            stmts = [check, sent, *dealloc, sub]
-        else:
-            stmts = []
+            self.balance_translator.decrease_balance(amount, res, ctx, pos)
 
         # In init set the old self state to the current self state, if this is the
         # first public state.
         if ctx.function.name == names.INIT:
-            stmts.append(self.state_translator.check_first_public_state(ctx, True))
+            self.state_translator.check_first_public_state(res, ctx, True)
 
-        check_assertions, modelt = self.model_translator.save_variables(ctx, pos)
+        modelt = self.model_translator.save_variables(res, ctx, pos)
+
         for check in chain(ctx.function.checks, ctx.program.general_checks):
-            check_stmts, check_cond = self.spec_translator.translate_check(check, ctx)
+            check_cond = self.spec_translator.translate_check(check, res, ctx)
             via = [Via('check', check_cond.pos())]
             check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via, modelt)
-            check_assertions.extend(check_stmts)
-            check_assertions.append(self.viper_ast.Assert(check_cond, check_pos))
+            res.append(self.viper_ast.Assert(check_cond, check_pos))
 
-        inv_assertions = []
         for inv in ctx.program.invariants:
             # We ignore accessible because it only has to be checked in the end of
             # the function
-            inv_stmts, cond = self.spec_translator.translate_invariant(inv, ctx, True)
+            cond = self.spec_translator.translate_invariant(inv, res, ctx, True)
             via = [Via('invariant', cond.pos())]
             call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via, modelt)
-            inv_assertions.extend(inv_stmts)
-            inv_assertions.append(self.viper_ast.Assert(cond, call_pos))
-
-        assertions = [*check_assertions, *inv_assertions]
+            res.append(self.viper_ast.Assert(cond, call_pos))
 
         # We check that the invariant tracks all allocation by doing a leak check.
         if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-            assertions.extend(self.allocation_translator.send_leak_check(node, ctx, pos))
-
-        copy_old = self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, ctx)
+            self.allocation_translator.send_leak_check(node, res, ctx, pos)
 
         send_fail_name = ctx.new_local_var_name('send_fail')
         send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
         ctx.new_local_vars.append(send_fail)
         fail_cond = send_fail.localVar()
         call_failed = helpers.call_failed(self.viper_ast, to, pos)
-        fail = self.fail_if(fail_cond, [call_failed], ctx, pos)
+        self.fail_if(fail_cond, [call_failed], res, ctx, pos)
+
+        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
         # We forget about events by exhaling all permissions to the event predicates, i.e.
         # for all event predicates e we do
         #   exhale forall arg0, arg1, ... :: perm(e(arg0, arg1, ...)) > none ==> acc(e(...), perm(e(...)))
         # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
         # to exhale no permissions under a quantifier.
-        event_exhales = []
         for event in ctx.program.events.values():
             event_name = mangled.event_name(event.name)
             types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
@@ -792,18 +751,17 @@ class ExpressionTranslator(NodeTranslator):
             impl = self.viper_ast.Implies(self.viper_ast.GtCmp(perm, none, pos), pap)
             trigger = self.viper_ast.Trigger([pa], pos)
             forall = self.viper_ast.Forall(event_args, [trigger], impl, pos)
-            event_exhales.append(self.viper_ast.Exhale(forall, pos))
+            res.append(self.viper_ast.Exhale(forall, pos))
 
         if not constant:
             # Save the values of to, amount, and args, as self could be changed by reentrancy
-            save_vars = []
             if known:
 
                 def new_var(var, name='v'):
                     var_name = ctx.new_local_var_name(name)
                     var_decl = self.viper_ast.LocalVarDecl(var_name, var.typ(), pos)
                     ctx.new_local_vars.append(var_decl)
-                    save_vars.append(self.viper_ast.LocalVarAssign(var_decl.localVar(), var))
+                    res.append(self.viper_ast.LocalVarAssign(var_decl.localVar(), var))
                     return var_decl.localVar()
 
                 to = new_var(to, 'to')
@@ -813,40 +771,30 @@ class ExpressionTranslator(NodeTranslator):
                 args = list(map(new_var, args))
 
             # Havoc state
-            havocs = self.state_translator.havoc_state(ctx.current_state, ctx, pos)
-
-            call = [fail, *copy_old, *event_exhales, *save_vars, *havocs]
+            self.state_translator.havoc_state(ctx.current_state, res, ctx, pos)
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
-            type_seq = self.seqn_with_info(assume_type_ass, "Assume type assumptions")
+            self.seqn_with_info(assume_type_ass, "Assume type assumptions", res)
 
             assume_posts = []
             for post in ctx.program.transitive_postconditions:
-                post_stmts, post_expr = self.spec_translator.translate_postcondition(post, ctx)
+                post_expr = self.spec_translator.translate_postcondition(post, assume_posts, ctx)
                 ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                assume_posts.extend(post_stmts)
                 assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
 
-            post_seq = self.seqn_with_info(assume_posts, "Assume transitive postconditions")
+            self.seqn_with_info(assume_posts, "Assume transitive postconditions", res)
 
             assume_invs = []
             for inv in ctx.unchecked_invariants():
                 assume_invs.append(self.viper_ast.Inhale(inv))
 
             for inv in ctx.program.invariants:
-
-                inv_stmts, cond = self.spec_translator.translate_invariant(inv, ctx, True)
+                cond = self.spec_translator.translate_invariant(inv, assume_invs, ctx, True)
                 ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                assume_invs.extend(inv_stmts)
                 assume_invs.append(self.viper_ast.Inhale(cond, ipos))
 
-            inv_seq = self.seqn_with_info(assume_invs, "Assume invariants")
-
-            new_state = [*type_seq, *post_seq, *inv_seq]
-        else:
-            call = [fail, *copy_old, *event_exhales]
-            new_state = []
+            self.seqn_with_info(assume_invs, "Assume invariants", res)
 
         if node.type:
             ret_name = ctx.new_local_var_name('raw_ret')
@@ -855,21 +803,19 @@ class ExpressionTranslator(NodeTranslator):
             ctx.new_local_vars.append(ret_var)
             return_value = ret_var.localVar()
             type_ass = self.type_translator.type_assumptions(return_value, node.type, ctx)
-            return_stmts = [self.viper_ast.Inhale(ass) for ass in type_ass]
+            res.extend(self.viper_ast.Inhale(ass) for ass in type_ass)
         else:
             return_value = None
-            return_stmts = []
 
         success = self.viper_ast.Not(fail_cond, pos)
 
         if known:
-            assume_itf = self._assume_interface_specifications
             amount = amount or self.viper_ast.IntLit(0)
-            itf = assume_itf(node, interface, function, args, to, amount, success, return_value, ctx)
-        else:
-            itf = []
+            self._assume_interface_specifications(node, interface, function, args, to, amount, success, return_value, res, ctx)
 
-        return stmts + assertions + call + new_state + return_stmts + itf + copy_old, success, return_value
+        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
+
+        return success, return_value
 
     def _assume_interface_specifications(self,
                                          node: ast.Node,
@@ -879,8 +825,9 @@ class ExpressionTranslator(NodeTranslator):
                                          to: Expr,
                                          amount: Expr,
                                          succ: Expr,
-                                         res: Optional[Expr],
-                                         ctx: Context) -> List[Stmt]:
+                                         return_value: Optional[Expr],
+                                         res: List[Stmt],
+                                         ctx: Context):
         with ctx.interface_call_scope():
             body = []
 
@@ -913,10 +860,11 @@ class ExpressionTranslator(NodeTranslator):
 
             # Add result variable
             if function.type.return_type:
-                res_name = ctx.inline_prefix + mangled.RESULT_VAR
-                ctx.result_var = TranslatedVar(names.RESULT, res_name, function.type.return_type, self.viper_ast, res.pos())
-                ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, res.pos()))
-                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(res.pos()), res, res.pos()))
+                ret_name = ctx.inline_prefix + mangled.RESULT_VAR
+                ret_pos = return_value.pos()
+                ctx.result_var = TranslatedVar(names.RESULT, ret_name, function.type.return_type, self.viper_ast, ret_pos)
+                ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, ret_pos))
+                body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ret_pos), return_value, ret_pos))
 
             # Add success variable
             succ_name = ctx.inline_prefix + mangled.SUCCESS_VAR
@@ -931,17 +879,16 @@ class ExpressionTranslator(NodeTranslator):
             with ctx.program_scope(interface):
                 with ctx.self_address_scope(to):
                     postconditions = chain(function.postconditions, interface.general_postconditions)
-                    stmts, exprs = self.collect(translate(post, ctx) for post in postconditions)
-                    body.extend(stmts)
+                    exprs = [translate(post, body, ctx) for post in postconditions]
                     body.extend(self.viper_ast.Inhale(expr, pos) for expr in exprs)
 
             if ctx.program.config.has_option(names.CONFIG_TRUST_CASTS):
-                return body
+                res.extend(body)
             else:
                 implements = helpers.implements(self.viper_ast, to, interface.name, ctx, pos)
-                return [self.viper_ast.If(implements, body, [], pos)]
+                res.append(self.viper_ast.If(implements, body, [], pos))
 
-    def _translate_var(self, var: VyperVar, ctx: Context):
+    def _translate_var(self, var: VyperVar, ctx: Context) -> TranslatedVar:
         pos = self.to_position(var.node, ctx)
         name = mangled.local_var_name(ctx.inline_prefix, var.name)
         return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)

@@ -30,7 +30,7 @@ from twovyper.verification import rules
 from twovyper.verification.error import Via
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Method, StmtsAndExpr, Stmt, Expr
+from twovyper.viper.typedefs import Method, Stmt, Expr
 
 
 class FunctionTranslator(CommonTranslator):
@@ -112,27 +112,27 @@ class FunctionTranslator(CommonTranslator):
 
             body = []
 
-            def assume_type_assumptions(state: State, name: str) -> List[Stmt]:
+            def assume_type_assumptions(state: State, name: str):
                 stmts = []
                 for state_var in state.values():
                     assumptions = self.type_translator.type_assumptions(state_var.local_var(ctx), state_var.type, ctx)
                     stmts.extend(self.viper_ast.Inhale(inv) for inv in assumptions)
 
-                return self.seqn_with_info(stmts, f"{name} state assumptions")
+                return self.seqn_with_info(stmts, f"{name} state assumptions", body)
 
             # Assume type assumptions for self state
-            body.extend(assume_type_assumptions(ctx.present_state, "Present"))
+            assume_type_assumptions(ctx.present_state, "Present")
 
             # Assume type assumptions for issued state
             if function.analysis.uses_issued:
-                body.extend(assume_type_assumptions(ctx.issued_state, "Issued"))
+                assume_type_assumptions(ctx.issued_state, "Issued")
 
             # Assume type assumptions for self address
             self_address = helpers.self_address(self.viper_ast)
             self_address_ass = self.type_translator.type_assumptions(self_address, types.VYPER_ADDRESS, ctx)
             self_address_assumptions = [self.viper_ast.Inhale(c) for c in self_address_ass]
             self_address_info_msg = "Assume type assumptions for self address"
-            body.extend(self.seqn_with_info(self_address_assumptions, self_address_info_msg))
+            self.seqn_with_info(self_address_assumptions, self_address_info_msg, body)
 
             # Assume type assumptions for arguments
             argument_conds = []
@@ -143,14 +143,14 @@ class FunctionTranslator(CommonTranslator):
 
             argument_cond_assumes = [self.viper_ast.Inhale(c) for c in argument_conds]
             ui_info_msg = "Assume type assumptions for arguments"
-            body.extend(self.seqn_with_info(argument_cond_assumes, ui_info_msg))
+            self.seqn_with_info(argument_cond_assumes, ui_info_msg, body)
 
             # Assume type assumptions for block
             block_var = ctx.block_var.local_var(ctx)
             block_conds = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
             block_assumes = [self.viper_ast.Inhale(c) for c in block_conds]
             block_info_msg = "Assume type assumptions for block"
-            body.extend(self.seqn_with_info(block_assumes, block_info_msg))
+            self.seqn_with_info(block_assumes, block_info_msg, body)
 
             # Assume type assumptions for msg
             msg_var = ctx.msg_var.local_var(ctx)
@@ -161,7 +161,7 @@ class FunctionTranslator(CommonTranslator):
             neq0 = self.viper_ast.NeCmp(msg_sender, zero)
             msg_assumes = [self.viper_ast.Inhale(c) for c in chain(msg_conds, [neq0])]
             msg_info_msg = "Assume type assumptions for msg"
-            body.extend(self.seqn_with_info(msg_assumes, msg_info_msg))
+            self.seqn_with_info(msg_assumes, msg_info_msg, body)
 
             # Assume unchecked and user-specified invariants
             inv_pres_issued = []
@@ -176,8 +176,7 @@ class FunctionTranslator(CommonTranslator):
 
                     for inv in ctx.program.invariants:
                         ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                        stmts, expr = self.specification_translator.translate_invariant(inv, ctx, True)
-                        inv_pres_issued.extend(stmts)
+                        expr = self.specification_translator.translate_invariant(inv, inv_pres_issued, ctx, True)
                         inv_pres_issued.append(self.viper_ast.Inhale(expr, ppos))
 
             # If we use issued, we translate the invariants for the current state with the
@@ -191,20 +190,17 @@ class FunctionTranslator(CommonTranslator):
 
                     for inv in ctx.program.invariants:
                         ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                        stmts, expr = self.specification_translator.translate_invariant(inv, ctx)
-                        inv_pres_self.extend(stmts)
+                        expr = self.specification_translator.translate_invariant(inv, inv_pres_self, ctx)
                         inv_pres_self.append(self.viper_ast.Inhale(expr, ppos))
 
             iv_info_msg = "Assume invariants for issued self"
-            body.extend(self.seqn_with_info(inv_pres_issued, iv_info_msg))
+            self.seqn_with_info(inv_pres_issued, iv_info_msg, body)
             iv_info_msg = "Assume invariants for self"
-            body.extend(self.seqn_with_info(inv_pres_self, iv_info_msg))
+            self.seqn_with_info(inv_pres_self, iv_info_msg, body)
 
             # old_self and pre_self are the same as self in the beginning
-            copy_old = self.state_translator.copy_state(ctx.present_state, ctx.old_state, ctx)
-            copy_pre = self.state_translator.copy_state(ctx.present_state, ctx.pre_state, ctx)
-            body.extend(copy_old)
-            body.extend(copy_pre)
+            self.state_translator.copy_state(ctx.present_state, ctx.old_state, body, ctx)
+            self.state_translator.copy_state(ctx.present_state, ctx.pre_state, body, ctx)
 
             def returnBool(value: bool) -> Stmt:
                 lit = self.viper_ast.TrueLit if value else self.viper_ast.FalseLit
@@ -230,20 +226,19 @@ class FunctionTranslator(CommonTranslator):
 
             # Translate the performs clauses
             for performs in function.performs:
-                performs_stmts, _ = self.specification_translator.translate_ghost_statement(performs, ctx, is_performs=True)
-                body.extend(performs_stmts)
+                _ = self.specification_translator.translate_ghost_statement(performs, body, ctx, is_performs=True)
 
             # Revert if a @nonreentrant lock is set
-            body.extend(self._assert_unlocked(function, ctx))
+            self._assert_unlocked(function, body, ctx)
             # Set all @nonreentrant locks
-            body.extend(self._set_locked(function, True, ctx))
+            self._set_locked(function, True, body, ctx)
 
             # In the initializer initialize all fields to their default values
             if is_init:
-                body.extend(self.state_translator.initialize_state(ctx.current_state, ctx))
+                self.state_translator.initialize_state(ctx.current_state, body, ctx)
                 # Havoc self.balance, because we are not allwed to assume self.balance == 0
                 # in the beginning
-                body.extend(self._havoc_balance(ctx))
+                self._havoc_balance(body, ctx)
 
             msg_value = helpers.msg_value(self.viper_ast, ctx)
             if not function.is_payable():
@@ -260,25 +255,24 @@ class FunctionTranslator(CommonTranslator):
             else:
                 # Increase balance by msg.value
                 payable_info = self.to_info(["Fuction is payable"])
-                binc = self.balance_translator.increase_balance(msg_value, ctx, info=payable_info)
-                body.append(binc)
+                self.balance_translator.increase_balance(msg_value, body, ctx, info=payable_info)
 
                 # Increase received for msg.sender by msg.value
-                rec_inc = self.balance_translator.increase_received(msg_value, ctx)
-                body.append(rec_inc)
+                self.balance_translator.increase_received(msg_value, body, ctx)
 
                 # Allocate the received ether to the sender
                 if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                     resource = self.resource_translator.resource(names.WEI, [], ctx)
-                    body.extend(self.allocation_translator.allocate(resource, msg_sender, msg_value, ctx))
+                    self.allocation_translator.allocate(resource, msg_sender, msg_value, body, ctx)
 
             # If we are in a synthesized init, we don't have a function body
             if function.node:
-                body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
-                body.extend(self.seqn_with_info(body_stmts, "Function body"))
+                body_stmts = []
+                self.statement_translator.translate_stmts(function.node.body, body_stmts, ctx)
+                self.seqn_with_info(body_stmts, "Function body", body)
 
             # Unset @nonreentrant locks
-            body.extend(self._set_locked(function, False, ctx))
+            self._set_locked(function, False, body, ctx)
 
             # If we reach this point we either jumped to it by returning or got threre directly
             # because we didn't revert (yet)
@@ -290,7 +284,7 @@ class FunctionTranslator(CommonTranslator):
             # Fail, if we ran out of gas
             # If the no_gas option is set, ignore it
             if not ctx.program.config.has_option(names.CONFIG_NO_GAS):
-                body.append(self.fail_if(out_of_gas_var.localVar(), [], ctx))
+                self.fail_if(out_of_gas_var.localVar(), [], body, ctx)
 
             # If we reach this point do not revert the state
             body.append(self.viper_ast.Goto(mangled.END_LABEL))
@@ -304,10 +298,8 @@ class FunctionTranslator(CommonTranslator):
                 havoc = self._havoc_var(result_type, ctx)
                 body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ctx), havoc))
             # Revert self and old_self to the state before the function
-            copy_present = self.state_translator.copy_state(ctx.pre_state, ctx.present_state, ctx)
-            copy_old = self.state_translator.copy_state(ctx.pre_state, ctx.old_state, ctx)
-            body.extend(copy_present)
-            body.extend(copy_old)
+            self.state_translator.copy_state(ctx.pre_state, ctx.present_state, body, ctx)
+            self.state_translator.copy_state(ctx.pre_state, ctx.old_state, body, ctx)
 
             # The end of a program, label where return statements jump to
             body.append(end_label)
@@ -327,24 +319,24 @@ class FunctionTranslator(CommonTranslator):
             # However, the state has to be set again after havocing the balance, therefore
             # we don't update the flag
             if is_init:
-                body.append(self.state_translator.check_first_public_state(ctx, False))
+                self.state_translator.check_first_public_state(body, ctx, False)
+
+            post_stmts = []
 
             old_state = ctx.present_state if is_init else ctx.pre_state
             with ctx.state_scope(ctx.present_state, old_state):
                 # Save model vars
-                post_stmts, modelt = self.model_translator.save_variables(ctx)
+                modelt = self.model_translator.save_variables(post_stmts, ctx)
                 # Assert postconditions
                 for post in function.postconditions:
                     post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=modelt)
-                    stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
+                    cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
                     post_assert = self.viper_ast.Assert(cond, post_pos)
-                    post_stmts.extend(stmts)
                     post_stmts.append(post_assert)
 
                 for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
                     post_pos = self.to_position(post, ctx)
-                    stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
-                    post_stmts.extend(stmts)
+                    cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
                     if is_init:
                         init_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=modelt)
                         # General postconditions only have to hold for init if it succeeds
@@ -367,15 +359,14 @@ class FunctionTranslator(CommonTranslator):
                     for post in postconditions:
                         post_pos = self.to_position(function.node or post, ctx)
                         with ctx.program_scope(interface):
-                            stmts, cond = self.specification_translator.translate_postcondition(post, ctx)
+                            cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
                             if is_init:
                                 cond = self.viper_ast.Implies(success_var, cond, post_pos)
                         apos = self.to_position(function.node or post, ctx, rules.INTERFACE_POSTCONDITION_FAIL, modelt=modelt)
                         post_assert = self.viper_ast.Assert(cond, apos)
-                        post_stmts.extend(stmts)
                         post_stmts.append(post_assert)
 
-                body.extend(self.seqn_with_info(post_stmts, "Assert postconditions"))
+            self.seqn_with_info(post_stmts, "Assert postconditions", body)
 
             # Assert checks
             # For the checks we need to differentiate between success and failure because we
@@ -385,18 +376,15 @@ class FunctionTranslator(CommonTranslator):
             checks_fail = []
             for check in function.checks:
                 check_pos = self.to_position(check, ctx, rules.CHECK_FAIL, modelt=modelt)
-                succ_stmts, cond_succ = self.specification_translator.translate_check(check, ctx, False)
-                checks_succ.extend(succ_stmts)
+                cond_succ = self.specification_translator.translate_check(check, checks_succ, ctx, False)
                 checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
-                fail_stmts, cond_fail = self.specification_translator.translate_check(check, ctx, True)
                 # Checks do not have to hold if init fails
                 if not is_init:
-                    checks_fail.extend(fail_stmts)
+                    cond_fail = self.specification_translator.translate_check(check, checks_fail, ctx, True)
                     checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
             for check in ctx.program.general_checks:
-                succ_stmts, cond_succ = self.specification_translator.translate_check(check, ctx, False)
-                fail_stmts, cond_fail = self.specification_translator.translate_check(check, ctx, True)
+                cond_succ = self.specification_translator.translate_check(check, checks_succ, ctx, False)
 
                 # If we are in the initializer we might have a synthesized __init__, therefore
                 # just use always check as position, else use function as position and create
@@ -408,11 +396,10 @@ class FunctionTranslator(CommonTranslator):
                     via = [Via('check', check_pos)]
                     check_pos = self.to_position(function.node, ctx, rules.CHECK_FAIL, via, modelt)
 
-                checks_succ.extend(succ_stmts)
                 checks_succ.append(self.viper_ast.Assert(cond_succ, check_pos))
                 # Checks do not have to hold if __init__ fails
                 if not is_init:
-                    checks_fail.extend(fail_stmts)
+                    cond_fail = self.specification_translator.translate_check(check, checks_fail, ctx, True)
                     checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
             check_info = self.to_info(["Assert checks"])
@@ -420,20 +407,21 @@ class FunctionTranslator(CommonTranslator):
             body.append(if_stmt)
 
             # Havoc self.balance
-            body.extend(self._havoc_balance(ctx))
+            self._havoc_balance(body, ctx)
             # Havoc other contract state
-            body.extend(self.state_translator.havoc_state_except_self(ctx.current_state, ctx))
+            self.state_translator.havoc_state_except_self(ctx.current_state, body, ctx)
 
             # In init set old to current self, if this is the first public state
             if is_init:
-                body.append(self.state_translator.check_first_public_state(ctx, False))
+                self.state_translator.check_first_public_state(body, ctx, False)
 
             # Assert the invariants
-            invariant_stmts, imodelt = self.model_translator.save_variables(ctx, pos)
+            invariant_stmts = []
+            imodelt = self.model_translator.save_variables(invariant_stmts, ctx, pos)
             for inv in ctx.program.invariants:
                 inv_pos = self.to_position(inv, ctx)
                 # We ignore accessible here because we use a separate check
-                stmts, cond = self.specification_translator.translate_invariant(inv, ctx, True)
+                cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
 
                 # If we have a synthesized __init__ we only create an
                 # error message on the invariant
@@ -445,16 +433,15 @@ class FunctionTranslator(CommonTranslator):
                     via = [Via('invariant', inv_pos)]
                     apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL, via, imodelt)
 
-                invariant_stmts.extend(stmts)
                 invariant_stmts.append(self.viper_ast.Assert(cond, apos))
 
-            body.extend(self.seqn_with_info(invariant_stmts, "Assert Invariants"))
+            self.seqn_with_info(invariant_stmts, "Assert Invariants", body)
 
             # We check that the invariant tracks all allocation by doing a leak check.
             # We also check that all necessary operations stated in perform clauses were
             # performed.
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-                body.extend(self.allocation_translator.function_leak_check(ctx, pos))
+                self.allocation_translator.function_leak_check(body, ctx, pos)
 
             # We check accessibility by inhaling a predicate in the corresponding function
             # and checking in the end that if it has been inhaled (i.e. if we want to prove
@@ -504,7 +491,7 @@ class FunctionTranslator(CommonTranslator):
                 forall = self.viper_ast.Forall([amount_var], [trigger], impl, inv_pos)
                 accessibles.append(self.viper_ast.Assert(forall, acc_pos))
 
-            body.extend(self.seqn_with_info(accessibles, "Assert accessibles"))
+            self.seqn_with_info(accessibles, "Assert accessibles", body)
 
             args_list = [arg.var_decl(ctx) for arg in args.values()]
             locals_list = [local.var_decl(ctx) for local in chain(locals.values(), state)]
@@ -515,7 +502,7 @@ class FunctionTranslator(CommonTranslator):
             method = self.viper_ast.Method(viper_name, args_list, ret_list, [], [], locals_list, body, pos)
             return method
 
-    def inline(self, call: ast.ReceiverCall, args: List[Expr], ctx: Context) -> StmtsAndExpr:
+    def inline(self, call: ast.ReceiverCall, args: List[Expr], res: List[Stmt], ctx: Context) -> Expr:
         function = ctx.program.functions[call.name]
         cpos = self.to_position(call, ctx)
         via = Via('inline', cpos)
@@ -538,8 +525,7 @@ class FunctionTranslator(CommonTranslator):
                 ctx.args[name] = translated_arg
                 ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
                 if not arg:
-                    default_stmts, arg = self.expression_translator.translate(function.defaults[name], ctx)
-                    body.extend(default_stmts)
+                    arg = self.expression_translator.translate(function.defaults[name], body, ctx)
                 body.append(self.viper_ast.LocalVarAssign(translated_arg.local_var(ctx), arg, apos))
 
             # Define return var
@@ -557,54 +543,51 @@ class FunctionTranslator(CommonTranslator):
             ctx.return_label = return_label_name
 
             # Revert if a @nonreentrant lock is set
-            body.extend(self._assert_unlocked(function, ctx))
+            self._assert_unlocked(function, body, ctx)
             # Set @nonreentrant locks
-            body.extend(self._set_locked(function, True, ctx))
+            self._set_locked(function, True, body, ctx)
 
             # Translate body
-            body_stmts = self.statement_translator.translate_stmts(function.node.body, ctx)
-            body.extend(body_stmts)
+            self.statement_translator.translate_stmts(function.node.body, body, ctx)
 
             # Unset @nonreentrant locks
-            body.extend(self._set_locked(function, False, ctx))
+            self._set_locked(function, False, body, ctx)
 
-            seqn = self.seqn_with_info(body, f"Inlined call of {function.name}")
-            return seqn + [return_label], ret_var
+            self.seqn_with_info(body, f"Inlined call of {function.name}", res)
+            res.append(return_label)
+            return ret_var
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
         name = mangled.local_var_name(ctx.inline_prefix, var.name)
         return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)
 
-    def _assume_non_negative(self, var, ctx: Context) -> Stmt:
+    def _assume_non_negative(self, var, res: List[Stmt], ctx: Context):
         zero = self.viper_ast.IntLit(0)
         gez = self.viper_ast.GeCmp(var, zero)
-        return self.viper_ast.Inhale(gez)
+        res.append(self.viper_ast.Inhale(gez))
 
-    def _havoc_var(self, type, ctx: Context):
+    def _havoc_var(self, type, ctx: Context) -> Expr:
         havoc_name = ctx.new_local_var_name('havoc')
         havoc = self.viper_ast.LocalVarDecl(havoc_name, type)
         ctx.new_local_vars.append(havoc)
         return havoc.localVar()
 
-    def _havoc_balance(self, ctx: Context):
+    def _havoc_balance(self, res: List[Stmt], ctx: Context):
         balance_type = ctx.field_types[names.ADDRESS_BALANCE]
         havoc = self._havoc_var(balance_type, ctx)
-        assume_pos = self._assume_non_negative(havoc, ctx)
-        inc = self.balance_translator.increase_balance(havoc, ctx)
-        return [assume_pos, inc]
+        self._assume_non_negative(havoc, res, ctx)
+        self.balance_translator.increase_balance(havoc, res, ctx)
 
-    def _assert_unlocked(self, function: VyperFunction, ctx: Context) -> List[Stmt]:
+    def _assert_unlocked(self, function: VyperFunction, res: List[Stmt], ctx: Context):
         keys = function.nonreentrant_keys()
         locked = [helpers.get_lock(self.viper_ast, key, ctx) for key in keys]
         if locked:
             cond = reduce(self.viper_ast.Or, locked)
-            return [self.fail_if(cond, [], ctx)]
-        else:
-            return []
+            self.fail_if(cond, [], res, ctx)
 
-    def _set_locked(self, function: VyperFunction, value: bool, ctx: Context) -> List[Stmt]:
+    def _set_locked(self, function: VyperFunction, value: bool, res: List[Stmt], ctx: Context):
         keys = function.nonreentrant_keys()
         self_var = ctx.self_var.local_var(ctx)
         set_lock = lambda key: helpers.set_lock(self.viper_ast, key, value, ctx)
-        return [self.viper_ast.LocalVarAssign(self_var, set_lock(key)) for key in keys]
+        res.extend(self.viper_ast.LocalVarAssign(self_var, set_lock(key)) for key in keys)

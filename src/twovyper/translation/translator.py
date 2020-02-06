@@ -280,9 +280,10 @@ class ProgramTranslator(CommonTranslator):
             with ctx.function_scope():
                 ctx.args = {arg.name: arg for arg in args}
                 expr = implementation.node.body[0].value
-                stmts, impl_expr = self.specification_translator.translate(expr, ctx)
-                definition = self.viper_ast.EqCmp(result, impl_expr, pos)
+                stmts = []
+                impl_expr = self.specification_translator.translate(expr, stmts, ctx)
                 assert not stmts
+                definition = self.viper_ast.EqCmp(result, impl_expr, pos)
                 # The implementation is only defined for the self address
                 is_self = self.viper_ast.EqCmp(addr_var.local_var(ctx), self_address, pos)
                 posts.append(self.viper_ast.Implies(is_self, definition, pos))
@@ -321,24 +322,20 @@ class ProgramTranslator(CommonTranslator):
             args.append(self.viper_ast.LocalVarDecl(arg_name, arg_type))
         return self.viper_ast.Predicate(name, args, None)
 
-    def _assume_assertions(self, self_state: State, old_state: State, ctx: Context) -> List[Stmt]:
-        body = []
+    def _assume_assertions(self, self_state: State, old_state: State, res: List[Stmt], ctx: Context):
         with ctx.state_scope(self_state, old_state):
             for inv in ctx.unchecked_invariants():
-                body.append(self.viper_ast.Inhale(inv))
+                res.append(self.viper_ast.Inhale(inv))
             for inv in ctx.program.invariants:
                 pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                inv_stmts, inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                body.extend(inv_stmts)
-                body.append(self.viper_ast.Inhale(inv_expr, pos))
+                inv_expr = self.specification_translator.translate_invariant(inv, res, ctx)
+                res.append(self.viper_ast.Inhale(inv_expr, pos))
             for post in ctx.program.transitive_postconditions:
                 pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                post_stmts, post_expr = self.specification_translator.translate_postcondition(post, ctx)
+                post_expr = self.specification_translator.translate_postcondition(post, res, ctx)
                 is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                 post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
-                body.extend(post_stmts)
-                body.append(self.viper_ast.Inhale(post_expr, pos))
-        return body
+                res.append(self.viper_ast.Inhale(post_expr, pos))
 
     def _create_transitivity_check(self, ctx: Context):
         # Creates a check that all invariants and transitive postconditions are transitive.
@@ -386,7 +383,7 @@ class ProgramTranslator(CommonTranslator):
             body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
 
             def assume_assertions(s1, s2):
-                body.extend(self._assume_assertions(s1, s2, ctx))
+                self._assume_assertions(s1, s2, body, ctx)
 
             if ctx.program.analysis.uses_issued:
                 # Assume assertions for issued state and issued state
@@ -408,18 +405,16 @@ class ProgramTranslator(CommonTranslator):
                 for inv in ctx.program.invariants:
                     rule = rules.INVARIANT_TRANSITIVITY_VIOLATED
                     apos = self.to_position(inv, ctx, rule)
-                    inv_stmts, inv_expr = self.specification_translator.translate_invariant(inv, ctx)
-                    body.extend(inv_stmts)
+                    inv_expr = self.specification_translator.translate_invariant(inv, body, ctx)
                     body.append(self.viper_ast.Assert(inv_expr, apos))
 
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_TRANSITIVITY_VIOLATED
                     apos = self.to_position(post, ctx, rule)
-                    post_stmts, post_expr = self.specification_translator.translate_invariant(post, ctx)
+                    post_expr = self.specification_translator.translate_invariant(post, body, ctx)
                     pos = self.to_position(post, ctx)
                     is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                     post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
-                    body.extend(post_stmts)
                     body.append(self.viper_ast.Assert(post_expr, apos))
 
             local_vars.extend(ctx.new_local_vars)
@@ -466,7 +461,7 @@ class ProgramTranslator(CommonTranslator):
             body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
 
             def assume_assertions(s1, s2):
-                body.extend(self._assume_assertions(s1, s2, ctx))
+                self._assume_assertions(s1, s2, body, ctx)
 
             # Assume balance increase to be non-negative
             zero = self.viper_ast.IntLit(0)
@@ -479,20 +474,19 @@ class ProgramTranslator(CommonTranslator):
             else:
                 assume_assertions(present_state, present_state)
 
-            body.extend(self.state_translator.copy_state(pre_state, present_state, ctx))
+            self.state_translator.copy_state(pre_state, present_state, body, ctx)
 
             with ctx.state_scope(present_state, present_state):
-                body.append(self.balance_translator.increase_balance(havoc.localVar(), ctx))
+                self.balance_translator.increase_balance(havoc.localVar(), body, ctx)
 
             with ctx.state_scope(present_state, pre_state):
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)
-                    post_stmts, post_expr = self.specification_translator.translate_postcondition(post, ctx)
+                    post_expr = self.specification_translator.translate_postcondition(post, body, ctx)
                     pos = self.to_position(post, ctx)
                     is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                     post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
-                    body.extend(post_stmts)
                     body.append(self.viper_ast.Assert(post_expr, apos))
 
             local_vars.extend(ctx.new_local_vars)

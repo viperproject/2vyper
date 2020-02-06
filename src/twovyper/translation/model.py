@@ -30,7 +30,7 @@ class ModelTranslator(CommonTranslator):
 
         self.type_translator = TypeTranslator(viper_ast)
 
-    def save_variables(self, ctx: Context, pos=None) -> Tuple[List[Stmt], Optional[ModelTransformation]]:
+    def save_variables(self, res: List[Stmt], ctx: Context, pos=None) -> Optional[ModelTransformation]:
         # Viper only gives a model for variables, therefore we save all important expressions
         # in variables and provide a mapping back to the Vyper expression. Also, we give a value
         # transformation to change, e.g., 12 to 0.0000000012 for decimals.
@@ -39,7 +39,6 @@ class ModelTranslator(CommonTranslator):
 
         self_var = ctx.self_var.local_var(ctx)
         old_self_var = ctx.old_self_var.local_var(ctx)
-        stmts = []
         transform = {}
         type_map = {}
 
@@ -50,7 +49,7 @@ class ModelTranslator(CommonTranslator):
             ctx.new_local_vars.append(new_var)
             transform[new_var_name] = name
             type_map[new_var_name] = var_type
-            stmts.append(self.viper_ast.LocalVarAssign(new_var.localVar(), rhs, pos))
+            res.append(self.viper_ast.LocalVarAssign(new_var.localVar(), rhs, pos))
 
         def add_struct_members(struct, struct_type, components, wrapped=None):
             for member, member_type in struct_type.member_types.items():
@@ -118,4 +117,4 @@ class ModelTranslator(CommonTranslator):
                 transformed_value = transform_value(type_map[name], value)
                 return transformed_name, transformed_value
 
-        return stmts, model_transformation
+        return model_transformation

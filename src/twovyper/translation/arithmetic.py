@@ -17,7 +17,7 @@ from twovyper.translation.context import Context
 from twovyper.utils import switch
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
+from twovyper.viper.typedefs import Expr, Stmt
 
 
 class ArithmeticTranslator(CommonTranslator):
@@ -36,16 +36,18 @@ class ArithmeticTranslator(CommonTranslator):
             ast.ArithmeticOperator.SUB: self.viper_ast.Sub,
             ast.ArithmeticOperator.MUL: self.viper_ast.Mul,
             # Note that / and % in Vyper means truncating division
-            ast.ArithmeticOperator.DIV: lambda l, r, pos, info: helpers.div(viper_ast, l, r, pos, info),
-            ast.ArithmeticOperator.MOD: lambda l, r, pos, info: helpers.mod(viper_ast, l, r, pos, info),
-            ast.ArithmeticOperator.POW: lambda l, r, pos, info: helpers.pow(viper_ast, l, r, pos, info),
+            ast.ArithmeticOperator.DIV: lambda l, r, pos: helpers.div(viper_ast, l, r, pos),
+            ast.ArithmeticOperator.MOD: lambda l, r, pos: helpers.mod(viper_ast, l, r, pos),
+            ast.ArithmeticOperator.POW: lambda l, r, pos: helpers.pow(viper_ast, l, r, pos),
         }
 
-    def unary_arithmetic_op(self, op: ast.UnaryArithmeticOperator, arg, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:
-        res = self._unary_arithmetic_operations[op](arg, pos, info)
+    def unary_arithmetic_op(self, op: ast.UnaryArithmeticOperator, arg, otype: PrimitiveType, res: List[Stmt], ctx: Context, pos=None) -> Expr:
+        result = self._unary_arithmetic_operations[op](arg, pos)
         # Unary negation can only overflow if one negates MIN_INT128
-        stmts = self.check_overflow(res, otype, ctx, pos) if types.is_bounded(otype) else []
-        return stmts, res
+        if types.is_bounded(otype):
+            self.check_overflow(result, otype, res, ctx, pos)
+
+        return result
 
     # Decimals are scaled integers, i.e. the decimal 2.3 is represented as the integer
     # 2.3 * 10^10 = 23000000000. For addition, subtraction, and modulo the same operations
@@ -64,28 +66,27 @@ class ArithmeticTranslator(CommonTranslator):
         mult = self.viper_ast.Mul(lhs, scaling_factor, pos)
         return helpers.div(self.viper_ast, mult, rhs, pos, info)
 
-    def arithmetic_op(self, lhs, op: ast.ArithmeticOperator, rhs, otype: PrimitiveType, ctx: Context, pos=None, info=None) -> StmtsAndExpr:
+    def arithmetic_op(self, lhs, op: ast.ArithmeticOperator, rhs, otype: PrimitiveType, res: List[Stmt], ctx: Context, pos=None) -> Expr:
         ast_op = ast.ArithmeticOperator
 
-        stmts = []
         with switch(op, otype) as case:
             from twovyper.utils import _
 
             if (case(ast_op.DIV, _) or case(ast_op.MOD, _)) and not self.no_reverts:
                 cond = self.viper_ast.EqCmp(rhs, self.viper_ast.IntLit(0, pos), pos)
-                stmts.append(self.fail_if(cond, [], ctx, pos))
+                self.fail_if(cond, [], res, ctx, pos)
 
             if case(ast_op.MUL, types.VYPER_DECIMAL):
-                res = self.decimal_mul(lhs, rhs, ctx, pos, info)
+                expr = self.decimal_mul(lhs, rhs, ctx, pos)
             elif case(ast_op.DIV, types.VYPER_DECIMAL):
-                res = self.decimal_div(lhs, rhs, ctx, pos, info)
+                expr = self.decimal_div(lhs, rhs, ctx, pos)
             else:
-                res = self._arithmetic_ops[op](lhs, rhs, pos, info)
+                expr = self._arithmetic_ops[op](lhs, rhs, pos)
 
         if types.is_bounded(otype):
-            stmts.extend(self.check_under_overflow(res, otype, ctx, pos))
+            self.check_under_overflow(expr, otype, res, ctx, pos)
 
-        return stmts, res
+        return expr
 
     # Overflows and underflow checks can be disabled with the config flag 'no_overflows'.
     # If it is not enabled, we revert if an overflow happens. Additionally, we set the overflows
@@ -94,43 +95,38 @@ class ArithmeticTranslator(CommonTranslator):
     # Note that we only treat 'arbitary' bounds due to limited bit size as overflows,
     # getting negative unsigned values results in a normal revert.
 
-    def _set_overflow_flag(self, pos=None, info=None):
+    def _set_overflow_flag(self, res: List[Stmt], ctx: Context, pos=None):
         overflow = helpers.overflow_var(self.viper_ast, pos).localVar()
         true_lit = self.viper_ast.TrueLit(pos)
-        return self.viper_ast.LocalVarAssign(overflow, true_lit, pos, info)
+        res.append(self.viper_ast.LocalVarAssign(overflow, true_lit, pos))
 
-    def check_underflow(self, arg, type: BoundedType, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def check_underflow(self, arg, type: BoundedType, res: List[Stmt], ctx: Context, pos=None):
         lower = self.viper_ast.IntLit(type.lower, pos)
         lt = self.viper_ast.LtCmp(arg, lower, pos)
 
         if types.is_unsigned(type) and not self.no_reverts:
-            return [self.fail_if(lt, [], ctx, pos, info)]
-        elif self.no_reverts or ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
-            return []
-        else:
-            stmts = [self._set_overflow_flag(pos)]
-            return [self.fail_if(lt, stmts, ctx, pos, info)]
+            self.fail_if(lt, [], res, ctx, pos)
+        elif not self.no_reverts and not ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
+            stmts = []
+            self._set_overflow_flag(stmts, ctx, pos)
+            self.fail_if(lt, stmts, res, ctx, pos)
 
-    def check_overflow(self, arg, type: BoundedType, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def check_overflow(self, arg, type: BoundedType, res: List[Stmt], ctx: Context, pos=None):
         upper = self.viper_ast.IntLit(type.upper, pos)
         gt = self.viper_ast.GtCmp(arg, upper, pos)
 
-        if self.no_reverts or ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
-            return []
-        else:
-            stmts = [self._set_overflow_flag(pos)]
-            return [self.fail_if(gt, stmts, ctx, pos, info)]
+        if not self.no_reverts and not ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
+            stmts = []
+            self._set_overflow_flag(stmts, ctx, pos)
+            self.fail_if(gt, stmts, res, ctx, pos)
 
-    def check_under_overflow(self, arg, type: BoundedType, ctx: Context, pos=None, info=None) -> List[Stmt]:
+    def check_under_overflow(self, arg, type: BoundedType, res: List[Stmt], ctx: Context, pos=None):
         # For unsigned types we need to check over and underflow separately as we treat underflows
         # as normal reverts
         if types.is_unsigned(type) and not self.no_reverts:
-            underflow = self.check_underflow(arg, type, ctx, pos, info)
-            overflow = self.check_overflow(arg, type, ctx, pos, info)
-            return underflow + overflow
-        elif self.no_reverts or ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
-            return []
-        else:
+            self.check_underflow(arg, type, res, ctx, pos)
+            self.check_overflow(arg, type, res, ctx, pos)
+        elif not self.no_reverts and not ctx.program.config.has_option(names.CONFIG_NO_OVERFLOWS):
             # Checking for overflow and undeflow in the same if-condition is more efficient than
             # introducing two branches
             lower = self.viper_ast.IntLit(type.lower, pos)
@@ -140,5 +136,6 @@ class ArithmeticTranslator(CommonTranslator):
             gt = self.viper_ast.GtCmp(arg, upper, pos)
 
             cond = self.viper_ast.Or(lt, gt, pos)
-            stmts = [self._set_overflow_flag(pos)]
-            return [self.fail_if(cond, stmts, ctx, pos, info)]
+            stmts = []
+            self._set_overflow_flag(stmts, ctx, pos)
+            self.fail_if(cond, stmts, res, ctx, pos)

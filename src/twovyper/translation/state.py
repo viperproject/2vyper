@@ -60,35 +60,33 @@ class StateTranslator(CommonTranslator):
     def _is_local(self, state_var: str) -> bool:
         return state_var != mangled.CONTRACTS
 
-    def initialize_state(self, state: State, ctx: Context, pos=None) -> List[Stmt]:
+    def initialize_state(self, state: State, res: List[Stmt], ctx: Context, pos=None):
         """
         Initializes the state belonging to the current contract, namely self and allocated,
         to its default value.
         """
-        stmts = []
         for var in state.values():
             if self._is_local(var.name):
-                default_stmts, default = self.type_translator.default_value(None, var.type, ctx)
+                default = self.type_translator.default_value(None, var.type, res, ctx)
                 assign = self.viper_ast.LocalVarAssign(var.local_var(ctx), default)
-                stmts.extend(default_stmts)
-                stmts.append(assign)
-        return stmts
+                res.append(assign)
 
-    def copy_state(self, from_state: State, to_state: State, ctx: Context, pos=None) -> List[Stmt]:
+    def copy_state(self, from_state: State, to_state: State, res: List[Stmt], ctx: Context, pos=None):
         copies = []
         for name in set(from_state) & set(to_state):
             to_var = to_state[name].local_var(ctx)
             from_var = from_state[name].local_var(ctx)
             copies.append(self.viper_ast.LocalVarAssign(to_var, from_var, pos))
-        return self.seqn_with_info(copies, "Copy state")
 
-    def havoc_state_except_self(self, state: State, ctx: Context, pos=None) -> List[Stmt]:
+        self.seqn_with_info(copies, "Copy state", res)
+
+    def havoc_state_except_self(self, state: State, res: List[Stmt], ctx: Context, pos=None):
         """
         Havocs all contract state except self and allocated.
         """
-        return self.havoc_state(state, ctx, pos, unless=self._is_local)
+        return self.havoc_state(state, res, ctx, pos, unless=self._is_local)
 
-    def havoc_state(self, state: State, ctx: Context, pos=None, unless=None) -> List[Stmt]:
+    def havoc_state(self, state: State, res: List[Stmt], ctx: Context, pos=None, unless=None):
         havocs = []
         for var in ctx.current_state.values():
             if unless and unless(var.name):
@@ -97,9 +95,10 @@ class StateTranslator(CommonTranslator):
             havoc_var = self.viper_ast.LocalVarDecl(havoc_name, var.var_decl(ctx).typ(), pos)
             ctx.new_local_vars.append(havoc_var)
             havocs.append(self.viper_ast.LocalVarAssign(var.local_var(ctx), havoc_var.localVar(), pos))
-        return self.seqn_with_info(havocs, "Havoc state")
 
-    def check_first_public_state(self, ctx: Context, set_false: bool, pos=None, info=None) -> Stmt:
+        self.seqn_with_info(havocs, "Havoc state", res)
+
+    def check_first_public_state(self, res: List[Stmt], ctx: Context, set_false: bool, pos=None, info=None):
         stmts = []
         for name in ctx.current_state:
             if self._is_local(name):
@@ -115,4 +114,4 @@ class StateTranslator(CommonTranslator):
             var_assign = self.viper_ast.LocalVarAssign(first_public_state, false, pos)
             stmts.append(var_assign)
 
-        return self.viper_ast.If(first_public_state, stmts, [], pos, info)
+        res.append(self.viper_ast.If(first_public_state, stmts, [], pos, info))

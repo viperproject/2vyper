@@ -13,7 +13,7 @@ from twovyper.ast.types import (
 )
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr, Type
+from twovyper.viper.typedefs import Expr, Stmt, Type
 
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.context import Context
@@ -51,39 +51,35 @@ class TypeTranslator(CommonTranslator):
         else:
             assert False
 
-    def default_value(self, node: Optional[ast.Node], type: VyperType, ctx: Context) -> StmtsAndExpr:
+    def default_value(self, node: Optional[ast.Node], type: VyperType, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.no_position() if node is None else self.to_position(node, ctx)
         if type is types.VYPER_BOOL:
-            return [], self.viper_ast.FalseLit(pos)
+            return self.viper_ast.FalseLit(pos)
         elif isinstance(type, PrimitiveType):
-            return [], self.viper_ast.IntLit(0, pos)
+            return self.viper_ast.IntLit(0, pos)
         elif isinstance(type, MapType):
             key_type = self.translate(type.key_type, ctx)
             value_type = self.translate(type.value_type, ctx)
 
-            stmts, value_default = self.default_value(node, type.value_type, ctx)
-            call = helpers.map_init(self.viper_ast, value_default, key_type, value_type, pos)
-            return stmts, call
+            value_default = self.default_value(node, type.value_type, res, ctx)
+            return helpers.map_init(self.viper_ast, value_default, key_type, value_type, pos)
         elif isinstance(type, ArrayType):
             element_type = self.translate(type.element_type, ctx)
             if type.is_strict:
-                stmts, element_default = self.default_value(node, type.element_type, ctx)
-                array = helpers.array_init(self.viper_ast, element_default, type.size, element_type, pos)
-                return stmts, array
+                element_default = self.default_value(node, type.element_type, res, ctx)
+                return helpers.array_init(self.viper_ast, element_default, type.size, element_type, pos)
             else:
-                return [], helpers.empty_array(self.viper_ast, element_type, pos)
+                return helpers.empty_array(self.viper_ast, element_type, pos)
         elif isinstance(type, StructType):
             init_args = {}
-            stmts = []
             for name, member_type in type.member_types.items():
                 idx = type.member_indices[name]
-                default_stmts, val = self.default_value(node, member_type, ctx)
+                val = self.default_value(node, member_type, res, ctx)
                 init_args[idx] = val
-                stmts.extend(default_stmts)
             args = [init_args[i] for i in range(len(init_args))]
-            return stmts, helpers.struct_init(self.viper_ast, args, type, pos)
+            return helpers.struct_init(self.viper_ast, args, type, pos)
         elif isinstance(type, (ContractType, InterfaceType)):
-            return self.default_value(node, types.VYPER_ADDRESS, ctx)
+            return self.default_value(node, types.VYPER_ADDRESS, res, ctx)
         else:
             assert False
 
@@ -186,11 +182,11 @@ class TypeTranslator(CommonTranslator):
         with ctx.quantified_var_scope():
             return construct(type, node)
 
-    def array_bounds_check(self, array, index, ctx: Context) -> Stmt:
+    def array_bounds_check(self, array, index, res: List[Stmt], ctx: Context):
         leq = self.viper_ast.LeCmp(self.viper_ast.IntLit(0), index)
         le = self.viper_ast.LtCmp(index, self.viper_ast.SeqLength(array))
         cond = self.viper_ast.Not(self.viper_ast.And(leq, le))
-        return self.fail_if(cond, [], ctx)
+        self.fail_if(cond, [], res, ctx)
 
     def comparator(self, type: VyperType, ctx: Context):
         # For msg, block, chain, tx we don't generate an equality function, as they are immutable anyway

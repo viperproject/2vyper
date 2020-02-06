@@ -13,8 +13,6 @@ from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import UnsupportedException
 
-from twovyper.utils import flatten
-
 from twovyper.translation import helpers
 from twovyper.translation.context import Context
 from twovyper.translation.abstract import NodeTranslator, CommonTranslator
@@ -25,7 +23,7 @@ from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Stmt
+from twovyper.viper.typedefs import Expr, Stmt
 
 
 class StatementTranslator(NodeTranslator):
@@ -38,108 +36,104 @@ class StatementTranslator(NodeTranslator):
         self.model_translator = ModelTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
-    def translate_stmts(self, stmts: List[Stmt], ctx: Context) -> List[Stmt]:
-        return flatten([self.translate(s, ctx) for s in stmts])
+    def translate_stmts(self, stmts: List[ast.Stmt], res: List[Stmt], ctx: Context):
+        for s in stmts:
+            self.translate(s, res, ctx)
 
-    def translate_AnnAssign(self, node: ast.AnnAssign, ctx: Context) -> List[Stmt]:
+    def translate_AnnAssign(self, node: ast.AnnAssign, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
         self._add_local_var(node.target, ctx)
 
         # An annotated assignment can only have a local variable on the lhs,
         # therefore we can simply use the expression translator
-        lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
+        lhs = self.expression_translator.translate(node.target, res, ctx)
 
         if node.value is None:
             type = node.target.type
-            rhs_stmts, rhs = self.type_translator.default_value(None, type, ctx)
+            rhs = self.type_translator.default_value(None, type, res, ctx)
         else:
-            rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
+            rhs = self.expression_translator.translate(node.value, res, ctx)
 
-        return lhs_stmts + rhs_stmts + [self.viper_ast.LocalVarAssign(lhs, rhs, pos)]
+        res.append(self.viper_ast.LocalVarAssign(lhs, rhs, pos))
 
-    def translate_Assign(self, node: ast.Assign, ctx: Context) -> List[Stmt]:
+    def translate_Assign(self, node: ast.Assign, res: List[Stmt], ctx: Context):
         # We only support single assignments for now
-        rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
-        assign_stmts, assign = self.assignment_translator.assign_to(node.target, rhs, ctx)
-        return assign_stmts + rhs_stmts + [assign]
+        rhs = self.expression_translator.translate(node.value, res, ctx)
+        self.assignment_translator.assign_to(node.target, rhs, res, ctx)
 
-    def translate_AugAssign(self, node: ast.AugAssign, ctx: Context) -> List[Stmt]:
+    def translate_AugAssign(self, node: ast.AugAssign, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
-        lhs_stmts, lhs = self.expression_translator.translate(node.target, ctx)
-        rhs_stmts, rhs = self.expression_translator.translate(node.value, ctx)
+        lhs = self.expression_translator.translate(node.target, res, ctx)
+        rhs = self.expression_translator.translate(node.value, res, ctx)
 
-        at = self.arithmetic_translator
-        value_stmts, value = at.arithmetic_op(lhs, node.op, rhs, node.value.type, ctx, pos)
+        value = self.arithmetic_translator.arithmetic_op(lhs, node.op, rhs, node.value.type, res, ctx, pos)
 
-        assign_stmts, assign = self.assignment_translator.assign_to(node.target, value, ctx)
-        return [*lhs_stmts, *rhs_stmts, *value_stmts, *assign_stmts, assign]
+        self.assignment_translator.assign_to(node.target, value, res, ctx)
 
-    def translate_ExprStmt(self, node: ast.ExprStmt, ctx: Context) -> List[Stmt]:
+    def translate_ExprStmt(self, node: ast.ExprStmt, res: List[Stmt], ctx: Context):
         # Check if we are translating a call to clear
         # We handle clear in the StatementTranslator because it is essentially an assignment
         if isinstance(node.value, ast.FunctionCall) and node.value.name == names.CLEAR:
             arg = node.value.args[0]
-            stmts, value = self.type_translator.default_value(node, arg.type, ctx)
-            assign_stmts, assign = self.assignment_translator.assign_to(arg, value, ctx)
-            return assign_stmts + stmts + [assign]
+            value = self.type_translator.default_value(node, arg.type, res, ctx)
+            self.assignment_translator.assign_to(arg, value, res, ctx)
         else:
             # Ignore the expression, return the stmts
-            stmts, _ = self.expression_translator.translate(node.value, ctx)
-            return stmts
+            _ = self.expression_translator.translate(node.value, res, ctx)
 
-    def translate_Raise(self, node: ast.Raise, ctx: Context) -> List[Stmt]:
+    def translate_Raise(self, node: ast.Raise, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
         # If UNREACHABLE is used, we assert that the exception is unreachable,
         # i.e., that it never happens; else, we revert
         if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
-            save_vars, modelt = self.model_translator.save_variables(ctx, pos)
+            modelt = self.model_translator.save_variables(res, ctx, pos)
             mpos = self.to_position(node, ctx, modelt=modelt)
             false = self.viper_ast.FalseLit(pos)
-            return [*save_vars, self.viper_ast.Assert(false, mpos)]
+            res.append(self.viper_ast.Assert(false, mpos))
         else:
-            return [self.viper_ast.Goto(ctx.revert_label, pos)]
+            res.append(self.viper_ast.Goto(ctx.revert_label, pos))
 
-    def translate_Assert(self, node: ast.Assert, ctx: Context) -> List[Stmt]:
+    def translate_Assert(self, node: ast.Assert, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
-        stmts, expr = self.expression_translator.translate(node.test, ctx)
+        expr = self.expression_translator.translate(node.test, res, ctx)
 
         # If UNREACHABLE is used, we try to prove that the assertion holds by
         # translating it directly as an assert; else, revert if the condition
         # is false.
         if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
-            save_vars, modelt = self.model_translator.save_variables(ctx, pos)
+            modelt = self.model_translator.save_variables(res, ctx, pos)
             mpos = self.to_position(node, ctx, modelt=modelt)
-            return stmts + save_vars + [self.viper_ast.Assert(expr, mpos)]
+            res.append(self.viper_ast.Assert(expr, mpos))
         else:
             cond = self.viper_ast.Not(expr, pos)
-            return stmts + [self.fail_if(cond, [], ctx, pos)]
+            self.fail_if(cond, [], res, ctx, pos)
 
-    def translate_Return(self, node: ast.Return, ctx: Context) -> List[Stmt]:
+    def translate_Return(self, node: ast.Return, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
-
-        jmp_to_return = self.viper_ast.Goto(ctx.return_label, pos)
 
         if node.value:
-            stmts, expr = self.expression_translator.translate(node.value, ctx)
+            expr = self.expression_translator.translate(node.value, res, ctx)
             assign = self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ctx, pos), expr, pos)
-            return stmts + [assign, jmp_to_return]
-        else:
-            return [jmp_to_return]
+            res.append(assign)
 
-    def translate_If(self, node: ast.If, ctx: Context) -> List[Stmt]:
+        res.append(self.viper_ast.Goto(ctx.return_label, pos))
+
+    def translate_If(self, node: ast.If, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
-        cond_stmts, cond = self.expression_translator.translate(node.test, ctx)
-        then_body = self.translate_stmts(node.body, ctx)
-        else_body = self.translate_stmts(node.orelse, ctx)
+        cond = self.expression_translator.translate(node.test, res, ctx)
+        then_body = []
+        self.translate_stmts(node.body, then_body, ctx)
+        else_body = []
+        self.translate_stmts(node.orelse, else_body, ctx)
         if_stmt = self.viper_ast.If(cond, then_body, else_body, pos)
-        return cond_stmts + [if_stmt]
+        res.append(if_stmt)
 
-    def translate_For(self, node: ast.For, ctx: Context) -> List[Stmt]:
+    def translate_For(self, node: ast.For, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
         self._add_local_var(node.target, ctx)
@@ -150,7 +144,7 @@ class StatementTranslator(NodeTranslator):
             rpos = self.to_position(node.iter, ctx)
 
             times = node.iter.type.size
-            stmts, array = self.expression_translator.translate(node.iter, ctx)
+            array = self.expression_translator.translate(node.iter, res, ctx)
 
             for i in range(times):
                 with ctx.continue_scope():
@@ -158,25 +152,24 @@ class StatementTranslator(NodeTranslator):
                     idx = self.viper_ast.IntLit(i, lpos)
                     array_at = self.viper_ast.SeqIndex(array, idx, rpos)
                     var_set = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos, loop_info)
-                    stmts.append(var_set)
-                    stmts.extend(self.translate_stmts(node.body, ctx))
+                    res.append(var_set)
+                    self.translate_stmts(node.body, res, ctx)
                     continue_info = self.to_info(["End of loop iteration."])
-                    stmts.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
+                    res.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
 
             break_info = self.to_info(["End of loop."])
-            stmts.append(self.viper_ast.Label(ctx.break_label, pos, break_info))
-            return stmts
+            res.append(self.viper_ast.Label(ctx.break_label, pos, break_info))
 
-    def translate_Break(self, node: ast.Break, ctx: Context) -> List[Stmt]:
+    def translate_Break(self, node: ast.Break, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
-        return [self.viper_ast.Goto(ctx.break_label, pos)]
+        res.append(self.viper_ast.Goto(ctx.break_label, pos))
 
-    def translate_Continue(self, node: ast.Continue, ctx: Context) -> List[Stmt]:
+    def translate_Continue(self, node: ast.Continue, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
-        return [self.viper_ast.Goto(ctx.continue_label, pos)]
+        res.append(self.viper_ast.Goto(ctx.continue_label, pos))
 
-    def translate_Pass(self, node: ast.Pass, ctx: Context) -> List[Stmt]:
-        return []
+    def translate_Pass(self, node: ast.Pass, res: List[Stmt], ctx: Context):
+        pass
 
     def _add_local_var(self, node: ast.Name, ctx: Context):
         """
@@ -201,37 +194,33 @@ class _AssignmentTranslator(NodeVisitor, CommonTranslator):
     def method_name(self) -> str:
         return 'assign_to'
 
-    def assign_to(self, node, value, ctx):
-        return self.visit(node, value, ctx)
+    def assign_to(self, node: ast.Node, value: Expr, res: List[Stmt], ctx: Context):
+        return self.visit(node, value, res, ctx)
 
-    def generic_visit(self, node, value, ctx):
+    def generic_visit(self, node: ast.Node, value: Expr, res: List[Stmt], ctx: Context):
         assert False
 
-    def assign_to_Name(self, node: ast.Name, value, ctx: Context):
+    def assign_to_Name(self, node: ast.Name, value: Expr, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
-        lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
-        assign = self.viper_ast.LocalVarAssign(lhs, value, pos)
-        return lhs_stmts, assign
+        lhs = self.expression_translator.translate(node, res, ctx)
+        res.append(self.viper_ast.LocalVarAssign(lhs, value, pos))
 
-    def assign_to_Attribute(self, node: ast.Attribute, value, ctx: Context):
+    def assign_to_Attribute(self, node: ast.Attribute, value: Expr, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
         if isinstance(node.value.type, StructType):
-            receiver_stmts, rec = self.expression_translator.translate(node.value, ctx)
+            rec = self.expression_translator.translate(node.value, res, ctx)
             type = self.type_translator.translate(node.type, ctx)
             new_value = helpers.struct_set(self.viper_ast, rec, value, node.attr, type, node.value.type, pos)
-            assign_stmts, assign = self.assign_to(node.value, new_value, ctx)
-            return receiver_stmts + assign_stmts, assign
+            self.assign_to(node.value, new_value, res, ctx)
         else:
-            lhs_stmts, lhs = self.expression_translator.translate(node, ctx)
-            assign = self.viper_ast.FieldAssign(lhs, value, pos)
-            return lhs_stmts, assign
+            lhs = self.expression_translator.translate(node, res, ctx)
+            res.append(self.viper_ast.FieldAssign(lhs, value, pos))
 
-    def assign_to_Subscript(self, node: ast.Subscript, value, ctx: Context):
+    def assign_to_Subscript(self, node: ast.Subscript, value: Expr, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
-        receiver_stmts, receiver = self.expression_translator.translate(node.value, ctx)
-        index_stmts, index = self.expression_translator.translate(node.index, ctx)
-        stmts = []
+        receiver = self.expression_translator.translate(node.value, res, ctx)
+        index = self.expression_translator.translate(node.index, res, ctx)
 
         type = node.value.type
         if isinstance(type, MapType):
@@ -239,7 +228,7 @@ class _AssignmentTranslator(NodeVisitor, CommonTranslator):
             value_type = self.type_translator.translate(type.value_type, ctx)
             new_value = helpers.map_set(self.viper_ast, receiver, index, value, key_type, value_type, pos)
         elif isinstance(type, ArrayType):
-            stmts.append(self.type_translator.array_bounds_check(receiver, index, ctx))
+            self.type_translator.array_bounds_check(receiver, index, res, ctx)
             new_value = helpers.array_set(self.viper_ast, receiver, index, value, type.element_type, pos)
         else:
             assert False
@@ -247,8 +236,7 @@ class _AssignmentTranslator(NodeVisitor, CommonTranslator):
         # We simply evaluate the receiver and index statements here, even though they
         # might get evaluated again in the recursive call. This is ok as long as the lhs of the
         # assignment is pure.
-        assign_stmts, assign = self.assign_to(node.value, new_value, ctx)
-        return receiver_stmts + index_stmts + stmts + assign_stmts, assign
+        self.assign_to(node.value, new_value, res, ctx)
 
     def assign_to_ReceiverCall(self, node: ast.ReceiverCall, value, ctx: Context):
         raise UnsupportedException(node, "Assignments to calls are not supported.")

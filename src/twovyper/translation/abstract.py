@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import Any, Dict, List, Iterable, Tuple
+from typing import Any, Dict, List
 
 from twovyper.ast import ast_nodes as ast
 from twovyper.ast.visitors import NodeVisitor
@@ -17,7 +17,7 @@ from twovyper.verification.error import ErrorInfo, ModelTransformation, Via
 from twovyper.verification.rules import Rule
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, Stmt, StmtsAndExpr
+from twovyper.viper.typedefs import Expr, Stmt
 from twovyper.viper.typedefs import Position, Info
 
 
@@ -71,23 +71,14 @@ class CommonTranslator:
     def no_info(self) -> Info:
         return self.to_info([])
 
-    def collect(self, se: Iterable[StmtsAndExpr]) -> Tuple[List[Stmt], List[Expr]]:
-        stmts = []
-        exprs = []
-        for stmt, expr in se:
-            stmts.extend(stmt)
-            exprs.append(expr)
-        return stmts, exprs
-
-    def fail_if(self, cond, stmts, ctx: Context, pos=None, info=None) -> Stmt:
+    def fail_if(self, cond: Expr, stmts: List[Stmt], res: List[Stmt], ctx: Context, pos=None, info=None):
         body = [*stmts, self.viper_ast.Goto(ctx.revert_label, pos)]
-        return self.viper_ast.If(cond, body, [], pos, info)
+        res.append(self.viper_ast.If(cond, body, [], pos, info))
 
-    def seqn_with_info(self, stmts: [Stmt], comment: str) -> List[Stmt]:
-        if not stmts:
-            return stmts
-        info = self.to_info([comment])
-        return [self.viper_ast.Seqn(stmts, info=info)]
+    def seqn_with_info(self, stmts: [Stmt], comment: str, res: List[Stmt]):
+        if stmts:
+            info = self.to_info([comment])
+            res.append(self.viper_ast.Seqn(stmts, info=info))
 
 
 class NodeTranslator(NodeVisitor, CommonTranslator):
@@ -99,8 +90,8 @@ class NodeTranslator(NodeVisitor, CommonTranslator):
     def method_name(self) -> str:
         return 'translate'
 
-    def translate(self, node, ctx):
-        return self.visit(node, ctx)
+    def translate(self, node: ast.Node, res: List[Stmt], ctx: Context):
+        return self.visit(node, res, ctx)
 
-    def generic_visit(self, node, ctx):
+    def generic_visit(self, node: ast.Node, ctx: Context):
         raise AssertionError(f"Node of type {type(node)} not supported.")
