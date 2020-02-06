@@ -403,7 +403,8 @@ class AllocationTranslator(CommonTranslator):
             cond = self._quantifier(cond, [trigger], ctx, pos)
 
         stmts, modelt = self.model_translator.save_variables(ctx, pos)
-        apos = self.to_position(node, ctx, rule, modelt=modelt)
+        combined_rule = rules.combine(rules.NOT_TRUSTED_FAIL, rule)
+        apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
         stmts.append(self.viper_ast.Assert(cond, apos))
         return stmts
 
@@ -491,7 +492,8 @@ class AllocationTranslator(CommonTranslator):
         else:
             pred = self._performs_acc_predicate(function, args, ctx, pos)
             model_stmts, modelt = self.model_translator.save_variables(ctx, pos)
-            apos = self.to_position(node, ctx, rule, modelt=modelt)
+            combined_rule = rules.combine(rules.NO_PERFORMS_FAIL, rule)
+            apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
             return [*model_stmts, self.viper_ast.Exhale(pred, apos)]
 
     def allocate(self,
@@ -508,8 +510,8 @@ class AllocationTranslator(CommonTranslator):
         """
         Checks that `from` has sufficient allocation and then moves `amount` allocation from `frm` to `to`.
         """
-        check_performs = self._exhale_performs(node, names.REALLOCATE, [resource, frm, to, amount], rules.REALLOCATE_FAIL_NO_PERFORMS, ctx, pos)
-        check_trusted = self._check_trusted(node, actor, frm, rules.REALLOCATE_FAIL_NOT_TRUSTED, ctx, pos)
+        check_performs = self._exhale_performs(node, names.REALLOCATE, [resource, frm, to, amount], rules.REALLOCATE_FAIL, ctx, pos)
+        check_trusted = self._check_trusted(node, actor, frm, rules.REALLOCATE_FAIL, ctx, pos)
         check_allocation = self._check_allocation(node, resource, frm, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS, ctx, pos, info)
         decs = self._change_allocation(resource, frm, amount, False, ctx, pos)
         incs = self._change_allocation(resource, to, amount, True, ctx, pos)
@@ -529,11 +531,11 @@ class AllocationTranslator(CommonTranslator):
                resource: Expr, frm: Expr, to: Expr, amount: Expr, actor: Expr,
                is_init: bool,
                ctx: Context, pos=None) -> List[Stmt]:
-        stmts = self._exhale_performs(node, names.CREATE, [resource, frm, to, amount], rules.CREATE_FAIL_NO_PERFORMS, ctx, pos)
+        stmts = self._exhale_performs(node, names.CREATE, [resource, frm, to, amount], rules.CREATE_FAIL, ctx, pos)
 
         if not is_init:
             # The initializer is allowed to create all resources unchecked.
-            stmts.extend(self._check_trusted(node, actor, frm, rules.CREATE_FAIL_NOT_TRUSTED, ctx, pos))
+            stmts.extend(self._check_trusted(node, actor, frm, rules.CREATE_FAIL, ctx, pos))
             creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
             stmts.extend(self._check_creator(node, creator_resource, frm, amount, ctx, pos))
 
@@ -558,8 +560,8 @@ class AllocationTranslator(CommonTranslator):
         """
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
-        check_performs = self._exhale_performs(node, names.DESTROY, [resource, address, amount], rules.DESTROY_FAIL_NO_PERFORMS, ctx, pos)
-        check_trusted = self._check_trusted(node, actor, address, rules.DESTROY_FAIL_NOT_TRUSTED, ctx, pos)
+        check_performs = self._exhale_performs(node, names.DESTROY, [resource, address, amount], rules.DESTROY_FAIL, ctx, pos)
+        check_trusted = self._check_trusted(node, actor, address, rules.DESTROY_FAIL, ctx, pos)
         check_allocation = self._check_allocation(node, resource, address, amount, rules.DESTROY_FAIL_INSUFFICIENT_FUNDS, ctx, pos, info)
 
         if ctx.quantified_vars:
@@ -708,9 +710,9 @@ class AllocationTranslator(CommonTranslator):
               from_owner: Expr, to_owner: Expr,
               times: Expr, actor: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
-        prule = rules.OFFER_FAIL_NO_PERFORMS
+        prule = rules.OFFER_FAIL
         stmts = self._exhale_performs(node, names.OFFER, [from_resource, to_resource, from_value, to_value, from_owner, to_owner, times], prule, ctx, pos)
-        stmts.extend(self._check_trusted(node, actor, from_owner, rules.OFFER_FAIL_NOT_TRUSTED, ctx, pos))
+        stmts.extend(self._check_trusted(node, actor, from_owner, rules.OFFER_FAIL, ctx, pos))
 
         if ctx.quantified_vars:
             # We are translating a
@@ -741,9 +743,9 @@ class AllocationTranslator(CommonTranslator):
                from_owner: Expr, to_owner: Expr,
                actor: Expr,
                ctx: Context, pos=None) -> List[Stmt]:
-        prule = rules.REVOKE_FAIL_NO_PERFORMS
+        prule = rules.REVOKE_FAIL
         stmts = self._exhale_performs(node, names.REVOKE, [from_resource, to_resource, from_value, to_value, from_owner, to_owner], prule, ctx, pos)
-        stmts.extend(self._check_trusted(node, actor, from_owner, rules.REVOKE_FAIL_NOT_TRUSTED, ctx, pos))
+        stmts.extend(self._check_trusted(node, actor, from_owner, rules.REVOKE_FAIL, ctx, pos))
         if ctx.quantified_vars:
             # We are translating a
             #   foreach({x1: t1, x2: t2, ...}, revoke(e1(x1, x2, ...), e2(x1, x2, ...), to=e3(x1, x2, ...)))
@@ -810,8 +812,8 @@ class AllocationTranslator(CommonTranslator):
               address: Expr, from_address: Expr,
               new_value: Expr, actor: Expr,
               ctx: Context, pos=None) -> List[Stmt]:
-        stmts = self._exhale_performs(node, names.TRUST, [address, from_address, new_value], rules.TRUST_FAIL_NO_PERFORMS, ctx, pos)
-        stmts.extend(self._check_trusted(node, actor, from_address, rules.TRUST_FAIL_NOT_TRUSTED, ctx, pos))
+        stmts = self._exhale_performs(node, names.TRUST, [address, from_address, new_value], rules.TRUST_FAIL, ctx, pos)
+        stmts.extend(self._check_trusted(node, actor, from_address, rules.TRUST_FAIL, ctx, pos))
         if ctx.quantified_vars:
             return stmts + self._foreach_change_trusted(address, from_address, new_value, ctx, pos)
         else:

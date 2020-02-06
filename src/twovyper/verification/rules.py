@@ -12,6 +12,25 @@ from typing import Dict, Tuple
 Rule = Dict[Tuple[str, str], Tuple[str, str]]
 
 
+def combine(first: Rule, second: Rule) -> Rule:
+    """
+    Combines `first` and `second` to produce a rule as if we first apply
+    `first` and then apply `second` to its result.
+    """
+    res = first.copy()
+    for k, v in first.items():
+        # If the result of the first mapping is an input to the second mapping,
+        # do the mapping
+        if v in second:
+            res[k] = second[v]
+    # For all keys which are not mentioned in the first mapping, add the second
+    # mapping
+    for k, v in second.items():
+        if k not in res:
+            res[k] = v
+    return res
+
+
 INVARIANT_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('invariant.violated', 'assertion.false'),
@@ -117,64 +136,14 @@ REALLOCATE_FAIL_INSUFFICIENT_FUNDS = {
         ('reallocate.failed', 'insufficient.funds')
 }
 
-REALLOCATE_FAIL_NOT_TRUSTED = {
-    ('assert.failed', 'assertion.false'):
-        ('reallocate.failed', 'not.trusted')
-}
-
-REALLOCATE_FAIL_NO_PERFORMS = {
-    ('exhale.failed', 'insufficient.permission'):
-        ('reallocate.failed', 'no.performs')
-}
-
 CREATE_FAIL_NOT_A_CREATOR = {
     ('assert.failed', 'assertion.false'):
         ('create.failed', 'not.a.creator')
 }
 
-CREATE_FAIL_NOT_TRUSTED = {
-    ('assert.failed', 'assertion.false'):
-        ('create.failed', 'not.trusted')
-}
-
-CREATE_FAIL_NO_PERFORMS = {
-    ('exhale.failed', 'insufficient.permission'):
-        ('create.failed', 'no.performs')
-}
-
 DESTROY_FAIL_INSUFFICIENT_FUNDS = {
     ('assert.failed', 'assertion.false'):
         ('destroy.failed', 'insufficient.funds')
-}
-
-DESTROY_FAIL_NOT_TRUSTED = {
-    ('assert.failed', 'assertion.false'):
-        ('destroy.failed', 'not.trusted')
-}
-
-DESTROY_FAIL_NO_PERFORMS = {
-    ('exhale.failed', 'insufficient.permission'):
-        ('destroy.failed', 'no.performs')
-}
-
-OFFER_FAIL_NOT_TRUSTED = {
-    ('assert.failed', 'assertion.false'):
-        ('offer.failed', 'not.trusted')
-}
-
-OFFER_FAIL_NO_PERFORMS = {
-    ('exhale.failed', 'insufficient.permission'):
-        ('offer.failed', 'no.performs')
-}
-
-REVOKE_FAIL_NOT_TRUSTED = {
-    ('assert.failed', 'assertion.false'):
-        ('revoke.failed', 'not.trusted')
-}
-
-REVOKE_FAIL_NO_PERFORMS = {
-    ('exhale.failed', 'insufficient.permission'):
-        ('revoke.failed', 'no.performs')
 }
 
 EXCHANGE_FAIL_NO_OFFER = {
@@ -187,14 +156,71 @@ EXCHANGE_FAIL_INSUFFICIENT_FUNDS = {
         ('exchange.failed', 'insufficient.funds')
 }
 
-TRUST_FAIL_NOT_TRUSTED = {
+INJECTIVITY_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
-        ('trust.failed', 'not.trusted')
+        ('$operation.failed', 'offer.not.injective')
 }
 
-TRUST_FAIL_NO_PERFORMS = {
+NO_PERFORMS_FAIL = {
     ('exhale.failed', 'insufficient.permission'):
-        ('trust.failed', 'no.performs')
+        ('$operation.failed', 'no.performs')
+}
+
+NOT_TRUSTED_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('$operation.failed', 'not.trusted')
+}
+
+REALLOCATE_FAIL = {
+    ('$operation.failed', 'no.performs'):
+        ('reallocate.failed', 'no.performs'),
+    ('$operation.failed', 'not.trusted'):
+        ('reallocate.failed', 'not.trusted')
+}
+
+CREATE_FAIL = {
+    ('$operation.failed', 'offer.not.injective'):
+        ('create.failed', 'offer.not.injective'),
+    ('$operation.failed', 'no.performs'):
+        ('create.failed', 'no.performs'),
+    ('$operation.failed', 'not.trusted'):
+        ('create.failed', 'not.trusted')
+}
+
+DESTROY_FAIL = {
+    ('$operation.failed', 'offer.not.injective'):
+        ('destroy.failed', 'offer.not.injective'),
+    ('$operation.failed', 'no.performs'):
+        ('destroy.failed', 'no.performs'),
+    ('$operation.failed', 'not.trusted'):
+        ('destroy.failed', 'not.trusted')
+}
+
+OFFER_FAIL = {
+    ('$operation.failed', 'offer.not.injective'):
+        ('offer.failed', 'offer.not.injective'),
+    ('$operation.failed', 'no.performs'):
+        ('offer.failed', 'no.performs'),
+    ('$operation.failed', 'not.trusted'):
+        ('offer.failed', 'not.trusted')
+}
+
+REVOKE_FAIL = {
+    ('$operation.failed', 'offer.not.injective'):
+        ('revoke.failed', 'offer.not.injective'),
+    ('$operation.failed', 'no.performs'):
+        ('revoke.failed', 'no.performs'),
+    ('$operation.failed', 'not.trusted'):
+        ('revoke.failed', 'not.trusted')
+}
+
+TRUST_FAIL = {
+    ('$operation.failed', 'offer.not.injective'):
+        ('trust.failed', 'trust.not.injective'),
+    ('$operation.failed', 'no.performs'):
+        ('trust.failed', 'no.performs'),
+    ('$operation.failed', 'not.trusted'):
+        ('trust.failed', 'not.trusted')
 }
 
 ALLOCATION_LEAK_CHECK_FAIL = {
@@ -205,29 +231,4 @@ ALLOCATION_LEAK_CHECK_FAIL = {
 PERFORMS_LEAK_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('performs.leakcheck.failed', 'performs.leaked')
-}
-
-CREATE_INJECTIVITY_CHECK_FAIL = {
-    ('assert.failed', 'assertion.false'):
-        ('create.failed', 'offer.not.injective')
-}
-
-DESTROY_INJECTIVITY_CHECK_FAIL = {
-    ('assert.failed', 'assertion.false'):
-        ('destroy.failed', 'offer.not.injective')
-}
-
-OFFER_INJECTIVITY_CHECK_FAIL = {
-    ('assert.failed', 'assertion.false'):
-        ('offer.failed', 'offer.not.injective')
-}
-
-REVOKE_INJECTIVITY_CHECK_FAIL = {
-    ('assert.failed', 'assertion.false'):
-        ('revoke.failed', 'offer.not.injective')
-}
-
-TRUST_INJECTIVITY_CHECK_FAIL = {
-    ('assert.failed', 'assertion.false'):
-        ('trust.failed', 'trust.not.injective')
 }

@@ -445,7 +445,8 @@ class SpecificationTranslator(ExpressionTranslator):
         model_stmts, modelt = self.model_translator.save_variables(ctx, pos)
         stmts.extend(model_stmts)
 
-        apos = self.to_position(node, ctx, rule, modelt=modelt)
+        combined_rule = rules.combine(rules.INJECTIVITY_CHECK_FAIL, rule)
+        apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
         stmts.append(self.viper_ast.Assert(quant, apos))
         return stmts
 
@@ -503,7 +504,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     assert False
 
             if ctx.quantified_vars:
-                rule = rules.OFFER_INJECTIVITY_CHECK_FAIL
+                rule = rules.OFFER_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg, rule, ctx))
 
             if is_performs:
@@ -535,7 +536,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     assert False
 
             if ctx.quantified_vars:
-                rule = rules.REVOKE_INJECTIVITY_CHECK_FAIL
+                rule = rules.REVOKE_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None, rule, ctx))
 
             if is_performs:
@@ -584,7 +585,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     assert False
 
             if ctx.quantified_vars:
-                rule = rules.CREATE_INJECTIVITY_CHECK_FAIL
+                rule = rules.CREATE_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0], rule, ctx))
 
             if is_performs:
@@ -609,7 +610,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     frm = kw_val
 
             if ctx.quantified_vars:
-                rule = rules.DESTROY_INJECTIVITY_CHECK_FAIL
+                rule = rules.DESTROY_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0], rule, ctx))
 
             if is_performs:
@@ -633,7 +634,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     frm = kw_val
 
             if ctx.quantified_vars:
-                rule = rules.TRUST_INJECTIVITY_CHECK_FAIL
+                rule = rules.TRUST_FAIL
                 stmts.extend(self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0]], None, rule, ctx))
 
             if is_performs:
