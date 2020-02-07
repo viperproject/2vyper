@@ -119,4 +119,4 @@ def pprint(node: ast.Node, preserve_newlines: bool = False) -> str:
         sep = '\n' if preserve_newlines else ' '
         res = sep.join(chain([first], middle, [last]))
 
-    return res if preserve_newlines else f'({res})'
+    return res if preserve_newlines else f'({res.strip()})'
