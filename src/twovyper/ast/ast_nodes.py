@@ -456,7 +456,7 @@ class Assert(Stmt):
 
     _children = ['test', 'msg']
 
-    def __init__(self, test: Expr, msg: Expr):
+    def __init__(self, test: Expr, msg: OptionalT[Expr]):
         super().__init__()
         self.test = test
         self.msg = msg
