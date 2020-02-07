@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from functools import reduce
-from typing import Any, List
+from typing import Any, Dict, List
 
 from lark import Lark
 from lark.exceptions import ParseError, UnexpectedInput, VisitError
@@ -16,6 +16,7 @@ from lark.visitors import Transformer, v_args
 
 from twovyper.ast import ast_nodes as ast
 from twovyper.ast.arithmetic import Decimal
+from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import ParseException, InvalidProgramException
 
@@ -535,8 +536,25 @@ def parse(parser, text, file):
         raise e.orig_exc
 
 
-def parse_module(text, file) -> ast.Module:
-    return parse(_vyper_module_parser, text + '\n', file)
+class GhostCodeVisitor(NodeVisitor):
+
+    def find_ghost_code(self, text: str, node: ast.Node):
+        lines = text.splitlines()
+        ghost = {}
+        for idx, line in enumerate(lines):
+            ghost[idx + 1] = line.strip().startswith('#@')
+
+        self.visit(node, ghost)
+
+    def generic_visit(self, node: ast.Node, ghost: Dict[int, bool]):
+        node.is_ghost_code = ghost[node.lineno]
+        super().generic_visit(node, ghost)
+
+
+def parse_module(text, original, file) -> ast.Module:
+    node = parse(_vyper_module_parser, text + '\n', file)
+    GhostCodeVisitor().find_ghost_code(original, node)
+    return node
 
 
 def parse_expr(text, file) -> ast.Expr:

@@ -20,19 +20,25 @@ class Node:
         self.end_lineno = None
         self.end_col_offset = None
 
+        self.is_ghost_code = False
+
+
+class AllowedInGhostCode:
+    pass
+
 
 class Stmt(Node):
     pass
 
 
-class Expr(Node):
+class Expr(Node, AllowedInGhostCode):
 
     def __init__(self):
         super().__init__()
         self.type = None
 
 
-class Operator:
+class Operator(AllowedInGhostCode):
     pass
 
 
@@ -176,7 +182,7 @@ class Set(Expr):
         self.elements = elements
 
 
-class Keyword(Node):
+class Keyword(Node, AllowedInGhostCode):
 
     _children = ['value']
 
@@ -326,7 +332,7 @@ class ContractDef(Node):
         self.body = body
 
 
-class Arg(Node):
+class Arg(Node, AllowedInGhostCode):
 
     _children = ['annotation', 'default']
 
@@ -337,7 +343,7 @@ class Arg(Node):
         self.default = default
 
 
-class Decorator(Node):
+class Decorator(Node, AllowedInGhostCode):
 
     _children = ['args']
 
@@ -347,7 +353,7 @@ class Decorator(Node):
         self.args = args
 
 
-class FunctionDef(Stmt):
+class FunctionDef(Stmt, AllowedInGhostCode):
 
     _children = ['args', 'body', 'decorators', 'returns']
 
@@ -360,7 +366,7 @@ class FunctionDef(Stmt):
         self.returns = returns
 
 
-class FunctionStub(Stmt):
+class FunctionStub(Stmt, AllowedInGhostCode):
 
     _children = ['args']
 
@@ -423,7 +429,7 @@ class For(Stmt):
         self.body = body
 
 
-class If(Stmt):
+class If(Stmt, AllowedInGhostCode):
 
     _children = ['test', 'body', 'orelse']
 
@@ -434,7 +440,7 @@ class If(Stmt):
         self.orelse = orelse
 
 
-class Ghost(Stmt):
+class Ghost(Stmt, AllowedInGhostCode):
 
     _children = ['body']
 
@@ -443,7 +449,7 @@ class Ghost(Stmt):
         self.body = body
 
 
-class Raise(Stmt):
+class Raise(Stmt, AllowedInGhostCode):
 
     _children = ['msg']
 
@@ -452,7 +458,7 @@ class Raise(Stmt):
         self.msg = msg
 
 
-class Assert(Stmt):
+class Assert(Stmt, AllowedInGhostCode):
 
     _children = ['test', 'msg']
 
@@ -490,7 +496,7 @@ class ImportFrom(Stmt):
         self.level = level
 
 
-class ExprStmt(Stmt):
+class ExprStmt(Stmt, AllowedInGhostCode):
 
     _children = ['value']
 
@@ -499,7 +505,7 @@ class ExprStmt(Stmt):
         self.value = value
 
 
-class Pass(Stmt):
+class Pass(Stmt, AllowedInGhostCode):
     pass
 
 

@@ -185,6 +185,7 @@ class ConstantTransformer(NodeTransformer):
         to.col_offset = node.col_offset
         to.end_lineno = node.end_lineno
         to.end_col_offset = node.end_col_offset
+        to.is_ghost_code = node.is_ghost_code
         for child in descendants(to):
             self._copy_pos(child, node)
         return to

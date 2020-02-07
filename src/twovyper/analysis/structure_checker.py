@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from contextlib import contextmanager
 from enum import Enum
 from itertools import chain
-from typing import Optional
+from typing import Optional, Union
 
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.nodes import VyperProgram, VyperFunction
@@ -33,6 +33,7 @@ class _Context(Enum):
     CHECK = 'check'
     POSTCONDITION = 'postcondition'
     TRANSITIVE_POSTCONDITION = 'transitive.postcondition'
+    GHOST_CODE = 'ghost.code'
     GHOST_FUNCTION = 'ghost.function'
     GHOST_STATEMENT = 'ghost.statement'
 
@@ -54,6 +55,7 @@ class StructureChecker(NodeVisitor):
             _Context.CHECK: names.NOT_ALLOWED_IN_CHECK,
             _Context.POSTCONDITION: names.NOT_ALLOWED_IN_POSTCONDITION,
             _Context.TRANSITIVE_POSTCONDITION: names.NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION,
+            _Context.GHOST_CODE: names.NOT_ALLOWED_IN_GHOST_CODE,
             _Context.GHOST_FUNCTION: names.NOT_ALLOWED_IN_GHOST_FUNCTION,
             _Context.GHOST_STATEMENT: names.NOT_ALLOWED_IN_GHOST_STATEMENT
         }
@@ -102,9 +104,24 @@ class StructureChecker(NodeVisitor):
         for ghost_function in program.ghost_function_implementations.values():
             self.visit(ghost_function.node, _Context.GHOST_FUNCTION, program, None)
 
+    def visit(self, node: ast.Node, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+        _assert(ctx != _Context.GHOST_CODE or isinstance(node, ast.AllowedInGhostCode), node, 'invalid.ghost.code')
+        super().visit(node, ctx, program, function)
+
     def _visit_performs(self, node: ast.Expr, program: VyperProgram, function: VyperFunction):
         _assert(isinstance(node, ast.FunctionCall) and node.name in names.GHOST_STATEMENTS, node, 'invalid.performs')
         self.visit(node, _Context.CODE, program, function)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+        for stmt in node.body:
+            if ctx == _Context.GHOST_FUNCTION:
+                new_ctx = ctx
+            elif ctx == _Context.CODE:
+                new_ctx = _Context.GHOST_CODE if stmt.is_ghost_code else ctx
+            else:
+                assert False
+
+            self.visit(stmt, new_ctx, program, function)
 
     def visit_Name(self, node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         if ctx == _Context.GHOST_FUNCTION and node.id in names.ENV_VARIABLES:
@@ -241,10 +258,29 @@ class StructureChecker(NodeVisitor):
             self.visit_nodes(chain(node.args, node.keywords), arg_ctx, program, function)
 
     def visit_ReceiverCall(self, node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
-        if ctx.is_specification:
+        if ctx == _Context.GHOST_CODE:
+            _assert(False, node, 'invalid.ghost.code')
+        elif ctx.is_specification:
             _assert(False, node, 'spec.call')
         elif ctx == _Context.GHOST_FUNCTION:
             _assert(False, node, 'invalid.ghost')
 
+        self.generic_visit(node, ctx, program, function)
+
     def visit_Exchange(self, node: ast.Exchange, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         _assert(False, node, 'exchange.not.resource')
+
+        self.generic_visit(node, ctx, program, function)
+
+    def _visit_assertion(self, node: Union[ast.Assert, ast.Raise], ctx: _Context):
+        if ctx == _Context.GHOST_CODE:
+            _assert(node.msg and isinstance(node.msg, ast.Name), node, 'invalid.ghost.code')
+            _assert(node.msg.id == names.UNREACHABLE, node, 'invalid.ghost.code')
+
+    def visit_Assert(self, node: ast.Assert, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+        self._visit_assertion(node, ctx)
+        self.generic_visit(node, ctx, program, function)
+
+    def visit_Raise(self, node: ast.Raise, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+        self._visit_assertion(node, ctx)
+        self.generic_visit(node, ctx, program, function)
