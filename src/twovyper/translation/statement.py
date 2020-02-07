@@ -19,6 +19,7 @@ from twovyper.translation.abstract import NodeTranslator, CommonTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.model import ModelTranslator
+from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
 
@@ -34,6 +35,7 @@ class StatementTranslator(NodeTranslator):
         self.assignment_translator = _AssignmentTranslator(viper_ast)
         self.arithmetic_translator = ArithmeticTranslator(viper_ast)
         self.model_translator = ModelTranslator(viper_ast)
+        self.specification_translator = SpecificationTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
     def translate_stmts(self, stmts: List[ast.Stmt], res: List[Stmt], ctx: Context):
@@ -99,7 +101,8 @@ class StatementTranslator(NodeTranslator):
     def translate_Assert(self, node: ast.Assert, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
-        expr = self.expression_translator.translate(node.test, res, ctx)
+        translator = self.specification_translator if node.is_ghost_code else self.expression_translator
+        expr = translator.translate(node.test, res, ctx)
 
         # If UNREACHABLE is used, we try to prove that the assertion holds by
         # translating it directly as an assert; else, revert if the condition
@@ -125,7 +128,8 @@ class StatementTranslator(NodeTranslator):
     def translate_If(self, node: ast.If, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
-        cond = self.expression_translator.translate(node.test, res, ctx)
+        translator = self.specification_translator if node.is_ghost_code else self.expression_translator
+        cond = translator.translate(node.test, res, ctx)
         then_body = []
         self.translate_stmts(node.body, then_body, ctx)
         else_body = []

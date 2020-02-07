@@ -70,6 +70,23 @@ def assert_property():
     assert -1 + 1 == 0, UNREACHABLE
 
 
+@public
+@payable
+def assert_ghost_property():
+    #@ assert old(sum(sent()) == 0) ==> sum(sent()) == 0, UNREACHABLE
+
+    #@ if old(received(msg.sender)) == 0 and received(msg.sender) > 12:
+        #@ assert msg.value > 4, UNREACHABLE
+    #@ elif old(received(msg.sender)) == 0:
+        #@ assert msg.value < 16, UNREACHABLE
+    #@ else:
+        #@ assert msg.value > 0, UNREACHABLE
+
+    #:: ExpectedOutput(assert.failed:assertion.false)
+    #@ raise UNREACHABLE
+
+    pass
+
 #@ ensures: success()
 @public
 def assert_modifiable_const(val: uint256):
