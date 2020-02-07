@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
 
 from twovyper.ast import ast_nodes as ast
-from twovyper.utils import pprint
+from twovyper.ast.text import pprint
 
 
 class TwoVyperException(Exception):
