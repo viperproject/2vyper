@@ -11,16 +11,17 @@ import os
 import glob
 
 from conftest import option
-from tests import _init_jvm, _init_model, _test
+from tests import _init_jvm, _init_model, _init_store_viper, _test
 
 
 def setup_module(module):
     _init_jvm(option.verifier)
     _init_model(option.model)
+    _init_store_viper(option.store_viper)
 
 
 def get_tests():
-    test_dir = os.path.join(os.path.dirname(__file__), 'resources/')
+    test_dir = 'tests/resources/'
     files = [f for f in glob.glob(test_dir + "/**/*.vy", recursive=True)]
     return sorted(files, key=str.casefold)
 

@@ -75,11 +75,18 @@ def _init_model(model):
     OPTIONS_MODEL = model
 
 
+def _init_store_viper(flag):
+    global OPTIONS_STORE_VIPER
+    OPTIONS_STORE_VIPER = flag
+
+
 _BACKEND_SILICON = 'silicon'
 _BACKEND_CARBON = 'carbon'
 _BACKEND_ANY = 'ANY'
 
 OPTIONS_MODEL = False
+
+OPTIONS_STORE_VIPER = False
 
 
 def _consume(key: str, dictionary: Dict[str, Any], check: bool = False) -> Any:
@@ -549,22 +556,32 @@ class TwoVyperTest(AnnotatedTest):
     """Test for testing correct behavior of 2vyper for annotated programs."""
 
     def test_file(
-            self, path: str, jvm: JVM, verifier: ViperVerifier):
+            self, path: str, jvm: JVM, verifier: ViperVerifier, store_viper: bool):
         """Test specific Vyper file."""
         annotation_manager = self.get_annotation_manager(path, verifier)
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
-        path = os.path.abspath(path)
+        abspath = os.path.abspath(path)
         tw = TwoVyper(jvm, OPTIONS_MODEL)
         try:
-            prog = tw.translate(path, vyper_root=VYPER_ROOT)
+            prog = tw.translate(abspath, vyper_root=VYPER_ROOT)
         except InvalidProgramException as e:
             actual_errors = [InvalidProgramError(e)]
             annotation_manager.check_errors(actual_errors)
             if annotation_manager.has_unexpected_missing():
                 pytest.skip('Unexpected or missing output')
         else:
-            vresult = tw.verify(prog, path, verifier)
+            if store_viper:
+                import string
+                valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+                file_name = "".join(x for x in path if x in valid_chars) + '.vpr'
+                dir = 'viper_out'
+                if not os.path.exists(dir):
+                    os.makedirs(dir)
+                file_path = os.path.join(dir, file_name)
+                with open(file_path, 'w') as fp:
+                    fp.write(str(prog))
+            vresult = tw.verify(prog, abspath, verifier)
             self._evaluate_result(vresult, annotation_manager, jvm)
 
     def _evaluate_result(
@@ -603,4 +620,4 @@ _TESTER = TwoVyperTest()
 
 def _test(path):
     """Execute provided verification test."""
-    _TESTER.test_file(path, _JVM, VERIFIER)
+    _TESTER.test_file(path, _JVM, VERIFIER, OPTIONS_STORE_VIPER)

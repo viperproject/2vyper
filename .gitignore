@@ -45,3 +45,4 @@ docs/build
 
 # Viper temporary files
 tmp/
+viper_out/
