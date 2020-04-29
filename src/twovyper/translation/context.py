@@ -284,6 +284,8 @@ class Context:
         self.return_label = None
 
         local_vars = self.locals.copy()
+        self.locals = {names.MSG: local_vars[names.MSG], names.BLOCK: local_vars[names.BLOCK],
+                       names.CHAIN: local_vars[names.CHAIN], names.TX: local_vars[names.TX]}
         args = self.args.copy()
         old_inline = self._current_inline
         self._inline_counter += 1
