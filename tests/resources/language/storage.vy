@@ -8,14 +8,20 @@
 
 contract C:
     def f(): modifying
+    def c(): constant
 
+@private
+@constant
+def noop():
+    pass
 
 #@ ensures: storage(self) == old(storage(self))
 #@ ensures: storage(msg.sender) == old(storage(msg.sender))
 #@ ensures: forall({a: address}, storage(a) == old(storage(a)))
 @public
 def change_nothing():
-    pass
+    C(msg.sender).c()
+    self.noop()
 
 
 #:: ExpectedOutput(postcondition.violated:assertion.false)
