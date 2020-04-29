@@ -161,7 +161,9 @@ class SpecificationTranslator(ExpressionTranslator):
                             var = helpers.out_of_gas_var(self.viper_ast, pos)
                         elif case(names.SUCCESS_SENDER_FAILED):
                             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
-                            return helpers.check_call_failed(self.viper_ast, msg_sender, pos)
+                            out_of_gas_expr = helpers.out_of_gas_var(self.viper_ast, pos).localVar()
+                            call_failed_expr = helpers.check_call_failed(self.viper_ast, msg_sender, pos)
+                            return self.viper_ast.Or(out_of_gas_expr, call_failed_expr, pos)
                         else:
                             assert False
 
