@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+constant_two: constant(decimal) = 2.0
 
 @public
 def times(a: decimal, b: decimal) -> decimal:
@@ -25,7 +26,7 @@ def invert_fail(a: decimal) -> decimal:
     return 1.0 / a
 
 
-#@ ensures: 2.0 / 2.0 == 1.0
+#@ ensures: 2.0 / constant_two == 1.0
 #@ ensures: 0.0 < 1.0 / 2.0 and 1.0 / 2.0 < 1.0
 #@ ensures: 2.0 + 1.0 / 2.0 - 3.0 / 2.0 == 1.0
 #@ ensures: 2.1 + 0.9 == 3.0

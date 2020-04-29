@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from typing import List, Dict, Any
 
 from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.arithmetic import div, mod
+from twovyper.ast.arithmetic import div, mod, Decimal
 from twovyper.ast.visitors import NodeVisitor, NodeTransformer, descendants
 
 from twovyper.exceptions import UnsupportedException
@@ -134,9 +134,10 @@ class ConstantInterpreter(NodeVisitor):
         raise UnsupportedException(node)
 
     def visit_Num(self, node: ast.Num):
-        # TODO: handle decimals
-        assert isinstance(node.n, int)
-        return node.n
+        if isinstance(node.n, int) or isinstance(node.n, Decimal):
+            return node.n
+        else:
+            assert False
 
     def visit_Bool(self, node: ast.Bool):
         return node.value
