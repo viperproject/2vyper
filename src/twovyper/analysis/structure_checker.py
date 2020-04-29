@@ -170,6 +170,8 @@ class StructureChecker(NodeVisitor):
                 _assert(isinstance(call.receiver, ast.Name), node, 'spec.accessible')
                 _assert(call.receiver.id == names.SELF, node, 'spec.accessible')
                 _assert(call.name in program.functions, node, 'spec.accessible')
+                _assert(program.functions[call.name].is_public(), node, 'spec.accessible',
+                        "Only public functions may be used in an accessible expression")
                 _assert(call.name != names.INIT, node, 'spec.accessible')
 
                 self.generic_visit(call, ctx, program, function)
