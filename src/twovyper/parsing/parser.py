@@ -253,6 +253,10 @@ class ProgramBuilder(NodeVisitor):
 
         name = node.target.id
 
+        if name != names.GENERAL_POSTCONDITION and self.is_preserves:
+            msg = f"Only general postconditions are allowed in preserves. ({name} is not allowed)"
+            raise InvalidProgramException(node, 'invalid.preserves', msg)
+
         if name == names.CONFIG:
             if isinstance(node.value, ast.Name):
                 options = [node.value.id]
