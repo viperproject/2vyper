@@ -172,7 +172,7 @@ class ProgramTranslator(CommonTranslator):
         accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
         predicates.extend([*events, *accs])
 
-        vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
+        vyper_functions = vyper_program.functions.values()
         methods.append(self._create_transitivity_check(ctx))
         methods.append(self._create_forced_ether_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
