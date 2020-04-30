@@ -358,7 +358,11 @@ class ProgramBuilder(NodeVisitor):
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
         decs = node.decorators
-        function = VyperFunction(node.name, args, defaults, type, self.postconditions, self.checks, self.performs, decs, node)
+        function = VyperFunction(node.name, args, defaults, type,
+                                 self.postconditions, self.checks, self.performs, decs, node)
+        if function.is_private() and self.checks:
+            msg = f"Private functions are not allowed to have checks."
+            raise InvalidProgramException(node, 'invalid.checks', msg)
         self.functions[node.name] = function
         # Reset local specs
         self.postconditions = []
