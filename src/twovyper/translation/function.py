@@ -130,6 +130,8 @@ class FunctionTranslator(CommonTranslator):
 
             # Assume type assumptions for self state
             assume_type_assumptions(ctx.present_state, "Present")
+            if function.is_private():
+                assume_type_assumptions(ctx.old_state, "Old")
 
             # Assume type assumptions for issued state
             if function.analysis.uses_issued:
@@ -171,41 +173,41 @@ class FunctionTranslator(CommonTranslator):
             msg_info_msg = "Assume type assumptions for msg"
             self.seqn_with_info(msg_assumes, msg_info_msg, body)
 
-            # If we are in a public function assume unchecked and user-specified invariants
-            if function.is_public():
-                inv_pres_issued = []
-                inv_pres_self = []
+            # Assume unchecked and user-specified invariants
+            inv_pres_issued = []
+            inv_pres_self = []
 
-                # Translate the invariants for the issued state. Since we don't know anything about
-                # the state before then, we use the issued state itself as the old state
-                if not is_init and function.analysis.uses_issued:
-                    with ctx.state_scope(ctx.issued_state, ctx.issued_state):
-                        for inv in ctx.unchecked_invariants():
-                            inv_pres_issued.append(self.viper_ast.Inhale(inv))
+            # Translate the invariants for the issued state. Since we don't know anything about
+            # the state before then, we use the issued state itself as the old state
+            if not is_init and function.analysis.uses_issued:
+                with ctx.state_scope(ctx.issued_state, ctx.issued_state):
+                    for inv in ctx.unchecked_invariants():
+                        inv_pres_issued.append(self.viper_ast.Inhale(inv))
 
-                        for inv in ctx.program.invariants:
-                            program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                            expr = self.specification_translator.translate_invariant(inv, inv_pres_issued, ctx, True)
-                            inv_pres_issued.append(self.viper_ast.Inhale(expr, program_pos))
+                    for inv in ctx.program.invariants:
+                        program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        expr = self.specification_translator.translate_invariant(inv, inv_pres_issued, ctx, True)
+                        inv_pres_issued.append(self.viper_ast.Inhale(expr, program_pos))
 
-                # If we use issued, we translate the invariants for the current state with the
-                # issued state as the old state, else we just use the self state as the old state
-                # which results in fewer assumptions passed to the prover
-                if not is_init:
-                    last_state = ctx.issued_state if function.analysis.uses_issued else ctx.present_state
-                    with ctx.state_scope(ctx.present_state, last_state):
-                        for inv in ctx.unchecked_invariants():
-                            inv_pres_self.append(self.viper_ast.Inhale(inv))
+            # If we use issued, we translate the invariants for the current state with the
+            # issued state as the old state, else we just use the self state as the old state
+            # which results in fewer assumptions passed to the prover
+            if not is_init:
+                present_state = ctx.present_state if function.is_public() else ctx.old_state
+                last_state = ctx.issued_state if function.analysis.uses_issued else present_state
+                with ctx.state_scope(present_state, last_state):
+                    for inv in ctx.unchecked_invariants():
+                        inv_pres_self.append(self.viper_ast.Inhale(inv))
 
-                        for inv in ctx.program.invariants:
-                            program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                            expr = self.specification_translator.translate_invariant(inv, inv_pres_self, ctx)
-                            inv_pres_self.append(self.viper_ast.Inhale(expr, program_pos))
+                    for inv in ctx.program.invariants:
+                        program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        expr = self.specification_translator.translate_invariant(inv, inv_pres_self, ctx)
+                        inv_pres_self.append(self.viper_ast.Inhale(expr, program_pos))
 
-                iv_info_msg = "Assume invariants for issued self"
-                self.seqn_with_info(inv_pres_issued, iv_info_msg, body)
-                iv_info_msg = "Assume invariants for self"
-                self.seqn_with_info(inv_pres_self, iv_info_msg, body)
+            iv_info_msg = "Assume invariants for issued self"
+            self.seqn_with_info(inv_pres_issued, iv_info_msg, body)
+            iv_info_msg = "Assume invariants for self"
+            self.seqn_with_info(inv_pres_self, iv_info_msg, body)
 
             # pre_self is the same as self in the beginning
             self.state_translator.copy_state(ctx.present_state, ctx.pre_state, body, ctx)
@@ -391,7 +393,8 @@ class FunctionTranslator(CommonTranslator):
 
             self.seqn_with_info(post_stmts, "Assert postconditions", body)
 
-            # Checks and Invariants can only be checked in the end of public functions
+            # Checks and Invariants can be checked in the end of public functions
+            # but not in the end of private funcitons
             if function.is_public():
                 # Assert checks
                 # For the checks we need to differentiate between success and failure because we
