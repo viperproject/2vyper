@@ -119,23 +119,14 @@ class FunctionTranslator(CommonTranslator):
 
             body = []
 
-            def assume_type_assumptions(state_dict: State, name: str):
-                stmts = []
-                for state_var in state_dict.values():
-                    type_assumptions = self.type_translator.type_assumptions(state_var.local_var(ctx),
-                                                                             state_var.type, ctx)
-                    stmts.extend(self.viper_ast.Inhale(type_assumption) for type_assumption in type_assumptions)
-
-                return self.seqn_with_info(stmts, f"{name} state assumptions", body)
-
             # Assume type assumptions for self state
-            assume_type_assumptions(ctx.present_state, "Present")
+            self._assume_type_assumptions(ctx.present_state, "Present", body, ctx)
             if function.is_private():
-                assume_type_assumptions(ctx.old_state, "Old")
+                self._assume_type_assumptions(ctx.old_state, "Old", body, ctx)
 
             # Assume type assumptions for issued state
             if function.analysis.uses_issued:
-                assume_type_assumptions(ctx.issued_state, "Issued")
+                self._assume_type_assumptions(ctx.issued_state, "Issued", body, ctx)
 
             # Assume type assumptions for self address
             self_address = helpers.self_address(self.viper_ast)
@@ -195,6 +186,7 @@ class FunctionTranslator(CommonTranslator):
             if not is_init:
                 present_state = ctx.present_state if function.is_public() else ctx.old_state
                 last_state = ctx.issued_state if function.analysis.uses_issued else present_state
+                # TODO: Can we also assume unchecked_invariants for present_state?
                 with ctx.state_scope(present_state, last_state):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_self.append(self.viper_ast.Inhale(inv))
@@ -549,15 +541,7 @@ class FunctionTranslator(CommonTranslator):
             # In specifications we assume inline semantics, i.e., msg.sender and msg.value in the inlined function
             # correspond to msg.sender and msg.value in the caller function.
 
-            # Add arguments to local vars, assign passed args or default argument
-            for (name, var), arg in zip_longest(function.args.items(), args):
-                apos = self.to_position(var.node, ctx)
-                translated_arg = self._translate_var(var, ctx)
-                ctx.args[name] = translated_arg
-                ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
-                if not arg:
-                    arg = self.expression_translator.translate(function.defaults[name], body, ctx)
-                body.append(self.viper_ast.LocalVarAssign(translated_arg.local_var(ctx), arg, apos))
+            self._generate_arguments_as_local_vars(function, args, body, pos, ctx)
 
             # Define return var
             if function.type.return_type:
@@ -587,6 +571,142 @@ class FunctionTranslator(CommonTranslator):
             self.seqn_with_info(body, f"Inlined call of {function.name}", res)
             res.append(return_label)
             return ret_var
+
+    def assume_private_function(self, call: ast.ReceiverCall, args: List[Expr], res: List[Stmt], ctx: Context) -> Expr:
+        # Assume private functions are translated as follows:
+        #    - Evaluate arguments
+        #    - Define return variable
+        #    - The next steps are only necessary if the function is not constant:
+        #       - Forget about all events
+        #       - Create new state which corresponds to the pre_state of the private function call
+        #       - Havoc self and contracts
+        #       - Havoc old_self and old_contracts
+        #       - Assume type assumptions for self and old_self
+        #       - Assume invariants (where old and present refers to the havoced old state)
+        #    - Assume postconditions (where old refers to present state, if the function is constant or
+        #      else to the newly create pre_state)
+        function = ctx.program.functions[call.name]
+        call_pos = self.to_position(call, ctx)
+        via = Via('private function call', call_pos)
+        with ctx.inline_scope(via):
+            assert function.node
+            # Only private self-calls are allowed in Vyper
+            assert function.is_private()
+
+            pos = self.to_position(function.node, ctx)
+
+            args_as_local_vars = []
+            self._generate_arguments_as_local_vars(function, args, args_as_local_vars, pos, ctx)
+            self.seqn_with_info(args_as_local_vars, "Arguments of private function call", res)
+
+            # # Define success var
+            # succ_name = ctx.inline_prefix + mangled.SUCCESS_VAR
+            # ctx.success_var = TranslatedVar(names.SUCCESS, succ_name, types.VYPER_BOOL, self.viper_ast, pos)
+            # ctx.new_local_vars.append(ctx.success_var.var_decl(ctx, pos))
+
+            # Define return var
+            if function.type.return_type:
+                ret_name = ctx.inline_prefix + mangled.RESULT_VAR
+                ctx.result_var = TranslatedVar(names.RESULT, ret_name, function.type.return_type, self.viper_ast, pos)
+                ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, pos))
+                ret_var = ctx.result_var.local_var(ctx, pos)
+            else:
+                ret_var = None
+
+            old_state_for_postconditions = ctx.current_state
+            if not function.is_constant():
+                # We forget about events by exhaling all permissions to the event predicates, i.e.
+                # for all event predicates e we do
+                #   exhale forall arg0, arg1, ... :: perm(e(arg0, arg1, ...)) > none ==> acc(e(...), perm(e(...)))
+                # We use an implication with a '> none' because of a bug in Carbon
+                # (TODO: issue #171)
+                # where it isn't possible to exhale no permissions under a quantifier.
+                for event in ctx.program.events.values():
+                    event_name = mangled.event_name(event.name)
+                    viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+                    event_args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', viper_type, pos) for idx, viper_type in
+                                  enumerate(viper_types)]
+                    local_args = [arg.localVar() for arg in event_args]
+                    pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
+                    perm = self.viper_ast.CurrentPerm(pa, pos)
+                    pap = self.viper_ast.PredicateAccessPredicate(pa, perm, pos)
+                    none = self.viper_ast.NoPerm(pos)
+                    impl = self.viper_ast.Implies(self.viper_ast.GtCmp(perm, none, pos), pap)
+                    trigger = self.viper_ast.Trigger([pa], pos)
+                    forall = self.viper_ast.Forall(event_args, [trigger], impl, pos)
+                    res.append(self.viper_ast.Exhale(forall, pos))
+
+                # Create pre_state for private function
+                def inlined_pre_state(name: str) -> str:
+                    return ctx.inline_prefix + mangled.pre_state_var_name(name)
+                old_state_for_postconditions = self.state_translator.state(inlined_pre_state, ctx)
+                for val in old_state_for_postconditions.values():
+                    ctx.new_local_vars.append(val.var_decl(ctx, pos))
+
+                # Copy present state to this created pre_state
+                self.state_translator.copy_state(ctx.current_state, old_state_for_postconditions, res, ctx)
+
+                # Havoc states
+                self.state_translator.havoc_state(ctx.current_state, res, ctx, pos)
+                self.state_translator.havoc_state(ctx.current_old_state, res, ctx, pos)
+                self._assume_type_assumptions(ctx.current_state, "Present", res, ctx)
+                self._assume_type_assumptions(ctx.current_old_state, "Old", res, ctx)
+
+                # TODO: Can we also assume unchecked_invariants for current_state?
+                assume_invs = []
+                with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
+                    # Assume Invariants for old state
+                    for inv in ctx.unchecked_invariants():
+                        assume_invs.append(self.viper_ast.Inhale(inv))
+
+                    for inv in ctx.program.invariants:
+                        cond = self.specification_translator.translate_invariant(inv, assume_invs, ctx, True)
+                        inv_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        assume_invs.append(self.viper_ast.Inhale(cond, inv_pos))
+
+                self.seqn_with_info(assume_invs, "Assume invariants", res)
+
+            post_stmts = []
+            with ctx.state_scope(ctx.current_state, old_state_for_postconditions):
+                # Assume postconditions
+                for post in chain(function.postconditions, ctx.program.general_postconditions,
+                                  ctx.program.transitive_postconditions):
+                    cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
+                    post_pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
+                    post_stmts.append(self.viper_ast.Inhale(cond, post_pos))
+
+                for interface_type in ctx.program.implements:
+                    interface = ctx.program.interfaces[interface_type.name]
+                    postconditions = interface.general_postconditions
+                    for post in postconditions:
+                        with ctx.program_scope(interface):
+                            cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
+                        post_pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
+                        post_stmts.append(self.viper_ast.Inhale(cond, post_pos))
+
+            self.seqn_with_info(post_stmts, "Assume postconditions", res)
+
+            return ret_var
+
+    def _assume_type_assumptions(self, state_dict: State, name: str, res, ctx):
+        stmts = []
+        for state_var in state_dict.values():
+            type_assumptions = self.type_translator.type_assumptions(state_var.local_var(ctx),
+                                                                     state_var.type, ctx)
+            stmts.extend(self.viper_ast.Inhale(type_assumption) for type_assumption in type_assumptions)
+
+        return self.seqn_with_info(stmts, f"{name} state assumptions", res)
+
+    def _generate_arguments_as_local_vars(self, function, args, res, pos, ctx):
+        # Add arguments to local vars, assign passed args or default argument
+        for (name, var), arg in zip_longest(function.args.items(), args):
+            apos = self.to_position(var.node, ctx)
+            translated_arg = self._translate_var(var, ctx)
+            ctx.args[name] = translated_arg
+            ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
+            if not arg:
+                arg = self.expression_translator.translate(function.defaults[name], res, ctx)
+            res.append(self.viper_ast.LocalVarAssign(translated_arg.local_var(ctx), arg, apos))
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)

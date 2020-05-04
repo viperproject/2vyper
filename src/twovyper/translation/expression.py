@@ -101,8 +101,14 @@ class ExpressionTranslator(NodeTranslator):
 
         if node.id == names.SELF and node.type == types.VYPER_ADDRESS:
             return ctx.self_address or helpers.self_address(self.viper_ast, pos)
-        else:
-            return ctx.all_vars[node.id].local_var(ctx, pos)
+        elif ctx.inside_inline_analysis and node.id not in ctx.all_vars:
+            # Generate new local variable
+            variable_name = node.id
+            mangled_name = ctx.new_local_var_name(variable_name)
+            var = TranslatedVar(variable_name, mangled_name, node.type, self.viper_ast, pos)
+            ctx.locals[variable_name] = var
+            ctx.new_local_vars.append(var.var_decl(ctx))
+        return ctx.all_vars[node.id].local_var(ctx, pos)
 
     def translate_ArithmeticOp(self, node: ast.ArithmeticOp, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
