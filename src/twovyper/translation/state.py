@@ -88,7 +88,7 @@ class StateTranslator(CommonTranslator):
 
     def havoc_state(self, state: State, res: List[Stmt], ctx: Context, pos=None, unless=None):
         havocs = []
-        for var in ctx.current_state.values():
+        for var in state.values():
             if unless and unless(var.name):
                 continue
             havoc_name = ctx.new_local_var_name('havoc')
