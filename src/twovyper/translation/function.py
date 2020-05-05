@@ -527,6 +527,13 @@ class FunctionTranslator(CommonTranslator):
 
     def inline(self, call: ast.ReceiverCall, args: List[Expr], res: List[Stmt], ctx: Context) -> Expr:
         function = ctx.program.functions[call.name]
+        if function.postconditions:
+            return self._assume_private_function(call, args, res, ctx)
+        else:
+            return self._inline(call, args, res, ctx)
+
+    def _inline(self, call: ast.ReceiverCall, args: List[Expr], res: List[Stmt], ctx: Context) -> Expr:
+        function = ctx.program.functions[call.name]
         call_pos = self.to_position(call, ctx)
         via = Via('inline', call_pos)
         with ctx.inline_scope(via):
@@ -572,7 +579,7 @@ class FunctionTranslator(CommonTranslator):
             res.append(return_label)
             return ret_var
 
-    def assume_private_function(self, call: ast.ReceiverCall, args: List[Expr], res: List[Stmt], ctx: Context) -> Expr:
+    def _assume_private_function(self, call: ast.ReceiverCall, args: List[Expr], res: List[Stmt], ctx: Context) -> Expr:
         # Assume private functions are translated as follows:
         #    - Evaluate arguments
         #    - Define return variable
