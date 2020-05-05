@@ -576,6 +576,7 @@ class FunctionTranslator(CommonTranslator):
         # Assume private functions are translated as follows:
         #    - Evaluate arguments
         #    - Define return variable
+        #    - Define new_success variable
         #    - The next steps are only necessary if the function is not constant:
         #       - Forget about all events
         #       - Create new state which corresponds to the pre_state of the private function call
@@ -585,6 +586,7 @@ class FunctionTranslator(CommonTranslator):
         #       - Assume invariants (where old and present refers to the havoced old state)
         #    - Assume postconditions (where old refers to present state, if the function is constant or
         #      else to the newly create pre_state)
+        #    - Fail if not new_success
         function = ctx.program.functions[call.name]
         call_pos = self.to_position(call, ctx)
         via = Via('private function call', call_pos)
@@ -599,10 +601,11 @@ class FunctionTranslator(CommonTranslator):
             self._generate_arguments_as_local_vars(function, args, args_as_local_vars, pos, ctx)
             self.seqn_with_info(args_as_local_vars, "Arguments of private function call", res)
 
-            # # Define success var
-            # succ_name = ctx.inline_prefix + mangled.SUCCESS_VAR
-            # ctx.success_var = TranslatedVar(names.SUCCESS, succ_name, types.VYPER_BOOL, self.viper_ast, pos)
-            # ctx.new_local_vars.append(ctx.success_var.var_decl(ctx, pos))
+            # Define success var
+            succ_name = ctx.inline_prefix + mangled.SUCCESS_VAR
+            ctx.success_var = TranslatedVar(names.SUCCESS, succ_name, types.VYPER_BOOL, self.viper_ast, pos)
+            ctx.new_local_vars.append(ctx.success_var.var_decl(ctx, pos))
+            success_var = ctx.success_var.local_var(ctx, pos)
 
             # Define return var
             if function.type.return_type:
@@ -621,6 +624,7 @@ class FunctionTranslator(CommonTranslator):
                 # We use an implication with a '> none' because of a bug in Carbon
                 # (TODO: issue #171)
                 # where it isn't possible to exhale no permissions under a quantifier.
+                # TODO: inhale an undefined amount in [-perm(...), inf] instead of this
                 for event in ctx.program.events.values():
                     event_name = mangled.event_name(event.name)
                     viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
@@ -685,6 +689,8 @@ class FunctionTranslator(CommonTranslator):
                         post_stmts.append(self.viper_ast.Inhale(cond, post_pos))
 
             self.seqn_with_info(post_stmts, "Assume postconditions", res)
+
+            self.fail_if(self.viper_ast.Not(success_var), [], res, ctx, call_pos)
 
             return ret_var
 
