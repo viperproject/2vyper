@@ -36,6 +36,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.resource_translator = ResourceTranslator(viper_ast)
+        self._assume_event = False
 
     @property
     def no_reverts(self):
@@ -49,8 +50,18 @@ class SpecificationTranslator(ExpressionTranslator):
 
         del self._ignore_accessible
 
-    def translate_pre_or_postcondition(self, post: ast.Node, res: List[Stmt], ctx: Context) -> Expr:
-        return self.translate(post, res, ctx)
+    @contextmanager
+    def _assume_event_scope(self, assume_event: bool):
+        _assume_event = self._assume_event
+        self._assume_event = assume_event
+
+        yield
+
+        self._assume_event = _assume_event
+
+    def translate_pre_or_postcondition(self, post: ast.Node, res: List[Stmt], ctx: Context, assume_event=False) -> Expr:
+        with self._assume_event_scope(assume_event):
+            return self.translate(post, res, ctx)
 
     def translate_check(self, check: ast.Node, res: List[Stmt], ctx: Context, is_fail=False) -> Expr:
         expr = self.translate(check, res, ctx)
@@ -325,18 +336,27 @@ class SpecificationTranslator(ExpressionTranslator):
             event = node.args[0]
             event_name = mangled.event_name(event.name)
             args = [self.translate(arg, res, ctx) for arg in event.args]
-            full_perm = self.viper_ast.FullPerm(pos)
-            one = self.viper_ast.IntLit(1, pos)
-            num = self.translate(node.args[1], res, ctx) if len(node.args) == 2 else one
             pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
             # If this is a trigger, we just return the predicate access without the surrounding perm-expression and
             # comparison (which is not valid as a trigger).
             if ctx.inside_trigger:
                 return pred_acc
             else:
-                perm = self.viper_ast.IntPermMul(num, full_perm, pos)
-                current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
-                return self.viper_ast.EqCmp(current_perm, perm, pos)
+                one = self.viper_ast.IntLit(1, pos)
+                num = self.translate(node.args[1], res, ctx) if len(node.args) == 2 else one
+                full_perm = self.viper_ast.FullPerm(pos)
+                perm_mul = self.viper_ast.IntPermMul(num, full_perm, pos)
+                if self._assume_event:
+                    curr_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
+                    pap = self.viper_ast.PredicateAccessPredicate(pred_acc, curr_perm, pos)
+                    none = self.viper_ast.NoPerm(pos)
+                    impl = self.viper_ast.Implies(self.viper_ast.GtCmp(curr_perm, none, pos), pap)
+                    res.append(self.viper_ast.Exhale(impl, pos))
+                    pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, perm_mul, pos)
+                    return pred_acc_pred
+                else:
+                    current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
+                    return self.viper_ast.EqCmp(current_perm, perm_mul, pos)
         elif name == names.SELFDESTRUCT:
             self_var = ctx.self_var.local_var(ctx)
             self_type = ctx.self_type

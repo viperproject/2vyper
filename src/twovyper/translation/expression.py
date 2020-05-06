@@ -740,24 +740,7 @@ class ExpressionTranslator(NodeTranslator):
 
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
-        # We forget about events by exhaling all permissions to the event predicates, i.e.
-        # for all event predicates e we do
-        #   exhale forall arg0, arg1, ... :: perm(e(arg0, arg1, ...)) > none ==> acc(e(...), perm(e(...)))
-        # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
-        # to exhale no permissions under a quantifier.
-        for event in ctx.program.events.values():
-            event_name = mangled.event_name(event.name)
-            types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
-            event_args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos) for idx, type in enumerate(types)]
-            local_args = [arg.localVar() for arg in event_args]
-            pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
-            perm = self.viper_ast.CurrentPerm(pa, pos)
-            pap = self.viper_ast.PredicateAccessPredicate(pa, perm, pos)
-            none = self.viper_ast.NoPerm(pos)
-            impl = self.viper_ast.Implies(self.viper_ast.GtCmp(perm, none, pos), pap)
-            trigger = self.viper_ast.Trigger([pa], pos)
-            forall = self.viper_ast.Forall(event_args, [trigger], impl, pos)
-            res.append(self.viper_ast.Exhale(forall, pos))
+        self.forget_about_all_events(res, ctx, pos)
 
         if not constant:
             # Save the values of to, amount, and args, as self could be changed by reentrancy
@@ -822,6 +805,26 @@ class ExpressionTranslator(NodeTranslator):
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
         return success, return_value
+
+    def forget_about_all_events(self, res, ctx, pos):
+        # We forget about events by exhaling all permissions to the event predicates, i.e.
+        # for all event predicates e we do
+        #   exhale forall arg0, arg1, ... :: perm(e(arg0, arg1, ...)) > none ==> acc(e(...), perm(e(...)))
+        # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
+        # to exhale no permissions under a quantifier.
+        for event in ctx.program.events.values():
+            event_name = mangled.event_name(event.name)
+            types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+            event_args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos) for idx, type in enumerate(types)]
+            local_args = [arg.localVar() for arg in event_args]
+            pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
+            perm = self.viper_ast.CurrentPerm(pa, pos)
+            pap = self.viper_ast.PredicateAccessPredicate(pa, perm, pos)
+            none = self.viper_ast.NoPerm(pos)
+            impl = self.viper_ast.Implies(self.viper_ast.GtCmp(perm, none, pos), pap)
+            trigger = self.viper_ast.Trigger([pa], pos)
+            forall = self.viper_ast.Forall(event_args, [trigger], impl, pos)
+            res.append(self.viper_ast.Exhale(forall, pos))
 
     def _assume_interface_specifications(self,
                                          node: ast.Node,

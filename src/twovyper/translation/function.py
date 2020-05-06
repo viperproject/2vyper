@@ -207,11 +207,18 @@ class FunctionTranslator(CommonTranslator):
             iv_info_msg = "Assume invariants for self"
             self.seqn_with_info(inv_pres_self, iv_info_msg, body)
 
+            # Assume an unspecified permission amount to the events if the function is private
+            if function.is_private():
+                event_handling = []
+                self._log_all_events_zero_or_one_time(event_handling, ctx, pos)
+                self.seqn_with_info(event_handling, "Assume we know nothing about events", body)
+
             # Assume preconditions
             pre_stmts = []
             with ctx.state_scope(ctx.present_state, ctx.old_state):
                 for precondition in function.preconditions:
-                    cond = self.specification_translator.translate_pre_or_postcondition(precondition, pre_stmts, ctx)
+                    cond = self.specification_translator.translate_pre_or_postcondition(precondition, pre_stmts, ctx,
+                                                                                        assume_event=True)
                     pre_pos = self.to_position(precondition, ctx, rules.INHALE_PRECONDITION_FAIL)
                     pre_stmts.append(self.viper_ast.Inhale(cond, pre_pos))
 
@@ -653,27 +660,12 @@ class FunctionTranslator(CommonTranslator):
 
             old_state_for_postconditions = ctx.current_state
             if not function.is_constant():
-                # We forget about events by exhaling all permissions to the event predicates, i.e.
-                # for all event predicates e we do
-                #   exhale forall arg0, arg1, ... :: perm(e(arg0, arg1, ...)) > none ==> acc(e(...), perm(e(...)))
-                # We use an implication with a '> none' because of a bug in Carbon
-                # (TODO: issue #171)
-                # where it isn't possible to exhale no permissions under a quantifier.
-                # TODO: inhale an undefined amount in [-perm(...), inf] instead of this
-                for event in ctx.program.events.values():
-                    event_name = mangled.event_name(event.name)
-                    viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
-                    event_args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', viper_type, pos) for idx, viper_type in
-                                  enumerate(viper_types)]
-                    local_args = [arg.localVar() for arg in event_args]
-                    pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
-                    perm = self.viper_ast.CurrentPerm(pa, pos)
-                    pap = self.viper_ast.PredicateAccessPredicate(pa, perm, pos)
-                    none = self.viper_ast.NoPerm(pos)
-                    impl = self.viper_ast.Implies(self.viper_ast.GtCmp(perm, none, pos), pap)
-                    trigger = self.viper_ast.Trigger([pa], pos)
-                    forall = self.viper_ast.Forall(event_args, [trigger], impl, pos)
-                    res.append(self.viper_ast.Exhale(forall, pos))
+                # We forget about events by exhaling all permissions to the event predicates
+                # and then inhale an unspecified permission amount.
+                event_handling = []
+                self.expression_translator.forget_about_all_events(event_handling, ctx, pos)
+                self._log_all_events_zero_or_one_time(event_handling, ctx, pos)
+                self.seqn_with_info(event_handling, "Assume we know nothing about events", res)
 
                 # Create pre_state for private function
                 def inlined_pre_state(name: str) -> str:
@@ -714,7 +706,8 @@ class FunctionTranslator(CommonTranslator):
                 # Assume postconditions
                 for post in chain(function.postconditions, ctx.program.general_postconditions,
                                   ctx.program.transitive_postconditions):
-                    cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
+                    cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx,
+                                                                                        assume_event=True)
                     post_pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                     post_stmts.append(self.viper_ast.Inhale(cond, post_pos))
 
@@ -732,6 +725,25 @@ class FunctionTranslator(CommonTranslator):
             self.fail_if(self.viper_ast.Not(success_var), [], res, ctx, call_pos)
 
             return ret_var
+
+    def _log_all_events_zero_or_one_time(self, res, ctx, pos):
+        for event in ctx.program.events.values():
+            event_name = mangled.event_name(event.name)
+            viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+            event_args = [self.viper_ast.LocalVarDecl(ctx.new_local_var_name('$arg'), arg_type, pos)
+                          for arg_type in viper_types]
+            ctx.new_local_vars.extend(event_args)
+            local_args = [arg.localVar() for arg in event_args]
+            # Inhale zero or one amount
+            var_name = ctx.new_local_var_name('$a')
+            var_decl = self.viper_ast.LocalVarDecl(var_name, self.viper_ast.Bool, pos)
+            ctx.new_local_vars.append(var_decl)
+            var = var_decl.localVar()
+            pred_acc = self.viper_ast.PredicateAccess(local_args, event_name, pos)
+            one = self.viper_ast.FullPerm(pos)
+            pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, one, pos)
+            log_event = self.viper_ast.Inhale(pred_acc_pred, pos)
+            res.append(self.viper_ast.If(var, [log_event], [], pos))
 
     def _assume_type_assumptions(self, state_dict: State, name: str, res, ctx):
         stmts = []

@@ -154,6 +154,11 @@ class StructureChecker(NodeVisitor):
         if ctx == _Context.PRECONDITION and function and node.name == names.PUBLIC_OLD:
             _assert(function.is_private(), node, 'precondition.public_old')
 
+        if ctx == _Context.POSTCONDITION and function and node.name == names.EVENT:
+            _assert(function.is_private(), node, 'postcondition.event')
+        if ctx == _Context.PRECONDITION and function and node.name == names.EVENT:
+            _assert(function.is_private(), node, 'precondition.event')
+
         # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
         if node.name == names.SUCCESS:
 
