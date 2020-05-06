@@ -366,12 +366,6 @@ class ProgramBuilder(NodeVisitor):
         decs = node.decorators
         function = VyperFunction(node.name, args, defaults, type,
                                  self.postconditions, self.preconditions, self.checks, self.performs, decs, node)
-        if function.is_private() and self.checks:
-            msg = f"Private functions are not allowed to have checks."
-            raise InvalidProgramException(node, 'invalid.checks', msg)
-        if function.is_public() and self.preconditions:
-            msg = f"Public functions are not allowed to have preconditions."
-            raise InvalidProgramException(node, 'invalid.precondition', msg)
         self.functions[node.name] = function
         # Reset local specs
         self.postconditions = []

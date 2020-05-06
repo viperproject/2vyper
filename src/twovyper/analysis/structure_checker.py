@@ -85,9 +85,15 @@ class StructureChecker(NodeVisitor):
             for postcondition in function.postconditions:
                 self.visit(postcondition, _Context.POSTCONDITION, program, function)
 
+            if function.preconditions:
+                _assert(not function.is_public(), function.preconditions[0],
+                        'invalid.preconditions', 'Public functions are not allowed to have preconditions.')
             for precondition in function.preconditions:
                 self.visit(precondition, _Context.PRECONDITION, program, function)
 
+            if function.checks:
+                _assert(not function.is_private(), function.checks[0],
+                        'invalid.checks', 'Private functions are not allowed to have checks.')
             for check in function.checks:
                 self.visit(check, _Context.CHECK, program, function)
 
