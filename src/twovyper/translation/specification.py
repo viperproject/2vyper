@@ -178,8 +178,16 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.REVERT:
             success = ctx.success_var.local_var(ctx, pos)
             return self.viper_ast.Not(success, pos)
-        elif name == names.OLD or name == names.ISSUED:
-            self_state = ctx.current_old_state if name == names.OLD else ctx.issued_state
+        elif name == names.OLD or name == names.ISSUED or name == names.PUBLIC_OLD:
+            with switch(name) as case:
+                if case(names.OLD):
+                    self_state = ctx.current_old_state
+                elif case(names.PUBLIC_OLD):
+                    self_state = ctx.old_state
+                elif case(names.ISSUED):
+                    self_state = ctx.issued_state
+                else:
+                    assert False
             with ctx.state_scope(self_state, self_state):
                 arg = node.args[0]
                 return self.translate(arg, res, ctx)

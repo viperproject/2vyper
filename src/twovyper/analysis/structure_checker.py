@@ -143,6 +143,11 @@ class StructureChecker(NodeVisitor):
         if ctx == _Context.POSTCONDITION and function and function.name == names.INIT:
             _assert(node.name != names.OLD, node, 'postcondition.init.old')
 
+        if ctx == _Context.POSTCONDITION and function and node.name == names.PUBLIC_OLD:
+            _assert(function.is_private(), node, 'postcondition.public_old')
+        if ctx == _Context.PRECONDITION and function and node.name == names.PUBLIC_OLD:
+            _assert(function.is_private(), node, 'precondition.public_old')
+
         # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
         if node.name == names.SUCCESS:
 
@@ -201,7 +206,7 @@ class StructureChecker(NodeVisitor):
 
             self.visit(body, ctx, program, function)
             return
-        elif node.name == names.OLD:
+        elif node.name in [names.OLD, names.PUBLIC_OLD]:
             with self._inside_old_scope():
                 self.generic_visit(node, ctx, program, function)
 
@@ -211,7 +216,7 @@ class StructureChecker(NodeVisitor):
 
             def check_allowed(arg):
                 if isinstance(arg, ast.FunctionCall):
-                    is_old = len(arg.args) == 1 and arg.name == names.OLD
+                    is_old = len(arg.args) == 1 and arg.name in [names.OLD, names.PUBLIC_OLD]
                     _assert(is_old, node, 'spec.independent')
                     return check_allowed(arg.args[0])
                 if isinstance(arg, ast.Attribute):
