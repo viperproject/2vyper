@@ -785,7 +785,7 @@ class ExpressionTranslator(NodeTranslator):
 
             assume_posts = []
             for post in ctx.program.transitive_postconditions:
-                post_expr = self.spec_translator.translate_postcondition(post, assume_posts, ctx)
+                post_expr = self.spec_translator.translate_pre_or_postcondition(post, assume_posts, ctx)
                 ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                 assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
 
@@ -879,7 +879,7 @@ class ExpressionTranslator(NodeTranslator):
             ctx.success_var = succ_var
             body.append(self.viper_ast.LocalVarAssign(succ_var.local_var(ctx), succ, succ.pos()))
 
-            translate = self.spec_translator.translate_postcondition
+            translate = self.spec_translator.translate_pre_or_postcondition
             pos = self.to_position(node, ctx, rules.INHALE_INTERFACE_FAIL)
 
             with ctx.program_scope(interface):

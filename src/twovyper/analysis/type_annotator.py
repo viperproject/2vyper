@@ -122,6 +122,9 @@ class TypeAnnotator(NodeVisitor):
                 for post in function.postconditions:
                     self.annotate_expected(post, types.VYPER_BOOL)
 
+                for pre in function.preconditions:
+                    self.annotate_expected(pre, types.VYPER_BOOL)
+
                 for check in function.checks:
                     self.annotate_expected(check, types.VYPER_BOOL)
 

@@ -115,6 +115,7 @@ class _FunctionAnalyzer(NodeVisitor):
 
     def analyze(self, function: VyperFunction):
         self.visit_nodes(function.postconditions, function)
+        self.visit_nodes(function.preconditions, function)
         self.visit_nodes(function.checks, function)
 
     def visit_FunctionCall(self, node: ast.FunctionCall, function: VyperFunction):

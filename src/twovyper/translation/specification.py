@@ -49,7 +49,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
         del self._ignore_accessible
 
-    def translate_postcondition(self, post: ast.Node, res: List[Stmt], ctx: Context) -> Expr:
+    def translate_pre_or_postcondition(self, post: ast.Node, res: List[Stmt], ctx: Context) -> Expr:
         return self.translate(post, res, ctx)
 
     def translate_check(self, check: ast.Node, res: List[Stmt], ctx: Context, is_fail=False) -> Expr:

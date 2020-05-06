@@ -9,6 +9,8 @@ import os
 
 from typing import Optional
 
+from twovyper.utils import switch
+
 from twovyper.parsing import lark
 from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
@@ -70,6 +72,7 @@ class ProgramBuilder(NodeVisitor):
         self.ghost_function_implementations = {}
 
         self.postconditions = []
+        self.preconditions = []
         self.checks = []
         self.performs = []
 
@@ -257,47 +260,50 @@ class ProgramBuilder(NodeVisitor):
             msg = f"Only general postconditions are allowed in preserves. ({name} is not allowed)"
             raise InvalidProgramException(node, 'invalid.preserves', msg)
 
-        if name == names.CONFIG:
-            if isinstance(node.value, ast.Name):
-                options = [node.value.id]
-            elif isinstance(node.value, ast.Tuple):
-                options = [n.id for n in node.value.elements]
+        with switch(name) as case:
+            if case(names.CONFIG):
+                if isinstance(node.value, ast.Name):
+                    options = [node.value.id]
+                elif isinstance(node.value, ast.Tuple):
+                    options = [n.id for n in node.value.elements]
 
-            for option in options:
-                if option not in names.CONFIG_OPTIONS:
-                    msg = f"Option {option} is invalid."
-                    raise InvalidProgramException(node, 'invalid.config.option', msg)
+                for option in options:
+                    if option not in names.CONFIG_OPTIONS:
+                        msg = f"Option {option} is invalid."
+                        raise InvalidProgramException(node, 'invalid.config.option', msg)
 
-            self.config = Config(options)
-        elif name == names.INTERFACE:
-            self._check_no_local_spec()
-            self.is_interface = True
-        elif name == names.INVARIANT:
-            # No local specifications allowed before invariants
-            self._check_no_local_spec()
+                self.config = Config(options)
+            elif case(names.INTERFACE):
+                self._check_no_local_spec()
+                self.is_interface = True
+            elif case(names.INVARIANT):
+                # No local specifications allowed before invariants
+                self._check_no_local_spec()
 
-            self.invariants.append(node.value)
-        elif name == names.GENERAL_POSTCONDITION:
-            # No local specifications allowed before general postconditions
-            self._check_no_local_spec()
+                self.invariants.append(node.value)
+            elif case(names.GENERAL_POSTCONDITION):
+                # No local specifications allowed before general postconditions
+                self._check_no_local_spec()
 
-            if self.is_preserves:
-                self.transitive_postconditions.append(node.value)
+                if self.is_preserves:
+                    self.transitive_postconditions.append(node.value)
+                else:
+                    self.general_postconditions.append(node.value)
+            elif case(names.GENERAL_CHECK):
+                # No local specifications allowed before general check
+                self._check_no_local_spec()
+
+                self.general_checks.append(node.value)
+            elif case(names.POSTCONDITION):
+                self.postconditions.append(node.value)
+            elif case(names.PRECONDITION):
+                self.preconditions.append(node.value)
+            elif case(names.CHECK):
+                self.checks.append(node.value)
+            elif case(names.PERFORMS):
+                self.performs.append(node.value)
             else:
-                self.general_postconditions.append(node.value)
-        elif name == names.GENERAL_CHECK:
-            # No local specifications allowed before general check
-            self._check_no_local_spec()
-
-            self.general_checks.append(node.value)
-        elif name == names.POSTCONDITION:
-            self.postconditions.append(node.value)
-        elif name == names.CHECK:
-            self.checks.append(node.value)
-        elif name == names.PERFORMS:
-            self.performs.append(node.value)
-        else:
-            assert False
+                assert False
 
     def visit_If(self, node: ast.If):
         # This is a preserves clause, since we replace all preserves clauses with if statements
@@ -359,12 +365,16 @@ class ProgramBuilder(NodeVisitor):
         type = FunctionType(arg_types, return_type)
         decs = node.decorators
         function = VyperFunction(node.name, args, defaults, type,
-                                 self.postconditions, self.checks, self.performs, decs, node)
+                                 self.postconditions, self.preconditions, self.checks, self.performs, decs, node)
         if function.is_private() and self.checks:
             msg = f"Private functions are not allowed to have checks."
             raise InvalidProgramException(node, 'invalid.checks', msg)
+        if function.is_public() and self.preconditions:
+            msg = f"Public functions are not allowed to have preconditions."
+            raise InvalidProgramException(node, 'invalid.precondition', msg)
         self.functions[node.name] = function
         # Reset local specs
         self.postconditions = []
+        self.preconditions = []
         self.checks = []
         self.performs = []

@@ -186,7 +186,7 @@ class FunctionTranslator(CommonTranslator):
             if not is_init:
                 present_state = ctx.present_state if function.is_public() else ctx.old_state
                 last_state = ctx.issued_state if function.analysis.uses_issued else present_state
-                # TODO: Can we also assume unchecked_invariants for present_state?
+
                 with ctx.state_scope(present_state, last_state):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_self.append(self.viper_ast.Inhale(inv))
@@ -196,10 +196,26 @@ class FunctionTranslator(CommonTranslator):
                         expr = self.specification_translator.translate_invariant(inv, inv_pres_self, ctx)
                         inv_pres_self.append(self.viper_ast.Inhale(expr, program_pos))
 
+                # Also assume the unchecked invariants for non-public states
+                if function.is_private():
+                    with ctx.state_scope(ctx.present_state, last_state):
+                        for inv in ctx.unchecked_invariants():
+                            inv_pres_self.append(self.viper_ast.Inhale(inv))
+
             iv_info_msg = "Assume invariants for issued self"
             self.seqn_with_info(inv_pres_issued, iv_info_msg, body)
             iv_info_msg = "Assume invariants for self"
             self.seqn_with_info(inv_pres_self, iv_info_msg, body)
+
+            # Assume preconditions
+            pre_stmts = []
+            with ctx.state_scope(ctx.present_state, ctx.old_state):
+                for precondition in function.preconditions:
+                    cond = self.specification_translator.translate_pre_or_postcondition(precondition, pre_stmts, ctx)
+                    pre_pos = self.to_position(precondition, ctx, rules.INHALE_PRECONDITION_FAIL)
+                    pre_stmts.append(self.viper_ast.Inhale(cond, pre_pos))
+
+            self.seqn_with_info(pre_stmts, "Assume preconditions", body)
 
             # pre_self is the same as self in the beginning
             self.state_translator.copy_state(ctx.present_state, ctx.pre_state, body, ctx)
@@ -346,13 +362,13 @@ class FunctionTranslator(CommonTranslator):
                 # Assert postconditions
                 for post in function.postconditions:
                     post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=model_translator)
-                    cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
+                    cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
                     post_assert = self.viper_ast.Assert(cond, post_pos)
                     post_stmts.append(post_assert)
 
                 for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
                     post_pos = self.to_position(post, ctx)
-                    cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
+                    cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
                     if is_init:
                         init_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=model_translator)
                         # General postconditions only have to hold for init if it succeeds
@@ -375,7 +391,7 @@ class FunctionTranslator(CommonTranslator):
                     for post in postconditions:
                         post_pos = self.to_position(function.node or post, ctx)
                         with ctx.program_scope(interface):
-                            cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
+                            cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
                             if is_init:
                                 cond = self.viper_ast.Implies(success_var, cond, post_pos)
                         apos = self.to_position(function.node or post, ctx,
@@ -527,7 +543,7 @@ class FunctionTranslator(CommonTranslator):
 
     def inline(self, call: ast.ReceiverCall, args: List[Expr], res: List[Stmt], ctx: Context) -> Expr:
         function = ctx.program.functions[call.name]
-        if function.postconditions:
+        if function.postconditions or function.preconditions:
             return self._assume_private_function(call, args, res, ctx)
         else:
             return self._inline(call, args, res, ctx)
@@ -584,6 +600,7 @@ class FunctionTranslator(CommonTranslator):
         #    - Evaluate arguments
         #    - Define return variable
         #    - Define new_success variable
+        #    - Check precondition
         #    - The next steps are only necessary if the function is not constant:
         #       - Forget about all events
         #       - Create new state which corresponds to the pre_state of the private function call
@@ -622,6 +639,17 @@ class FunctionTranslator(CommonTranslator):
                 ret_var = ctx.result_var.local_var(ctx, pos)
             else:
                 ret_var = None
+
+            # Check preconditions
+            pre_stmts = []
+            with ctx.state_scope(ctx.current_state, ctx.current_old_state):
+                for precondition in function.preconditions:
+                    cond = self.specification_translator.translate_pre_or_postcondition(precondition, pre_stmts, ctx)
+                    pre_pos = self.to_position(precondition, ctx, rules.PRECONDITION_FAIL,
+                                               values={'function': function})
+                    pre_stmts.append(self.viper_ast.Assert(cond, pre_pos))
+
+            self.seqn_with_info(pre_stmts, "Check preconditions", res)
 
             old_state_for_postconditions = ctx.current_state
             if not function.is_constant():
@@ -663,10 +691,9 @@ class FunctionTranslator(CommonTranslator):
                 self._assume_type_assumptions(ctx.current_state, "Present", res, ctx)
                 self._assume_type_assumptions(ctx.current_old_state, "Old", res, ctx)
 
-                # TODO: Can we also assume unchecked_invariants for current_state?
                 assume_invs = []
+                # Assume Invariants for old state
                 with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
-                    # Assume Invariants for old state
                     for inv in ctx.unchecked_invariants():
                         assume_invs.append(self.viper_ast.Inhale(inv))
 
@@ -675,6 +702,11 @@ class FunctionTranslator(CommonTranslator):
                         inv_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                         assume_invs.append(self.viper_ast.Inhale(cond, inv_pos))
 
+                # Assume Invariants for current state
+                with ctx.state_scope(ctx.current_state, ctx.current_state):
+                    for inv in ctx.unchecked_invariants():
+                        assume_invs.append(self.viper_ast.Inhale(inv))
+
                 self.seqn_with_info(assume_invs, "Assume invariants", res)
 
             post_stmts = []
@@ -682,7 +714,7 @@ class FunctionTranslator(CommonTranslator):
                 # Assume postconditions
                 for post in chain(function.postconditions, ctx.program.general_postconditions,
                                   ctx.program.transitive_postconditions):
-                    cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
+                    cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
                     post_pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                     post_stmts.append(self.viper_ast.Inhale(cond, post_pos))
 
@@ -691,7 +723,7 @@ class FunctionTranslator(CommonTranslator):
                     postconditions = interface.general_postconditions
                     for post in postconditions:
                         with ctx.program_scope(interface):
-                            cond = self.specification_translator.translate_postcondition(post, post_stmts, ctx)
+                            cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
                         post_pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                         post_stmts.append(self.viper_ast.Inhale(cond, post_pos))
 

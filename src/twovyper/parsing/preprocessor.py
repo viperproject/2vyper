@@ -29,6 +29,7 @@ def preprocess(program: str) -> str:
     replace(r'#@\s*ghost\s*:', replacement('with(g)', ':'))
     replace(r'#@\s*resource\s*:', replacement('def ', ''))
     replace(r'#@\s*ensures\s*:', replacement('ensures', '='))
+    replace(r'#@\s*requires\s*:', replacement('requires', '='))
     replace(r'#@\s*check\s*:', replacement('check', '='))
     replace(r'#@\s*performs\s*:', replacement('performs', '='))
     replace(r'#@\s*invariant\s*:', replacement('invariant', '='))

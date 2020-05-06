@@ -53,6 +53,17 @@ POSTCONDITION_FAIL = {
         ('not.wellformed', 'seq.index.negative')
 }
 
+PRECONDITION_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('precondition.violated', 'assertion.false'),
+    ('assert.failed', 'division.by.zero'):
+        ('not.wellformed', 'division.by.zero'),
+    ('assert.failed', 'seq.index.length'):
+        ('not.wellformed', 'seq.index.length'),
+    ('assert.failed', 'seq.index.negative'):
+        ('not.wellformed', 'seq.index.negative')
+}
+
 INTERFACE_POSTCONDITION_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('postcondition.not.implemented', 'assertion.false')
@@ -100,6 +111,15 @@ INHALE_POSTCONDITION_FAIL = {
         ('postcondition.not.wellformed', 'seq.index.length'),
     ('inhale.failed', 'seq.index.negative'):
         ('postcondition.not.wellformed', 'seq.index.negative')
+}
+
+INHALE_PRECONDITION_FAIL = {
+    ('inhale.failed', 'division.by.zero'):
+        ('precondition.not.wellformed', 'division.by.zero'),
+    ('inhale.failed', 'seq.index.length'):
+        ('precondition.not.wellformed', 'seq.index.length'),
+    ('inhale.failed', 'seq.index.negative'):
+        ('precondition.not.wellformed', 'seq.index.negative')
 }
 
 INHALE_INTERFACE_FAIL = {

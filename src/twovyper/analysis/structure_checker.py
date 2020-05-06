@@ -32,6 +32,7 @@ class _Context(Enum):
     INVARIANT = 'invariant'
     CHECK = 'check'
     POSTCONDITION = 'postcondition'
+    PRECONDITION = 'precondition'
     TRANSITIVE_POSTCONDITION = 'transitive.postcondition'
     GHOST_CODE = 'ghost.code'
     GHOST_FUNCTION = 'ghost.function'
@@ -54,6 +55,7 @@ class StructureChecker(NodeVisitor):
             _Context.INVARIANT: names.NOT_ALLOWED_IN_INVARIANT,
             _Context.CHECK: names.NOT_ALLOWED_IN_CHECK,
             _Context.POSTCONDITION: names.NOT_ALLOWED_IN_POSTCONDITION,
+            _Context.PRECONDITION: names.NOT_ALLOWED_IN_PRECONDITION,
             _Context.TRANSITIVE_POSTCONDITION: names.NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION,
             _Context.GHOST_CODE: names.NOT_ALLOWED_IN_GHOST_CODE,
             _Context.GHOST_FUNCTION: names.NOT_ALLOWED_IN_GHOST_FUNCTION,
@@ -82,6 +84,9 @@ class StructureChecker(NodeVisitor):
 
             for postcondition in function.postconditions:
                 self.visit(postcondition, _Context.POSTCONDITION, program, function)
+
+            for precondition in function.preconditions:
+                self.visit(precondition, _Context.PRECONDITION, program, function)
 
             for check in function.checks:
                 self.visit(check, _Context.CHECK, program, function)

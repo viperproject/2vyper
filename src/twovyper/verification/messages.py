@@ -41,6 +41,8 @@ ERRORS = {
         lambda i: f"Postcondition of {i.function.name} might not hold.",
     'postcondition.not.implemented':
         lambda i: f"Function {i.function.name} might not correctly implement an interface.",
+    'precondition.violated':
+        lambda i: f"Precondition of {i.function.name} might not hold.",
     'invariant.violated':
         lambda i: f"Invariant not preserved by {i.function.name}.",
     'check.violated':
@@ -48,7 +50,9 @@ ERRORS = {
     'invariant.not.wellformed':
         lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
     'postcondition.not.wellformed':
-        lambda i: f"General postcondition {pprint(i.node)} might not be well-formed.",
+        lambda i: f"(General) Postcondition {pprint(i.node)} might not be well-formed.",
+    'precondition.not.wellformed':
+        lambda i: f"Precondition {pprint(i.node)} might not be well-formed.",
     'interface.postcondition.not.wellformed':
         lambda i: f"Postcondition of {pprint(i.node)} might not be well-formed.",
     'reallocate.failed':
