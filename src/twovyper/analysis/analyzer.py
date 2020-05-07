@@ -123,3 +123,7 @@ class _FunctionAnalyzer(NodeVisitor):
             function.analysis.uses_issued = True
 
         self.generic_visit(node, function)
+
+    def visit_For(self, node: ast.For, function: VyperFunction):
+        self.generic_visit(node, function)
+        self.visit_nodes(function.loop_invariants.get(node, []), function)

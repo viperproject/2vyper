@@ -21,9 +21,9 @@ from twovyper.utils import first_index
 
 # Helper functions
 
-def init_function() -> ast.FunctionDef:
+def init_function() -> VyperFunction:
     type = FunctionType([], None)
-    function = VyperFunction(mangled.INIT, {}, {}, type, [], [], [], [], [ast.Decorator(names.PUBLIC, [])], None)
+    function = VyperFunction(mangled.INIT, {}, {}, type, [], [], [], {}, [], [ast.Decorator(names.PUBLIC, [])], None)
     function.analysis = FunctionAnalysis()
     return function
 

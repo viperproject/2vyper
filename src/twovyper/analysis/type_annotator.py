@@ -73,7 +73,7 @@ class TypeAnnotator(NodeVisitor):
         self.type_builder = TypeBuilder(type_map)
 
         self.program = program
-        self.current_func = None
+        self.current_func: Union[VyperFunction, None] = None
 
         self_type = self.program.fields.type
         # Contains the possible types a variable can have
@@ -132,6 +132,7 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate(performs)
 
         for ghost_function in self.program.ghost_function_implementations.values():
+            assert isinstance(ghost_function, GhostFunction)
             with self._function_scope(ghost_function):
                 self.annotate_expected(ghost_function.node.body[0].value, ghost_function.type.return_type)
 
@@ -147,7 +148,7 @@ class TypeAnnotator(NodeVisitor):
         for check in self.program.general_checks:
             self.annotate_expected(check, types.VYPER_BOOL)
 
-    def generic_visit(self, node: ast.Node):
+    def generic_visit(self, node: ast.Node, *args):
         assert False
 
     def pass_through(self, node1, node=None):
@@ -265,6 +266,12 @@ class TypeAnnotator(NodeVisitor):
         self.variables[var_name] = [var_type]
 
         self.annotate_expected(node.target, var_type)
+
+        # Visit loop invariants
+        for loop_inv in self.current_func.loop_invariants.get(node, []):
+            self.annotate_expected(loop_inv, types.VYPER_BOOL)
+
+        # Visit body
         for stmt in node.body:
             self.visit(stmt)
 

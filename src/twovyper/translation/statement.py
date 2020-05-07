@@ -142,6 +142,7 @@ class StatementTranslator(NodeTranslator):
 
         self._add_local_var(node.target, ctx)
 
+        # TODO: use loop invariants
         with ctx.break_scope():
             loop_var = ctx.all_vars[node.target.id].local_var(ctx)
             lpos = self.to_position(node.target, ctx)

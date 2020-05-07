@@ -31,6 +31,7 @@ class _Context(Enum):
 
     CODE = 'code'
     INVARIANT = 'invariant'
+    LOOP_INVARIANT = 'loop.invariant'
     CHECK = 'check'
     POSTCONDITION = 'postcondition'
     PRECONDITION = 'precondition'
@@ -54,6 +55,7 @@ class StructureChecker(NodeVisitor):
         self.allowed = {
             _Context.CODE: [],
             _Context.INVARIANT: names.NOT_ALLOWED_IN_INVARIANT,
+            _Context.LOOP_INVARIANT: names.NOT_ALLOWED_IN_LOOP_INVARIANT,
             _Context.CHECK: names.NOT_ALLOWED_IN_CHECK,
             _Context.POSTCONDITION: names.NOT_ALLOWED_IN_POSTCONDITION,
             _Context.PRECONDITION: names.NOT_ALLOWED_IN_PRECONDITION,
@@ -201,6 +203,12 @@ class StructureChecker(NodeVisitor):
         with self._inside_pure_scope('tuples'):
             self.generic_visit(node, *args)
 
+    def visit_For(self, node: ast.For, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+        self.generic_visit(node, ctx, program, function)
+        if function:
+            for loop_inv in function.loop_invariants.get(node, []):
+                self.visit(loop_inv, _Context.LOOP_INVARIANT, program, function)
+
     def visit_FunctionDef(self, node: ast.FunctionDef, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         for stmt in node.body:
             if ctx == _Context.GHOST_FUNCTION:
@@ -227,24 +235,32 @@ class StructureChecker(NodeVisitor):
         if ctx == _Context.POSTCONDITION and function and function.name == names.INIT:
             _assert(node.name != names.OLD, node, 'postcondition.init.old')
 
-        if ctx == _Context.POSTCONDITION and function and node.name == names.PUBLIC_OLD:
-            _assert(function.is_private(), node, 'postcondition.public_old')
-        if ctx == _Context.PRECONDITION and function and node.name == names.PUBLIC_OLD:
-            _assert(function.is_private(), node, 'precondition.public_old')
+        if function and node.name == names.PUBLIC_OLD:
+            if ctx == _Context.POSTCONDITION:
+                _assert(function.is_private(), node, 'postcondition.public.old')
+            elif ctx == _Context.PRECONDITION:
+                _assert(function.is_private(), node, 'precondition.public.old')
+            else:
+                _assert(ctx == _Context.LOOP_INVARIANT, node, 'loop.invariant.public.old')
 
-        if ctx == _Context.POSTCONDITION and function and node.name == names.EVENT:
-            _assert(function.is_private(), node, 'postcondition.event')
-        if ctx == _Context.PRECONDITION and function and node.name == names.EVENT:
-            _assert(function.is_private(), node, 'precondition.event')
+        if function and node.name == names.EVENT:
+            if ctx == _Context.POSTCONDITION:
+                _assert(function.is_private(), node, 'postcondition.event')
+            elif ctx == _Context.PRECONDITION:
+                _assert(function.is_private(), node, 'precondition.event')
+            else:
+                _assert(ctx == _Context.LOOP_INVARIANT, node, 'loop.invariant.event')
 
         if node.name == names.EVENT:
-            if ctx == _Context.PRECONDITION or ctx == _Context.POSTCONDITION:
+            if ctx == _Context.PRECONDITION \
+                    or ctx == _Context.POSTCONDITION \
+                    or ctx == _Context.LOOP_INVARIANT:
                 _assert(not self._is_pure, node, 'spec.event',
-                        "Events in pre- and postcondition are non pure expressions. "
+                        "Events are only in checks pure expressions. "
                         f"They cannot be used in {self._non_pure_parent_description}.")
                 if self._only_one_event_allowed:
                     _assert(not self._visited_an_event, node, 'spec.event',
-                            'Only one event expression is allowed in conjunctions of pre- or postconditions.')
+                            'Only one event expression is allowed in conjunctions of a non-check-specification.')
             self._visited_an_event = True
 
         elif node.name == names.IMPLIES:
