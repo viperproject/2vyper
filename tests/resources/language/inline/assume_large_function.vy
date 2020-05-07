@@ -42,14 +42,14 @@ def times_plus_some_val(a: decimal, b: decimal) -> decimal:
     y: decimal = 1.0
     return a * b * y + x + convert(D, decimal)
 
-#@ ensures: a == 53.0
+#@ ensures: success() ==> a == 53.0
 @public
 @constant
 def call1():
     a: decimal = 0.0
     a = self.times_plus_some_val(6.0, 7.0)
 
-#@ ensures: a == 53.0
+#@ ensures: success() ==> a == 53.0
 @public
 @constant
 def call2():
