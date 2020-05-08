@@ -10,6 +10,7 @@ from enum import Enum
 from itertools import chain
 from typing import Optional, Union
 
+from twovyper.utils import switch
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.nodes import VyperProgram, VyperFunction
 from twovyper.ast.visitors import NodeVisitor
@@ -63,6 +64,9 @@ class StructureChecker(NodeVisitor):
         }
 
         self._inside_old = False
+        self._is_pure = False
+        self._non_pure_parent_description: Union[str, None] = None
+        self._visited_an_event = False
 
     @contextmanager
     def _inside_old_scope(self):
@@ -72,6 +76,27 @@ class StructureChecker(NodeVisitor):
         yield
 
         self._inside_old = current_inside_old
+
+    @contextmanager
+    def _inside_pure_scope(self, node_description: str = None):
+        is_pure = self._is_pure
+        self._is_pure = True
+        description = self._non_pure_parent_description
+        self._non_pure_parent_description = node_description
+
+        yield
+
+        self._is_pure = is_pure
+        self._non_pure_parent_description = description
+
+    @contextmanager
+    def _inside_one_event_scope(self):
+        visited_an_event = self._visited_an_event
+        self._visited_an_event = False
+
+        yield
+
+        self._visited_an_event = visited_an_event
 
     def check(self, program: VyperProgram):
         if program.resources and not program.config.has_option(names.CONFIG_ALLOCATION):
@@ -83,13 +108,15 @@ class StructureChecker(NodeVisitor):
             self.visit(function.node, _Context.CODE, program, function)
 
             for postcondition in function.postconditions:
-                self.visit(postcondition, _Context.POSTCONDITION, program, function)
+                with self._inside_one_event_scope():
+                    self.visit(postcondition, _Context.POSTCONDITION, program, function)
 
             if function.preconditions:
                 _assert(not function.is_public(), function.preconditions[0],
                         'invalid.preconditions', 'Public functions are not allowed to have preconditions.')
             for precondition in function.preconditions:
-                self.visit(precondition, _Context.PRECONDITION, program, function)
+                with self._inside_one_event_scope():
+                    self.visit(precondition, _Context.PRECONDITION, program, function)
 
             if function.checks:
                 _assert(not function.is_private(), function.checks[0],
@@ -115,13 +142,61 @@ class StructureChecker(NodeVisitor):
         for ghost_function in program.ghost_function_implementations.values():
             self.visit(ghost_function.node, _Context.GHOST_FUNCTION, program, None)
 
-    def visit(self, node: ast.Node, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+    def visit(self, node: ast.Node, *args):
+        assert len(args) == 3
+        ctx, program, function = args
         _assert(ctx != _Context.GHOST_CODE or isinstance(node, ast.AllowedInGhostCode), node, 'invalid.ghost.code')
         super().visit(node, ctx, program, function)
 
     def _visit_performs(self, node: ast.Expr, program: VyperProgram, function: VyperFunction):
         _assert(isinstance(node, ast.FunctionCall) and node.name in names.GHOST_STATEMENTS, node, 'invalid.performs')
         self.visit(node, _Context.CODE, program, function)
+
+    def visit_BoolOp(self, node: ast.BoolOp, *args):
+        with switch(node.op) as case:
+            if case(ast.BoolOperator.OR):
+                with self._inside_pure_scope('disjunctions'):
+                    self.generic_visit(node, *args)
+            elif case(ast.BoolOperator.IMPLIES):
+                with self._inside_pure_scope('(e ==> A) as the left hand side'):
+                    self.visit(node.left, *args)
+                self.visit(node.right, *args)
+            elif case(ast.BoolOperator.AND):
+                self.generic_visit(node, *args)
+            else:
+                assert False
+
+    def visit_Not(self, node: ast.Not, *args):
+        with self._inside_pure_scope('not expressions'):
+            self.generic_visit(node, *args)
+
+    def visit_Containment(self, node: ast.Containment, *args):
+        with self._inside_pure_scope(f"containment expressions like \"{node.op}\""):
+            self.generic_visit(node, *args)
+
+    def visit_Equality(self, node: ast.Equality, *args):
+        with self._inside_pure_scope('== expressions'):
+            self.generic_visit(node, *args)
+
+    def visit_IfExpr(self, node: ast.IfExpr, *args):
+        with self._inside_pure_scope('if expressions like (A1 if e else A2)'):
+            self.generic_visit(node, *args)
+
+    def visit_Dict(self, node: ast.Dict, *args):
+        with self._inside_pure_scope('dicts'):
+            self.generic_visit(node, *args)
+
+    def visit_Set(self, node: ast.Set, *args):
+        with self._inside_pure_scope('sets'):
+            self.generic_visit(node, *args)
+
+    def visit_List(self, node: ast.List, *args):
+        with self._inside_pure_scope('lists'):
+            self.generic_visit(node, *args)
+
+    def visit_Tuple(self, node: ast.Tuple, *args):
+        with self._inside_pure_scope('tuples'):
+            self.generic_visit(node, *args)
 
     def visit_FunctionDef(self, node: ast.FunctionDef, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         for stmt in node.body:
@@ -159,10 +234,24 @@ class StructureChecker(NodeVisitor):
         if ctx == _Context.PRECONDITION and function and node.name == names.EVENT:
             _assert(function.is_private(), node, 'precondition.event')
 
-        # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
-        if node.name == names.SUCCESS:
+        if node.name == names.EVENT:
+            if ctx == _Context.PRECONDITION or ctx == _Context.POSTCONDITION:
+                _assert(not self._is_pure, node, 'spec.event',
+                        "Events in pre- and postcondition are non pure expressions. "
+                        f"They cannot be used in {self._non_pure_parent_description}.")
+                _assert(not self._visited_an_event, node, 'spec.event',
+                        'Only one event expression is allowed per pre- or postcondition.')
+            self._visited_an_event = True
 
-            def check_success_args(node):
+        elif node.name == names.IMPLIES:
+            with self._inside_pure_scope('implies(e, A) as the expression "e"'):
+                self.visit(node.args[0], ctx, program, function)
+            self.visit(node.args[1], ctx, program, function)
+
+        # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
+        elif node.name == names.SUCCESS:
+
+            def check_success_args(node: ast.Node):
                 if isinstance(node, ast.Name):
                     _assert(node.id in names.SUCCESS_CONDITIONS, node, 'spec.success')
                 elif isinstance(node, ast.BoolOp) and node.op == ast.BoolOperator.OR:
@@ -188,6 +277,7 @@ class StructureChecker(NodeVisitor):
             if len(node.args) == 3:
                 call = node.args[2]
                 _assert(isinstance(call, ast.ReceiverCall), node, 'spec.accessible')
+                assert isinstance(call, ast.ReceiverCall)
                 _assert(isinstance(call.receiver, ast.Name), node, 'spec.accessible')
                 _assert(call.receiver.id == names.SELF, node, 'spec.accessible')
                 _assert(call.name in program.functions, node, 'spec.accessible')
@@ -223,7 +313,8 @@ class StructureChecker(NodeVisitor):
 
             return
         elif node.name == names.INDEPENDENT:
-            self.visit(node.args[0], ctx, program, function)
+            with self._inside_pure_scope('independent expressions'):
+                self.visit(node.args[0], ctx, program, function)
 
             def check_allowed(arg):
                 if isinstance(arg, ast.FunctionCall):
