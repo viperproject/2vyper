@@ -67,6 +67,7 @@ class StructureChecker(NodeVisitor):
         self._is_pure = False
         self._non_pure_parent_description: Union[str, None] = None
         self._visited_an_event = False
+        self._only_one_event_allowed = False
 
     @contextmanager
     def _inside_old_scope(self):
@@ -94,9 +95,13 @@ class StructureChecker(NodeVisitor):
         visited_an_event = self._visited_an_event
         self._visited_an_event = False
 
+        only_one_event_allowed = self._only_one_event_allowed
+        self._only_one_event_allowed = True
+
         yield
 
         self._visited_an_event = visited_an_event
+        self._only_one_event_allowed = only_one_event_allowed
 
     def check(self, program: VyperProgram):
         if program.resources and not program.config.has_option(names.CONFIG_ALLOCATION):
@@ -108,15 +113,13 @@ class StructureChecker(NodeVisitor):
             self.visit(function.node, _Context.CODE, program, function)
 
             for postcondition in function.postconditions:
-                with self._inside_one_event_scope():
-                    self.visit(postcondition, _Context.POSTCONDITION, program, function)
+                self.visit(postcondition, _Context.POSTCONDITION, program, function)
 
             if function.preconditions:
                 _assert(not function.is_public(), function.preconditions[0],
                         'invalid.preconditions', 'Public functions are not allowed to have preconditions.')
             for precondition in function.preconditions:
-                with self._inside_one_event_scope():
-                    self.visit(precondition, _Context.PRECONDITION, program, function)
+                self.visit(precondition, _Context.PRECONDITION, program, function)
 
             if function.checks:
                 _assert(not function.is_private(), function.checks[0],
@@ -162,7 +165,8 @@ class StructureChecker(NodeVisitor):
                     self.visit(node.left, *args)
                 self.visit(node.right, *args)
             elif case(ast.BoolOperator.AND):
-                self.generic_visit(node, *args)
+                with self._inside_one_event_scope():
+                    self.generic_visit(node, *args)
             else:
                 assert False
 
@@ -179,8 +183,10 @@ class StructureChecker(NodeVisitor):
             self.generic_visit(node, *args)
 
     def visit_IfExpr(self, node: ast.IfExpr, *args):
+        self.visit(node.body, *args)
+        self.visit(node.orelse, *args)
         with self._inside_pure_scope('if expressions like (A1 if e else A2)'):
-            self.generic_visit(node, *args)
+            self.visit(node.test, *args)
 
     def visit_Dict(self, node: ast.Dict, *args):
         with self._inside_pure_scope('dicts'):
@@ -239,8 +245,9 @@ class StructureChecker(NodeVisitor):
                 _assert(not self._is_pure, node, 'spec.event',
                         "Events in pre- and postcondition are non pure expressions. "
                         f"They cannot be used in {self._non_pure_parent_description}.")
-                _assert(not self._visited_an_event, node, 'spec.event',
-                        'Only one event expression is allowed per pre- or postcondition.')
+                if self._only_one_event_allowed:
+                    _assert(not self._visited_an_event, node, 'spec.event',
+                            'Only one event expression is allowed in conjunctions of pre- or postconditions.')
             self._visited_an_event = True
 
         elif node.name == names.IMPLIES:
