@@ -21,6 +21,8 @@ ERRORS = {
         lambda i: f"An invariant might not hold before the call {pprint(i.node)}.",
     'call.check':
         lambda i: f"A check might not hold before the call {pprint(i.node)}.",
+    'private.call.check':
+        lambda i: f"A check might not hold in the private function.",
     'call.precondition':
         lambda i: f"The precondition of function {pprint(i.node)} might not hold.",
     'call.leakcheck':

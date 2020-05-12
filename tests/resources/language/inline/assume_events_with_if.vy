@@ -12,6 +12,7 @@ SomeEvent: event({_value: uint256})
 
 #@ requires: event(SomeEvent(42), 0)
 #@ ensures: event(SomeEvent(42), 1) if a else True
+#@ check: False
 @private
 def if_test1(a: bool):
     if a:
@@ -20,6 +21,7 @@ def if_test1(a: bool):
 #@ requires: event(SomeEvent(1), 0)
 #@ requires: event(SomeEvent(42), 0)
 #@ ensures: event(SomeEvent(42), 1) if a else event(SomeEvent(1), 1)
+#@ check: False
 @private
 def if_test2(a: bool):
     if a:

@@ -13,6 +13,7 @@ SomeEvent: event({_value: uint256})
 #@ requires: event(SomeEvent(42), 0)
 #@ ensures: a ==> event(SomeEvent(42), 1)
 #@ ensures: b ==> event(SomeEvent(42), 1)
+#@ check: False
 @private
 def disjunction_test(a: bool, b: bool):
     if a or b:
@@ -21,13 +22,14 @@ def disjunction_test(a: bool, b: bool):
 #@ requires: forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 #@ ensures: success() ==> event(SomeEvent(3), 2)
 #@ ensures: success() ==> event(SomeEvent(3), 2)
+#@ check: forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 @private
 def forall_event_test(a: address):
     C(a).send()
     log.SomeEvent(3)
     log.SomeEvent(3)
 
-#@ check: success() ==> event(SomeEvent(3), 2)
+#@ check: success() ==> forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1)) or event(SomeEvent(3), 2)
 @public
 def foo():
     log.SomeEvent(3)

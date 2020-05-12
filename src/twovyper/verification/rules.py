@@ -90,6 +90,11 @@ CALL_CHECK_FAIL = {
         ('call.check', 'assertion.false')
 }
 
+PRIVATE_CALL_CHECK_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('private.call.check', 'assertion.false')
+}
+
 CALL_LEAK_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('call.leakcheck', 'allocation.leaked')

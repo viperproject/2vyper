@@ -29,15 +29,18 @@ ads: address[10]
 #@ ensures: event(Transfer(msg.sender, self.ad, self.weis), 1)
 # self.ad and self.weis stayed the same
 #@ ensures: self.ad == public_old(self.ad) and self.weis == public_old(self.weis)
+# There should be no public state in this function
+#@ check: False
 @private
 def inc_val() -> address:
     self.val += 1
     return self.ad
 
 #@ requires: self.val > public_old(self.val)
-#@ requires: event(Transfer(msg.sender, self.ad, self.weis), 1)
+#@ requires: event(Transfer(msg.sender, self.ad, self.weis), 2)
 #@ ensures: success() ==> event(Transfer(_sender, _to, _amount), 2)
 #@ ensures: success() ==> self.weis == _amount and self.ad == _to
+#@ check: event(Transfer(msg.sender, self.ad, self.weis), 2)
 @private
 def transfer(_sender: address, _to: address, _amount: uint256):
     C(_sender).send()
@@ -53,4 +56,6 @@ def transfer_stmts():
     log.Transfer(msg.sender, self.inc_val(), self.weis)
     C(msg.sender).send()
     log.Transfer(msg.sender, self.ad, self.weis)
-    self.transfer(msg.sender, self.inc_val(), self.weis)
+    temp: address = self.inc_val()
+    log.Transfer(msg.sender, self.ad, self.weis)
+    self.transfer(msg.sender, temp, self.weis)

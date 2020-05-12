@@ -556,7 +556,7 @@ class FunctionTranslator(CommonTranslator):
 
     def inline(self, call: ast.ReceiverCall, args: List[Expr], res: List[Stmt], ctx: Context) -> Expr:
         function = ctx.program.functions[call.name]
-        if function.postconditions or function.preconditions:
+        if function.postconditions or function.preconditions or function.checks:
             return self._assume_private_function(call, args, res, ctx)
         else:
             return self._inline(call, args, res, ctx)
@@ -706,6 +706,20 @@ class FunctionTranslator(CommonTranslator):
                         assume_invs.append(self.viper_ast.Inhale(inv))
 
                 self.seqn_with_info(assume_invs, "Assume invariants", res)
+
+            private_function_checks_conjunction = self.viper_ast.TrueLit(pos)
+            for check in function.checks:
+                cond = self.specification_translator.translate_check(check, res, ctx)
+                private_function_checks_conjunction = self.viper_ast.And(private_function_checks_conjunction, cond, pos)
+
+            check_stmts = []
+            for check in ctx.function.checks:
+                check_cond = self.specification_translator.translate_check(check, res, ctx)
+                check_pos = self.to_position(check, ctx, rules.PRIVATE_CALL_CHECK_FAIL)
+                cond = self.viper_ast.Implies(private_function_checks_conjunction, check_cond, check_pos)
+                check_stmts.append(self.viper_ast.Assert(cond, check_pos))
+
+            self.seqn_with_info(check_stmts, "Check strength of checks of private function", res)
 
             post_stmts = []
             with ctx.state_scope(ctx.current_state, old_state_for_postconditions):
