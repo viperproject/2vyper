@@ -12,7 +12,7 @@ from typing import List
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.nodes import VyperFunction, VyperVar
 
-from twovyper.translation import helpers, mangled, State
+from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.allocation import AllocationTranslator
@@ -120,13 +120,13 @@ class FunctionTranslator(CommonTranslator):
             body = []
 
             # Assume type assumptions for self state
-            self._assume_type_assumptions(ctx.present_state, "Present", body, ctx)
+            self.state_translator.assume_type_assumptions_for_state(ctx.present_state, "Present", body, ctx)
             if function.is_private():
-                self._assume_type_assumptions(ctx.old_state, "Old", body, ctx)
+                self.state_translator.assume_type_assumptions_for_state(ctx.old_state, "Old", body, ctx)
 
             # Assume type assumptions for issued state
             if function.analysis.uses_issued:
-                self._assume_type_assumptions(ctx.issued_state, "Issued", body, ctx)
+                self.state_translator.assume_type_assumptions_for_state(ctx.issued_state, "Issued", body, ctx)
 
             # Assume type assumptions for self address
             self_address = helpers.self_address(self.viper_ast)
@@ -334,7 +334,7 @@ class FunctionTranslator(CommonTranslator):
             # Havoc the return value
             if function.type.return_type:
                 result_type = self.type_translator.translate(ctx.result_var.type, ctx)
-                havoc = self._havoc_var(result_type, ctx)
+                havoc = helpers.havoc_var(self.viper_ast, result_type, ctx)
                 body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ctx), havoc))
             # Revert self and old_self to the state before the function
             self.state_translator.copy_state(ctx.pre_state, ctx.present_state, body, ctx)
@@ -683,29 +683,7 @@ class FunctionTranslator(CommonTranslator):
                 # Copy present state to this created pre_state
                 self.state_translator.copy_state(ctx.current_state, old_state_for_postconditions, res, ctx)
 
-                # Havoc states
-                self.state_translator.havoc_state(ctx.current_state, res, ctx, pos)
-                self.state_translator.havoc_state(ctx.current_old_state, res, ctx, pos)
-                self._assume_type_assumptions(ctx.current_state, "Present", res, ctx)
-                self._assume_type_assumptions(ctx.current_old_state, "Old", res, ctx)
-
-                assume_invs = []
-                # Assume Invariants for old state
-                with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
-                    for inv in ctx.unchecked_invariants():
-                        assume_invs.append(self.viper_ast.Inhale(inv))
-
-                    for inv in ctx.program.invariants:
-                        cond = self.specification_translator.translate_invariant(inv, assume_invs, ctx, True)
-                        inv_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                        assume_invs.append(self.viper_ast.Inhale(cond, inv_pos))
-
-                # Assume Invariants for current state
-                with ctx.state_scope(ctx.current_state, ctx.current_state):
-                    for inv in ctx.unchecked_invariants():
-                        assume_invs.append(self.viper_ast.Inhale(inv))
-
-                self.seqn_with_info(assume_invs, "Assume invariants", res)
+                self.state_translator.havoc_old_and_current_state(self.specification_translator, res, ctx, pos)
 
             private_function_checks_conjunction = self.viper_ast.TrueLit(pos)
             for check in function.checks:
@@ -784,15 +762,6 @@ class FunctionTranslator(CommonTranslator):
             # Append both Inhales
             res.extend([assume_ge_zero, log_event])
 
-    def _assume_type_assumptions(self, state_dict: State, name: str, res, ctx):
-        stmts = []
-        for state_var in state_dict.values():
-            type_assumptions = self.type_translator.type_assumptions(state_var.local_var(ctx),
-                                                                     state_var.type, ctx)
-            stmts.extend(self.viper_ast.Inhale(type_assumption) for type_assumption in type_assumptions)
-
-        return self.seqn_with_info(stmts, f"{name} state assumptions", res)
-
     def _generate_arguments_as_local_vars(self, function, args, res, pos, ctx):
         # Add arguments to local vars, assign passed args or default argument
         for (name, var), arg in zip_longest(function.args.items(), args):
@@ -814,15 +783,9 @@ class FunctionTranslator(CommonTranslator):
         gez = self.viper_ast.GeCmp(var, zero)
         res.append(self.viper_ast.Inhale(gez))
 
-    def _havoc_var(self, viper_type, ctx: Context) -> Expr:
-        havoc_name = ctx.new_local_var_name('havoc')
-        havoc = self.viper_ast.LocalVarDecl(havoc_name, viper_type)
-        ctx.new_local_vars.append(havoc)
-        return havoc.localVar()
-
     def _havoc_balance(self, res: List[Stmt], ctx: Context):
         balance_type = ctx.field_types[names.ADDRESS_BALANCE]
-        havoc = self._havoc_var(balance_type, ctx)
+        havoc = helpers.havoc_var(self.viper_ast, balance_type, ctx)
         self._assume_non_negative(havoc, res)
         self.balance_translator.increase_balance(havoc, res, ctx)
 

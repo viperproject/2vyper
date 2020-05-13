@@ -5,6 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from contextlib import contextmanager
+from typing import Set, Dict
+
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.nodes import VyperProgram, VyperFunction
 from twovyper.ast.visitors import NodeVisitor
@@ -15,6 +18,7 @@ from twovyper.analysis.symbol_checker import check_symbols
 from twovyper.analysis.type_annotator import TypeAnnotator
 
 from twovyper.exceptions import UnsupportedException
+from twovyper.utils import switch
 
 
 def analyze(program: VyperProgram):
@@ -67,6 +71,8 @@ class FunctionAnalysis:
         self.uses_issued = False
         # The set of tags for which accessibility needs to be proven in the function
         self.accessible_tags = set()
+        # The set of variable names which get changed by a loop
+        self.loop_used_variables: Dict[str, Set[str]] = {}
 
 
 class _ProgramAnalyzer(NodeVisitor):
@@ -113,10 +119,33 @@ class _InvariantAnalyzer(NodeVisitor):
 
 class _FunctionAnalyzer(NodeVisitor):
 
+    def __init__(self):
+        super().__init__()
+        self.inside_loop = False
+        self.used_variables: Set[str] = set()
+
+    @contextmanager
+    def _loop_scope(self):
+        used_variables = self.used_variables
+        inside_loop = self.inside_loop
+
+        self.used_variables = set()
+        self.inside_loop = True
+
+        yield
+
+        if inside_loop:
+            for name in used_variables:
+                self.used_variables.add(name)
+        else:
+            self.used_variables = used_variables
+        self.inside_loop = inside_loop
+
     def analyze(self, function: VyperFunction):
         self.visit_nodes(function.postconditions, function)
         self.visit_nodes(function.preconditions, function)
         self.visit_nodes(function.checks, function)
+        self.generic_visit(function.node, function)
 
     def visit_FunctionCall(self, node: ast.FunctionCall, function: VyperFunction):
         if node.name == names.ISSUED:
@@ -125,5 +154,19 @@ class _FunctionAnalyzer(NodeVisitor):
         self.generic_visit(node, function)
 
     def visit_For(self, node: ast.For, function: VyperFunction):
-        self.generic_visit(node, function)
+        with self._loop_scope():
+            self.generic_visit(node, function)
+            function.analysis.loop_used_variables[node.target.id] = self.used_variables
         self.visit_nodes(function.loop_invariants.get(node, []), function)
+
+    def visit_Name(self, node: ast.Name, function: VyperFunction):
+        if self.inside_loop:
+            with switch(node.id) as case:
+                if case(names.MSG)\
+                        or case(names.BLOCK)\
+                        or case(names.CHAIN)\
+                        or case(names.TX):
+                    pass
+                else:
+                    self.used_variables.add(node.id)
+        self.generic_visit(node, function)

@@ -464,3 +464,10 @@ def range(viper_ast: ViperAST, start, end, pos=None, info=None):
 def ghost_function(viper_ast: ViperAST, name, address, struct, args, return_type, pos=None, info=None):
     ghost_func = mangled.ghost_function_name(name)
     return viper_ast.FuncApp(ghost_func, [address, struct, *args], pos, info, return_type)
+
+
+def havoc_var(viper_ast: ViperAST, viper_type, ctx: Context):
+    havoc_name = ctx.new_local_var_name('havoc')
+    havoc = viper_ast.LocalVarDecl(havoc_name, viper_type)
+    ctx.new_local_vars.append(havoc)
+    return havoc.localVar()

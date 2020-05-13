@@ -7,9 +7,13 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
+from typing import Union, Dict, TYPE_CHECKING
 
 from twovyper.ast import names
+from twovyper.ast.nodes import VyperFunction
 from twovyper.translation import mangled
+if TYPE_CHECKING:
+    from twovyper.translation.variable import TranslatedVar
 
 
 class Context:
@@ -25,10 +29,10 @@ class Context:
         # Invariants that are known to be true and therefore don't need to be checked
         self.unchecked_invariants = []
 
-        self.function = None
+        self.function: Union[VyperFunction, None] = None
 
         self.args = {}
-        self.locals = {}
+        self.locals: Dict[str, TranslatedVar] = {}
         # The state which is currently regarded as 'present'
         self.current_state = {}
         # The state which is currently regarded as 'old'
@@ -58,6 +62,9 @@ class Context:
 
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
+
+        self.loop_arrays: Dict[str, TranslatedVar] = {}
+        self.loop_indices: Dict[str, TranslatedVar] = {}
 
         self._quantified_var_counter = -1
         self._inline_counter = -1
@@ -188,6 +195,9 @@ class Context:
         current_inline = self._current_inline
         inline_vias = self.inline_vias.copy()
 
+        loop_arrays = self.loop_arrays
+        loop_indices = self.loop_indices
+
         self.function = None
 
         self.args = {}
@@ -220,6 +230,9 @@ class Context:
         self._quantified_var_counter = -1
         self._inline_counter = -1
         self._current_inline = -1
+
+        self.loop_arrays = {}
+        self.loop_indices = {}
 
         yield
 
@@ -258,6 +271,9 @@ class Context:
         self._inline_counter = inline_counter
         self._current_inline = current_inline
         self.inline_vias = inline_vias
+
+        self.loop_arrays = loop_arrays
+        self.loop_indices = loop_indices
 
     @contextmanager
     def quantified_var_scope(self):

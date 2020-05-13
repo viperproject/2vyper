@@ -64,6 +64,7 @@ class Not(Expr):
     _children = ['operand']
 
     def __init__(self, operand: Expr):
+        super().__init__()
         self.operand = operand
 
 
@@ -411,7 +412,7 @@ class AnnAssign(Stmt):
 
     _children = ['target', 'annotation', 'value']
 
-    def __init__(self, target: Expr, annotation: Expr, value: Expr):
+    def __init__(self, target: Name, annotation: Expr, value: Expr):
         super().__init__()
         self.target = target
         self.annotation = annotation

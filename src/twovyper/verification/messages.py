@@ -47,10 +47,14 @@ ERRORS = {
         lambda i: f"Precondition of {i.function.name} might not hold.",
     'invariant.violated':
         lambda i: f"Invariant not preserved by {i.function.name}.",
+    'loop.invariant.violated':
+        lambda i: f"Loop invariant not preserved.",
     'check.violated':
         lambda i: f"A check might not hold after the body of {i.function.name}.",
     'invariant.not.wellformed':
         lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
+    'loop.invariant.not.wellformed':
+        lambda i: f"Loop invariant {pprint(i.node)} might not be well-formed.",
     'postcondition.not.wellformed':
         lambda i: f"(General) Postcondition {pprint(i.node)} might not be well-formed.",
     'precondition.not.wellformed':
