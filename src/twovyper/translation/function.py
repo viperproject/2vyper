@@ -210,7 +210,7 @@ class FunctionTranslator(CommonTranslator):
             # Assume an unspecified permission amount to the events if the function is private
             if function.is_private():
                 event_handling = []
-                self._log_all_events_zero_or_one_time(event_handling, ctx, pos)
+                self._log_all_events_zero_or_more_times(event_handling, ctx, pos)
                 self.seqn_with_info(event_handling, "Assume we know nothing about events", body)
 
             # Assume preconditions
@@ -670,7 +670,7 @@ class FunctionTranslator(CommonTranslator):
                 # and then inhale an unspecified permission amount.
                 event_handling = []
                 self.expression_translator.forget_about_all_events(event_handling, ctx, pos)
-                self._log_all_events_zero_or_one_time(event_handling, ctx, pos)
+                self._log_all_events_zero_or_more_times(event_handling, ctx, pos)
                 self.seqn_with_info(event_handling, "Assume we know nothing about events", res)
 
                 # Create pre_state for private function
@@ -756,7 +756,7 @@ class FunctionTranslator(CommonTranslator):
 
             return ret_var
 
-    def _log_all_events_zero_or_one_time(self, res, ctx, pos):
+    def _log_all_events_zero_or_more_times(self, res, ctx, pos):
         for event in ctx.program.events.values():
             event_name = mangled.event_name(event.name)
             viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
@@ -764,16 +764,25 @@ class FunctionTranslator(CommonTranslator):
                           for arg_type in viper_types]
             ctx.new_local_vars.extend(event_args)
             local_args = [arg.localVar() for arg in event_args]
-            # Inhale zero or one amount
+
+            # Inhale zero or more times write permission
+
+            # PermMul variable for unknown permission amount
             var_name = ctx.new_local_var_name('$a')
-            var_decl = self.viper_ast.LocalVarDecl(var_name, self.viper_ast.Bool, pos)
+            var_decl = self.viper_ast.LocalVarDecl(var_name, self.viper_ast.Int, pos)
             ctx.new_local_vars.append(var_decl)
-            var = var_decl.localVar()
+            var_perm_mul = var_decl.localVar()
+            ge_zero_cond = self.viper_ast.GeCmp(var_perm_mul, self.viper_ast.IntLit(0, pos), pos)
+            assume_ge_zero = self.viper_ast.Inhale(ge_zero_cond, pos)
+
+            # PredicateAccessPredicate
             pred_acc = self.viper_ast.PredicateAccess(local_args, event_name, pos)
-            one = self.viper_ast.FullPerm(pos)
-            pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, one, pos)
+            perm_mul = self.viper_ast.IntPermMul(var_perm_mul, self.viper_ast.FullPerm(pos), pos)
+            pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, perm_mul, pos)
             log_event = self.viper_ast.Inhale(pred_acc_pred, pos)
-            res.append(self.viper_ast.If(var, [log_event], [], pos))
+
+            # Append both Inhales
+            res.extend([assume_ge_zero, log_event])
 
     def _assume_type_assumptions(self, state_dict: State, name: str, res, ctx):
         stmts = []
