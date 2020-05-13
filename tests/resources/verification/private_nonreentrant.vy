@@ -47,6 +47,7 @@ def withdraw_revert():
     self._withdraw(msg.sender)
 
 
+#:: ExpectedOutput(postcondition.violated:assertion.false, CONSTANT_SENT)
 @private
 def _withdraw_fail(a: address):
     C(a).pay(value=self.pending_returns[a])
