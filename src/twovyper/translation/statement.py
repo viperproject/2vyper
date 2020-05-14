@@ -13,7 +13,7 @@ from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import UnsupportedException
 
-from twovyper.translation import helpers
+from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context
 from twovyper.translation.abstract import NodeTranslator, CommonTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
@@ -153,8 +153,6 @@ class StatementTranslator(NodeTranslator):
 
         # TODO: enable the following:
         #  - sum(array): sum over an array
-        #  - old(...): present state before loop
-        #  - public_old(...): old state before loop
         if times > 0:
             loop_invariants = ctx.function.loop_invariants.get(node)
             if loop_invariants:
@@ -173,6 +171,16 @@ class StatementTranslator(NodeTranslator):
                 # New variable loop-var
                 loop_var = ctx.all_vars[loop_var_name].local_var(ctx)
 
+                # Create pre states of loop
+                def loop_pre_state(name: str) -> str:
+                    return ctx.all_vars[loop_var_name].mangled_name + mangled.pre_state_var_name(name)
+
+                pre_state_of_loop = self.state_translator.state(loop_pre_state, ctx)
+                for val in pre_state_of_loop.values():
+                    ctx.new_local_vars.append(val.var_decl(ctx, pos))
+                # Copy present state to this created pre_state
+                self.state_translator.copy_state(ctx.current_state, pre_state_of_loop, res, ctx)
+
                 # Base case
                 loop_idx_eq_zero = self.viper_ast.EqCmp(loop_idx_var, self.viper_ast.IntLit(0), rpos)
                 assume_base_case = self.viper_ast.Inhale(loop_idx_eq_zero, rpos)
@@ -180,9 +188,10 @@ class StatementTranslator(NodeTranslator):
                 set_loop_var = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos)
                 self.seqn_with_info([assume_base_case, set_loop_var],
                                     "Base case: Known property about loop variable", res)
-                translated_loop_invariants = [(loop_invariant, self.specification_translator
-                                               .translate_invariant(loop_invariant, res, ctx))
-                                              for loop_invariant in loop_invariants]
+                with ctx.state_scope(ctx.current_state, pre_state_of_loop):
+                    translated_loop_invariants = [(loop_invariant, self.specification_translator
+                                                   .translate_invariant(loop_invariant, res, ctx))
+                                                  for loop_invariant in loop_invariants]
                 loop_invariant_stmts = []
                 for loop_invariant, cond in translated_loop_invariants:
                     cond_pos = self.to_position(loop_invariant, ctx, rules.LOOP_INVARIANT_FAIL)
