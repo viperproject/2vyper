@@ -212,14 +212,14 @@ class SpecificationTranslator(ExpressionTranslator):
             assert isinstance(arg, ast.Name)
             assert ctx.loop_arrays.get(arg.id)
             assert ctx.loop_indices.get(arg.id)
-            array = ctx.loop_arrays[arg.id].local_var(ctx)
+            array = ctx.loop_arrays[arg.id]
             end = ctx.loop_indices[arg.id].local_var(ctx)
             return self.viper_ast.SeqTake(array, end, pos)
         elif name == names.LOOP_ARRAY:
             arg = node.args[0]
             assert isinstance(arg, ast.Name)
             assert ctx.loop_arrays.get(arg.id)
-            return ctx.loop_arrays[arg.id].local_var(ctx)
+            return ctx.loop_arrays[arg.id]
         elif name == names.LOOP_ITERATION:
             arg = node.args[0]
             assert isinstance(arg, ast.Name)

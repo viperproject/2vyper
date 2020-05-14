@@ -158,15 +158,9 @@ class StatementTranslator(NodeTranslator):
         if times > 0:
             loop_invariants = ctx.function.loop_invariants.get(node)
             if loop_invariants:
-                # New variable loop-array
-                array_var_name = '$array'
-                mangled_name = ctx.new_local_var_name(array_var_name)
-                var = TranslatedVar(array_var_name, mangled_name, node.iter.type, self.viper_ast, rpos)
-                ctx.loop_arrays[loop_var_name] = var
-                ctx.new_local_vars.append(var.var_decl(ctx))
-                array_var = var.local_var(ctx)
+                # loop-array expression
                 array = self.expression_translator.translate(node.iter, res, ctx)
-                res.append(self.viper_ast.LocalVarAssign(array_var, array, rpos))
+                ctx.loop_arrays[loop_var_name] = array
                 # New variable loop-idx
                 idx_var_name = '$idx'
                 mangled_name = ctx.new_local_var_name(idx_var_name)
@@ -182,7 +176,7 @@ class StatementTranslator(NodeTranslator):
                 # Base case
                 loop_idx_eq_zero = self.viper_ast.EqCmp(loop_idx_var, self.viper_ast.IntLit(0), rpos)
                 assume_base_case = self.viper_ast.Inhale(loop_idx_eq_zero, rpos)
-                array_at = self.viper_ast.SeqIndex(array_var, loop_idx_var, rpos)
+                array_at = self.viper_ast.SeqIndex(array, loop_idx_var, rpos)
                 set_loop_var = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos)
                 self.seqn_with_info([assume_base_case, set_loop_var],
                                     "Base case: Known property about loop variable", res)
@@ -226,7 +220,7 @@ class StatementTranslator(NodeTranslator):
                 loop_idx_lt_array_size = self.viper_ast.LtCmp(loop_idx_var, times_lit, rpos)
                 loop_idx_assumption = self.viper_ast.And(loop_idx_ge_zero, loop_idx_lt_array_size, rpos)
                 assume_step_case = self.viper_ast.Inhale(loop_idx_assumption, rpos)
-                array_at = self.viper_ast.SeqIndex(array_var, loop_idx_var, rpos)
+                array_at = self.viper_ast.SeqIndex(array, loop_idx_var, rpos)
                 set_loop_var = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos)
                 self.seqn_with_info([assume_step_case, set_loop_var],
                                     "Step case: Known property about loop variable", res)
@@ -249,7 +243,7 @@ class StatementTranslator(NodeTranslator):
                         loop_idx_eq_times = self.viper_ast.EqCmp(loop_idx_var, times_lit, pos)
                         goto_break = self.viper_ast.Goto(ctx.break_label, pos)
                         res.append(self.viper_ast.If(loop_idx_eq_times, [goto_break], [], pos))
-                        array_at = self.viper_ast.SeqIndex(array_var, loop_idx_var, rpos)
+                        array_at = self.viper_ast.SeqIndex(array, loop_idx_var, rpos)
                         res.append(self.viper_ast.LocalVarAssign(loop_var, array_at, lpos))
                         # Check loop invariants
                         loop_invariant_stmts = []

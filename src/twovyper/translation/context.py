@@ -10,6 +10,7 @@ from collections import ChainMap, defaultdict
 from typing import Union, Dict, TYPE_CHECKING
 
 from twovyper.ast import names
+from twovyper.ast.ast_nodes import Expr
 from twovyper.ast.nodes import VyperFunction
 from twovyper.translation import mangled
 if TYPE_CHECKING:
@@ -63,7 +64,7 @@ class Context:
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
 
-        self.loop_arrays: Dict[str, TranslatedVar] = {}
+        self.loop_arrays: Dict[str, Expr] = {}
         self.loop_indices: Dict[str, TranslatedVar] = {}
 
         self._quantified_var_counter = -1
