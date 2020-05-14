@@ -240,16 +240,12 @@ class StructureChecker(NodeVisitor):
                 _assert(function.is_private(), node, 'postcondition.public.old')
             elif ctx == _Context.PRECONDITION:
                 _assert(function.is_private(), node, 'precondition.public.old')
-            else:
-                _assert(ctx == _Context.LOOP_INVARIANT, node, 'loop.invariant.public.old')
 
         if function and node.name == names.EVENT:
             if ctx == _Context.POSTCONDITION:
                 _assert(function.is_private(), node, 'postcondition.event')
             elif ctx == _Context.PRECONDITION:
                 _assert(function.is_private(), node, 'precondition.event')
-            else:
-                _assert(ctx == _Context.LOOP_INVARIANT, node, 'loop.invariant.event')
 
         if node.name == names.EVENT:
             if ctx == _Context.PRECONDITION \

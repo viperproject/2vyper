@@ -207,6 +207,24 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.REVERT:
             success = ctx.success_var.local_var(ctx, pos)
             return self.viper_ast.Not(success, pos)
+        elif name == names.PREVIOUS:
+            arg = node.args[0]
+            assert isinstance(arg, ast.Name)
+            assert ctx.loop_arrays.get(arg.id)
+            assert ctx.loop_indices.get(arg.id)
+            array = ctx.loop_arrays[arg.id].local_var(ctx)
+            end = ctx.loop_indices[arg.id].local_var(ctx)
+            return self.viper_ast.SeqTake(array, end, pos)
+        elif name == names.LOOP_ARRAY:
+            arg = node.args[0]
+            assert isinstance(arg, ast.Name)
+            assert ctx.loop_arrays.get(arg.id)
+            return ctx.loop_arrays[arg.id].local_var(ctx)
+        elif name == names.LOOP_ITERATION:
+            arg = node.args[0]
+            assert isinstance(arg, ast.Name)
+            assert ctx.loop_indices.get(arg.id)
+            return ctx.loop_indices[arg.id].local_var(ctx)
         elif name == names.OLD or name == names.ISSUED or name == names.PUBLIC_OLD:
             with switch(name) as case:
                 if case(names.OLD):

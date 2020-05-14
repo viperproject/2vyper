@@ -355,6 +355,21 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.EVENT):
                 _check_number_of_arguments(node, 1, 2)
                 return self._visit_event(node)
+            elif case(names.PREVIOUS):
+                _check_number_of_arguments(node, 1)
+                self.annotate(node.args[0])
+                loop = self._retrieve_loop(node, names.PREVIOUS)
+                return [loop.iter.type], [node]
+            elif case(names.LOOP_ARRAY):
+                _check_number_of_arguments(node, 1)
+                self.annotate(node.args[0])
+                loop = self._retrieve_loop(node, names.LOOP_ARRAY)
+                return [loop.iter.type], [node]
+            elif case(names.LOOP_ITERATION):
+                _check_number_of_arguments(node, 1)
+                self.annotate(node.args[0])
+                self._retrieve_loop(node, names.LOOP_ITERATION)
+                return [types.VYPER_UINT256], [node]  # TODO: is this valid? The arrays can have an arbitrary fixed size
             elif case(names.RANGE):
                 _check_number_of_arguments(node, 1, 2)
                 return self._visit_range(node)
@@ -807,6 +822,13 @@ class TypeAnnotator(NodeVisitor):
             raise InvalidProgramException(node, 'invalid.range')
 
         return [ArrayType(types.VYPER_INT128, size, True)], [node]
+
+    def _retrieve_loop(self, node, name):
+        _check(isinstance(node.args[0], ast.Name), node, f"invalid.{name}")
+        loop_var_name = node.args[0].id
+        loop = self.current_func.loops.get(loop_var_name)
+        _check(loop is not None, node, f"invalid.{name}")
+        return loop
 
     def visit_Bytes(self, node: ast.Bytes):
         # Bytes could either be non-strict or (if it has length 32) strict

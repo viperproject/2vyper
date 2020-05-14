@@ -24,6 +24,7 @@ from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
 from twovyper.verification import rules
+from twovyper.verification.error import Via
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt
@@ -151,10 +152,9 @@ class StatementTranslator(NodeTranslator):
         rpos = self.to_position(node.iter, ctx)
 
         # TODO: enable the following:
-        #  - previous(i): self.viper_ast.SeqTake(ctx.loop_arrays[i], ctx.loop_indices[i], pos)
-        #  - loop_array(i): ctx.loop_arrays[i]
-        #  - loop_iteration(i): ctx.loop_indices[i]
         #  - sum(array): sum over an array
+        #  - old(...): present state before loop
+        #  - public_old(...): old state before loop
         if times > 0:
             loop_invariants = ctx.function.loop_invariants.get(node)
             if loop_invariants:
@@ -170,7 +170,9 @@ class StatementTranslator(NodeTranslator):
                 # New variable loop-idx
                 idx_var_name = '$idx'
                 mangled_name = ctx.new_local_var_name(idx_var_name)
-                var = TranslatedVar(idx_var_name, mangled_name, VYPER_UINT256, self.viper_ast, rpos)
+                via = [Via('index of array', rpos)]
+                idx_pos = self.to_position(node.target, ctx, vias=via)
+                var = TranslatedVar(idx_var_name, mangled_name, VYPER_UINT256, self.viper_ast, idx_pos)
                 ctx.loop_indices[loop_var_name] = var
                 ctx.new_local_vars.append(var.var_decl(ctx))
                 loop_idx_var = var.local_var(ctx)

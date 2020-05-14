@@ -43,6 +43,7 @@ class VyperFunction:
                  preconditions: List[ast.Expr],
                  checks: List[ast.Expr],
                  loop_invariants: Dict[ast.For, List[ast.Expr]],
+                 loops: Dict[str, ast.For],
                  performs: List[ast.Expr],
                  decorators: List[ast.Decorator],
                  node: Optional[ast.FunctionDef]):
@@ -54,6 +55,7 @@ class VyperFunction:
         self.preconditions = preconditions
         self.checks = checks
         self.loop_invariants = loop_invariants
+        self.loops = loops
         self.performs = performs
         self.decorators = decorators
         self.node = node
