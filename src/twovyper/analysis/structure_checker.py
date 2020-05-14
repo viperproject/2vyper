@@ -326,6 +326,9 @@ class StructureChecker(NodeVisitor):
         elif node.name in [names.OLD, names.PUBLIC_OLD]:
             with self._inside_old_scope():
                 self.generic_visit(node, ctx, program, function)
+        elif node.name in [names.OLD, names.PUBLIC_OLD]:
+            with self._inside_old_scope():
+                self.generic_visit(node, ctx, program, function)
 
             return
         elif node.name == names.INDEPENDENT:
@@ -349,6 +352,9 @@ class StructureChecker(NodeVisitor):
         elif node.name == names.RAW_CALL:
             if names.RAW_CALL_DELEGATE_CALL in (kw.name for kw in node.keywords):
                 raise UnsupportedException(node, "Delegate calls are not supported.")
+        elif node.name == names.PREVIOUS or node.name == names.LOOP_ARRAY or node.name == names.LOOP_ITERATION:
+            if len(node.args) > 0:
+                _assert(isinstance(node.args[0], ast.Name), node.args[0], f"invalid.{node.name}")
 
         if node.name in names.ALLOCATION_FUNCTIONS:
             msg = "Allocation statements require allocation config option."

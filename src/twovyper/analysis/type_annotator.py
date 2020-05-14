@@ -359,7 +359,9 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 1)
                 self.annotate(node.args[0])
                 loop = self._retrieve_loop(node, names.PREVIOUS)
-                return [loop.iter.type], [node]
+                loop_array_type = loop.iter.type
+                assert isinstance(loop_array_type, ArrayType)
+                return [ArrayType(loop_array_type.element_type, loop_array_type.size, False)], [node]
             elif case(names.LOOP_ARRAY):
                 _check_number_of_arguments(node, 1)
                 self.annotate(node.args[0])
@@ -533,11 +535,18 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.SUM):
                 _check_number_of_arguments(node, 1)
 
-                def is_numeric_map(t):
-                    return isinstance(t, types.MapType) and types.is_integer(t.value_type)
+                def is_numeric_map_or_array(t):
+                    return isinstance(t, types.MapType) and types.is_numeric(t.value_type) \
+                           or isinstance(t, types.ArrayType) and types.is_numeric(t.element_type)
 
-                self.annotate_expected(node.args[0], is_numeric_map)
-                return [node.args[0].type.value_type], [node]
+                self.annotate_expected(node.args[0], is_numeric_map_or_array)
+                if isinstance(node.args[0].type, types.MapType):
+                    vyper_type = node.args[0].type.value_type
+                elif isinstance(node.args[0].type, types.ArrayType):
+                    vyper_type = node.args[0].type.element_type
+                else:
+                    assert False
+                return [vyper_type], [node]
             elif case(names.SENT) or case(names.RECEIVED) or case(names.ALLOCATED):
                 _check_number_of_arguments(node, 0, 1, resources=1 if case(names.ALLOCATED) else 0)
 
@@ -824,7 +833,6 @@ class TypeAnnotator(NodeVisitor):
         return [ArrayType(types.VYPER_INT128, size, True)], [node]
 
     def _retrieve_loop(self, node, name):
-        _check(isinstance(node.args[0], ast.Name), node, f"invalid.{name}")
         loop_var_name = node.args[0].id
         loop = self.current_func.loops.get(loop_var_name)
         _check(loop is not None, node, f"invalid.{name}")

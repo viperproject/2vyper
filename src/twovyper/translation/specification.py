@@ -241,9 +241,26 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.SUM:
             arg = node.args[0]
             expr = self.translate(arg, res, ctx)
-            key_type = self.type_translator.translate(arg.type.key_type, ctx)
+            if isinstance(arg.type, types.MapType):
+                key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
-            return helpers.map_sum(self.viper_ast, expr, key_type, pos)
+                return helpers.map_sum(self.viper_ast, expr, key_type, pos)
+            elif isinstance(arg.type, types.ArrayType):
+                int_lit_zero = self.viper_ast.IntLit(0, pos)
+                sum_value = int_lit_zero
+                for i in range(arg.type.size):
+                    int_lit_i = self.viper_ast.IntLit(i, pos)
+                    array_at = self.viper_ast.SeqIndex(expr, int_lit_i, pos)
+                    if arg.type.is_strict:
+                        value = array_at
+                    else:
+                        seq_length = self.viper_ast.SeqLength(expr, pos)
+                        cond = self.viper_ast.LtCmp(int_lit_i, seq_length, pos)
+                        value = self.viper_ast.CondExp(cond, array_at, int_lit_zero, pos)
+                    sum_value = self.viper_ast.Add(sum_value, value, pos)
+                return sum_value
+            else:
+                assert False
         elif name == names.LOCKED:
             lock_name = node.args[0].s
             return helpers.get_lock(self.viper_ast, lock_name, ctx, pos)
