@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
-from typing import Set, Dict
+from typing import Set, Dict, List
 
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.nodes import VyperProgram, VyperFunction
@@ -72,7 +72,7 @@ class FunctionAnalysis:
         # The set of tags for which accessibility needs to be proven in the function
         self.accessible_tags = set()
         # The set of variable names which get changed by a loop
-        self.loop_used_variables: Dict[str, Set[str]] = {}
+        self.loop_used_variables: Dict[str, List[str]] = {}
 
 
 class _ProgramAnalyzer(NodeVisitor):
@@ -156,7 +156,7 @@ class _FunctionAnalyzer(NodeVisitor):
     def visit_For(self, node: ast.For, function: VyperFunction):
         with self._loop_scope():
             self.generic_visit(node, function)
-            function.analysis.loop_used_variables[node.target.id] = self.used_variables
+            function.analysis.loop_used_variables[node.target.id] = list(self.used_variables)
         self.visit_nodes(function.loop_invariants.get(node, []), function)
 
     def visit_Name(self, node: ast.Name, function: VyperFunction):
