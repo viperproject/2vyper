@@ -5,12 +5,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-# Verification took   2.77 seconds. [benchmark=10] (With loop invariants)
-# Verification took  16.18 seconds. [benchmark=10] (With loop unrolling) Stack Overflow (with l > 14)
+# Verification took   3.56 seconds. [benchmark=10] (With loop invariants)
+# Verification took  24.97 seconds. [benchmark=10] (With loop unrolling) Stack Overflow (with l > 14)
 
 l: constant(int128) = 14
+m: constant(int128) = l + 1
 
-#@ ensures: res == (sum(range(l)) + l) * l
+#@ ensures: res == (sum(range(l)) + l) * (l + 1) + (l + 1)
 @public
 def foo(a: int128):
     res: int128 = 0
@@ -21,3 +22,7 @@ def foo(a: int128):
             #@ invariant: t == sum(previous(j)) + loop_iteration(j)
             t += j + 1
         res += t
+
+    for i in range(m):
+        #@ invariant: res == ((sum(range(l)) + l) * l) + sum(previous(i)) + loop_iteration(i)
+        res += i + 1

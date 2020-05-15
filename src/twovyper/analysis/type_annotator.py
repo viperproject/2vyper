@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 
 from twovyper.utils import first_index, switch
 
@@ -74,6 +74,7 @@ class TypeAnnotator(NodeVisitor):
 
         self.program = program
         self.current_func: Union[VyperFunction, None] = None
+        self.current_loops: Dict[str, ast.For] = {}
 
         self_type = self.program.fields.type
         # Contains the possible types a variable can have
@@ -105,6 +106,14 @@ class TypeAnnotator(NodeVisitor):
         yield
 
         self.variables = old_variables
+
+    @contextmanager
+    def _loop_scope(self):
+        current_loops = self.current_loops
+
+        yield
+
+        self.current_loops = current_loops
 
     @property
     def method_name(self):
@@ -267,13 +276,16 @@ class TypeAnnotator(NodeVisitor):
 
         self.annotate_expected(node.target, var_type)
 
-        # Visit loop invariants
-        for loop_inv in self.current_func.loop_invariants.get(node, []):
-            self.annotate_expected(loop_inv, types.VYPER_BOOL)
+        with self._loop_scope():
+            self.current_loops[var_name] = node
 
-        # Visit body
-        for stmt in node.body:
-            self.visit(stmt)
+            # Visit loop invariants
+            for loop_inv in self.current_func.loop_invariants.get(node, []):
+                self.annotate_expected(loop_inv, types.VYPER_BOOL)
+
+            # Visit body
+            for stmt in node.body:
+                self.visit(stmt)
 
     def visit_If(self, node: ast.If):
         self.annotate_expected(node.test, types.VYPER_BOOL)
@@ -371,7 +383,7 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 1)
                 self.annotate(node.args[0])
                 self._retrieve_loop(node, names.LOOP_ITERATION)
-                return [types.VYPER_UINT256], [node]  # TODO: is this valid? The arrays can have an arbitrary fixed size
+                return [types.VYPER_UINT256], [node]
             elif case(names.RANGE):
                 _check_number_of_arguments(node, 1, 2)
                 return self._visit_range(node)
@@ -834,7 +846,7 @@ class TypeAnnotator(NodeVisitor):
 
     def _retrieve_loop(self, node, name):
         loop_var_name = node.args[0].id
-        loop = self.current_func.loops.get(loop_var_name)
+        loop = self.current_loops.get(loop_var_name)
         _check(loop is not None, node, f"invalid.{name}")
         return loop
 

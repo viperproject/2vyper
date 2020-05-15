@@ -72,7 +72,7 @@ class FunctionAnalysis:
         # The set of tags for which accessibility needs to be proven in the function
         self.accessible_tags = set()
         # The set of variable names which get changed by a loop
-        self.loop_used_variables: Dict[str, List[str]] = {}
+        self.loop_used_names: Dict[str, List[str]] = {}
 
 
 class _ProgramAnalyzer(NodeVisitor):
@@ -122,23 +122,23 @@ class _FunctionAnalyzer(NodeVisitor):
     def __init__(self):
         super().__init__()
         self.inside_loop = False
-        self.used_variables: Set[str] = set()
+        self.used_names: Set[str] = set()
 
     @contextmanager
     def _loop_scope(self):
-        used_variables = self.used_variables
+        used_variables = self.used_names
         inside_loop = self.inside_loop
 
-        self.used_variables = set()
+        self.used_names = set()
         self.inside_loop = True
 
         yield
 
         if inside_loop:
             for name in used_variables:
-                self.used_variables.add(name)
+                self.used_names.add(name)
         else:
-            self.used_variables = used_variables
+            self.used_names = used_variables
         self.inside_loop = inside_loop
 
     def analyze(self, function: VyperFunction):
@@ -156,7 +156,7 @@ class _FunctionAnalyzer(NodeVisitor):
     def visit_For(self, node: ast.For, function: VyperFunction):
         with self._loop_scope():
             self.generic_visit(node, function)
-            function.analysis.loop_used_variables[node.target.id] = list(self.used_variables)
+            function.analysis.loop_used_names[node.target.id] = list(self.used_names)
         self.visit_nodes(function.loop_invariants.get(node, []), function)
 
     def visit_Name(self, node: ast.Name, function: VyperFunction):
@@ -168,5 +168,5 @@ class _FunctionAnalyzer(NodeVisitor):
                         or case(names.TX):
                     pass
                 else:
-                    self.used_variables.add(node.id)
+                    self.used_names.add(node.id)
         self.generic_visit(node, function)

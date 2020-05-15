@@ -213,7 +213,7 @@ class StatementTranslator(NodeTranslator):
                 self.state_translator.havoc_old_and_current_state(self.specification_translator, havoc_stmts, ctx, pos)
                 # Havoc used variables
                 havoc_loop_used_var = []
-                for var_name in ctx.function.analysis.loop_used_variables.get(loop_var_name, []):
+                for var_name in ctx.function.analysis.loop_used_names.get(loop_var_name, []):
                     var = ctx.locals.get(var_name)
                     if var:
                         var_type = self.type_translator.translate(var.type, ctx)

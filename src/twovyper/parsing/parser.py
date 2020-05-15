@@ -370,8 +370,7 @@ class ProgramBuilder(NodeVisitor):
         loop_invariant_transformer.visit(node)
         function = VyperFunction(node.name, args, defaults, type,
                                  self.postconditions, self.preconditions, self.checks,
-                                 loop_invariant_transformer.loop_invariants, loop_invariant_transformer.loops,
-                                 self.performs, decs, node)
+                                 loop_invariant_transformer.loop_invariants, self.performs, decs, node)
         self.functions[node.name] = function
         # Reset local specs
         self.postconditions = []
@@ -389,7 +388,6 @@ class LoopInvariantTransformer(NodeTransformer):
         self._last_loop: Union[ast.For, None] = None
         self._possible_loop_invariant_nodes: List[ast.Assign] = []
         self.loop_invariants: Dict[ast.For, List[ast.Expr]] = {}
-        self.loops: Dict[str, ast.For] = {}
 
     @contextmanager
     def _in_loop_scope(self, node: ast.For):
@@ -415,7 +413,6 @@ class LoopInvariantTransformer(NodeTransformer):
         return node
 
     def visit_For(self, node: ast.For):
-        self.loops[node.target.id] = node
         with self._in_loop_scope(node):
             self._possible_loop_invariant_nodes = []
             for n in node.body:
