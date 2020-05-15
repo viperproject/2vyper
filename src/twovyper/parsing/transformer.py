@@ -14,10 +14,11 @@ from twovyper.ast.visitors import NodeVisitor, NodeTransformer, descendants
 from twovyper.exceptions import UnsupportedException
 
 from twovyper.parsing import lark
+from twovyper.utils import switch
 
 
-def transform(ast: ast.Module) -> ast.Module:
-    constants_decls, new_ast = ConstantCollector().collect_constants(ast)
+def transform(vyper_ast: ast.Module) -> ast.Module:
+    constants_decls, new_ast = ConstantCollector().collect_constants(vyper_ast)
     constants = _interpret_constants(constants_decls)
     transformed_ast = ConstantTransformer(constants).visit(new_ast)
     return transformed_ast
@@ -53,7 +54,7 @@ class ConstantInterpreter(NodeVisitor):
     def __init__(self, constants: Dict[str, Any]):
         self.constants = constants
 
-    def generic_visit(self, node: ast.Node):
+    def generic_visit(self, node: ast.Node, *args):
         raise UnsupportedException(node)
 
     def visit_BoolOp(self, node: ast.BoolOp):
@@ -102,16 +103,17 @@ class ConstantInterpreter(NodeVisitor):
         lhs = self.visit(node.left)
         rhs = self.visit(node.right)
 
-        if isinstance(node.op, ast.Lt):
-            return lhs < rhs
-        elif isinstance(node.op, ast.LtE):
-            return lhs <= rhs
-        elif isinstance(node.op, ast.Gt):
-            return lhs > rhs
-        elif isinstance(node.op, ast.GtE):
-            return lhs >= rhs
-        else:
-            assert False
+        with switch(node.op) as case:
+            if case(ast.ComparisonOperator.LT):
+                return lhs < rhs
+            elif case(ast.ComparisonOperator.LTE):
+                return lhs <= rhs
+            elif case(ast.ComparisonOperator.GT):
+                return lhs > rhs
+            elif case(ast.ComparisonOperator.GTE):
+                return lhs >= rhs
+            else:
+                assert False
 
     def visit_Equality(self, node: ast.Equality):
         lhs = self.visit(node.left)
@@ -133,13 +135,15 @@ class ConstantInterpreter(NodeVisitor):
 
         raise UnsupportedException(node)
 
-    def visit_Num(self, node: ast.Num):
+    @staticmethod
+    def visit_Num(node: ast.Num):
         if isinstance(node.n, int) or isinstance(node.n, Decimal):
             return node.n
         else:
             assert False
 
-    def visit_Bool(self, node: ast.Bool):
+    @staticmethod
+    def visit_Bool(node: ast.Bool):
         return node.value
 
     def visit_Name(self, node: ast.Name):
@@ -154,7 +158,8 @@ class ConstantCollector(NodeTransformer):
     def __init__(self):
         self.constants = []
 
-    def _is_constant(self, node):
+    @staticmethod
+    def _is_constant(node: ast.Node):
         return isinstance(node, ast.FunctionCall) and node.name == 'constant'
 
     def collect_constants(self, node):
@@ -168,7 +173,8 @@ class ConstantCollector(NodeTransformer):
         else:
             return node
 
-    def visit_FunctionDef(self, node: ast.FunctionDef):
+    @staticmethod
+    def visit_FunctionDef(node: ast.FunctionDef):
         return node
 
 
