@@ -11,7 +11,7 @@ from twovyper.ast import ast_nodes as ast
 
 
 def children(node: ast.Node) -> Iterable[Tuple[str, Union[Optional[ast.Node], List[ast.Node]]]]:
-    for child in node._children:
+    for child in node.children:
         yield child, getattr(node, child)
 
 

@@ -830,18 +830,31 @@ class TypeAnnotator(NodeVisitor):
         return [ntype], [node]
 
     def _visit_range(self, node: ast.FunctionCall):
-        self.annotate_expected(node.args[0], types.VYPER_INT128)
+        _check(len(node.args) > 0, node, 'invalid.range')
+        first_arg = node.args[0]
+        self.annotate_expected(first_arg, types.is_integer)
 
         if len(node.args) == 1:
             # A range expression of the form 'range(n)' where 'n' is a constant
-            size = node.args[0].n
+            assert isinstance(first_arg, ast.Num)
+            size = first_arg.n
         elif len(node.args) == 2:
-            # A range expression of the form 'range(x, x + n)' where 'n' is a constant
-            self.annotate_expected(node.args[1], types.VYPER_INT128)
-            size = node.args[1].right.n
+            second_arg = node.args[1]
+            self.annotate_expected(second_arg, types.is_integer)
+            if isinstance(second_arg, ast.ArithmeticOp) \
+                    and second_arg.op == ast.ArithmeticOperator.ADD \
+                    and ast.compare_nodes(first_arg, second_arg.left):
+                assert isinstance(second_arg.right, ast.Num)
+                # A range expression of the form 'range(x, x + n)' where 'n' is a constant
+                size = second_arg.right.n
+            else:
+                assert isinstance(first_arg, ast.Num) and isinstance(second_arg, ast.Num)
+                # A range expression of the form 'range(n1, n2)' where 'n1' and 'n2 are constants
+                size = second_arg.n - first_arg.n
         else:
             raise InvalidProgramException(node, 'invalid.range')
 
+        _check(size > 0, node, 'invalid.range', 'The size of a range(...) must be greater than zero.')
         return [ArrayType(types.VYPER_INT128, size, True)], [node]
 
     def _retrieve_loop(self, node, name):
