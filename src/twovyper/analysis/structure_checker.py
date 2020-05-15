@@ -191,10 +191,6 @@ class StructureChecker(NodeVisitor):
         with self._inside_pure_scope('dicts'):
             self.generic_visit(node, *args)
 
-    def visit_Set(self, node: ast.Set, *args):
-        with self._inside_pure_scope('sets'):
-            self.generic_visit(node, *args)
-
     def visit_List(self, node: ast.List, *args):
         with self._inside_pure_scope('lists'):
             self.generic_visit(node, *args)

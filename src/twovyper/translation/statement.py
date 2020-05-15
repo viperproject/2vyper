@@ -19,7 +19,7 @@ from twovyper.translation.abstract import NodeTranslator, CommonTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.model import ModelTranslator
-from twovyper.translation.specification import SpecificationTranslator
+from twovyper.translation.specification import SpecificationTranslator, EventTranslationState
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
@@ -189,11 +189,18 @@ class StatementTranslator(NodeTranslator):
                 self.seqn_with_info([assume_base_case, set_loop_var],
                                     "Base case: Known property about loop variable", res)
                 with ctx.state_scope(ctx.current_state, pre_state_of_loop):
-                    translated_loop_invariants = [(loop_invariant, self.specification_translator
-                                                   .translate_invariant(loop_invariant, res, ctx))
-                                                  for loop_invariant in loop_invariants]
+                    # Loop Invariants are translated the same as pre- or postconditions
+                    translated_loop_invariants = \
+                        [(loop_invariant,
+                          self.specification_translator.translate_pre_or_postcondition(
+                              loop_invariant, res, ctx, event_translation=EventTranslationState.ASSERT),
+                          self.specification_translator.translate_pre_or_postcondition(
+                              loop_invariant, res, ctx, event_translation=EventTranslationState.EXHALE),
+                          self.specification_translator.translate_pre_or_postcondition(
+                              loop_invariant, res, ctx, event_translation=EventTranslationState.INHALE)
+                          ) for loop_invariant in loop_invariants]
                 loop_invariant_stmts = []
-                for loop_invariant, cond in translated_loop_invariants:
+                for loop_invariant, cond, _, _ in translated_loop_invariants:
                     cond_pos = self.to_position(loop_invariant, ctx, rules.LOOP_INVARIANT_FAIL)
                     loop_invariant_stmts.append(self.viper_ast.Assert(cond, cond_pos))
                 self.seqn_with_info(loop_invariant_stmts, "Check loop invariants before iteration 0", res)
@@ -222,6 +229,11 @@ class StatementTranslator(NodeTranslator):
                         havoc_loop_used_var.append(havoc_stmt)
                 havoc_stmts.extend(havoc_loop_used_var)
                 self.seqn_with_info(havoc_stmts, "Havoc state", res)
+                # Havoc events
+                event_handling = []
+                self.expression_translator.forget_about_all_events(event_handling, ctx, pos)
+                self.expression_translator.log_all_events_zero_or_more_times(event_handling, ctx, pos)
+                self.seqn_with_info(event_handling, "Assume we know nothing about events", res)
 
                 # Loop invariants
                 loop_idx_ge_zero = self.viper_ast.GeCmp(loop_idx_var, self.viper_ast.IntLit(0), rpos)
@@ -234,9 +246,11 @@ class StatementTranslator(NodeTranslator):
                 self.seqn_with_info([assume_step_case, set_loop_var],
                                     "Step case: Known property about loop variable", res)
                 loop_invariant_stmts = []
-                for loop_invariant, cond in translated_loop_invariants:
+                for loop_invariant, _, cond_exhale, cond_inhale in translated_loop_invariants:
                     cond_pos = self.to_position(loop_invariant, ctx, rules.INHALE_LOOP_INVARIANT_FAIL)
-                    loop_invariant_stmts.append(self.viper_ast.Inhale(cond, cond_pos))
+                    loop_invariant_stmts.append(self.viper_ast.Exhale(cond_exhale, cond_pos))
+                    cond_pos = self.to_position(loop_invariant, ctx, rules.INHALE_LOOP_INVARIANT_FAIL)
+                    loop_invariant_stmts.append(self.viper_ast.Inhale(cond_inhale, cond_pos))
                 self.seqn_with_info(loop_invariant_stmts, "Assume loop invariants", res)
                 with ctx.break_scope():
                     with ctx.continue_scope():
@@ -256,7 +270,7 @@ class StatementTranslator(NodeTranslator):
                         res.append(self.viper_ast.LocalVarAssign(loop_var, array_at, lpos))
                         # Check loop invariants
                         loop_invariant_stmts = []
-                        for loop_invariant, cond in translated_loop_invariants:
+                        for loop_invariant, cond, _, _ in translated_loop_invariants:
                             cond_pos = self.to_position(loop_invariant, ctx,
                                                         rules.LOOP_INVARIANT_FAIL)
                             loop_invariant_stmts.append(self.viper_ast.Assert(cond, cond_pos))
