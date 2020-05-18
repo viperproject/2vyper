@@ -664,15 +664,15 @@ class FunctionTranslator(CommonTranslator):
 
             self.seqn_with_info(pre_stmts, "Check preconditions", res)
 
+            # We forget about events by exhaling all permissions to the event predicates
+            # and then inhale an unspecified permission amount.
+            event_handling = []
+            self.expression_translator.forget_about_all_events(event_handling, ctx, pos)
+            self.expression_translator.log_all_events_zero_or_more_times(event_handling, ctx, pos)
+            self.seqn_with_info(event_handling, "Assume we know nothing about events", res)
+
             old_state_for_postconditions = ctx.current_state
             if not function.is_constant():
-                # We forget about events by exhaling all permissions to the event predicates
-                # and then inhale an unspecified permission amount.
-                event_handling = []
-                self.expression_translator.forget_about_all_events(event_handling, ctx, pos)
-                self.expression_translator.log_all_events_zero_or_more_times(event_handling, ctx, pos)
-                self.seqn_with_info(event_handling, "Assume we know nothing about events", res)
-
                 # Create pre_state for private function
                 def inlined_pre_state(name: str) -> str:
                     return ctx.inline_prefix + mangled.pre_state_var_name(name)
