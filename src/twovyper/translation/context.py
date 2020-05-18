@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
-from typing import Union, Dict, TYPE_CHECKING
+from typing import Union, Dict, TYPE_CHECKING, List, Any
 
 from twovyper.ast import names
 from twovyper.ast.ast_nodes import Expr
@@ -65,7 +65,9 @@ class Context:
         self.new_local_vars = []
 
         self.loop_arrays: Dict[str, Expr] = {}
-        self.loop_indices: Dict[str, TranslatedVar] = {}
+        self.loop_indices: Dict[str, ] = {}
+
+        self.event_vars: Dict[str, List[Any]] = {}
 
         self._quantified_var_counter = -1
         self._inline_counter = -1
@@ -199,6 +201,8 @@ class Context:
         loop_arrays = self.loop_arrays
         loop_indices = self.loop_indices
 
+        event_vars = self.event_vars
+
         self.function = None
 
         self.args = {}
@@ -234,6 +238,8 @@ class Context:
 
         self.loop_arrays = {}
         self.loop_indices = {}
+
+        self.event_vars = {}
 
         yield
 
@@ -275,6 +281,8 @@ class Context:
 
         self.loop_arrays = loop_arrays
         self.loop_indices = loop_indices
+
+        self.event_vars = event_vars
 
     @contextmanager
     def quantified_var_scope(self):
@@ -409,3 +417,11 @@ class Context:
         yield
 
         self.continue_label = continue_label
+
+    @contextmanager
+    def new_local_scope(self):
+        event_vars = self.event_vars
+
+        yield
+
+        self.event_vars = event_vars

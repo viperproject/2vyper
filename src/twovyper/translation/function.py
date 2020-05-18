@@ -20,7 +20,7 @@ from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.model import ModelTranslator
 from twovyper.translation.resource import ResourceTranslator
-from twovyper.translation.specification import SpecificationTranslator, EventTranslationState
+from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.statement import StatementTranslator
 from twovyper.translation.type import TypeTranslator
@@ -207,28 +207,22 @@ class FunctionTranslator(CommonTranslator):
             iv_info_msg = "Assume invariants for self"
             self.seqn_with_info(inv_pres_self, iv_info_msg, body)
 
-            # Assume an unspecified permission amount to the events if the function is private
             if function.is_private():
+                # Assume an unspecified permission amount to the events if the function is private
                 event_handling = []
                 self.expression_translator.log_all_events_zero_or_more_times(event_handling, ctx, pos)
                 self.seqn_with_info(event_handling, "Assume we know nothing about events", body)
 
-            # Assume preconditions
-            pre_stmts = []
-            with ctx.state_scope(ctx.present_state, ctx.old_state):
-                for precondition in function.preconditions:
-                    ex_cond = self.specification_translator.\
-                        translate_pre_or_postcondition(precondition, pre_stmts, ctx,
-                                                       event_translation=EventTranslationState.EXHALE)
-                    pre_pos = self.to_position(precondition, ctx, rules.INHALE_PRECONDITION_FAIL)
-                    pre_stmts.append(self.viper_ast.Exhale(ex_cond, pre_pos))
-                    in_cond = self.specification_translator.\
-                        translate_pre_or_postcondition(precondition, pre_stmts, ctx,
-                                                       event_translation=EventTranslationState.INHALE)
-                    pre_pos = self.to_position(precondition, ctx, rules.INHALE_PRECONDITION_FAIL)
-                    pre_stmts.append(self.viper_ast.Inhale(in_cond, pre_pos))
+                # Assume preconditions
+                pre_stmts = []
+                with ctx.state_scope(ctx.present_state, ctx.old_state):
+                    for precondition in function.preconditions:
+                        cond = self.specification_translator.\
+                            translate_pre_or_postcondition(precondition, pre_stmts, ctx, assume_events=True)
+                        pre_pos = self.to_position(precondition, ctx, rules.INHALE_PRECONDITION_FAIL)
+                        pre_stmts.append(self.viper_ast.Inhale(cond, pre_pos))
 
-            self.seqn_with_info(pre_stmts, "Assume preconditions", body)
+                self.seqn_with_info(pre_stmts, "Assume preconditions", body)
 
             # pre_self is the same as self in the beginning
             self.state_translator.copy_state(ctx.present_state, ctx.pre_state, body, ctx)
@@ -376,7 +370,7 @@ class FunctionTranslator(CommonTranslator):
                 for post in function.postconditions:
                     post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=model_translator)
                     cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
-                    post_assert = self.viper_ast.Assert(cond, post_pos)
+                    post_assert = self.viper_ast.Exhale(cond, post_pos)
                     post_stmts.append(post_assert)
 
                 for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
@@ -660,7 +654,7 @@ class FunctionTranslator(CommonTranslator):
                     cond = self.specification_translator.translate_pre_or_postcondition(precondition, pre_stmts, ctx)
                     pre_pos = self.to_position(precondition, ctx, rules.PRECONDITION_FAIL,
                                                values={'function': function})
-                    pre_stmts.append(self.viper_ast.Assert(cond, pre_pos))
+                    pre_stmts.append(self.viper_ast.Exhale(cond, pre_pos))
 
             self.seqn_with_info(pre_stmts, "Check preconditions", res)
 
@@ -703,16 +697,10 @@ class FunctionTranslator(CommonTranslator):
             with ctx.state_scope(ctx.current_state, old_state_for_postconditions):
                 # Assume postconditions
                 for post in function.postconditions:
-                    ex_cond = self.specification_translator.\
-                        translate_pre_or_postcondition(post, post_stmts, ctx,
-                                                       event_translation=EventTranslationState.EXHALE)
+                    cond = self.specification_translator.\
+                        translate_pre_or_postcondition(post, post_stmts, ctx, assume_events=True)
                     post_pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                    post_stmts.append(self.viper_ast.Exhale(ex_cond, post_pos))
-                    in_cond = self.specification_translator.\
-                        translate_pre_or_postcondition(post, post_stmts, ctx,
-                                                       event_translation=EventTranslationState.INHALE)
-                    post_pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                    post_stmts.append(self.viper_ast.Inhale(in_cond, post_pos))
+                    post_stmts.append(self.viper_ast.Inhale(cond, post_pos))
 
                 for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
                     cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)

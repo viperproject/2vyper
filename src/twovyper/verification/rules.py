@@ -45,33 +45,63 @@ INVARIANT_FAIL = {
 LOOP_INVARIANT_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('loop.invariant.violated', 'assertion.false'),
+    ('exhale.failed', 'assertion.false'):
+        ('loop.invariant.violated', 'assertion.false'),
+    ('exhale.failed', 'insufficient.permission'):
+        ('loop.invariant.violated', 'insufficient.permission'),
     ('assert.failed', 'division.by.zero'):
         ('loop.invariant.not.wellformed', 'division.by.zero'),
     ('assert.failed', 'seq.index.length'):
         ('loop.invariant.not.wellformed', 'seq.index.length'),
     ('assert.failed', 'seq.index.negative'):
+        ('loop.invariant.not.wellformed', 'seq.index.negative'),
+    ('exhale.failed', 'division.by.zero'):
+        ('loop.invariant.not.wellformed', 'division.by.zero'),
+    ('exhale.failed', 'seq.index.length'):
+        ('loop.invariant.not.wellformed', 'seq.index.length'),
+    ('exhale.failed', 'seq.index.negative'):
         ('loop.invariant.not.wellformed', 'seq.index.negative')
 }
 
 POSTCONDITION_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('postcondition.violated', 'assertion.false'),
+    ('exhale.failed', 'assertion.false'):
+        ('postcondition.violated', 'assertion.false'),
+    ('exhale.failed', 'insufficient.permission'):
+        ('postcondition.violated', 'insufficient.permission'),
     ('assert.failed', 'division.by.zero'):
         ('not.wellformed', 'division.by.zero'),
     ('assert.failed', 'seq.index.length'):
         ('not.wellformed', 'seq.index.length'),
     ('assert.failed', 'seq.index.negative'):
+        ('not.wellformed', 'seq.index.negative'),
+    ('exhale.failed', 'division.by.zero'):
+        ('not.wellformed', 'division.by.zero'),
+    ('exhale.failed', 'seq.index.length'):
+        ('not.wellformed', 'seq.index.length'),
+    ('exhale.failed', 'seq.index.negative'):
         ('not.wellformed', 'seq.index.negative')
 }
 
 PRECONDITION_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('precondition.violated', 'assertion.false'),
+    ('exhale.failed', 'assertion.false'):
+        ('precondition.violated', 'assertion.false'),
+    ('exhale.failed', 'insufficient.permission'):
+        ('precondition.violated', 'insufficient.permission'),
     ('assert.failed', 'division.by.zero'):
         ('not.wellformed', 'division.by.zero'),
     ('assert.failed', 'seq.index.length'):
         ('not.wellformed', 'seq.index.length'),
     ('assert.failed', 'seq.index.negative'):
+        ('not.wellformed', 'seq.index.negative'),
+    ('exhale.failed', 'division.by.zero'):
+        ('not.wellformed', 'division.by.zero'),
+    ('exhale.failed', 'seq.index.length'):
+        ('not.wellformed', 'seq.index.length'),
+    ('exhale.failed', 'seq.index.negative'):
         ('not.wellformed', 'seq.index.negative')
 }
 

@@ -12,7 +12,7 @@ SomeEvent: event({_value: uint256})
 
 #@ requires: event(SomeEvent(42), 0)
 #@ ensures: a ==> event(SomeEvent(42), 1)
-#@ ensures: b ==> event(SomeEvent(42), 1)
+#@ ensures: (b and not a) ==> event(SomeEvent(42), 1)
 #@ check: False
 @private
 def disjunction_test(a: bool, b: bool):
@@ -20,7 +20,6 @@ def disjunction_test(a: bool, b: bool):
         log.SomeEvent(42)
 
 #@ requires: forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
-#@ ensures: success() ==> forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 #@ ensures: success() ==> forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 #@ check: forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 @private

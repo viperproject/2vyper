@@ -834,6 +834,7 @@ class ExpressionTranslator(NodeTranslator):
                           for arg_type in viper_types]
             ctx.new_local_vars.extend(event_args)
             local_args = [arg.localVar() for arg in event_args]
+            ctx.event_vars[event_name] = local_args
 
             # Inhale zero or more times write permission
 

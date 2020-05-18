@@ -19,7 +19,7 @@ from twovyper.translation.abstract import NodeTranslator, CommonTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.model import ModelTranslator
-from twovyper.translation.specification import SpecificationTranslator, EventTranslationState
+from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
@@ -135,9 +135,11 @@ class StatementTranslator(NodeTranslator):
         translator = self.specification_translator if node.is_ghost_code else self.expression_translator
         cond = translator.translate(node.test, res, ctx)
         then_body = []
-        self.translate_stmts(node.body, then_body, ctx)
+        with ctx.new_local_scope():
+            self.translate_stmts(node.body, then_body, ctx)
         else_body = []
-        self.translate_stmts(node.orelse, else_body, ctx)
+        with ctx.new_local_scope():
+            self.translate_stmts(node.orelse, else_body, ctx)
         if_stmt = self.viper_ast.If(cond, then_body, else_body, pos)
         res.append(if_stmt)
 
@@ -151,8 +153,6 @@ class StatementTranslator(NodeTranslator):
         lpos = self.to_position(node.target, ctx)
         rpos = self.to_position(node.iter, ctx)
 
-        # TODO: enable the following:
-        #  - sum(array): sum over an array
         if times > 0:
             loop_invariants = ctx.function.loop_invariants.get(node)
             if loop_invariants:
@@ -190,19 +190,14 @@ class StatementTranslator(NodeTranslator):
                                     "Base case: Known property about loop variable", res)
                 with ctx.state_scope(ctx.current_state, pre_state_of_loop):
                     # Loop Invariants are translated the same as pre- or postconditions
-                    translated_loop_invariants = \
+                    translated_loop_invariant_asserts = \
                         [(loop_invariant,
-                          self.specification_translator.translate_pre_or_postcondition(
-                              loop_invariant, res, ctx, event_translation=EventTranslationState.ASSERT),
-                          self.specification_translator.translate_pre_or_postcondition(
-                              loop_invariant, res, ctx, event_translation=EventTranslationState.EXHALE),
-                          self.specification_translator.translate_pre_or_postcondition(
-                              loop_invariant, res, ctx, event_translation=EventTranslationState.INHALE)
-                          ) for loop_invariant in loop_invariants]
+                          self.specification_translator.translate_pre_or_postcondition(loop_invariant, res, ctx))
+                         for loop_invariant in loop_invariants]
                 loop_invariant_stmts = []
-                for loop_invariant, cond, _, _ in translated_loop_invariants:
+                for loop_invariant, cond in translated_loop_invariant_asserts:
                     cond_pos = self.to_position(loop_invariant, ctx, rules.LOOP_INVARIANT_FAIL)
-                    loop_invariant_stmts.append(self.viper_ast.Assert(cond, cond_pos))
+                    loop_invariant_stmts.append(self.viper_ast.Exhale(cond, cond_pos))
                 self.seqn_with_info(loop_invariant_stmts, "Check loop invariants before iteration 0", res)
 
                 # Step case
@@ -245,19 +240,26 @@ class StatementTranslator(NodeTranslator):
                 set_loop_var = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos)
                 self.seqn_with_info([assume_step_case, set_loop_var],
                                     "Step case: Known property about loop variable", res)
+
+                with ctx.state_scope(ctx.current_state, pre_state_of_loop):
+                    # Re-translate the loop invariants since the context might have changed
+                    translated_loop_invariant_assumes = \
+                        [(loop_invariant,
+                          self.specification_translator
+                          .translate_pre_or_postcondition(loop_invariant, res, ctx, assume_events=True))
+                         for loop_invariant in loop_invariants]
                 loop_invariant_stmts = []
-                for loop_invariant, _, cond_exhale, cond_inhale in translated_loop_invariants:
-                    cond_pos = self.to_position(loop_invariant, ctx, rules.INHALE_LOOP_INVARIANT_FAIL)
-                    loop_invariant_stmts.append(self.viper_ast.Exhale(cond_exhale, cond_pos))
+                for loop_invariant, cond_inhale in translated_loop_invariant_assumes:
                     cond_pos = self.to_position(loop_invariant, ctx, rules.INHALE_LOOP_INVARIANT_FAIL)
                     loop_invariant_stmts.append(self.viper_ast.Inhale(cond_inhale, cond_pos))
                 self.seqn_with_info(loop_invariant_stmts, "Assume loop invariants", res)
                 with ctx.break_scope():
                     with ctx.continue_scope():
                         # Loop Body
-                        loop_body_stmts = []
-                        self.translate_stmts(node.body, loop_body_stmts, ctx)
-                        self.seqn_with_info(loop_body_stmts, "Loop body", res)
+                        with ctx.new_local_scope():
+                            loop_body_stmts = []
+                            self.translate_stmts(node.body, loop_body_stmts, ctx)
+                            self.seqn_with_info(loop_body_stmts, "Loop body", res)
                         continue_info = self.to_info(["End of loop body"])
                         res.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
                         # After loop body
@@ -270,10 +272,10 @@ class StatementTranslator(NodeTranslator):
                         res.append(self.viper_ast.LocalVarAssign(loop_var, array_at, lpos))
                         # Check loop invariants
                         loop_invariant_stmts = []
-                        for loop_invariant, cond, _, _ in translated_loop_invariants:
+                        for loop_invariant, cond in translated_loop_invariant_asserts:
                             cond_pos = self.to_position(loop_invariant, ctx,
                                                         rules.LOOP_INVARIANT_FAIL)
-                            loop_invariant_stmts.append(self.viper_ast.Assert(cond, cond_pos))
+                            loop_invariant_stmts.append(self.viper_ast.Exhale(cond, cond_pos))
                         self.seqn_with_info(loop_invariant_stmts, "Check loop invariants for iteration idx + 1", res)
                         # Kill this branch
                         res.append(self.viper_ast.Inhale(self.viper_ast.FalseLit(), pos))
@@ -291,7 +293,8 @@ class StatementTranslator(NodeTranslator):
                             array_at = self.viper_ast.SeqIndex(array, idx, rpos)
                             var_set = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos, loop_info)
                             res.append(var_set)
-                            self.translate_stmts(node.body, res, ctx)
+                            with ctx.new_local_scope():
+                                self.translate_stmts(node.body, res, ctx)
                             continue_info = self.to_info(["End of loop iteration."])
                             res.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
 

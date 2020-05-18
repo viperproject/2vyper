@@ -165,8 +165,7 @@ class StructureChecker(NodeVisitor):
                     self.visit(node.left, *args)
                 self.visit(node.right, *args)
             elif case(ast.BoolOperator.AND):
-                with self._inside_one_event_scope():
-                    self.generic_visit(node, *args)
+                self.generic_visit(node, *args)
             else:
                 assert False
 
