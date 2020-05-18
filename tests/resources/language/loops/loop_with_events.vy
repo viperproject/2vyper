@@ -5,6 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+# Verification took   2.27 seconds. [benchmark=10] (With loop invariants)
+# Verification took   2.10 seconds. [benchmark=10] (With loop unrolling)
+
 SomeEvent: event({value: int128})
 
 #@ check: success() ==> event(SomeEvent(1))

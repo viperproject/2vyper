@@ -51,6 +51,12 @@ def test0(l: Large) -> Large:
     new_l: Large = l
     new_l.a05 = 0
     for i in range(CC):
+        #@ invariant: new_l.a00 == l.a00 + loop_iteration(i)
+        #@ invariant: new_l.a01 == (new_l.a00 + new_l.a02 if loop_iteration(i) > 0 else l.a01)
+        #@ invariant: new_l.a02 == l.a02
+        #@ invariant: new_l.a03 == l.a03
+        #@ invariant: new_l.a04 == l.a04 + loop_iteration(i) * (l.a02 + l.a00 + 3) + sum(previous(i)) + i
+        #@ invariant: new_l.a05 == (loop_iteration(i) * l.a05 + loop_iteration(i) if l.a05 > 0 else 0)
         new_l.a00 = new_l.a00 + 1
         new_l.a01 = new_l.a00 + new_l.a02
         new_l.a04 = new_l.a04 + new_l.a02 + new_l.a00 + 3
