@@ -19,17 +19,22 @@ def disjunction_test(a: bool, b: bool):
     if a or b:
         log.SomeEvent(42)
 
-#@ requires: forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
-#@ ensures: success() ==> event(SomeEvent(3), 2)
-#@ ensures: success() ==> event(SomeEvent(3), 2)
-#@ check: forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
+#@ requires: forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
+#@ ensures: success() ==> forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
+#@ ensures: success() ==> forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
+#@ check: forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 @private
 def forall_event_test(a: address):
     C(a).send()
     log.SomeEvent(3)
-    log.SomeEvent(3)
+    log.SomeEvent(4)
+    log.SomeEvent(5)
+    log.SomeEvent(6)
+    log.SomeEvent(7)
+    log.SomeEvent(8)
+    log.SomeEvent(9)
 
-#@ check: success() ==> forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1)) or event(SomeEvent(3), 2)
+#@ check: success() ==> forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 @public
 def foo():
     log.SomeEvent(3)

@@ -16,8 +16,7 @@ weis: uint256
 
 ads: address[10]
 
-#@ always check: self.val > old(self.val) ==> (event(Transfer(msg.sender, self.ad, self.weis)) \
-#@   or event(Transfer(msg.sender, self.ad, self.weis), 2))
+#@ always check: self.val > old(self.val) ==> event(Transfer(msg.sender, self.ad, self.weis), 2)
 
 # Require that the pre_state is the same as the last public state for self
 #@ requires: storage(self) == public_old(storage(self))

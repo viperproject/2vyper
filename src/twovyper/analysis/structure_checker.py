@@ -157,8 +157,9 @@ class StructureChecker(NodeVisitor):
     def visit_BoolOp(self, node: ast.BoolOp, *args):
         with switch(node.op) as case:
             if case(ast.BoolOperator.OR):
-                with self._inside_pure_scope('disjunctions'):
-                    self.generic_visit(node, *args)
+                with self._inside_one_event_scope():
+                    with self._inside_pure_scope('disjunctions'):
+                        self.generic_visit(node, *args)
             elif case(ast.BoolOperator.IMPLIES):
                 with self._inside_pure_scope('(e ==> A) as the left hand side'):
                     self.visit(node.left, *args)
@@ -253,9 +254,9 @@ class StructureChecker(NodeVisitor):
                 _assert(not self._is_pure, node, 'spec.event',
                         "Events are only in checks pure expressions. "
                         f"They cannot be used in {self._non_pure_parent_description}.")
-                if self._only_one_event_allowed:
-                    _assert(not self._visited_an_event, node, 'spec.event',
-                            'Only one event expression is allowed in conjunctions of a non-check-specification.')
+            if self._only_one_event_allowed:
+                _assert(not self._visited_an_event, node, 'spec.event',
+                        'In this context only one event expression is allowed.')
             self._visited_an_event = True
 
         elif node.name == names.IMPLIES:
