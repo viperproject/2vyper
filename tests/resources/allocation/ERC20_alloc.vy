@@ -198,6 +198,7 @@ def _burn(_to: address, _value: uint256):
     assert _to != ZERO_ADDRESS
     self.total_supply -= _value
     self.balanceOf[_to] -= _value
+    #:: UnexpectedOutput(destroy.failed:insufficient.funds, 0)
     #@ destroy[token](_value)
     log.Transfer(_to, ZERO_ADDRESS, _value)
 
