@@ -12,6 +12,7 @@ SomeEvent: event({value: int128})
 
 #@ check: success() ==> event(SomeEvent(1))
 #@ check: success() ==> event(SomeEvent(42), 42)
+#:: UnexpectedOutput(carbon)(check.violated:assertion.false, 0)
 #@ check: success() ==> forall({i: int128}, {event(SomeEvent(i))}, (i >= 100 and i < 200) ==> event(SomeEvent(i)))
 @public
 def foo(a: int128):
@@ -22,6 +23,7 @@ def foo(a: int128):
         # Generate events in loop
         #@ invariant: event(SomeEvent(42), loop_iteration(i))
         # All other events are zero
+        #:: UnexpectedOutput(carbon)(loop.invariant.not.preserved:assertion.false, 0)
         #@ invariant: forall({i: int128}, {event(SomeEvent(i))}, (i != 1 and i != 42) ==> event(SomeEvent(i), 0))
         log.SomeEvent(42)
 
@@ -30,7 +32,9 @@ def foo(a: int128):
         #@ invariant: event(SomeEvent(1))
         #@ invariant: event(SomeEvent(42), 42)
         # Generate events in loop
+        #:: UnexpectedOutput(carbon)(loop.invariant.not.preserved:assertion.false, 0)
         #@ invariant: forall({j: int128}, {event(SomeEvent(j))}, (j >= 100 and j < i) ==> event(SomeEvent(j)))
         # Events not generated yet are zero
+        #:: UnexpectedOutput(carbon)(loop.invariant.not.established:assertion.false, 0) | UnexpectedOutput(carbon)(loop.invariant.not.preserved:assertion.false, 0)
         #@ invariant: forall({j: int128}, {event(SomeEvent(j))}, (j >= i and j < 200) ==> event(SomeEvent(j), 0))
         log.SomeEvent(i)

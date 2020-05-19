@@ -80,6 +80,7 @@ def assert_ghost_property():
     #@ elif old(received(msg.sender)) == 0:
         #@ assert msg.value < 16, UNREACHABLE
     #@ else:
+        #:: UnexpectedOutput(carbon)(assert.failed:assertion.false, 0)
         #@ assert msg.value > 0, UNREACHABLE
 
     #:: ExpectedOutput(assert.failed:assertion.false)
