@@ -289,10 +289,13 @@ def _transferFrom(_from: address, _to: address, _tokenId: uint256, _sender: addr
     self._addTokenTo(_to, _tokenId)
 
     #@ if _sender == _from or self.ownerToOperators[_from][_sender]:
+        #:: UnexpectedOutput(revoke.failed:not.trusted, 0)
         #@ revoke[token(_tokenId) <-> nothing](1, 0, to=old(self.idToApprovals[_tokenId]), acting_for=_from)
     #@ else:
+        #:: UnexpectedOutput(carbon)(exchange.failed:no.offer, 0) | UnexpectedOutput(carbon)(exchange.failed:insufficient.funds, 0)
         #@ exchange[token(_tokenId) <-> nothing](1, 0, _from, _sender, times=1)
 
+    #:: UnexpectedOutput(carbon)(reallocate.failed:insufficient.funds, 0) | UnexpectedOutput(carbon)(reallocate.failed:not.trusted, 0)
     #@ reallocate[token(_tokenId)](1, to=_to, acting_for=_from if self.ownerToOperators[_from][_sender] else _sender)
 
     # Log the transfer

@@ -122,6 +122,9 @@ class TypeAnnotator(NodeVisitor):
                 for post in function.postconditions:
                     self.annotate_expected(post, types.VYPER_BOOL)
 
+                for pre in function.preconditions:
+                    self.annotate_expected(pre, types.VYPER_BOOL)
+
                 for check in function.checks:
                     self.annotate_expected(check, types.VYPER_BOOL)
 
@@ -373,7 +376,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 self.annotate_expected(node.args[1], types.VYPER_UINT256)
                 return [types.VYPER_UINT256], [node]
-            elif case(names.OLD) or case(names.ISSUED):
+            elif case(names.OLD) or case(names.PUBLIC_OLD) or case(names.ISSUED):
                 _check_number_of_arguments(node, 1)
                 return self.pass_through(node.args[0], node)
             elif case(names.INDEPENDENT):

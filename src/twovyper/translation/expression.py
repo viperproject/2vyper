@@ -101,8 +101,14 @@ class ExpressionTranslator(NodeTranslator):
 
         if node.id == names.SELF and node.type == types.VYPER_ADDRESS:
             return ctx.self_address or helpers.self_address(self.viper_ast, pos)
-        else:
-            return ctx.all_vars[node.id].local_var(ctx, pos)
+        elif ctx.inside_inline_analysis and node.id not in ctx.all_vars:
+            # Generate new local variable
+            variable_name = node.id
+            mangled_name = ctx.new_local_var_name(variable_name)
+            var = TranslatedVar(variable_name, mangled_name, node.type, self.viper_ast, pos)
+            ctx.locals[variable_name] = var
+            ctx.new_local_vars.append(var.var_decl(ctx))
+        return ctx.all_vars[node.id].local_var(ctx, pos)
 
     def translate_ArithmeticOp(self, node: ast.ArithmeticOp, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
@@ -734,24 +740,7 @@ class ExpressionTranslator(NodeTranslator):
 
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
-        # We forget about events by exhaling all permissions to the event predicates, i.e.
-        # for all event predicates e we do
-        #   exhale forall arg0, arg1, ... :: perm(e(arg0, arg1, ...)) > none ==> acc(e(...), perm(e(...)))
-        # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
-        # to exhale no permissions under a quantifier.
-        for event in ctx.program.events.values():
-            event_name = mangled.event_name(event.name)
-            types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
-            event_args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos) for idx, type in enumerate(types)]
-            local_args = [arg.localVar() for arg in event_args]
-            pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
-            perm = self.viper_ast.CurrentPerm(pa, pos)
-            pap = self.viper_ast.PredicateAccessPredicate(pa, perm, pos)
-            none = self.viper_ast.NoPerm(pos)
-            impl = self.viper_ast.Implies(self.viper_ast.GtCmp(perm, none, pos), pap)
-            trigger = self.viper_ast.Trigger([pa], pos)
-            forall = self.viper_ast.Forall(event_args, [trigger], impl, pos)
-            res.append(self.viper_ast.Exhale(forall, pos))
+        self.forget_about_all_events(res, ctx, pos)
 
         if not constant:
             # Save the values of to, amount, and args, as self could be changed by reentrancy
@@ -779,7 +768,7 @@ class ExpressionTranslator(NodeTranslator):
 
             assume_posts = []
             for post in ctx.program.transitive_postconditions:
-                post_expr = self.spec_translator.translate_postcondition(post, assume_posts, ctx)
+                post_expr = self.spec_translator.translate_pre_or_postcondition(post, assume_posts, ctx)
                 ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                 assume_posts.append(self.viper_ast.Inhale(post_expr, ppos))
 
@@ -816,6 +805,26 @@ class ExpressionTranslator(NodeTranslator):
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
         return success, return_value
+
+    def forget_about_all_events(self, res, ctx, pos):
+        # We forget about events by exhaling all permissions to the event predicates, i.e.
+        # for all event predicates e we do
+        #   exhale forall arg0, arg1, ... :: perm(e(arg0, arg1, ...)) > none ==> acc(e(...), perm(e(...)))
+        # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
+        # to exhale no permissions under a quantifier.
+        for event in ctx.program.events.values():
+            event_name = mangled.event_name(event.name)
+            types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+            event_args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos) for idx, type in enumerate(types)]
+            local_args = [arg.localVar() for arg in event_args]
+            pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
+            perm = self.viper_ast.CurrentPerm(pa, pos)
+            pap = self.viper_ast.PredicateAccessPredicate(pa, perm, pos)
+            none = self.viper_ast.NoPerm(pos)
+            impl = self.viper_ast.Implies(self.viper_ast.GtCmp(perm, none, pos), pap)
+            trigger = self.viper_ast.Trigger([pa], pos)
+            forall = self.viper_ast.Forall(event_args, [trigger], impl, pos)
+            res.append(self.viper_ast.Exhale(forall, pos))
 
     def _assume_interface_specifications(self,
                                          node: ast.Node,
@@ -873,7 +882,7 @@ class ExpressionTranslator(NodeTranslator):
             ctx.success_var = succ_var
             body.append(self.viper_ast.LocalVarAssign(succ_var.local_var(ctx), succ, succ.pos()))
 
-            translate = self.spec_translator.translate_postcondition
+            translate = self.spec_translator.translate_pre_or_postcondition
             pos = self.to_position(node, ctx, rules.INHALE_INTERFACE_FAIL)
 
             with ctx.program_scope(interface):

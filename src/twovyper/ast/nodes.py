@@ -38,6 +38,7 @@ class VyperFunction:
                  defaults: Dict[str, Optional[ast.Expr]],
                  type: FunctionType,
                  postconditions: List[ast.Expr],
+                 preconditions: List[ast.Expr],
                  checks: List[ast.Expr],
                  performs: List[ast.Expr],
                  decorators: List[ast.Decorator],
@@ -47,6 +48,7 @@ class VyperFunction:
         self.defaults = defaults
         self.type = type
         self.postconditions = postconditions
+        self.preconditions = preconditions
         self.checks = checks
         self.performs = performs
         self.decorators = decorators

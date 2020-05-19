@@ -172,7 +172,7 @@ class ProgramTranslator(CommonTranslator):
         accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
         predicates.extend([*events, *accs])
 
-        vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
+        vyper_functions = vyper_program.functions.values()
         methods.append(self._create_transitivity_check(ctx))
         methods.append(self._create_forced_ether_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
@@ -332,7 +332,7 @@ class ProgramTranslator(CommonTranslator):
                 res.append(self.viper_ast.Inhale(inv_expr, pos))
             for post in ctx.program.transitive_postconditions:
                 pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                post_expr = self.specification_translator.translate_postcondition(post, res, ctx)
+                post_expr = self.specification_translator.translate_pre_or_postcondition(post, res, ctx)
                 is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                 post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
                 res.append(self.viper_ast.Inhale(post_expr, pos))
@@ -483,7 +483,7 @@ class ProgramTranslator(CommonTranslator):
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)
-                    post_expr = self.specification_translator.translate_postcondition(post, body, ctx)
+                    post_expr = self.specification_translator.translate_pre_or_postcondition(post, body, ctx)
                     pos = self.to_position(post, ctx)
                     is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                     post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)

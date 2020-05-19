@@ -54,6 +54,7 @@ class Context:
         self.return_label = None
 
         self.inside_trigger = False
+        self.inside_inline_analysis = False
 
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
@@ -64,7 +65,7 @@ class Context:
         self.inline_vias = []
 
     @property
-    def all_vars(self):
+    def all_vars(self) -> ChainMap:
         return ChainMap(self.quantified_vars, self.current_state, self.locals, self.args)
 
     @property
@@ -177,6 +178,7 @@ class Context:
         return_label = self.return_label
 
         inside_trigger = self.inside_trigger
+        inside_inline_analysis = self.inside_inline_analysis
 
         local_var_counter = self._local_var_counter
         new_local_vars = self.new_local_vars
@@ -210,6 +212,7 @@ class Context:
         self.return_label = None
 
         self.inside_trigger = False
+        self.inside_inline_analysis = False
 
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
@@ -246,6 +249,7 @@ class Context:
         self.return_label = return_label
 
         self.inside_trigger = inside_trigger
+        self.inside_inline_analysis = inside_inline_analysis
 
         self._local_var_counter = local_var_counter
         self.new_local_vars = new_local_vars
@@ -277,6 +281,7 @@ class Context:
 
     @contextmanager
     def inline_scope(self, via):
+        success_var = self.success_var
         result_var = self.result_var
         self.result_var = None
 
@@ -294,8 +299,12 @@ class Context:
         inline_vias = self.inline_vias.copy()
         self.inline_vias.append(via)
 
+        inside_inline_analysis = self.inside_inline_analysis
+        self.inside_inline_analysis = True
+
         yield
 
+        self.success_var = success_var
         self.result_var = result_var
         self.return_label = return_label
 
@@ -304,6 +313,8 @@ class Context:
         self._current_inline = old_inline
 
         self.inline_vias = inline_vias
+
+        self.inside_inline_analysis = inside_inline_analysis
 
     @contextmanager
     def interface_call_scope(self):

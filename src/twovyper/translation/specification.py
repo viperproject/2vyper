@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from enum import Enum
 from contextlib import contextmanager
 from functools import reduce
 from itertools import chain, starmap
@@ -29,6 +30,13 @@ from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt
 
 
+class EventTranslationState(Enum):
+
+    INHALE = 'inhale'
+    EXHALE = 'exhale'
+    ASSERT = 'assert'
+
+
 class SpecificationTranslator(ExpressionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
@@ -36,6 +44,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.resource_translator = ResourceTranslator(viper_ast)
+        self._event_translation_state: EventTranslationState = EventTranslationState.ASSERT
+        self._events_translated = False
 
     @property
     def no_reverts(self):
@@ -49,8 +59,27 @@ class SpecificationTranslator(ExpressionTranslator):
 
         del self._ignore_accessible
 
-    def translate_postcondition(self, post: ast.Node, res: List[Stmt], ctx: Context) -> Expr:
-        return self.translate(post, res, ctx)
+    @contextmanager
+    def _event_translation_scope(self, event_translation: EventTranslationState):
+        event_translation_state = self._event_translation_state
+        self._event_translation_state = event_translation
+
+        events_translated = self._events_translated
+        self._events_translated = False
+
+        yield
+
+        self._event_translation_state = event_translation_state
+        self._events_translated = events_translated
+
+    def translate_pre_or_postcondition(self, cond: ast.Node, res: List[Stmt], ctx: Context,
+                                       event_translation=EventTranslationState.ASSERT) -> Expr:
+        with self._event_translation_scope(event_translation):
+            expr = self.translate(cond, res, ctx)
+            if event_translation != EventTranslationState.EXHALE or self._events_translated:
+                return expr
+            else:
+                return self.viper_ast.TrueLit()
 
     def translate_check(self, check: ast.Node, res: List[Stmt], ctx: Context, is_fail=False) -> Expr:
         expr = self.translate(check, res, ctx)
@@ -178,8 +207,16 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.REVERT:
             success = ctx.success_var.local_var(ctx, pos)
             return self.viper_ast.Not(success, pos)
-        elif name == names.OLD or name == names.ISSUED:
-            self_state = ctx.current_old_state if name == names.OLD else ctx.issued_state
+        elif name == names.OLD or name == names.ISSUED or name == names.PUBLIC_OLD:
+            with switch(name) as case:
+                if case(names.OLD):
+                    self_state = ctx.current_old_state
+                elif case(names.PUBLIC_OLD):
+                    self_state = ctx.old_state
+                elif case(names.ISSUED):
+                    self_state = ctx.issued_state
+                else:
+                    assert False
             with ctx.state_scope(self_state, self_state):
                 arg = node.args[0]
                 return self.translate(arg, res, ctx)
@@ -314,21 +351,33 @@ class SpecificationTranslator(ExpressionTranslator):
             implies = self.viper_ast.Implies(cond, self._low(arg, node.args[0].type, ctx, pos), pos)
             return implies
         elif name == names.EVENT:
+            self._events_translated = True
             event = node.args[0]
             event_name = mangled.event_name(event.name)
             args = [self.translate(arg, res, ctx) for arg in event.args]
-            full_perm = self.viper_ast.FullPerm(pos)
-            one = self.viper_ast.IntLit(1, pos)
-            num = self.translate(node.args[1], res, ctx) if len(node.args) == 2 else one
             pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
             # If this is a trigger, we just return the predicate access without the surrounding perm-expression and
             # comparison (which is not valid as a trigger).
             if ctx.inside_trigger:
                 return pred_acc
             else:
-                perm = self.viper_ast.IntPermMul(num, full_perm, pos)
-                current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
-                return self.viper_ast.EqCmp(current_perm, perm, pos)
+                one = self.viper_ast.IntLit(1, pos)
+                num = self.translate(node.args[1], res, ctx) if len(node.args) == 2 else one
+                full_perm = self.viper_ast.FullPerm(pos)
+                perm_mul = self.viper_ast.IntPermMul(num, full_perm, pos)
+                if self._event_translation_state == EventTranslationState.ASSERT:
+                    current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
+                    return self.viper_ast.EqCmp(current_perm, perm_mul, pos)
+                elif self._event_translation_state == EventTranslationState.INHALE:
+                    pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, perm_mul, pos)
+                    return pred_acc_pred
+                elif self._event_translation_state == EventTranslationState.EXHALE:
+                    curr_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
+                    pap = self.viper_ast.PredicateAccessPredicate(pred_acc, curr_perm, pos)
+                    none = self.viper_ast.NoPerm(pos)
+                    return self.viper_ast.Implies(self.viper_ast.GtCmp(curr_perm, none, pos), pap)
+                else:
+                    assert False
         elif name == names.SELFDESTRUCT:
             self_var = ctx.self_var.local_var(ctx)
             self_type = ctx.self_type

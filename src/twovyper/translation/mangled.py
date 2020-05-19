@@ -185,6 +185,10 @@ def old_state_var_name(name: str) -> str:
     return f'$old_{name}'
 
 
+def pre_old_state_var_name(name: str) -> str:
+    return f'$pre_old_{name}'
+
+
 def pre_state_var_name(name: str) -> str:
     return f'$pre_{name}'
 
