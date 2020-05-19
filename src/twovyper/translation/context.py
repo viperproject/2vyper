@@ -7,9 +7,14 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
+from typing import Union, Dict, TYPE_CHECKING, List, Any
 
 from twovyper.ast import names
+from twovyper.ast.ast_nodes import Expr
+from twovyper.ast.nodes import VyperFunction
 from twovyper.translation import mangled
+if TYPE_CHECKING:
+    from twovyper.translation.variable import TranslatedVar
 
 
 class Context:
@@ -25,10 +30,11 @@ class Context:
         # Invariants that are known to be true and therefore don't need to be checked
         self.unchecked_invariants = []
 
-        self.function = None
+        self.function: Union[VyperFunction, None] = None
 
         self.args = {}
-        self.locals = {}
+        self.locals: Dict[str, TranslatedVar] = {}
+        self.old_locals: Dict[str, TranslatedVar] = {}
         # The state which is currently regarded as 'present'
         self.current_state = {}
         # The state which is currently regarded as 'old'
@@ -58,6 +64,11 @@ class Context:
 
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
+
+        self.loop_arrays: Dict[str, Expr] = {}
+        self.loop_indices: Dict[str, ] = {}
+
+        self.event_vars: Dict[str, List[Any]] = {}
 
         self._quantified_var_counter = -1
         self._inline_counter = -1
@@ -156,6 +167,7 @@ class Context:
 
         args = self.args
         locals = self.locals
+        old_locals = self.old_locals
         current_state = self.current_state
         current_old_state = self.current_old_state
         quantified_vars = self.quantified_vars
@@ -188,10 +200,16 @@ class Context:
         current_inline = self._current_inline
         inline_vias = self.inline_vias.copy()
 
+        loop_arrays = self.loop_arrays
+        loop_indices = self.loop_indices
+
+        event_vars = self.event_vars
+
         self.function = None
 
         self.args = {}
         self.locals = {}
+        self.old_locals = {}
         self.current_state = {}
         self.current_old_state = {}
         self.quantified_vars = {}
@@ -221,12 +239,18 @@ class Context:
         self._inline_counter = -1
         self._current_inline = -1
 
+        self.loop_arrays = {}
+        self.loop_indices = {}
+
+        self.event_vars = {}
+
         yield
 
         self.function = function
 
         self.args = args
         self.locals = locals
+        self.old_locals = old_locals
         self.current_state = current_state
         self.current_old_state = current_old_state
         self.quantified_vars = quantified_vars
@@ -258,6 +282,11 @@ class Context:
         self._inline_counter = inline_counter
         self._current_inline = current_inline
         self.inline_vias = inline_vias
+
+        self.loop_arrays = loop_arrays
+        self.loop_indices = loop_indices
+
+        self.event_vars = event_vars
 
     @contextmanager
     def quantified_var_scope(self):
@@ -352,10 +381,14 @@ class Context:
         self.current_state = present_state
         self.current_old_state = old_state
 
+        local_vars = self.locals.copy()
+
         yield
 
         self.current_state = current_state
         self.current_old_state = current_old_state
+
+        self.locals = local_vars
 
     @contextmanager
     def allocated_scope(self, allocated):
@@ -392,3 +425,20 @@ class Context:
         yield
 
         self.continue_label = continue_label
+
+    @contextmanager
+    def old_local_variables_scope(self, old_locals):
+        prev_old_locals = self.old_locals
+        self.old_locals = old_locals
+
+        yield
+
+        self.old_locals = prev_old_locals
+
+    @contextmanager
+    def new_local_scope(self):
+        event_vars = self.event_vars
+
+        yield
+
+        self.event_vars = event_vars

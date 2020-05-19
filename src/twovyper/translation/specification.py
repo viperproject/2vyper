@@ -4,8 +4,7 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
-
-from enum import Enum
+from collections import ChainMap
 from contextlib import contextmanager
 from functools import reduce
 from itertools import chain, starmap
@@ -30,13 +29,6 @@ from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt
 
 
-class EventTranslationState(Enum):
-
-    INHALE = 'inhale'
-    EXHALE = 'exhale'
-    ASSERT = 'assert'
-
-
 class SpecificationTranslator(ExpressionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
@@ -44,8 +36,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.resource_translator = ResourceTranslator(viper_ast)
-        self._event_translation_state: EventTranslationState = EventTranslationState.ASSERT
-        self._events_translated = False
+        self._assume_events = False
+        self._translating_check = False
 
     @property
     def no_reverts(self):
@@ -60,29 +52,32 @@ class SpecificationTranslator(ExpressionTranslator):
         del self._ignore_accessible
 
     @contextmanager
-    def _event_translation_scope(self, event_translation: EventTranslationState):
-        event_translation_state = self._event_translation_state
-        self._event_translation_state = event_translation
-
-        events_translated = self._events_translated
-        self._events_translated = False
+    def _event_translation_scope(self, assume_events: bool):
+        assume = self._assume_events
+        self._assume_events = assume_events
 
         yield
 
-        self._event_translation_state = event_translation_state
-        self._events_translated = events_translated
+        self._assume_events = assume
+
+    @contextmanager
+    def _check_translation_scope(self):
+        translating_check = self._translating_check
+        self._translating_check = True
+
+        yield
+
+        self._translating_check = translating_check
 
     def translate_pre_or_postcondition(self, cond: ast.Node, res: List[Stmt], ctx: Context,
-                                       event_translation=EventTranslationState.ASSERT) -> Expr:
-        with self._event_translation_scope(event_translation):
+                                       assume_events=False) -> Expr:
+        with self._event_translation_scope(assume_events):
             expr = self.translate(cond, res, ctx)
-            if event_translation != EventTranslationState.EXHALE or self._events_translated:
-                return expr
-            else:
-                return self.viper_ast.TrueLit()
+            return expr
 
     def translate_check(self, check: ast.Node, res: List[Stmt], ctx: Context, is_fail=False) -> Expr:
-        expr = self.translate(check, res, ctx)
+        with self._check_translation_scope():
+            expr = self.translate(check, res, ctx)
         if is_fail:
             # We evaluate the check on failure in the old heap because events didn't
             # happen there
@@ -207,6 +202,24 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.REVERT:
             success = ctx.success_var.local_var(ctx, pos)
             return self.viper_ast.Not(success, pos)
+        elif name == names.PREVIOUS:
+            arg = node.args[0]
+            assert isinstance(arg, ast.Name)
+            assert ctx.loop_arrays.get(arg.id)
+            assert ctx.loop_indices.get(arg.id)
+            array = ctx.loop_arrays[arg.id]
+            end = ctx.loop_indices[arg.id].local_var(ctx)
+            return self.viper_ast.SeqTake(array, end, pos)
+        elif name == names.LOOP_ARRAY:
+            arg = node.args[0]
+            assert isinstance(arg, ast.Name)
+            assert ctx.loop_arrays.get(arg.id)
+            return ctx.loop_arrays[arg.id]
+        elif name == names.LOOP_ITERATION:
+            arg = node.args[0]
+            assert isinstance(arg, ast.Name)
+            assert ctx.loop_indices.get(arg.id)
+            return ctx.loop_indices[arg.id].local_var(ctx)
         elif name == names.OLD or name == names.ISSUED or name == names.PUBLIC_OLD:
             with switch(name) as case:
                 if case(names.OLD):
@@ -218,14 +231,33 @@ class SpecificationTranslator(ExpressionTranslator):
                 else:
                     assert False
             with ctx.state_scope(self_state, self_state):
+                if name == names.OLD:
+                    ctx.locals = ChainMap(ctx.old_locals, ctx.locals)
                 arg = node.args[0]
                 return self.translate(arg, res, ctx)
         elif name == names.SUM:
             arg = node.args[0]
             expr = self.translate(arg, res, ctx)
-            key_type = self.type_translator.translate(arg.type.key_type, ctx)
+            if isinstance(arg.type, types.MapType):
+                key_type = self.type_translator.translate(arg.type.key_type, ctx)
 
-            return helpers.map_sum(self.viper_ast, expr, key_type, pos)
+                return helpers.map_sum(self.viper_ast, expr, key_type, pos)
+            elif isinstance(arg.type, types.ArrayType):
+                int_lit_zero = self.viper_ast.IntLit(0, pos)
+                sum_value = int_lit_zero
+                for i in range(arg.type.size):
+                    int_lit_i = self.viper_ast.IntLit(i, pos)
+                    array_at = self.viper_ast.SeqIndex(expr, int_lit_i, pos)
+                    if arg.type.is_strict:
+                        value = array_at
+                    else:
+                        seq_length = self.viper_ast.SeqLength(expr, pos)
+                        cond = self.viper_ast.LtCmp(int_lit_i, seq_length, pos)
+                        value = self.viper_ast.CondExp(cond, array_at, int_lit_zero, pos)
+                    sum_value = self.viper_ast.Add(sum_value, value, pos)
+                return sum_value
+            else:
+                assert False
         elif name == names.LOCKED:
             lock_name = node.args[0].s
             return helpers.get_lock(self.viper_ast, lock_name, ctx, pos)
@@ -351,8 +383,8 @@ class SpecificationTranslator(ExpressionTranslator):
             implies = self.viper_ast.Implies(cond, self._low(arg, node.args[0].type, ctx, pos), pos)
             return implies
         elif name == names.EVENT:
-            self._events_translated = True
             event = node.args[0]
+            assert isinstance(event, ast.FunctionCall)
             event_name = mangled.event_name(event.name)
             args = [self.translate(arg, res, ctx) for arg in event.args]
             pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
@@ -365,19 +397,27 @@ class SpecificationTranslator(ExpressionTranslator):
                 num = self.translate(node.args[1], res, ctx) if len(node.args) == 2 else one
                 full_perm = self.viper_ast.FullPerm(pos)
                 perm_mul = self.viper_ast.IntPermMul(num, full_perm, pos)
-                if self._event_translation_state == EventTranslationState.ASSERT:
-                    current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
-                    return self.viper_ast.EqCmp(current_perm, perm_mul, pos)
-                elif self._event_translation_state == EventTranslationState.INHALE:
-                    pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, perm_mul, pos)
-                    return pred_acc_pred
-                elif self._event_translation_state == EventTranslationState.EXHALE:
-                    curr_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
-                    pap = self.viper_ast.PredicateAccessPredicate(pred_acc, curr_perm, pos)
-                    none = self.viper_ast.NoPerm(pos)
-                    return self.viper_ast.Implies(self.viper_ast.GtCmp(curr_perm, none, pos), pap)
+                current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
+                eq_comp = self.viper_ast.EqCmp(current_perm, perm_mul, pos)
+                if self._translating_check:
+                    return eq_comp
                 else:
-                    assert False
+                    cond = self.viper_ast.GtCmp(num, self.viper_ast.IntLit(0, pos), pos)
+                    pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, perm_mul, pos)
+                    if self._assume_events:
+                        local_event_args = ctx.event_vars.get(event_name)
+                        assert local_event_args
+                        assert len(local_event_args) == len(args)
+                        args_cond = self.viper_ast.TrueLit(pos)
+                        for local_event_arg, event_arg in zip(local_event_args, args):
+                            arg_eq = self.viper_ast.NeCmp(local_event_arg, event_arg, pos)
+                            args_cond = self.viper_ast.And(args_cond, arg_eq, pos)
+                        pred_acc_pred = self.viper_ast.And(args_cond, pred_acc_pred, pos)
+                        cond_pred_acc_pred = self.viper_ast.CondExp(cond, pred_acc_pred, args_cond, pos)
+                        return cond_pred_acc_pred
+                    else:
+                        implies = self.viper_ast.Implies(cond, pred_acc_pred, pos)
+                        return self.viper_ast.And(eq_comp, implies, pos)
         elif name == names.SELFDESTRUCT:
             self_var = ctx.self_var.local_var(ctx)
             self_type = ctx.self_type

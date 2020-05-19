@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.arithmetic import div, mod, Decimal
@@ -14,16 +14,20 @@ from twovyper.ast.visitors import NodeVisitor, NodeTransformer, descendants
 from twovyper.exceptions import UnsupportedException
 
 from twovyper.parsing import lark
+from twovyper.utils import switch
 
 
-def transform(ast: ast.Module) -> ast.Module:
-    constants_decls, new_ast = ConstantCollector().collect_constants(ast)
-    constants = _interpret_constants(constants_decls)
-    transformed_ast = ConstantTransformer(constants).visit(new_ast)
+def transform(vyper_ast: ast.Module) -> ast.Module:
+    constants_decls, new_ast = ConstantCollector().collect_constants(vyper_ast)
+    constant_values, constant_nodes = _interpret_constants(constants_decls)
+    transformed_ast = ConstantTransformer(constant_values, constant_nodes).visit(new_ast)
     return transformed_ast
 
 
-def _parse_value(val):
+def _parse_value(val) -> ast.Expr:
+    """
+    Returns a new ast.Node containing the value.
+    """
     return lark.parse_expr(f'{val}', None)
 
 
@@ -33,7 +37,7 @@ def _builtin_constants():
     return values, constants
 
 
-def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.Node]:
+def _interpret_constants(nodes: List[ast.AnnAssign]) -> Tuple[Dict[str, Any], Dict[str, ast.Node]]:
     env, constants = _builtin_constants()
     interpreter = ConstantInterpreter(env)
     for node in nodes:
@@ -42,7 +46,7 @@ def _interpret_constants(nodes: List[ast.AnnAssign]) -> Dict[str, ast.Node]:
         env[name] = value
         constants[name] = _parse_value(value)
 
-    return constants
+    return env, constants
 
 
 class ConstantInterpreter(NodeVisitor):
@@ -53,7 +57,7 @@ class ConstantInterpreter(NodeVisitor):
     def __init__(self, constants: Dict[str, Any]):
         self.constants = constants
 
-    def generic_visit(self, node: ast.Node):
+    def generic_visit(self, node: ast.Node, *args):
         raise UnsupportedException(node)
 
     def visit_BoolOp(self, node: ast.BoolOp):
@@ -102,16 +106,17 @@ class ConstantInterpreter(NodeVisitor):
         lhs = self.visit(node.left)
         rhs = self.visit(node.right)
 
-        if isinstance(node.op, ast.Lt):
-            return lhs < rhs
-        elif isinstance(node.op, ast.LtE):
-            return lhs <= rhs
-        elif isinstance(node.op, ast.Gt):
-            return lhs > rhs
-        elif isinstance(node.op, ast.GtE):
-            return lhs >= rhs
-        else:
-            assert False
+        with switch(node.op) as case:
+            if case(ast.ComparisonOperator.LT):
+                return lhs < rhs
+            elif case(ast.ComparisonOperator.LTE):
+                return lhs <= rhs
+            elif case(ast.ComparisonOperator.GT):
+                return lhs > rhs
+            elif case(ast.ComparisonOperator.GTE):
+                return lhs >= rhs
+            else:
+                assert False
 
     def visit_Equality(self, node: ast.Equality):
         lhs = self.visit(node.left)
@@ -133,13 +138,15 @@ class ConstantInterpreter(NodeVisitor):
 
         raise UnsupportedException(node)
 
-    def visit_Num(self, node: ast.Num):
+    @staticmethod
+    def visit_Num(node: ast.Num):
         if isinstance(node.n, int) or isinstance(node.n, Decimal):
             return node.n
         else:
             assert False
 
-    def visit_Bool(self, node: ast.Bool):
+    @staticmethod
+    def visit_Bool(node: ast.Bool):
         return node.value
 
     def visit_Name(self, node: ast.Name):
@@ -154,7 +161,8 @@ class ConstantCollector(NodeTransformer):
     def __init__(self):
         self.constants = []
 
-    def _is_constant(self, node):
+    @staticmethod
+    def _is_constant(node: ast.Node):
         return isinstance(node, ast.FunctionCall) and node.name == 'constant'
 
     def collect_constants(self, node):
@@ -168,7 +176,8 @@ class ConstantCollector(NodeTransformer):
         else:
             return node
 
-    def visit_FunctionDef(self, node: ast.FunctionDef):
+    @staticmethod
+    def visit_FunctionDef(node: ast.FunctionDef):
         return node
 
 
@@ -177,8 +186,9 @@ class ConstantTransformer(NodeTransformer):
     Replaces all constants in the AST by their value.
     """
 
-    def __init__(self, constants: Dict[str, ast.Node]):
-        self.constants = constants
+    def __init__(self, constant_values: Dict[str, Any], constant_nodes: Dict[str, ast.Node]):
+        self.constants = constant_nodes
+        self.interpreter = ConstantInterpreter(constant_values)
 
     def _copy_pos(self, to: ast.Node, node: ast.Node) -> ast.Node:
         to.file = node.file
@@ -193,3 +203,46 @@ class ConstantTransformer(NodeTransformer):
 
     def visit_Name(self, node: ast.Name):
         return self._copy_pos(self.constants.get(node.id) or node, node)
+
+    # noinspection PyBroadException
+    def visit_FunctionCall(self, node: ast.FunctionCall):
+        if node.name == names.RANGE:
+            if len(node.args) == 1:
+                try:
+                    val = self.interpreter.visit(node.args[0])
+                    new_node = _parse_value(val)
+                    new_node = self._copy_pos(new_node, node.args[0])
+                    assert isinstance(new_node, ast.Expr)
+                    node.args[0] = new_node
+                except Exception:
+                    pass
+            elif len(node.args) == 2:
+                first_arg = node.args[0]
+                second_arg = node.args[1]
+                if isinstance(second_arg, ast.ArithmeticOp) \
+                        and second_arg.op == ast.ArithmeticOperator.ADD \
+                        and ast.compare_nodes(first_arg, second_arg.left):
+                    try:
+                        val = self.interpreter.visit(second_arg.right)
+                        new_node = _parse_value(val)
+                        second_arg.right = self._copy_pos(new_node, second_arg.right)
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        first_val = self.interpreter.visit(first_arg)
+                        first_new_node = _parse_value(first_val)
+                        first_new_node = self._copy_pos(first_new_node, first_arg)
+                        assert isinstance(first_new_node, ast.Expr)
+                        second_val = self.interpreter.visit(second_arg)
+                        second_new_node = _parse_value(second_val)
+                        second_new_node = self._copy_pos(second_new_node, first_arg)
+                        assert isinstance(second_new_node, ast.Expr)
+                        node.args[0] = first_new_node
+                        node.args[1] = second_new_node
+                    except Exception:
+                        pass
+
+        else:
+            self.generic_visit(node)
+        return node

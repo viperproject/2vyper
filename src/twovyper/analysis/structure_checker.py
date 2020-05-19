@@ -31,6 +31,7 @@ class _Context(Enum):
 
     CODE = 'code'
     INVARIANT = 'invariant'
+    LOOP_INVARIANT = 'loop.invariant'
     CHECK = 'check'
     POSTCONDITION = 'postcondition'
     PRECONDITION = 'precondition'
@@ -54,6 +55,7 @@ class StructureChecker(NodeVisitor):
         self.allowed = {
             _Context.CODE: [],
             _Context.INVARIANT: names.NOT_ALLOWED_IN_INVARIANT,
+            _Context.LOOP_INVARIANT: names.NOT_ALLOWED_IN_LOOP_INVARIANT,
             _Context.CHECK: names.NOT_ALLOWED_IN_CHECK,
             _Context.POSTCONDITION: names.NOT_ALLOWED_IN_POSTCONDITION,
             _Context.PRECONDITION: names.NOT_ALLOWED_IN_PRECONDITION,
@@ -155,15 +157,15 @@ class StructureChecker(NodeVisitor):
     def visit_BoolOp(self, node: ast.BoolOp, *args):
         with switch(node.op) as case:
             if case(ast.BoolOperator.OR):
-                with self._inside_pure_scope('disjunctions'):
-                    self.generic_visit(node, *args)
+                with self._inside_one_event_scope():
+                    with self._inside_pure_scope('disjunctions'):
+                        self.generic_visit(node, *args)
             elif case(ast.BoolOperator.IMPLIES):
                 with self._inside_pure_scope('(e ==> A) as the left hand side'):
                     self.visit(node.left, *args)
                 self.visit(node.right, *args)
             elif case(ast.BoolOperator.AND):
-                with self._inside_one_event_scope():
-                    self.generic_visit(node, *args)
+                self.generic_visit(node, *args)
             else:
                 assert False
 
@@ -189,10 +191,6 @@ class StructureChecker(NodeVisitor):
         with self._inside_pure_scope('dicts'):
             self.generic_visit(node, *args)
 
-    def visit_Set(self, node: ast.Set, *args):
-        with self._inside_pure_scope('sets'):
-            self.generic_visit(node, *args)
-
     def visit_List(self, node: ast.List, *args):
         with self._inside_pure_scope('lists'):
             self.generic_visit(node, *args)
@@ -201,7 +199,14 @@ class StructureChecker(NodeVisitor):
         with self._inside_pure_scope('tuples'):
             self.generic_visit(node, *args)
 
-    def visit_FunctionDef(self, node: ast.FunctionDef, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+    def visit_For(self, node: ast.For, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+        self.generic_visit(node, ctx, program, function)
+        if function:
+            for loop_inv in function.loop_invariants.get(node, []):
+                self.visit(loop_inv, _Context.LOOP_INVARIANT, program, function)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef, ctx: _Context,
+                          program: VyperProgram, function: Optional[VyperFunction]):
         for stmt in node.body:
             if ctx == _Context.GHOST_FUNCTION:
                 new_ctx = ctx
@@ -212,7 +217,8 @@ class StructureChecker(NodeVisitor):
 
             self.visit(stmt, new_ctx, program, function)
 
-    def visit_Name(self, node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+    @staticmethod
+    def visit_Name(node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         if ctx == _Context.GHOST_FUNCTION and node.id in names.ENV_VARIABLES:
             _assert(node.id not in names.ENV_VARIABLES, node, 'invalid.ghost.function')
         elif ctx == _Context.INVARIANT:
@@ -221,30 +227,35 @@ class StructureChecker(NodeVisitor):
         elif ctx == _Context.TRANSITIVE_POSTCONDITION:
             _assert(node.id != names.MSG, node, 'postcondition.msg')
 
-    def visit_FunctionCall(self, node: ast.FunctionCall, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+    def visit_FunctionCall(self, node: ast.FunctionCall, ctx: _Context,
+                           program: VyperProgram, function: Optional[VyperFunction]):
         _assert(node.name not in self.allowed[ctx], node, f'{ctx.value}.call')
 
         if ctx == _Context.POSTCONDITION and function and function.name == names.INIT:
             _assert(node.name != names.OLD, node, 'postcondition.init.old')
 
-        if ctx == _Context.POSTCONDITION and function and node.name == names.PUBLIC_OLD:
-            _assert(function.is_private(), node, 'postcondition.public_old')
-        if ctx == _Context.PRECONDITION and function and node.name == names.PUBLIC_OLD:
-            _assert(function.is_private(), node, 'precondition.public_old')
+        if function and node.name == names.PUBLIC_OLD:
+            if ctx == _Context.POSTCONDITION:
+                _assert(function.is_private(), node, 'postcondition.public.old')
+            elif ctx == _Context.PRECONDITION:
+                _assert(function.is_private(), node, 'precondition.public.old')
 
-        if ctx == _Context.POSTCONDITION and function and node.name == names.EVENT:
-            _assert(function.is_private(), node, 'postcondition.event')
-        if ctx == _Context.PRECONDITION and function and node.name == names.EVENT:
-            _assert(function.is_private(), node, 'precondition.event')
+        if function and node.name == names.EVENT:
+            if ctx == _Context.POSTCONDITION:
+                _assert(function.is_private(), node, 'postcondition.event')
+            elif ctx == _Context.PRECONDITION:
+                _assert(function.is_private(), node, 'precondition.event')
 
         if node.name == names.EVENT:
-            if ctx == _Context.PRECONDITION or ctx == _Context.POSTCONDITION:
+            if ctx == _Context.PRECONDITION \
+                    or ctx == _Context.POSTCONDITION \
+                    or ctx == _Context.LOOP_INVARIANT:
                 _assert(not self._is_pure, node, 'spec.event',
-                        "Events in pre- and postcondition are non pure expressions. "
+                        "Events are only in checks pure expressions. "
                         f"They cannot be used in {self._non_pure_parent_description}.")
-                if self._only_one_event_allowed:
-                    _assert(not self._visited_an_event, node, 'spec.event',
-                            'Only one event expression is allowed in conjunctions of pre- or postconditions.')
+            if self._only_one_event_allowed:
+                _assert(not self._visited_an_event, node, 'spec.event',
+                        'In this context only one event expression is allowed.')
             self._visited_an_event = True
 
         elif node.name == names.IMPLIES:
@@ -255,14 +266,14 @@ class StructureChecker(NodeVisitor):
         # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
         elif node.name == names.SUCCESS:
 
-            def check_success_args(node: ast.Node):
-                if isinstance(node, ast.Name):
-                    _assert(node.id in names.SUCCESS_CONDITIONS, node, 'spec.success')
-                elif isinstance(node, ast.BoolOp) and node.op == ast.BoolOperator.OR:
-                    check_success_args(node.left)
-                    check_success_args(node.right)
+            def check_success_args(arg: ast.Node):
+                if isinstance(arg, ast.Name):
+                    _assert(arg.id in names.SUCCESS_CONDITIONS, arg, 'spec.success')
+                elif isinstance(arg, ast.BoolOp) and arg.op == ast.BoolOperator.OR:
+                    check_success_args(arg.left)
+                    check_success_args(arg.right)
                 else:
-                    raise InvalidProgramException(node, 'spec.success')
+                    raise InvalidProgramException(arg, 'spec.success')
 
             _assert(len(node.keywords) <= 1, node, 'spec.success')
             if node.keywords:
@@ -294,9 +305,11 @@ class StructureChecker(NodeVisitor):
             return
         elif node.name in [names.FORALL, names.FOREACH]:
             _assert(len(node.args) >= 2 and not node.keywords, node, 'invalid.no.args')
-            _assert(isinstance(node.args[0], ast.Dict), node.args[0], f'invalid.{node.name}')
+            first_arg = node.args[0]
+            _assert(isinstance(first_arg, ast.Dict), node.args[0], f'invalid.{node.name}')
 
-            for name in node.args[0].keys:
+            assert isinstance(first_arg, ast.Dict)
+            for name in first_arg.keys:
                 _assert(isinstance(name, ast.Name), name, f'invalid.{node.name}')
 
             for trigger in node.args[1:len(node.args) - 1]:
@@ -307,10 +320,14 @@ class StructureChecker(NodeVisitor):
 
             if node.name == names.FOREACH:
                 _assert(isinstance(body, ast.FunctionCall), body, 'invalid.foreach')
+                assert isinstance(body, ast.FunctionCall)
                 _assert(body.name in names.QUANTIFIED_GHOST_STATEMENTS, body, 'invalid.foreach')
 
             self.visit(body, ctx, program, function)
             return
+        elif node.name in [names.OLD, names.PUBLIC_OLD]:
+            with self._inside_old_scope():
+                self.generic_visit(node, ctx, program, function)
         elif node.name in [names.OLD, names.PUBLIC_OLD]:
             with self._inside_old_scope():
                 self.generic_visit(node, ctx, program, function)
@@ -337,6 +354,30 @@ class StructureChecker(NodeVisitor):
         elif node.name == names.RAW_CALL:
             if names.RAW_CALL_DELEGATE_CALL in (kw.name for kw in node.keywords):
                 raise UnsupportedException(node, "Delegate calls are not supported.")
+        elif node.name == names.PREVIOUS or node.name == names.LOOP_ARRAY or node.name == names.LOOP_ITERATION:
+            if len(node.args) > 0:
+                _assert(isinstance(node.args[0], ast.Name), node.args[0], f"invalid.{node.name}")
+        elif node.name == names.RANGE:
+            if len(node.args) == 1:
+                _assert(isinstance(node.args[0], ast.Num), node.args[0], 'invalid.range',
+                        'The range operator should be of the form: range(const). '
+                        '"const" must be a constant integer expression.')
+            elif len(node.args) == 2:
+                first_arg = node.args[0]
+                second_arg = node.args[1]
+                msg = 'The range operator should be of the form: range(const1, const2) or range(x, x + const1). '\
+                      '"const1" and "const2" must be constant integer expressions.'
+                if isinstance(second_arg, ast.ArithmeticOp) \
+                        and second_arg.op == ast.ArithmeticOperator.ADD \
+                        and ast.compare_nodes(first_arg, second_arg.left):
+                    _assert(isinstance(second_arg.right, ast.Num), second_arg.right, 'invalid.range', msg)
+                else:
+                    _assert(isinstance(first_arg, ast.Num), first_arg, 'invalid.range', msg)
+                    _assert(isinstance(second_arg, ast.Num), second_arg, 'invalid.range', msg)
+                    assert isinstance(first_arg, ast.Num) and isinstance(second_arg, ast.Num)
+                    _assert(first_arg.n < second_arg.n, node, 'invalid.range',
+                            'The range operator should be of the form: range(const1, const2). '
+                            '"const2" must be greater than "const1".')
 
         if node.name in names.ALLOCATION_FUNCTIONS:
             msg = "Allocation statements require allocation config option."
@@ -375,7 +416,8 @@ class StructureChecker(NodeVisitor):
         else:
             self.visit_nodes(chain(node.args, node.keywords), arg_ctx, program, function)
 
-    def visit_ReceiverCall(self, node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+    def visit_ReceiverCall(self, node: ast.Name, ctx: _Context,
+                           program: VyperProgram, function: Optional[VyperFunction]):
         if ctx == _Context.GHOST_CODE:
             _assert(False, node, 'invalid.ghost.code')
         elif ctx.is_specification:
@@ -385,12 +427,14 @@ class StructureChecker(NodeVisitor):
 
         self.generic_visit(node, ctx, program, function)
 
-    def visit_Exchange(self, node: ast.Exchange, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+    def visit_Exchange(self, node: ast.Exchange, ctx: _Context,
+                       program: VyperProgram, function: Optional[VyperFunction]):
         _assert(False, node, 'exchange.not.resource')
 
         self.generic_visit(node, ctx, program, function)
 
-    def _visit_assertion(self, node: Union[ast.Assert, ast.Raise], ctx: _Context):
+    @staticmethod
+    def _visit_assertion(node: Union[ast.Assert, ast.Raise], ctx: _Context):
         if ctx == _Context.GHOST_CODE:
             _assert(node.msg and isinstance(node.msg, ast.Name), node, 'invalid.ghost.code')
             _assert(node.msg.id == names.UNREACHABLE, node, 'invalid.ghost.code')

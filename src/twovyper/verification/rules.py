@@ -42,25 +42,87 @@ INVARIANT_FAIL = {
         ('invariant.not.wellformed', 'seq.index.negative')
 }
 
+LOOP_INVARIANT_BASE_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('loop.invariant.not.established', 'assertion.false'),
+    ('exhale.failed', 'assertion.false'):
+        ('loop.invariant.not.established', 'assertion.false'),
+    ('exhale.failed', 'insufficient.permission'):
+        ('loop.invariant.not.established', 'insufficient.permission'),
+    ('assert.failed', 'division.by.zero'):
+        ('loop.invariant.not.wellformed', 'division.by.zero'),
+    ('assert.failed', 'seq.index.length'):
+        ('loop.invariant.not.wellformed', 'seq.index.length'),
+    ('assert.failed', 'seq.index.negative'):
+        ('loop.invariant.not.wellformed', 'seq.index.negative'),
+    ('exhale.failed', 'division.by.zero'):
+        ('loop.invariant.not.wellformed', 'division.by.zero'),
+    ('exhale.failed', 'seq.index.length'):
+        ('loop.invariant.not.wellformed', 'seq.index.length'),
+    ('exhale.failed', 'seq.index.negative'):
+        ('loop.invariant.not.wellformed', 'seq.index.negative')
+}
+
+LOOP_INVARIANT_STEP_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('loop.invariant.not.preserved', 'assertion.false'),
+    ('exhale.failed', 'assertion.false'):
+        ('loop.invariant.not.preserved', 'assertion.false'),
+    ('exhale.failed', 'insufficient.permission'):
+        ('loop.invariant.not.preserved', 'insufficient.permission'),
+    ('assert.failed', 'division.by.zero'):
+        ('loop.invariant.not.wellformed', 'division.by.zero'),
+    ('assert.failed', 'seq.index.length'):
+        ('loop.invariant.not.wellformed', 'seq.index.length'),
+    ('assert.failed', 'seq.index.negative'):
+        ('loop.invariant.not.wellformed', 'seq.index.negative'),
+    ('exhale.failed', 'division.by.zero'):
+        ('loop.invariant.not.wellformed', 'division.by.zero'),
+    ('exhale.failed', 'seq.index.length'):
+        ('loop.invariant.not.wellformed', 'seq.index.length'),
+    ('exhale.failed', 'seq.index.negative'):
+        ('loop.invariant.not.wellformed', 'seq.index.negative')
+}
+
 POSTCONDITION_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('postcondition.violated', 'assertion.false'),
+    ('exhale.failed', 'assertion.false'):
+        ('postcondition.violated', 'assertion.false'),
+    ('exhale.failed', 'insufficient.permission'):
+        ('postcondition.violated', 'insufficient.permission'),
     ('assert.failed', 'division.by.zero'):
         ('not.wellformed', 'division.by.zero'),
     ('assert.failed', 'seq.index.length'):
         ('not.wellformed', 'seq.index.length'),
     ('assert.failed', 'seq.index.negative'):
+        ('not.wellformed', 'seq.index.negative'),
+    ('exhale.failed', 'division.by.zero'):
+        ('not.wellformed', 'division.by.zero'),
+    ('exhale.failed', 'seq.index.length'):
+        ('not.wellformed', 'seq.index.length'),
+    ('exhale.failed', 'seq.index.negative'):
         ('not.wellformed', 'seq.index.negative')
 }
 
 PRECONDITION_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('precondition.violated', 'assertion.false'),
+    ('exhale.failed', 'assertion.false'):
+        ('precondition.violated', 'assertion.false'),
+    ('exhale.failed', 'insufficient.permission'):
+        ('precondition.violated', 'insufficient.permission'),
     ('assert.failed', 'division.by.zero'):
         ('not.wellformed', 'division.by.zero'),
     ('assert.failed', 'seq.index.length'):
         ('not.wellformed', 'seq.index.length'),
     ('assert.failed', 'seq.index.negative'):
+        ('not.wellformed', 'seq.index.negative'),
+    ('exhale.failed', 'division.by.zero'):
+        ('not.wellformed', 'division.by.zero'),
+    ('exhale.failed', 'seq.index.length'):
+        ('not.wellformed', 'seq.index.length'),
+    ('exhale.failed', 'seq.index.negative'):
         ('not.wellformed', 'seq.index.negative')
 }
 
@@ -107,6 +169,15 @@ INHALE_INVARIANT_FAIL = {
         ('invariant.not.wellformed', 'seq.index.length'),
     ('inhale.failed', 'seq.index.negative'):
         ('invariant.not.wellformed', 'seq.index.negative')
+}
+
+INHALE_LOOP_INVARIANT_FAIL = {
+    ('inhale.failed', 'division.by.zero'):
+        ('loop.invariant.not.wellformed', 'division.by.zero'),
+    ('inhale.failed', 'seq.index.length'):
+        ('loop.invariant.not.wellformed', 'seq.index.length'),
+    ('inhale.failed', 'seq.index.negative'):
+        ('loop.invariant.not.wellformed', 'seq.index.negative')
 }
 
 INHALE_POSTCONDITION_FAIL = {

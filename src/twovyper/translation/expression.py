@@ -826,6 +826,35 @@ class ExpressionTranslator(NodeTranslator):
             forall = self.viper_ast.Forall(event_args, [trigger], impl, pos)
             res.append(self.viper_ast.Exhale(forall, pos))
 
+    def log_all_events_zero_or_more_times(self, res, ctx, pos):
+        for event in ctx.program.events.values():
+            event_name = mangled.event_name(event.name)
+            viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+            event_args = [self.viper_ast.LocalVarDecl(ctx.new_local_var_name('$arg'), arg_type, pos)
+                          for arg_type in viper_types]
+            ctx.new_local_vars.extend(event_args)
+            local_args = [arg.localVar() for arg in event_args]
+            ctx.event_vars[event_name] = local_args
+
+            # Inhale zero or more times write permission
+
+            # PermMul variable for unknown permission amount
+            var_name = ctx.new_local_var_name('$a')
+            var_decl = self.viper_ast.LocalVarDecl(var_name, self.viper_ast.Int, pos)
+            ctx.new_local_vars.append(var_decl)
+            var_perm_mul = var_decl.localVar()
+            ge_zero_cond = self.viper_ast.GeCmp(var_perm_mul, self.viper_ast.IntLit(0, pos), pos)
+            assume_ge_zero = self.viper_ast.Inhale(ge_zero_cond, pos)
+
+            # PredicateAccessPredicate
+            pred_acc = self.viper_ast.PredicateAccess(local_args, event_name, pos)
+            perm_mul = self.viper_ast.IntPermMul(var_perm_mul, self.viper_ast.FullPerm(pos), pos)
+            pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, perm_mul, pos)
+            log_event = self.viper_ast.Inhale(pred_acc_pred, pos)
+
+            # Append both Inhales
+            res.extend([assume_ge_zero, log_event])
+
     def _assume_interface_specifications(self,
                                          node: ast.Node,
                                          interface: VyperInterface,

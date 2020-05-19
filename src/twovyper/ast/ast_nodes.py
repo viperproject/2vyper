@@ -22,6 +22,10 @@ class Node:
 
         self.is_ghost_code = False
 
+    @property
+    def children(self):
+        return self._children
+
 
 class AllowedInGhostCode:
     pass
@@ -64,6 +68,7 @@ class Not(Expr):
     _children = ['operand']
 
     def __init__(self, operand: Expr):
+        super().__init__()
         self.operand = operand
 
 
@@ -129,11 +134,11 @@ class Containment(Expr):
 
     _children = ['value', 'list']
 
-    def __init__(self, value: Expr, op: ContainmentOperator, list: Expr):
+    def __init__(self, value: Expr, op: ContainmentOperator, list_expr: Expr):
         super().__init__()
         self.value = value
         self.op = op
-        self.list = list
+        self.list = list_expr
 
 
 class EqualityOperator(Operator, Enum):
@@ -280,9 +285,9 @@ class Subscript(Expr):
 
 class Name(Expr):
 
-    def __init__(self, id: str):
+    def __init__(self, id_str: str):
         super().__init__()
-        self.id = id
+        self.id = id_str
 
 
 class List(Expr):
@@ -357,7 +362,8 @@ class FunctionDef(Stmt, AllowedInGhostCode):
 
     _children = ['args', 'body', 'decorators', 'returns']
 
-    def __init__(self, name: str, args: ListT[Arg], body: ListT[Stmt], decorators: ListT[Decorator], returns: OptionalT[Expr]):
+    def __init__(self, name: str, args: ListT[Arg], body: ListT[Stmt],
+                 decorators: ListT[Decorator], returns: OptionalT[Expr]):
         super().__init__()
         self.name = name
         self.args = args
@@ -411,7 +417,7 @@ class AnnAssign(Stmt):
 
     _children = ['target', 'annotation', 'value']
 
-    def __init__(self, target: Expr, annotation: Expr, value: Expr):
+    def __init__(self, target: Name, annotation: Expr, value: Expr):
         super().__init__()
         self.target = target
         self.annotation = annotation
@@ -422,10 +428,10 @@ class For(Stmt):
 
     _children = ['target', 'iter', 'body']
 
-    def __init__(self, target: Name, iter: Expr, body: ListT[Stmt]):
+    def __init__(self, target: Name, iter_expr: Expr, body: ListT[Stmt]):
         super().__init__()
         self.target = target
-        self.iter = iter
+        self.iter = iter_expr
         self.body = body
 
 
@@ -515,3 +521,30 @@ class Break(Stmt):
 
 class Continue(Stmt):
     pass
+
+
+def compare_nodes(first_node: Node, second_node: Node) -> bool:
+    """
+    Similar as vyper/ast/nodes.py:compare_nodes
+    """
+    if not isinstance(first_node, type(second_node)):
+        return False
+
+    for field_name in (i for i in first_node.children):
+        left_value = getattr(first_node, field_name, None)
+        right_value = getattr(second_node, field_name, None)
+
+        # compare types instead of isinstance() in case one node class inherits the other
+        if type(left_value) is not type(right_value):
+            return False
+
+        if isinstance(left_value, list):
+            if next((i for i in zip(left_value, right_value) if not compare_nodes(*i)), None):
+                return False
+        elif isinstance(left_value, Node):
+            if not compare_nodes(left_value, right_value):
+                return False
+        elif left_value != right_value:
+            return False
+
+    return True

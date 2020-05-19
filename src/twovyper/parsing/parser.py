@@ -7,7 +7,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
 
-from typing import Optional
+from contextlib import contextmanager
+
+from typing import Optional, Dict, Union, List
 
 from twovyper.utils import switch
 
@@ -16,7 +18,7 @@ from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
 
 from twovyper.ast import ast_nodes as ast, interfaces, names
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.ast.visitors import NodeVisitor, NodeTransformer
 
 from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
@@ -364,11 +366,58 @@ class ProgramBuilder(NodeVisitor):
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
         type = FunctionType(arg_types, return_type)
         decs = node.decorators
+        loop_invariant_transformer = LoopInvariantTransformer()
+        loop_invariant_transformer.visit(node)
         function = VyperFunction(node.name, args, defaults, type,
-                                 self.postconditions, self.preconditions, self.checks, self.performs, decs, node)
+                                 self.postconditions, self.preconditions, self.checks,
+                                 loop_invariant_transformer.loop_invariants, self.performs, decs, node)
         self.functions[node.name] = function
         # Reset local specs
         self.postconditions = []
         self.preconditions = []
         self.checks = []
         self.performs = []
+
+
+class LoopInvariantTransformer(NodeTransformer):
+    """
+    Replaces all constants in the AST by their value.
+    """
+
+    def __init__(self):
+        self._last_loop: Union[ast.For, None] = None
+        self._possible_loop_invariant_nodes: List[ast.Assign] = []
+        self.loop_invariants: Dict[ast.For, List[ast.Expr]] = {}
+
+    @contextmanager
+    def _in_loop_scope(self, node: ast.For):
+        possible_loop_invariant_nodes = self._possible_loop_invariant_nodes
+        last_loop = self._last_loop
+        self._last_loop = node
+
+        yield
+
+        self._possible_loop_invariant_nodes = possible_loop_invariant_nodes
+        self._last_loop = last_loop
+
+    def visit_Assign(self, node: ast.Assign):
+        if node.is_ghost_code:
+            if node.target.id == names.INVARIANT:
+                if self._last_loop and node in self._possible_loop_invariant_nodes:
+                    self.loop_invariants.setdefault(self._last_loop, []).append(node.value)
+                else:
+                    raise InvalidProgramException(node, 'invalid.loop.invariant',
+                                                  'You may only write loop invariants at beginning in loops')
+                return None
+
+        return node
+
+    def visit_For(self, node: ast.For):
+        with self._in_loop_scope(node):
+            self._possible_loop_invariant_nodes = []
+            for n in node.body:
+                if isinstance(n, ast.Assign) and n.is_ghost_code and n.target.id == names.INVARIANT:
+                    self._possible_loop_invariant_nodes.append(n)
+                else:
+                    break
+            return self.generic_visit(node)

@@ -12,7 +12,7 @@ from typing import List
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.nodes import VyperFunction, VyperVar
 
-from twovyper.translation import helpers, mangled, State
+from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.allocation import AllocationTranslator
@@ -20,7 +20,7 @@ from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.model import ModelTranslator
 from twovyper.translation.resource import ResourceTranslator
-from twovyper.translation.specification import SpecificationTranslator, EventTranslationState
+from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.statement import StatementTranslator
 from twovyper.translation.type import TypeTranslator
@@ -120,13 +120,13 @@ class FunctionTranslator(CommonTranslator):
             body = []
 
             # Assume type assumptions for self state
-            self._assume_type_assumptions(ctx.present_state, "Present", body, ctx)
+            self.state_translator.assume_type_assumptions_for_state(ctx.present_state, "Present", body, ctx)
             if function.is_private():
-                self._assume_type_assumptions(ctx.old_state, "Old", body, ctx)
+                self.state_translator.assume_type_assumptions_for_state(ctx.old_state, "Old", body, ctx)
 
             # Assume type assumptions for issued state
             if function.analysis.uses_issued:
-                self._assume_type_assumptions(ctx.issued_state, "Issued", body, ctx)
+                self.state_translator.assume_type_assumptions_for_state(ctx.issued_state, "Issued", body, ctx)
 
             # Assume type assumptions for self address
             self_address = helpers.self_address(self.viper_ast)
@@ -207,28 +207,22 @@ class FunctionTranslator(CommonTranslator):
             iv_info_msg = "Assume invariants for self"
             self.seqn_with_info(inv_pres_self, iv_info_msg, body)
 
-            # Assume an unspecified permission amount to the events if the function is private
             if function.is_private():
+                # Assume an unspecified permission amount to the events if the function is private
                 event_handling = []
-                self._log_all_events_zero_or_more_times(event_handling, ctx, pos)
+                self.expression_translator.log_all_events_zero_or_more_times(event_handling, ctx, pos)
                 self.seqn_with_info(event_handling, "Assume we know nothing about events", body)
 
-            # Assume preconditions
-            pre_stmts = []
-            with ctx.state_scope(ctx.present_state, ctx.old_state):
-                for precondition in function.preconditions:
-                    ex_cond = self.specification_translator.\
-                        translate_pre_or_postcondition(precondition, pre_stmts, ctx,
-                                                       event_translation=EventTranslationState.EXHALE)
-                    pre_pos = self.to_position(precondition, ctx, rules.INHALE_PRECONDITION_FAIL)
-                    pre_stmts.append(self.viper_ast.Exhale(ex_cond, pre_pos))
-                    in_cond = self.specification_translator.\
-                        translate_pre_or_postcondition(precondition, pre_stmts, ctx,
-                                                       event_translation=EventTranslationState.INHALE)
-                    pre_pos = self.to_position(precondition, ctx, rules.INHALE_PRECONDITION_FAIL)
-                    pre_stmts.append(self.viper_ast.Inhale(in_cond, pre_pos))
+                # Assume preconditions
+                pre_stmts = []
+                with ctx.state_scope(ctx.present_state, ctx.old_state):
+                    for precondition in function.preconditions:
+                        cond = self.specification_translator.\
+                            translate_pre_or_postcondition(precondition, pre_stmts, ctx, assume_events=True)
+                        pre_pos = self.to_position(precondition, ctx, rules.INHALE_PRECONDITION_FAIL)
+                        pre_stmts.append(self.viper_ast.Inhale(cond, pre_pos))
 
-            self.seqn_with_info(pre_stmts, "Assume preconditions", body)
+                self.seqn_with_info(pre_stmts, "Assume preconditions", body)
 
             # pre_self is the same as self in the beginning
             self.state_translator.copy_state(ctx.present_state, ctx.pre_state, body, ctx)
@@ -334,7 +328,7 @@ class FunctionTranslator(CommonTranslator):
             # Havoc the return value
             if function.type.return_type:
                 result_type = self.type_translator.translate(ctx.result_var.type, ctx)
-                havoc = self._havoc_var(result_type, ctx)
+                havoc = helpers.havoc_var(self.viper_ast, result_type, ctx)
                 body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ctx), havoc))
             # Revert self and old_self to the state before the function
             self.state_translator.copy_state(ctx.pre_state, ctx.present_state, body, ctx)
@@ -376,7 +370,7 @@ class FunctionTranslator(CommonTranslator):
                 for post in function.postconditions:
                     post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, modelt=model_translator)
                     cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
-                    post_assert = self.viper_ast.Assert(cond, post_pos)
+                    post_assert = self.viper_ast.Exhale(cond, post_pos)
                     post_stmts.append(post_assert)
 
                 for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
@@ -660,19 +654,19 @@ class FunctionTranslator(CommonTranslator):
                     cond = self.specification_translator.translate_pre_or_postcondition(precondition, pre_stmts, ctx)
                     pre_pos = self.to_position(precondition, ctx, rules.PRECONDITION_FAIL,
                                                values={'function': function})
-                    pre_stmts.append(self.viper_ast.Assert(cond, pre_pos))
+                    pre_stmts.append(self.viper_ast.Exhale(cond, pre_pos))
 
             self.seqn_with_info(pre_stmts, "Check preconditions", res)
 
+            # We forget about events by exhaling all permissions to the event predicates
+            # and then inhale an unspecified permission amount.
+            event_handling = []
+            self.expression_translator.forget_about_all_events(event_handling, ctx, pos)
+            self.expression_translator.log_all_events_zero_or_more_times(event_handling, ctx, pos)
+            self.seqn_with_info(event_handling, "Assume we know nothing about events", res)
+
             old_state_for_postconditions = ctx.current_state
             if not function.is_constant():
-                # We forget about events by exhaling all permissions to the event predicates
-                # and then inhale an unspecified permission amount.
-                event_handling = []
-                self.expression_translator.forget_about_all_events(event_handling, ctx, pos)
-                self._log_all_events_zero_or_more_times(event_handling, ctx, pos)
-                self.seqn_with_info(event_handling, "Assume we know nothing about events", res)
-
                 # Create pre_state for private function
                 def inlined_pre_state(name: str) -> str:
                     return ctx.inline_prefix + mangled.pre_state_var_name(name)
@@ -683,29 +677,7 @@ class FunctionTranslator(CommonTranslator):
                 # Copy present state to this created pre_state
                 self.state_translator.copy_state(ctx.current_state, old_state_for_postconditions, res, ctx)
 
-                # Havoc states
-                self.state_translator.havoc_state(ctx.current_state, res, ctx, pos)
-                self.state_translator.havoc_state(ctx.current_old_state, res, ctx, pos)
-                self._assume_type_assumptions(ctx.current_state, "Present", res, ctx)
-                self._assume_type_assumptions(ctx.current_old_state, "Old", res, ctx)
-
-                assume_invs = []
-                # Assume Invariants for old state
-                with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
-                    for inv in ctx.unchecked_invariants():
-                        assume_invs.append(self.viper_ast.Inhale(inv))
-
-                    for inv in ctx.program.invariants:
-                        cond = self.specification_translator.translate_invariant(inv, assume_invs, ctx, True)
-                        inv_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                        assume_invs.append(self.viper_ast.Inhale(cond, inv_pos))
-
-                # Assume Invariants for current state
-                with ctx.state_scope(ctx.current_state, ctx.current_state):
-                    for inv in ctx.unchecked_invariants():
-                        assume_invs.append(self.viper_ast.Inhale(inv))
-
-                self.seqn_with_info(assume_invs, "Assume invariants", res)
+                self.state_translator.havoc_old_and_current_state(self.specification_translator, res, ctx, pos)
 
             private_function_checks_conjunction = self.viper_ast.TrueLit(pos)
             for check in function.checks:
@@ -725,16 +697,10 @@ class FunctionTranslator(CommonTranslator):
             with ctx.state_scope(ctx.current_state, old_state_for_postconditions):
                 # Assume postconditions
                 for post in function.postconditions:
-                    ex_cond = self.specification_translator.\
-                        translate_pre_or_postcondition(post, post_stmts, ctx,
-                                                       event_translation=EventTranslationState.EXHALE)
+                    cond = self.specification_translator.\
+                        translate_pre_or_postcondition(post, post_stmts, ctx, assume_events=True)
                     post_pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                    post_stmts.append(self.viper_ast.Exhale(ex_cond, post_pos))
-                    in_cond = self.specification_translator.\
-                        translate_pre_or_postcondition(post, post_stmts, ctx,
-                                                       event_translation=EventTranslationState.INHALE)
-                    post_pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                    post_stmts.append(self.viper_ast.Inhale(in_cond, post_pos))
+                    post_stmts.append(self.viper_ast.Inhale(cond, post_pos))
 
                 for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
                     cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
@@ -755,43 +721,6 @@ class FunctionTranslator(CommonTranslator):
             self.fail_if(self.viper_ast.Not(success_var), [], res, ctx, call_pos)
 
             return ret_var
-
-    def _log_all_events_zero_or_more_times(self, res, ctx, pos):
-        for event in ctx.program.events.values():
-            event_name = mangled.event_name(event.name)
-            viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
-            event_args = [self.viper_ast.LocalVarDecl(ctx.new_local_var_name('$arg'), arg_type, pos)
-                          for arg_type in viper_types]
-            ctx.new_local_vars.extend(event_args)
-            local_args = [arg.localVar() for arg in event_args]
-
-            # Inhale zero or more times write permission
-
-            # PermMul variable for unknown permission amount
-            var_name = ctx.new_local_var_name('$a')
-            var_decl = self.viper_ast.LocalVarDecl(var_name, self.viper_ast.Int, pos)
-            ctx.new_local_vars.append(var_decl)
-            var_perm_mul = var_decl.localVar()
-            ge_zero_cond = self.viper_ast.GeCmp(var_perm_mul, self.viper_ast.IntLit(0, pos), pos)
-            assume_ge_zero = self.viper_ast.Inhale(ge_zero_cond, pos)
-
-            # PredicateAccessPredicate
-            pred_acc = self.viper_ast.PredicateAccess(local_args, event_name, pos)
-            perm_mul = self.viper_ast.IntPermMul(var_perm_mul, self.viper_ast.FullPerm(pos), pos)
-            pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, perm_mul, pos)
-            log_event = self.viper_ast.Inhale(pred_acc_pred, pos)
-
-            # Append both Inhales
-            res.extend([assume_ge_zero, log_event])
-
-    def _assume_type_assumptions(self, state_dict: State, name: str, res, ctx):
-        stmts = []
-        for state_var in state_dict.values():
-            type_assumptions = self.type_translator.type_assumptions(state_var.local_var(ctx),
-                                                                     state_var.type, ctx)
-            stmts.extend(self.viper_ast.Inhale(type_assumption) for type_assumption in type_assumptions)
-
-        return self.seqn_with_info(stmts, f"{name} state assumptions", res)
 
     def _generate_arguments_as_local_vars(self, function, args, res, pos, ctx):
         # Add arguments to local vars, assign passed args or default argument
@@ -814,15 +743,9 @@ class FunctionTranslator(CommonTranslator):
         gez = self.viper_ast.GeCmp(var, zero)
         res.append(self.viper_ast.Inhale(gez))
 
-    def _havoc_var(self, viper_type, ctx: Context) -> Expr:
-        havoc_name = ctx.new_local_var_name('havoc')
-        havoc = self.viper_ast.LocalVarDecl(havoc_name, viper_type)
-        ctx.new_local_vars.append(havoc)
-        return havoc.localVar()
-
     def _havoc_balance(self, res: List[Stmt], ctx: Context):
         balance_type = ctx.field_types[names.ADDRESS_BALANCE]
-        havoc = self._havoc_var(balance_type, ctx)
+        havoc = helpers.havoc_var(self.viper_ast, balance_type, ctx)
         self._assume_non_negative(havoc, res)
         self.balance_translator.increase_balance(havoc, res, ctx)
 

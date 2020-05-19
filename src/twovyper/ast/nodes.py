@@ -5,12 +5,14 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.types import (
     VyperType, FunctionType, StructType, ResourceType, ContractType, EventType, InterfaceType
 )
+if TYPE_CHECKING:
+    from twovyper.analysis.analyzer import FunctionAnalysis
 
 
 class Config:
@@ -40,6 +42,7 @@ class VyperFunction:
                  postconditions: List[ast.Expr],
                  preconditions: List[ast.Expr],
                  checks: List[ast.Expr],
+                 loop_invariants: Dict[ast.For, List[ast.Expr]],
                  performs: List[ast.Expr],
                  decorators: List[ast.Decorator],
                  node: Optional[ast.FunctionDef]):
@@ -50,11 +53,12 @@ class VyperFunction:
         self.postconditions = postconditions
         self.preconditions = preconditions
         self.checks = checks
+        self.loop_invariants = loop_invariants
         self.performs = performs
         self.decorators = decorators
         self.node = node
         # Gets set in the analyzer
-        self.analysis = None
+        self.analysis: Union[FunctionAnalysis, None] = None
 
     @property
     def _decorator_names(self) -> Iterable[str]:

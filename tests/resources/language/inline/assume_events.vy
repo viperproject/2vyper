@@ -16,12 +16,12 @@ weis: uint256
 
 ads: address[10]
 
-#@ always check: self.val > old(self.val) ==> (event(Transfer(msg.sender, self.ad, self.weis)) \
-#@   or event(Transfer(msg.sender, self.ad, self.weis), 2))
+#@ always check: self.val > old(self.val) ==> event(Transfer(msg.sender, self.ad, self.weis), 2)
 
 # Require that the pre_state is the same as the last public state for self
 #@ requires: storage(self) == public_old(storage(self))
 # Require that an event is logged
+#:: ExpectedOutput(precondition.violated:assertion.false, CALL)
 #@ requires: event(Transfer(msg.sender, self.ad, self.weis), 1)
 # self.val increased and we returned self.ad
 #@ ensures: success() ==> self.val > public_old(self.val) and result() == self.ad
@@ -59,3 +59,12 @@ def transfer_stmts():
     temp: address = self.inc_val()
     log.Transfer(msg.sender, self.ad, self.weis)
     self.transfer(msg.sender, temp, self.weis)
+
+
+#@ check: success() ==> event(Transfer(msg.sender, self.ad, self.weis), 3)
+@public
+def triple_event_fail():
+    log.Transfer(msg.sender, self.ad, self.weis)
+    log.Transfer(msg.sender, self.ad, self.weis)
+    #:: Label(CALL)
+    log.Transfer(msg.sender, self.inc_val(), self.weis)

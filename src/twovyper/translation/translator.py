@@ -74,7 +74,7 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
 class ProgramTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST, builtins: Program):
-        self.viper_ast = viper_ast
+        super().__init__(viper_ast)
         self.builtins = builtins
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.function_translator = FunctionTranslator(viper_ast)

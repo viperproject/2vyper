@@ -14,6 +14,7 @@ from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.context import Context
 from twovyper.translation.variable import TranslatedVar
 from twovyper.translation.type import TypeTranslator
+from twovyper.verification import rules
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Stmt
@@ -57,10 +58,11 @@ class StateTranslator(CommonTranslator):
 
         return s
 
-    def _is_local(self, state_var: str) -> bool:
+    @staticmethod
+    def _is_local(state_var: str) -> bool:
         return state_var != mangled.CONTRACTS
 
-    def initialize_state(self, state: State, res: List[Stmt], ctx: Context, pos=None):
+    def initialize_state(self, state: State, res: List[Stmt], ctx: Context):
         """
         Initializes the state belonging to the current contract, namely self and allocated,
         to its default value.
@@ -80,6 +82,15 @@ class StateTranslator(CommonTranslator):
 
         self.seqn_with_info(copies, "Copy state", res)
 
+    def assume_type_assumptions_for_state(self, state_dict: State, name: str, res, ctx):
+        stmts = []
+        for state_var in state_dict.values():
+            type_assumptions = self.type_translator.type_assumptions(state_var.local_var(ctx),
+                                                                     state_var.type, ctx)
+            stmts.extend(self.viper_ast.Inhale(type_assumption) for type_assumption in type_assumptions)
+
+        return self.seqn_with_info(stmts, f"{name} state assumptions", res)
+
     def havoc_state_except_self(self, state: State, res: List[Stmt], ctx: Context, pos=None):
         """
         Havocs all contract state except self and allocated.
@@ -97,6 +108,28 @@ class StateTranslator(CommonTranslator):
             havocs.append(self.viper_ast.LocalVarAssign(var.local_var(ctx), havoc_var.localVar(), pos))
 
         self.seqn_with_info(havocs, "Havoc state", res)
+
+    def havoc_old_and_current_state(self, specification_translator, res, ctx, pos=None):
+        # Havoc states
+        self.havoc_state(ctx.current_state, res, ctx, pos)
+        self.havoc_state(ctx.current_old_state, res, ctx, pos)
+        self.assume_type_assumptions_for_state(ctx.current_state, "Present", res, ctx)
+        self.assume_type_assumptions_for_state(ctx.current_old_state, "Old", res, ctx)
+        assume_invs = []
+        # Assume Invariants for old state
+        with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
+            for inv in ctx.unchecked_invariants():
+                assume_invs.append(self.viper_ast.Inhale(inv))
+
+            for inv in ctx.program.invariants:
+                cond = specification_translator.translate_invariant(inv, assume_invs, ctx, True)
+                inv_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                assume_invs.append(self.viper_ast.Inhale(cond, inv_pos))
+        # Assume Invariants for current state
+        with ctx.state_scope(ctx.current_state, ctx.current_state):
+            for inv in ctx.unchecked_invariants():
+                assume_invs.append(self.viper_ast.Inhale(inv))
+        self.seqn_with_info(assume_invs, "Assume invariants", res)
 
     def check_first_public_state(self, res: List[Stmt], ctx: Context, set_false: bool, pos=None, info=None):
         stmts = []

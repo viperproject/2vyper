@@ -12,24 +12,31 @@ SomeEvent: event({_value: uint256})
 
 #@ requires: event(SomeEvent(42), 0)
 #@ ensures: a ==> event(SomeEvent(42), 1)
-#@ ensures: b ==> event(SomeEvent(42), 1)
+#@ ensures: (b and not a) ==> event(SomeEvent(42), 1)
 #@ check: False
 @private
 def disjunction_test(a: bool, b: bool):
     if a or b:
         log.SomeEvent(42)
 
-#@ requires: forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
-#@ ensures: success() ==> event(SomeEvent(3), 2)
-#@ ensures: success() ==> event(SomeEvent(3), 2)
-#@ check: forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
+#@ requires: forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
+#@ ensures: success() ==> forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
+#:: Label(CHECK)
+#@ check: forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 @private
 def forall_event_test(a: address):
+    #:: UnexpectedOutput(carbon)(call.check:assertion.false, 0, CHECK)
     C(a).send()
     log.SomeEvent(3)
-    log.SomeEvent(3)
+    log.SomeEvent(4)
+    log.SomeEvent(5)
+    log.SomeEvent(6)
+    log.SomeEvent(7)
+    log.SomeEvent(8)
+    log.SomeEvent(9)
 
-#@ check: success() ==> forall({i: uint256}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1)) or event(SomeEvent(3), 2)
+#:: UnexpectedOutput(carbon)(check.violated:assertion.false, 0) | UnexpectedOutput(carbon)(private.call.check:assertion.false, 0, CALL)
+#@ check: success() ==> forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 @public
 def foo():
     log.SomeEvent(3)
@@ -39,6 +46,7 @@ def foo():
     log.SomeEvent(7)
     log.SomeEvent(8)
     log.SomeEvent(9)
+    #:: Label(CALL)
     self.forall_event_test(msg.sender)
 
 #@ check: success() ==> event(SomeEvent(42), 1)

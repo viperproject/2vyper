@@ -15,6 +15,7 @@ ownerToNFTokenCount: map(address, uint256)
 @public
 def __init__(_recipients: address[NUM_TOKENS], _tokenIds: uint256[NUM_TOKENS]):
   for i in range(NUM_TOKENS):
+    #@ invariant: self.ownerToNFTokenCount[ZERO_ADDRESS] == 0
     # stop as soon as there is a non-specified recipient
     assert _recipients[i] != ZERO_ADDRESS
     self.idToOwner[_tokenIds[i]] = _recipients[i]

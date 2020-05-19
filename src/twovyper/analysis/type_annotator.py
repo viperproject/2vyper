@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 
 from twovyper.utils import first_index, switch
 
@@ -73,7 +73,8 @@ class TypeAnnotator(NodeVisitor):
         self.type_builder = TypeBuilder(type_map)
 
         self.program = program
-        self.current_func = None
+        self.current_func: Union[VyperFunction, None] = None
+        self.current_loops: Dict[str, ast.For] = {}
 
         self_type = self.program.fields.type
         # Contains the possible types a variable can have
@@ -106,6 +107,14 @@ class TypeAnnotator(NodeVisitor):
 
         self.variables = old_variables
 
+    @contextmanager
+    def _loop_scope(self):
+        current_loops = self.current_loops
+
+        yield
+
+        self.current_loops = current_loops
+
     @property
     def method_name(self):
         return 'visit'
@@ -132,6 +141,7 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate(performs)
 
         for ghost_function in self.program.ghost_function_implementations.values():
+            assert isinstance(ghost_function, GhostFunction)
             with self._function_scope(ghost_function):
                 self.annotate_expected(ghost_function.node.body[0].value, ghost_function.type.return_type)
 
@@ -147,7 +157,7 @@ class TypeAnnotator(NodeVisitor):
         for check in self.program.general_checks:
             self.annotate_expected(check, types.VYPER_BOOL)
 
-    def generic_visit(self, node: ast.Node):
+    def generic_visit(self, node: ast.Node, *args):
         assert False
 
     def pass_through(self, node1, node=None):
@@ -265,8 +275,17 @@ class TypeAnnotator(NodeVisitor):
         self.variables[var_name] = [var_type]
 
         self.annotate_expected(node.target, var_type)
-        for stmt in node.body:
-            self.visit(stmt)
+
+        with self._loop_scope():
+            self.current_loops[var_name] = node
+
+            # Visit loop invariants
+            for loop_inv in self.current_func.loop_invariants.get(node, []):
+                self.annotate_expected(loop_inv, types.VYPER_BOOL)
+
+            # Visit body
+            for stmt in node.body:
+                self.visit(stmt)
 
     def visit_If(self, node: ast.If):
         self.annotate_expected(node.test, types.VYPER_BOOL)
@@ -348,6 +367,23 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.EVENT):
                 _check_number_of_arguments(node, 1, 2)
                 return self._visit_event(node)
+            elif case(names.PREVIOUS):
+                _check_number_of_arguments(node, 1)
+                self.annotate(node.args[0])
+                loop = self._retrieve_loop(node, names.PREVIOUS)
+                loop_array_type = loop.iter.type
+                assert isinstance(loop_array_type, ArrayType)
+                return [ArrayType(loop_array_type.element_type, loop_array_type.size, False)], [node]
+            elif case(names.LOOP_ARRAY):
+                _check_number_of_arguments(node, 1)
+                self.annotate(node.args[0])
+                loop = self._retrieve_loop(node, names.LOOP_ARRAY)
+                return [loop.iter.type], [node]
+            elif case(names.LOOP_ITERATION):
+                _check_number_of_arguments(node, 1)
+                self.annotate(node.args[0])
+                self._retrieve_loop(node, names.LOOP_ITERATION)
+                return [types.VYPER_UINT256], [node]
             elif case(names.RANGE):
                 _check_number_of_arguments(node, 1, 2)
                 return self._visit_range(node)
@@ -511,11 +547,18 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.SUM):
                 _check_number_of_arguments(node, 1)
 
-                def is_numeric_map(t):
-                    return isinstance(t, types.MapType) and types.is_integer(t.value_type)
+                def is_numeric_map_or_array(t):
+                    return isinstance(t, types.MapType) and types.is_numeric(t.value_type) \
+                           or isinstance(t, types.ArrayType) and types.is_numeric(t.element_type)
 
-                self.annotate_expected(node.args[0], is_numeric_map)
-                return [node.args[0].type.value_type], [node]
+                self.annotate_expected(node.args[0], is_numeric_map_or_array)
+                if isinstance(node.args[0].type, types.MapType):
+                    vyper_type = node.args[0].type.value_type
+                elif isinstance(node.args[0].type, types.ArrayType):
+                    vyper_type = node.args[0].type.element_type
+                else:
+                    assert False
+                return [vyper_type], [node]
             elif case(names.SENT) or case(names.RECEIVED) or case(names.ALLOCATED):
                 _check_number_of_arguments(node, 0, 1, resources=1 if case(names.ALLOCATED) else 0)
 
@@ -787,19 +830,38 @@ class TypeAnnotator(NodeVisitor):
         return [ntype], [node]
 
     def _visit_range(self, node: ast.FunctionCall):
-        self.annotate_expected(node.args[0], types.VYPER_INT128)
+        _check(len(node.args) > 0, node, 'invalid.range')
+        first_arg = node.args[0]
+        self.annotate_expected(first_arg, types.is_integer)
 
         if len(node.args) == 1:
             # A range expression of the form 'range(n)' where 'n' is a constant
-            size = node.args[0].n
+            assert isinstance(first_arg, ast.Num)
+            size = first_arg.n
         elif len(node.args) == 2:
-            # A range expression of the form 'range(x, x + n)' where 'n' is a constant
-            self.annotate_expected(node.args[1], types.VYPER_INT128)
-            size = node.args[1].right.n
+            second_arg = node.args[1]
+            self.annotate_expected(second_arg, types.is_integer)
+            if isinstance(second_arg, ast.ArithmeticOp) \
+                    and second_arg.op == ast.ArithmeticOperator.ADD \
+                    and ast.compare_nodes(first_arg, second_arg.left):
+                assert isinstance(second_arg.right, ast.Num)
+                # A range expression of the form 'range(x, x + n)' where 'n' is a constant
+                size = second_arg.right.n
+            else:
+                assert isinstance(first_arg, ast.Num) and isinstance(second_arg, ast.Num)
+                # A range expression of the form 'range(n1, n2)' where 'n1' and 'n2 are constants
+                size = second_arg.n - first_arg.n
         else:
             raise InvalidProgramException(node, 'invalid.range')
 
+        _check(size > 0, node, 'invalid.range', 'The size of a range(...) must be greater than zero.')
         return [ArrayType(types.VYPER_INT128, size, True)], [node]
+
+    def _retrieve_loop(self, node, name):
+        loop_var_name = node.args[0].id
+        loop = self.current_loops.get(loop_var_name)
+        _check(loop is not None, node, f"invalid.{name}")
+        return loop
 
     def visit_Bytes(self, node: ast.Bytes):
         # Bytes could either be non-strict or (if it has length 32) strict
