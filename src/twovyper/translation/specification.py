@@ -4,7 +4,7 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
-
+from collections import ChainMap
 from contextlib import contextmanager
 from functools import reduce
 from itertools import chain, starmap
@@ -231,6 +231,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 else:
                     assert False
             with ctx.state_scope(self_state, self_state):
+                if name == names.OLD:
+                    ctx.locals = ChainMap(ctx.old_locals, ctx.locals)
                 arg = node.args[0]
                 return self.translate(arg, res, ctx)
         elif name == names.SUM:

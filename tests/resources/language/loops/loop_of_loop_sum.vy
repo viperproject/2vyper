@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-# Verification took   3.56 seconds. [benchmark=10] (With loop invariants)
+# Verification took   2.96 seconds. [benchmark=10] (With loop invariants)
 # Verification took  24.97 seconds. [benchmark=10] (With loop unrolling) Stack Overflow (with l > 14)
 
 l: constant(int128) = 14
@@ -16,13 +16,12 @@ m: constant(int128) = l + 1
 def foo(a: int128):
     res: int128 = 0
     for i in range(l):
+        #@ invariant: old(res) == 0
         #@ invariant: res == (sum(range(l)) + l) * loop_iteration(i)
-        t: int128 = 0
         for j in range(l):
-            #@ invariant: t == sum(previous(j)) + loop_iteration(j)
-            t += j + 1
-        res += t
+            #@ invariant: res == old(res) + sum(previous(j)) + loop_iteration(j)
+            res += j + 1
 
     for i in range(m):
-        #@ invariant: res == ((sum(range(l)) + l) * l) + sum(previous(i)) + loop_iteration(i)
+        #@ invariant: res == old(res) + sum(previous(i)) + loop_iteration(i)
         res += i + 1

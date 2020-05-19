@@ -47,7 +47,9 @@ ERRORS = {
         lambda i: f"Precondition of {i.function.name} might not hold.",
     'invariant.violated':
         lambda i: f"Invariant not preserved by {i.function.name}.",
-    'loop.invariant.violated':
+    'loop.invariant.not.established':
+        lambda i: f"Loop invariant not established.",
+    'loop.invariant.not.preserved':
         lambda i: f"Loop invariant not preserved.",
     'check.violated':
         lambda i: f"A check might not hold after the body of {i.function.name}.",
