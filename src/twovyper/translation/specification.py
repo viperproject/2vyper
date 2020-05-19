@@ -395,24 +395,27 @@ class SpecificationTranslator(ExpressionTranslator):
                 num = self.translate(node.args[1], res, ctx) if len(node.args) == 2 else one
                 full_perm = self.viper_ast.FullPerm(pos)
                 perm_mul = self.viper_ast.IntPermMul(num, full_perm, pos)
+                current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
+                eq_comp = self.viper_ast.EqCmp(current_perm, perm_mul, pos)
                 if self._translating_check:
-                    current_perm = self.viper_ast.CurrentPerm(pred_acc, pos)
-                    return self.viper_ast.EqCmp(current_perm, perm_mul, pos)
+                    return eq_comp
                 else:
+                    cond = self.viper_ast.GtCmp(num, self.viper_ast.IntLit(0, pos), pos)
                     pred_acc_pred = self.viper_ast.PredicateAccessPredicate(pred_acc, perm_mul, pos)
-                    local_event_args = ctx.event_vars.get(event_name)
-                    if local_event_args and self._assume_events:
+                    if self._assume_events:
+                        local_event_args = ctx.event_vars.get(event_name)
+                        assert local_event_args
                         assert len(local_event_args) == len(args)
                         args_cond = self.viper_ast.TrueLit(pos)
                         for local_event_arg, event_arg in zip(local_event_args, args):
                             arg_eq = self.viper_ast.NeCmp(local_event_arg, event_arg, pos)
                             args_cond = self.viper_ast.And(args_cond, arg_eq, pos)
                         pred_acc_pred = self.viper_ast.And(args_cond, pred_acc_pred, pos)
-                        cond = self.viper_ast.GtCmp(num, self.viper_ast.IntLit(0, pos), pos)
                         cond_pred_acc_pred = self.viper_ast.CondExp(cond, pred_acc_pred, args_cond, pos)
                         return cond_pred_acc_pred
                     else:
-                        return pred_acc_pred
+                        implies = self.viper_ast.Implies(cond, pred_acc_pred, pos)
+                        return self.viper_ast.And(eq_comp, implies, pos)
         elif name == names.SELFDESTRUCT:
             self_var = ctx.self_var.local_var(ctx)
             self_type = ctx.self_type
