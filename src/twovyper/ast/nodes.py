@@ -5,14 +5,14 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, TYPE_CHECKING
+from typing import Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.types import (
     VyperType, FunctionType, StructType, ResourceType, ContractType, EventType, InterfaceType
 )
 if TYPE_CHECKING:
-    from twovyper.analysis.analyzer import FunctionAnalysis
+    from twovyper.analysis.analyzer import FunctionAnalysis, ProgramAnalysis
 
 
 class Config:
@@ -58,7 +58,7 @@ class VyperFunction:
         self.decorators = decorators
         self.node = node
         # Gets set in the analyzer
-        self.analysis: Union[FunctionAnalysis, None] = None
+        self.analysis: Optional[FunctionAnalysis] = None
 
     @property
     def _decorator_names(self) -> Iterable[str]:
@@ -76,6 +76,9 @@ class VyperFunction:
 
     def is_constant(self) -> bool:
         return names.CONSTANT in self._decorator_names
+
+    def is_pure(self) -> bool:
+        return names.PURE in self._decorator_names
 
     def nonreentrant_keys(self) -> Iterable[str]:
         for dec in self.decorators:
@@ -169,7 +172,7 @@ class VyperProgram:
         self.ghost_function_implementations = ghost_function_implementations
         self.type = fields.type
         # Is set in the analyzer
-        self.analysis = None
+        self.analysis: Optional[ProgramAnalysis] = None
 
     def is_interface(self) -> bool:
         return False

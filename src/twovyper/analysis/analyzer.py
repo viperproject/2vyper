@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from contextlib import contextmanager
 from typing import Set, Dict, List
 
-from twovyper.ast import ast_nodes as ast, names
+from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.nodes import VyperProgram, VyperFunction
 from twovyper.ast.visitors import NodeVisitor
 
@@ -31,14 +31,18 @@ def analyze(program: VyperProgram):
     check_symbols(program)
 
     function_analyzer = _FunctionAnalyzer()
+    pure_function_analyzer = _PureFunctionAnalyzer()
     program_analyzer = _ProgramAnalyzer()
     invariant_analyzer = _InvariantAnalyzer()
 
+    program.analysis = ProgramAnalysis()
+
     for function in program.functions.values():
         function.analysis = FunctionAnalysis()
-        function_analyzer.analyze(function)
+        function_analyzer.analyze(program, function)
+        if function.is_pure():
+            pure_function_analyzer.analyze(program, function)
 
-    program.analysis = ProgramAnalysis()
     # The heuristics are need for analysis, therefore do them first
     heuristics.compute(program)
     program_analyzer.analyze(program)
@@ -62,6 +66,8 @@ class ProgramAnalysis:
         self.accessible_tags = {}
         # All invariants that contain allocated
         self.allocated_invariants = []
+        # Pure functions used in specifications
+        self.used_pure_functions: Set[str] = set()
 
 
 class FunctionAnalysis:
@@ -77,6 +83,9 @@ class FunctionAnalysis:
 
 class _ProgramAnalyzer(NodeVisitor):
 
+    def __init__(self):
+        super().__init__()
+
     def analyze(self, program: VyperProgram):
         self.visit_nodes(program.invariants, program)
         self.visit_nodes(program.general_postconditions, program)
@@ -88,6 +97,14 @@ class _ProgramAnalyzer(NodeVisitor):
             program.analysis.uses_issued = True
             for function in program.functions.values():
                 function.analysis.uses_issued = True
+
+        self.generic_visit(node, program)
+
+    def visit_ReceiverCall(self, node: ast.ReceiverCall, program: VyperProgram):
+        if isinstance(node.receiver.type, types.SelfType):
+            func = program.functions[node.name]
+            assert func.is_pure()
+            program.analysis.used_pure_functions.add(func.name)
 
         self.generic_visit(node, program)
 
@@ -106,7 +123,9 @@ class _InvariantAnalyzer(NodeVisitor):
         elif node.name == names.ACCESSIBLE:
             program.analysis.accessible_tags[node] = tag
             if len(node.args) == 3:
-                function_name = node.args[2].name
+                func_arg = node.args[2]
+                assert isinstance(func_arg, ast.ReceiverCall)
+                function_name = func_arg.name
             else:
                 if not program.analysis.accessible_function:
                     msg = "No matching function for accessible could be determined."
@@ -122,6 +141,7 @@ class _FunctionAnalyzer(NodeVisitor):
     def __init__(self):
         super().__init__()
         self.inside_loop = False
+        self.inside_spec = False
         self.used_names: Set[str] = set()
 
     @contextmanager
@@ -141,25 +161,36 @@ class _FunctionAnalyzer(NodeVisitor):
             self.used_names = used_variables
         self.inside_loop = inside_loop
 
-    def analyze(self, function: VyperFunction):
-        self.visit_nodes(function.postconditions, function)
-        self.visit_nodes(function.preconditions, function)
-        self.visit_nodes(function.checks, function)
-        self.generic_visit(function.node, function)
+    @contextmanager
+    def _spec_scope(self):
+        inside_spec = self.inside_spec
+        self.inside_spec = True
 
-    def visit_FunctionCall(self, node: ast.FunctionCall, function: VyperFunction):
+        yield
+
+        self.inside_spec = inside_spec
+
+    def analyze(self, program: VyperProgram, function: VyperFunction):
+        with self._spec_scope():
+            self.visit_nodes(function.postconditions, program, function)
+            self.visit_nodes(function.preconditions, program, function)
+            self.visit_nodes(function.checks, program, function)
+        self.generic_visit(function.node, program, function)
+
+    def visit_FunctionCall(self, node: ast.FunctionCall, program: VyperProgram, function: VyperFunction):
         if node.name == names.ISSUED:
             function.analysis.uses_issued = True
 
-        self.generic_visit(node, function)
+        self.generic_visit(node, program, function)
 
-    def visit_For(self, node: ast.For, function: VyperFunction):
+    def visit_For(self, node: ast.For, program: VyperProgram, function: VyperFunction):
         with self._loop_scope():
-            self.generic_visit(node, function)
+            self.generic_visit(node, program, function)
             function.analysis.loop_used_names[node.target.id] = list(self.used_names)
-        self.visit_nodes(function.loop_invariants.get(node, []), function)
+        with self._spec_scope():
+            self.visit_nodes(function.loop_invariants.get(node, []), program, function)
 
-    def visit_Name(self, node: ast.Name, function: VyperFunction):
+    def visit_Name(self, node: ast.Name, program: VyperProgram, function: VyperFunction):
         if self.inside_loop:
             with switch(node.id) as case:
                 if case(names.MSG)\
@@ -169,4 +200,31 @@ class _FunctionAnalyzer(NodeVisitor):
                     pass
                 else:
                     self.used_names.add(node.id)
-        self.generic_visit(node, function)
+        self.generic_visit(node, program, function)
+
+    def visit_ReceiverCall(self, node: ast.ReceiverCall, program: VyperProgram, function: VyperFunction):
+        if isinstance(node.receiver.type, types.SelfType):
+            func = program.functions[node.name]
+            if func.is_pure():
+                program.analysis.used_pure_functions.add(func.name)
+
+        self.generic_visit(node, program, function)
+
+
+class _PureFunctionAnalyzer(NodeVisitor):
+
+    def __init__(self):
+        super().__init__()
+
+    def analyze(self, program: VyperProgram, function: VyperFunction):
+        self.visit_nodes(function.node.body, program)
+
+    def visit_ReceiverCall(self, node: ast.ReceiverCall, program: VyperProgram):
+        rec_type = node.receiver.type
+
+        if isinstance(rec_type, types.SelfType):
+            program.analysis.used_pure_functions.add(node.name)
+            # Since Vyper has no recursion, this will terminate
+            self.analyze(program, program.functions[node.name])
+        else:
+            assert False

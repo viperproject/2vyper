@@ -13,6 +13,7 @@ PRIVATE = 'private'
 PAYABLE = 'payable'
 CONSTANT = 'constant'
 NONREENTRANT = 'nonreentrant'
+PURE = 'pure'
 
 # Modifiers
 CONSTANT = 'constant'
