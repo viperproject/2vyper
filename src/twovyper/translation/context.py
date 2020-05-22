@@ -7,11 +7,11 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
-from typing import Union, Dict, TYPE_CHECKING, List, Any
+from typing import Union, Dict, TYPE_CHECKING, List, Any, Optional
 
 from twovyper.ast import names
 from twovyper.ast.ast_nodes import Expr
-from twovyper.ast.nodes import VyperFunction
+from twovyper.ast.nodes import VyperFunction, VyperProgram
 from twovyper.translation import mangled
 if TYPE_CHECKING:
     from twovyper.translation.variable import TranslatedVar
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class Context:
 
     def __init__(self):
-        self.program = None
+        self.program: Optional[VyperProgram] = None
         # The program whose code is currently being translated, i.e., a VyperProgram
         # normally, and a VyperInterface when we translate interface specifications.
         self.current_program = None
@@ -54,9 +54,9 @@ class Context:
         self.break_label = None
         self.continue_label = None
 
-        self.success_var = None
+        self.success_var: Optional[TranslatedVar] = None
         self.revert_label = None
-        self.result_var = None
+        self.result_var: Optional[TranslatedVar] = None
         self.return_label = None
 
         self.inside_trigger = False

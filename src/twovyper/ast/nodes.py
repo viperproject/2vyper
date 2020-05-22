@@ -149,7 +149,7 @@ class VyperProgram:
                  transitive_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr],
                  implements: List[InterfaceType],
-                 ghost_function_implementations: Dict[str, ast.Expr]):
+                 ghost_function_implementations: Dict[str, GhostFunction]):
         self.node = node
         self.file = file
         self.config = config
