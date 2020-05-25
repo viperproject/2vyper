@@ -402,7 +402,7 @@ class LoopInvariantTransformer(NodeTransformer):
 
     def visit_Assign(self, node: ast.Assign):
         if node.is_ghost_code:
-            if node.target.id == names.INVARIANT:
+            if isinstance(node.target, ast.Name) and node.target.id == names.INVARIANT:
                 if self._last_loop and node in self._possible_loop_invariant_nodes:
                     self.loop_invariants.setdefault(self._last_loop, []).append(node.value)
                 else:
