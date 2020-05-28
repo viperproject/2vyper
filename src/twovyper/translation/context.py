@@ -66,12 +66,12 @@ class Context:
         self.new_local_vars = []
 
         self.loop_arrays: Dict[str, Expr] = {}
-        self.loop_indices: Dict[str, ] = {}
+        self.loop_indices: Dict[str, TranslatedVar] = {}
 
         self.event_vars: Dict[str, List[Any]] = {}
 
-        # List of conditions which must be all true when an assignment is made in a pure translator.
-        self.pure_conds: List[Expr] = []
+        # And-ed conditions which must be all true when an assignment is made in a pure translator.
+        self.pure_conds: Optional[Expr] = None
         # List of all assignments to the result variable
         # The tuple consists of an expression which is the condition under which the assignment happened and
         # the index of the variable (since this is SSA like, the result_var has many indices)
@@ -182,7 +182,7 @@ class Context:
         function = self.function
 
         args = self.args
-        locals = self.locals
+        local_variables = self.locals
         old_locals = self.old_locals
         current_state = self.current_state
         current_old_state = self.current_old_state
@@ -275,7 +275,7 @@ class Context:
         self.function = function
 
         self.args = args
-        self.locals = locals
+        self.locals = local_variables
         self.old_locals = old_locals
         self.current_state = current_state
         self.current_old_state = current_old_state

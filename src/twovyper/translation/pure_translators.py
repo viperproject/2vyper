@@ -5,7 +5,6 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from functools import reduce
 from typing import List
 
 from twovyper.ast.types import VYPER_BOOL
@@ -30,11 +29,12 @@ class PureTranslatorMixin(CommonTranslator):
     def fail_if(self, cond: Expr, stmts: List[Stmt], res: List[Expr], ctx: Context, pos=None, info=None):
         assert isinstance(ctx.success_var, TranslatedPureIndexedVar)
 
-        var = TranslatedPureIndexedVar('cond', 'cond', VYPER_BOOL, self.viper_ast, pos)
-        res.append(self.viper_ast.EqCmp(var.local_var(ctx), cond))
+        cond_var = TranslatedPureIndexedVar('cond', 'cond', VYPER_BOOL, self.viper_ast, pos)
+        cond_local_var = cond_var.local_var(ctx)
+        res.append(self.viper_ast.EqCmp(cond_local_var, cond))
 
         # Fail if the condition is true
-        fail_cond = reduce(self.viper_ast.And, ctx.pure_conds + [var.local_var(ctx)])
+        fail_cond = self.viper_ast.And(ctx.pure_conds, cond_local_var) if ctx.pure_conds else cond_local_var
         old_success_idx = ctx.success_var.evaluate_idx(ctx)
         ctx.success_var.new_idx()
         expr = self.viper_ast.EqCmp(ctx.success_var.local_var(ctx), self.viper_ast.FalseLit())
@@ -43,7 +43,8 @@ class PureTranslatorMixin(CommonTranslator):
         ctx.success_var.idx = old_success_idx
 
         # If we did not fail, we know that the condition is not true
-        ctx.pure_conds.append(self.viper_ast.Not(var.local_var(ctx)))
+        negated_local_var = self.viper_ast.Not(cond_local_var)
+        ctx.pure_conds = self.viper_ast.And(ctx.pure_conds, negated_local_var) if ctx.pure_conds else negated_local_var
 
 
 class PureArithmeticTranslator(PureTranslatorMixin, ArithmeticTranslator):
