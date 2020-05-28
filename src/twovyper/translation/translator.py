@@ -169,8 +169,6 @@ class ProgramTranslator(CommonTranslator):
         functions.extend(self._translate_ghost_function(func, ctx) for func in vyper_program.ghost_functions.values())
         domains.append(self._translate_implements(vyper_program, ctx))
 
-        # TODO: translate only the used pure functions
-        #  pure_vyper_functions = [vyper_program.functions[name] for name in vyper_program.analysis.used_pure_functions]
         pure_vyper_functions = filter(VyperFunction.is_pure,  vyper_program.functions.values())
         functions += [self.pure_function_translator.translate(function, ctx) for function in pure_vyper_functions]
 
@@ -179,7 +177,7 @@ class ProgramTranslator(CommonTranslator):
         accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
         predicates.extend([*events, *accs])
 
-        vyper_functions = vyper_program.functions.values()
+        vyper_functions = filter(lambda x: not x.is_pure(),  vyper_program.functions.values())
         methods.append(self._create_transitivity_check(ctx))
         methods.append(self._create_forced_ether_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]

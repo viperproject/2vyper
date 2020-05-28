@@ -14,18 +14,16 @@ from twovyper.ast.nodes import VyperFunction, VyperVar
 
 from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context
-from twovyper.translation.abstract import CommonTranslator
+from twovyper.translation.function import FunctionTranslator
 from twovyper.translation.pure_statement import PureStatementTranslator
 from twovyper.translation.pure_translators import PureTranslatorMixin, PureTypeTranslator
 from twovyper.translation.variable import TranslatedPureIndexedVar, TranslatedVar
-
-from twovyper.verification.error import Via
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Function, Expr
 
 
-class PureFunctionTranslator(PureTranslatorMixin, CommonTranslator):
+class PureFunctionTranslator(PureTranslatorMixin, FunctionTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
@@ -129,15 +127,4 @@ class PureFunctionTranslator(PureTranslatorMixin, CommonTranslator):
         return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)
 
     def inline(self, call: ast.ReceiverCall, args: List[Expr], res: List[Expr], ctx: Context) -> Expr:
-        function = ctx.program.functions[call.name]
-        return_type = self.type_translator.translate(function.type.return_type, ctx)
-        mangled_name = mangled.pure_function_name(call.name)
-        call_pos = self.to_position(call, ctx)
-        via = Via('pure function call', call_pos)
-        pos = self.to_position(function.node, ctx, vias=[via])
-        func_app = self.viper_ast.FuncApp(mangled_name, [ctx.self_var.local_var(ctx), *args], pos,
-                                          type=helpers.struct_type(self.viper_ast))
-        called_success_var = helpers.struct_pure_get_success(self.viper_ast, func_app, pos)
-        called_result_var = helpers.struct_pure_get_result(self.viper_ast, func_app, return_type, pos)
-        self.fail_if(self.viper_ast.Not(called_success_var), [], res, ctx, pos)
-        return called_result_var
+        return self._call_pure(call, args, res, ctx)
