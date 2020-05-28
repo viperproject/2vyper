@@ -283,6 +283,17 @@ class StructureChecker(NodeVisitor):
                 _assert(node.keywords[0].name == names.SUCCESS_IF_NOT, node, 'spec.success')
                 check_success_args(node.keywords[0].value)
 
+            if len(node.keywords) == 0 and len(node.args) == 1:
+                argument = node.args[0]
+                _assert(isinstance(argument, ast.ReceiverCall), node, 'spec.success')
+                assert isinstance(argument, ast.ReceiverCall)
+                func = program.functions.get(argument.name)
+                _assert(func is not None, argument, 'spec.success',
+                        'Only functions defined in this contract can be called from the specification.')
+                _assert(func.is_pure(), argument, 'spec.success',
+                        'Only pure functions can be called from the specification.')
+                self.generic_visit(argument, ctx, program, function)
+
             return
         # Accessible is of the form accessible(to, amount, self.some_func(args...))
         elif node.name == names.ACCESSIBLE:
@@ -331,11 +342,22 @@ class StructureChecker(NodeVisitor):
         elif node.name in [names.OLD, names.PUBLIC_OLD]:
             with self._inside_old_scope():
                 self.generic_visit(node, ctx, program, function)
-        elif node.name in [names.OLD, names.PUBLIC_OLD]:
-            with self._inside_old_scope():
-                self.generic_visit(node, ctx, program, function)
 
             return
+        elif node.name == names.RESULT or node.name == names.REVERT:
+            if len(node.args) == 1:
+                argument = node.args[0]
+                _assert(isinstance(argument, ast.ReceiverCall), node, f"spec.{node.name}")
+                assert isinstance(argument, ast.ReceiverCall)
+                func = program.functions.get(argument.name)
+                _assert(func is not None, argument, f"spec.{node.name}",
+                        'Only functions defined in this contract can be called from the specification.')
+                _assert(func.is_pure(), argument, f"spec.{node.name}",
+                        'Only pure functions can be called from the specification.')
+                self.generic_visit(argument, ctx, program, function)
+
+                return
+
         elif node.name == names.INDEPENDENT:
             with self._inside_pure_scope('independent expressions'):
                 self.visit(node.args[0], ctx, program, function)
@@ -424,14 +446,7 @@ class StructureChecker(NodeVisitor):
         if ctx == _Context.GHOST_CODE:
             _assert(False, node, 'invalid.ghost.code')
         elif ctx.is_specification:
-            allowed = False
-            if isinstance(node.receiver, ast.Name) and node.receiver.id == names.SELF:
-                func_name = node.name
-                func = program.functions.get(func_name)
-                if func:
-                    _assert(func.is_pure(), node, 'spec.call', 'Only pure functions can be used in specification')
-                    allowed = True
-            _assert(allowed, node, 'spec.call')
+            _assert(False, node, 'spec.call')
         elif ctx == _Context.GHOST_FUNCTION:
             _assert(False, node, 'invalid.ghost')
 

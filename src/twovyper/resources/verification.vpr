@@ -28,3 +28,15 @@ predicate $performs$offer($from_resource: $Struct, $to_resource: $Struct, $from_
 predicate $performs$revoke($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_adress: Int)
 
 predicate $performs$trust($address: Int, $by_address: Int, $value: Bool)
+
+function $pure$success_get(x:$Struct): Bool
+{
+  $struct_get($struct_loc(x, 0))
+}
+
+function $pure$return_get(x:$Struct): Int
+  requires $pure$success_get(x)
+{
+  $struct_loc(x, 1)
+}
+

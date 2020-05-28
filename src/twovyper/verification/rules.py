@@ -328,3 +328,8 @@ PERFORMS_LEAK_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('performs.leakcheck.failed', 'performs.leaked')
 }
+
+PURE_FUNCTION_FAIL = {
+    ('application.precondition', 'assertion.false'):
+        ('function.failed', 'function.revert')
+}

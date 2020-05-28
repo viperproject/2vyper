@@ -119,6 +119,9 @@ IMPLEMENTS_DOMAIN = '$Implements'
 TRANSITIVITY_CHECK = '$transitivity_check'
 FORCED_ETHER_CHECK = '$forced_ether_check'
 
+PURE_SUCCESS = '$pure$success_get'
+PURE_RESULT = '$pure$return_get'
+
 
 def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
