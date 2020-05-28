@@ -467,15 +467,35 @@ class _FunctionPureChecker(NodeVisitor):
         # A function must be constant, private and non-payable to be valid
         if not (function.is_constant() and function.is_private() and (not function.is_payable())):
             _assert(False, function.node, 'invalid.pure', 'A pure function must be constant, private and non-payable')
+        elif not function.type.return_type:
+            _assert(False, function.node, 'invalid.pure', 'A pure function must have a return type')
         else:
+            # Check checks
+            if function.checks:
+                _assert(False, function.checks[0], 'invalid.pure',
+                        'A pure function must not have checks')
+            # Check performs
+            if function.performs:
+                _assert(False, function.performs[0], 'invalid.pure',
+                        'A pure function must not have performs')
+            # Check preconditions
+            if function.preconditions:
+                _assert(False, function.preconditions[0], 'invalid.pure',
+                        'A pure function must not have preconditions')
+            # Check postconditions
+            if function.postconditions:
+                _assert(False, function.postconditions[0], 'invalid.pure',
+                        'A pure function must not have postconditions')
             # Check Code
             self.visit(function.node, program)
-            # Check preconditions
-            for precondition in function.preconditions:
-                self.visit(precondition, program)
-            # Check postconditions
-            for postcondition in function.postconditions:
-                self.visit(postcondition, program)
+
+    def visit_Name(self, node: ast.Name, program: VyperProgram):
+        with switch(node.id) as case:
+            if case(names.MSG) \
+                    or case(names.BLOCK) \
+                    or case(names.TX):
+                _assert(False, node, 'invalid.pure', 'Pure functions are not allowed to use "msg", "block" or "tx".')
+        self.generic_visit(node, program)
 
     def visit_ExprStmt(self, node: ast.ExprStmt, program: VyperProgram):
         # A call to clear is an assignment, all other expressions are not valid.
