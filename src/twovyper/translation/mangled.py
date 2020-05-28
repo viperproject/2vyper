@@ -157,6 +157,10 @@ def ghost_function_name(vyper_name: str) -> str:
     return f'g${vyper_name}'
 
 
+def pure_function_name(vyper_name: str) -> str:
+    return f'p${vyper_name}'
+
+
 def axiom_name(viper_name: str) -> str:
     return f'{viper_name}$ax'
 

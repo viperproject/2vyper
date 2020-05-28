@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
-from typing import Union, Dict, TYPE_CHECKING, List, Any, Optional
+from typing import Union, Dict, TYPE_CHECKING, List, Any, Optional, Tuple
 
 from twovyper.ast import names
 from twovyper.ast.ast_nodes import Expr
@@ -70,6 +70,18 @@ class Context:
 
         self.event_vars: Dict[str, List[Any]] = {}
 
+        # List of conditions which must be all true when an assignment is made in a pure translator.
+        self.pure_conds: List[Expr] = []
+        # List of all assignments to the result variable
+        # The tuple consists of an expression which is the condition under which the assignment happened and
+        # the index of the variable (since this is SSA like, the result_var has many indices)
+        self.pure_returns: List[Tuple[Expr, int]] = []
+        # List of all assignments to the success variable
+        # The tuple consists of an expression which is the condition under which the assignment happened and
+        # the index of the variable (since this is SSA like, the success_var has many indices)
+        self.pure_success: List[Tuple[Expr, int]] = []
+
+        self._pure_var_index_counter = 1  # It has to start at 2
         self._quantified_var_counter = -1
         self._inline_counter = -1
         self._current_inline = -1
@@ -147,6 +159,10 @@ class Context:
         else:
             return f'i{self._current_inline}$'
 
+    def next_pure_var_index(self) -> int:
+        self._pure_var_index_counter += 1
+        return self._pure_var_index_counter
+
     def _next_break_label(self) -> str:
         self._break_label_counter += 1
         return f'break_{self._break_label_counter}'
@@ -205,6 +221,11 @@ class Context:
 
         event_vars = self.event_vars
 
+        pure_conds = self.pure_conds
+        pure_returns = self.pure_returns
+        pure_success = self.pure_success
+        pure_var_index_counter = self._pure_var_index_counter
+
         self.function = None
 
         self.args = {}
@@ -243,6 +264,11 @@ class Context:
         self.loop_indices = {}
 
         self.event_vars = {}
+
+        self.pure_conds = []
+        self.pure_returns = []
+        self.pure_success = []
+        self._pure_var_index_counter = 1
 
         yield
 
@@ -287,6 +313,11 @@ class Context:
         self.loop_indices = loop_indices
 
         self.event_vars = event_vars
+
+        self.pure_conds = pure_conds
+        self.pure_returns = pure_returns
+        self.pure_success = pure_success
+        self._pure_var_index_counter = pure_var_index_counter
 
     @contextmanager
     def quantified_var_scope(self):

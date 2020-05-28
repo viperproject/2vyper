@@ -398,6 +398,23 @@ def struct_get(viper_ast: ViperAST, ref, member: str, member_type, struct_type: 
     return viper_ast.DomainFuncApp(getter, [field], member_type, pos, info, domain, type_map)
 
 
+def struct_pure_get_success(viper_ast: ViperAST, ref, pos=None):
+    return struct_get_idx(viper_ast, ref, 0, viper_ast.Bool, pos)
+
+
+def struct_pure_get_result(viper_ast: ViperAST, ref, viper_type,  pos=None):
+    return struct_get_idx(viper_ast, ref, 1, viper_type, pos)
+
+
+def struct_get_idx(viper_ast: ViperAST, ref, idx: int, viper_type, pos=None, info=None):
+    domain = mangled.STRUCT_OPS_DOMAIN
+    idx_lit = viper_ast.IntLit(idx)
+    field = struct_loc(viper_ast, ref, idx_lit, pos, info)
+    getter = mangled.STRUCT_GET
+    type_map = _struct_type_var_map(viper_ast, viper_type)
+    return viper_ast.DomainFuncApp(getter, [field], viper_type, pos, info, domain, type_map)
+
+
 def struct_set(viper_ast: ViperAST, ref, val, member: str, member_type, type: StructType, pos=None, info=None):
     setter = mangled.STRUCT_SET
     s_type = struct_type(viper_ast)

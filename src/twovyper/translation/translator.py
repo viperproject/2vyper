@@ -26,6 +26,7 @@ from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.allocation import AllocationTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.function import FunctionTranslator
+from twovyper.translation.pure_function import PureFunctionTranslator
 from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
@@ -78,6 +79,7 @@ class ProgramTranslator(CommonTranslator):
         self.builtins = builtins
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.function_translator = FunctionTranslator(viper_ast)
+        self.pure_function_translator = PureFunctionTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
         self.resource_translator = ResourceTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
@@ -166,6 +168,11 @@ class ProgramTranslator(CommonTranslator):
         # Ghost functions
         functions.extend(self._translate_ghost_function(func, ctx) for func in vyper_program.ghost_functions.values())
         domains.append(self._translate_implements(vyper_program, ctx))
+
+        # TODO: translate only the used pure functions
+        #  pure_vyper_functions = [vyper_program.functions[name] for name in vyper_program.analysis.used_pure_functions]
+        pure_vyper_functions = filter(VyperFunction.is_pure,  vyper_program.functions.values())
+        functions += [self.pure_function_translator.translate(function, ctx) for function in pure_vyper_functions]
 
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]

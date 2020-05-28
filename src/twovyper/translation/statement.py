@@ -35,7 +35,7 @@ class StatementTranslator(NodeTranslator):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
         self.expression_translator = ExpressionTranslator(viper_ast)
-        self.assignment_translator = _AssignmentTranslator(viper_ast)
+        self.assignment_translator = AssignmentTranslator(viper_ast)
         self.arithmetic_translator = ArithmeticTranslator(viper_ast)
         self.model_translator = ModelTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
@@ -343,7 +343,7 @@ class StatementTranslator(NodeTranslator):
         ctx.new_local_vars.append(var.var_decl(ctx))
 
 
-class _AssignmentTranslator(NodeVisitor, CommonTranslator):
+class AssignmentTranslator(NodeVisitor, CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
