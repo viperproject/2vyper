@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import List
+from typing import List, Dict, Tuple
 
 from twovyper.ast import ast_nodes as ast
 from twovyper.ast.types import StructType, VYPER_BOOL
@@ -20,7 +20,7 @@ from twovyper.translation.statement import AssignmentTranslator, StatementTransl
 from twovyper.translation.variable import TranslatedPureIndexedVar
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, Stmt
+from twovyper.viper.typedefs import Expr, Stmt, Var
 
 
 class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
@@ -88,9 +88,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
             ctx.pure_success.append((self.viper_ast.TrueLit(), ctx.success_var.evaluate_idx(ctx)))
 
     def translate_If(self, node: ast.If, res: List[Stmt], ctx: Context):
-        pre_locals = dict(((name, var.evaluate_idx(ctx))
-                           for name, var in
-                           filter(lambda x: isinstance(x[1], TranslatedPureIndexedVar), ctx.locals.items())))
+        pre_locals = self._local_variable_snapshot(ctx)
         pre_conds = ctx.pure_conds
 
         pos = self.to_position(node, ctx)
@@ -106,14 +104,9 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
             ctx.pure_conds = self.viper_ast.And(pre_conds, cond_local_var) if pre_conds else cond_local_var
             self.translate_stmts(node.body, res, ctx)
             # Get current state of local variable state after "then"-branch
-            then_locals = dict(((name, (var.evaluate_idx(ctx), var.local_var(ctx)))
-                                for name, var in
-                                filter(lambda x: isinstance(x[1], TranslatedPureIndexedVar), ctx.locals.items())))
+            then_locals = self._local_variable_snapshot(ctx)
         # Reset indices of local variables in context
-        for name in pre_locals.keys():
-            var = ctx.locals[name]
-            assert isinstance(var, TranslatedPureIndexedVar)
-            var.idx = pre_locals[name]
+        self._reset_variable_to_snapshot(pre_locals, ctx)
         # "Else" branch
         with ctx.new_local_scope():
             # Update condition
@@ -121,14 +114,9 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
             ctx.pure_conds = self.viper_ast.And(pre_conds, negated_local_var) if pre_conds else negated_local_var
             self.translate_stmts(node.orelse, res, ctx)
             # Get current state of local variable state after "else"-branch
-            else_locals = dict(((name, (var.evaluate_idx(ctx), var.local_var(ctx)))
-                                for name, var in
-                                filter(lambda x: isinstance(x[1], TranslatedPureIndexedVar), ctx.locals.items())))
+            else_locals = self._local_variable_snapshot(ctx)
         # Reset indices of local variables in context
-        for name in pre_locals.keys():
-            var = ctx.locals[name]
-            assert isinstance(var, TranslatedPureIndexedVar)
-            var.idx = pre_locals[name]
+        self._reset_variable_to_snapshot(pre_locals, ctx)
         # Update condition
         ctx.pure_conds = pre_conds
         # Merge variable changed in the "then" or "else" branch
@@ -144,13 +132,77 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                 res.append(assign)
 
     def translate_For(self, node: ast.For, res: List[Stmt], ctx: Context):
-        assert False
+        pos = self.to_position(node, ctx)
+
+        self._add_local_var(node.target, ctx)
+        loop_var = ctx.locals[node.target.id]
+        assert isinstance(loop_var, TranslatedPureIndexedVar)
+        array = self.expression_translator.translate(node.iter, res, ctx)
+        array_var = TranslatedPureIndexedVar('array', 'array', node.iter.type, self.viper_ast, pos)
+        res.append(self.viper_ast.EqCmp(array_var.local_var(ctx), array))
+        array_local_var = array_var.local_var(ctx)
+
+        times = node.iter.type.size
+        lpos = self.to_position(node.target, ctx)
+        rpos = self.to_position(node.iter, ctx)
+
+        if times > 0:
+            loop_invariants = ctx.function.loop_invariants.get(node)
+            if loop_invariants:
+                assert False
+            else:
+                pre_locals = self._local_variable_snapshot(ctx)
+                pre_conds = ctx.pure_conds
+                with ctx.break_scope():
+                    for i in range(times):
+                        with ctx.continue_scope():
+                            idx = self.viper_ast.IntLit(i, lpos)
+                            array_at = self.viper_ast.SeqIndex(array_local_var, idx, rpos)
+                            loop_var.new_idx()
+                            var_set = self.viper_ast.EqCmp(loop_var.local_var(ctx), array_at, lpos)
+                            res.append(var_set)
+
+                            with ctx.new_local_scope():
+                                self.translate_stmts(node.body, res, ctx)
+
+                            post_it_locals = self._local_variable_snapshot(ctx)
+
+                            prev_snapshot = post_it_locals
+                            for cond, snapshot in reversed(ctx.pure_continues):
+                                for name in snapshot.keys():
+                                    else_idx, else_var = prev_snapshot[name]
+                                    then_idx, then_var = snapshot[name]
+                                    if else_idx != then_idx:
+                                        var = ctx.locals[name]
+                                        assert isinstance(var, TranslatedPureIndexedVar)
+                                        var.new_idx()
+                                        expr = self.viper_ast.CondExp(cond, then_var, else_var, pos)
+                                        assign = self.viper_ast.EqCmp(var.local_var(ctx), expr, pos)
+                                        res.append(assign)
+                                        snapshot[name] = (var.evaluate_idx(ctx), var.local_var(ctx))
+                                prev_snapshot = snapshot
+
+                    prev_snapshot = pre_locals
+                    for cond, snapshot in reversed(ctx.pure_breaks):
+                        for name in prev_snapshot.keys():
+                            else_idx, else_var = prev_snapshot[name]
+                            then_idx, then_var = snapshot[name]
+                            if else_idx != then_idx:
+                                var = ctx.locals[name]
+                                assert isinstance(var, TranslatedPureIndexedVar)
+                                var.new_idx()
+                                expr = self.viper_ast.CondExp(cond, then_var, else_var, pos)
+                                assign = self.viper_ast.EqCmp(var.local_var(ctx), expr, pos)
+                                res.append(assign)
+                                snapshot[name] = (var.evaluate_idx(ctx), var.local_var(ctx))
+                        prev_snapshot = snapshot
+                ctx.pure_conds = pre_conds
 
     def translate_Break(self, node: ast.Break, res: List[Stmt], ctx: Context):
-        assert False
+        ctx.pure_breaks.append((ctx.pure_conds, self._local_variable_snapshot(ctx)))
 
     def translate_Continue(self, node: ast.Continue, res: List[Stmt], ctx: Context):
-        assert False
+        ctx.pure_continues.append((ctx.pure_conds, self._local_variable_snapshot(ctx)))
 
     def translate_Pass(self, node: ast.Pass, res: List[Stmt], ctx: Context):
         pass
@@ -164,6 +216,19 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         mangled_name = ctx.new_local_var_name(variable_name)
         var = TranslatedPureIndexedVar(variable_name, mangled_name, node.type, self.viper_ast, pos)
         ctx.locals[variable_name] = var
+
+    @staticmethod
+    def _local_variable_snapshot(ctx) -> Dict[str, Tuple[int, Var]]:
+        return dict(((name, (var.evaluate_idx(ctx), var.local_var(ctx)))
+                     for name, var in
+                     filter(lambda x: isinstance(x[1], TranslatedPureIndexedVar), ctx.locals.items())))
+
+    @staticmethod
+    def _reset_variable_to_snapshot(snapshot, ctx):
+        for name in snapshot.keys():
+            var = ctx.locals[name]
+            assert isinstance(var, TranslatedPureIndexedVar)
+            var.idx, _ = snapshot[name]
 
 
 class _AssignmentTranslator(PureTranslatorMixin, AssignmentTranslator):

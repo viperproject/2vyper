@@ -13,6 +13,8 @@ from twovyper.ast import names
 from twovyper.ast.ast_nodes import Expr
 from twovyper.ast.nodes import VyperFunction, VyperProgram
 from twovyper.translation import mangled
+from twovyper.viper.typedefs import Var
+
 if TYPE_CHECKING:
     from twovyper.translation.variable import TranslatedVar
 
@@ -80,6 +82,14 @@ class Context:
         # The tuple consists of an expression which is the condition under which the assignment happened and
         # the index of the variable (since this is SSA like, the success_var has many indices)
         self.pure_success: List[Tuple[Expr, int]] = []
+        # List of all break statements in a loop
+        # The tuple consists of an expression which is the condition under which the break statement is reached and
+        # the dict is a snapshot of the local variables at the moment of the break statement
+        self.pure_continues: List[Tuple[Expr, Dict[str, Tuple[int, Var]]]] = []
+        # List of all continue statements in a loop
+        # The tuple consists of an expression which is the condition under which the continue statement is reached and
+        # the dict is a snapshot of the local variables at the moment of the continue statement
+        self.pure_breaks: List[Tuple[Expr, Dict[str, Tuple[int, Var]]]] = []
 
         self._pure_var_index_counter = 1  # It has to start at 2
         self._quantified_var_counter = -1
@@ -225,6 +235,8 @@ class Context:
         pure_returns = self.pure_returns
         pure_success = self.pure_success
         pure_var_index_counter = self._pure_var_index_counter
+        pure_continues = self.pure_continues
+        pure_breaks = self.pure_breaks
 
         self.function = None
 
@@ -269,6 +281,8 @@ class Context:
         self.pure_returns = []
         self.pure_success = []
         self._pure_var_index_counter = 1
+        self.pure_continues = []
+        self.pure_breaks = []
 
         yield
 
@@ -318,6 +332,8 @@ class Context:
         self.pure_returns = pure_returns
         self.pure_success = pure_success
         self._pure_var_index_counter = pure_var_index_counter
+        self.pure_continues = pure_continues
+        self.pure_breaks = pure_breaks
 
     @contextmanager
     def quantified_var_scope(self):
@@ -444,18 +460,28 @@ class Context:
         break_label = self.break_label
         self.break_label = self._next_break_label()
 
+        pure_break = self.pure_breaks
+        self.pure_breaks = []
+
         yield
 
         self.break_label = break_label
+
+        self.pure_breaks = pure_break
 
     @contextmanager
     def continue_scope(self):
         continue_label = self.continue_label
         self.continue_label = self._next_continue_label()
 
+        pure_continue = self.pure_continues
+        self.pure_continues = []
+
         yield
 
         self.continue_label = continue_label
+
+        self.pure_continues = pure_continue
 
     @contextmanager
     def old_local_variables_scope(self, old_locals):
