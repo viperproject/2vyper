@@ -502,7 +502,12 @@ class _FunctionPureChecker(NodeVisitor):
                 _assert(False, function.postconditions[0], 'invalid.pure',
                         'A pure function must not have postconditions')
             # Check Code
-            self.visit(function.node, program)
+            self.visit_nodes(function.node.body, program)
+
+    def visit(self, node, *args):
+        _assert(not node.is_ghost_code, node, 'invalid.pure',
+                'A pure function must not have ghost code statements')
+        return super().visit(node, *args)
 
     def visit_Name(self, node: ast.Name, program: VyperProgram):
         with switch(node.id) as case:
