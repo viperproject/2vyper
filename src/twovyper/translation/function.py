@@ -606,12 +606,17 @@ class FunctionTranslator(CommonTranslator):
 
     def _call_pure(self, call: ast.ReceiverCall, args: List[Expr], res: List[Expr], ctx: Context) -> Expr:
         function = ctx.program.functions[call.name]
+        function_args = args.copy()
+        for (name, _), arg in zip_longest(function.args.items(), args):
+            if not arg:
+                function_args.append(self.expression_translator.translate(function.defaults[name], res, ctx))
+        function = ctx.program.functions[call.name]
         return_type = self.type_translator.translate(function.type.return_type, ctx)
         mangled_name = mangled.pure_function_name(call.name)
         call_pos = self.to_position(call, ctx)
         via = Via('pure function call', call_pos)
         pos = self.to_position(function.node, ctx, vias=[via])
-        func_app = self.viper_ast.FuncApp(mangled_name, [ctx.self_var.local_var(ctx), *args], pos,
+        func_app = self.viper_ast.FuncApp(mangled_name, [ctx.self_var.local_var(ctx), *function_args], pos,
                                           type=helpers.struct_type(self.viper_ast))
         called_success_var = helpers.struct_pure_get_success(self.viper_ast, func_app, pos)
         called_result_var = helpers.struct_pure_get_result(self.viper_ast, func_app, return_type, pos)

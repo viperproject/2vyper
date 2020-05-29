@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from collections import ChainMap
 from contextlib import contextmanager
 from functools import reduce
-from itertools import chain, starmap
+from itertools import chain, starmap, zip_longest
 from typing import List, Optional
 
 from twovyper.ast import ast_nodes as ast, names, types
@@ -162,7 +162,11 @@ class SpecificationTranslator(ExpressionTranslator):
                 viper_result_type = self.type_translator.translate(func.type.return_type, ctx)
                 mangled_name = mangled.pure_function_name(call.name)
                 pos = self.to_position(call, ctx, rules=rules.PURE_FUNCTION_FAIL, values={'function': func})
-                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + call.args]
+                function_args = call.args.copy()
+                for (name, _), arg in zip_longest(func.args.items(), call.args):
+                    if not arg:
+                        function_args.append(func.defaults[name])
+                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + function_args]
                 func_app = self.viper_ast.FuncApp(mangled_name, args, pos,
                                                   type=helpers.struct_type(self.viper_ast))
                 result_func_app = self.viper_ast.FuncApp(mangled.PURE_RESULT, [func_app], pos, type=self.viper_ast.Int)
@@ -218,8 +222,13 @@ class SpecificationTranslator(ExpressionTranslator):
             elif node.args:
                 call = node.args[0]
                 assert isinstance(call, ast.ReceiverCall)
+                func = ctx.program.functions[call.name]
                 mangled_name = mangled.pure_function_name(call.name)
-                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + call.args]
+                function_args = call.args.copy()
+                for (name, _), arg in zip_longest(func.args.items(), call.args):
+                    if not arg:
+                        function_args.append(func.defaults[name])
+                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + function_args]
                 func_app = self.viper_ast.FuncApp(mangled_name, args, pos,
                                                   type=helpers.struct_type(self.viper_ast))
                 return self.viper_ast.FuncApp(mangled.PURE_SUCCESS, [func_app], pos, type=self.viper_ast.Bool)
@@ -229,8 +238,13 @@ class SpecificationTranslator(ExpressionTranslator):
             if node.args:
                 call = node.args[0]
                 assert isinstance(call, ast.ReceiverCall)
+                func = ctx.program.functions[call.name]
                 mangled_name = mangled.pure_function_name(call.name)
-                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + call.args]
+                function_args = call.args.copy()
+                for (name, _), arg in zip_longest(func.args.items(), call.args):
+                    if not arg:
+                        function_args.append(func.defaults[name])
+                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + function_args]
                 func_app = self.viper_ast.FuncApp(mangled_name, args, pos,
                                                   type=helpers.struct_type(self.viper_ast))
                 success = self.viper_ast.FuncApp(mangled.PURE_SUCCESS, [func_app], pos, type=self.viper_ast.Bool)

@@ -737,14 +737,12 @@ class TypeAnnotator(NodeVisitor):
         self.annotate_expected(node.receiver, expected)
         receiver_type = node.receiver.type
 
-        # A logging call
-        if not receiver_type:
-            return [None], [node]
-
         # A self call
         if isinstance(receiver_type, SelfType):
             function = self.program.functions[node.name]
-            _check_number_of_arguments(node, len(function.args))
+            num_args = len(function.args)
+            num_defaults = len(function.defaults)
+            _check_number_of_arguments(node, *range(num_args - num_defaults, num_args + 1))
             for arg, func_arg in zip(node.args, function.args.values()):
                 self.annotate_expected(arg, func_arg.type)
             return [function.type.return_type], [node]
@@ -756,8 +754,11 @@ class TypeAnnotator(NodeVisitor):
             for kw in node.keywords:
                 self.annotate(kw.value)
 
+            # A logging call
+            if not receiver_type:
+                return [None], [node]
             # A contract call
-            if isinstance(receiver_type, ContractType):
+            elif isinstance(receiver_type, ContractType):
                 return [receiver_type.function_types[node.name].return_type], [node]
             elif isinstance(receiver_type, InterfaceType):
                 interface = self.program.interfaces[receiver_type.name]
