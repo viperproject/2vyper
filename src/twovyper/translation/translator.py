@@ -177,7 +177,17 @@ class ProgramTranslator(CommonTranslator):
         accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
         predicates.extend([*events, *accs])
 
-        vyper_functions = filter(lambda x: not x.is_pure(),  vyper_program.functions.values())
+        def translate_condition_for_vyper_function(func: VyperFunction) -> bool:
+            if func.is_pure():
+                has_checks = len(func.checks) > 0
+                has_performs = len(func.performs) > 0
+                has_pre_conditions = len(func.preconditions) > 0
+                has_post_conditions = len(func.postconditions) > 0
+                has_loop_invariants = len(func.loop_invariants) > 0
+                return has_checks or has_performs or has_pre_conditions or has_post_conditions or has_loop_invariants
+            return True
+
+        vyper_functions = filter(translate_condition_for_vyper_function, vyper_program.functions.values())
         methods.append(self._create_transitivity_check(ctx))
         methods.append(self._create_forced_ether_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]

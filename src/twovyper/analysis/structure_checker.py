@@ -529,12 +529,9 @@ class _FunctionPureChecker(NodeVisitor):
                     or case(names.ACCESSIBLE)
                     or case(names.INDEPENDENT)
                     or case(names.REORDER_INDEPENDENT)
-                    # Specification functions that cannot be translated to viper functions
-                    # but are also not necessary
                     or case(names.EVENT)
-                    or case(names.OLD)
-                    or case(names.ISSUED)
                     or case(names.PUBLIC_OLD)
+                    or case(names.ISSUED)
             ):
                 _assert(False, node, 'invalid.pure',
                         f'Only functions without side effects may be used in pure functions ("{node.name}" is invalid)')

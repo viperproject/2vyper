@@ -5,14 +5,14 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import List, Dict, Tuple
+from typing import List, Optional
 
 from twovyper.ast import ast_nodes as ast
-from twovyper.ast.types import StructType, VYPER_BOOL
+from twovyper.ast.types import StructType, VYPER_BOOL, VYPER_UINT256
 
 from twovyper.exceptions import UnsupportedException
 
-from twovyper.translation import helpers
+from twovyper.translation import helpers, VarSnapshot
 from twovyper.translation.context import Context
 from twovyper.translation.pure_translators import PureTranslatorMixin, PureExpressionTranslator, \
     PureArithmeticTranslator, PureSpecificationTranslator, PureTypeTranslator
@@ -20,7 +20,7 @@ from twovyper.translation.statement import AssignmentTranslator, StatementTransl
 from twovyper.translation.variable import TranslatedPureIndexedVar
 
 from twovyper.viper.ast import ViperAST
-from twovyper.viper.typedefs import Expr, Stmt, Var
+from twovyper.viper.typedefs import Expr
 
 
 class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
@@ -59,17 +59,17 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         assign = self.viper_ast.EqCmp(lhs.local_var(ctx, pos), rhs, pos)
         res.append(assign)
 
-    def translate_Raise(self, node: ast.Raise, res: List[Stmt], ctx: Context):
+    def translate_Raise(self, node: ast.Raise, res: List[Expr], ctx: Context):
         pos = self.to_position(node, ctx)
         self.fail_if(self.viper_ast.TrueLit(), [], res, ctx, pos)
 
-    def translate_Assert(self, node: ast.Assert, res: List[Stmt], ctx: Context):
+    def translate_Assert(self, node: ast.Assert, res: List[Expr], ctx: Context):
         pos = self.to_position(node, ctx)
         expr = self.expression_translator.translate(node.test, res, ctx)
         cond = self.viper_ast.Not(expr, pos)
         self.fail_if(cond, [], res, ctx, pos)
 
-    def translate_Return(self, node: ast.Return, res: List[Stmt], ctx: Context):
+    def translate_Return(self, node: ast.Return, res: List[Expr], ctx: Context):
         assert node.value
         assert isinstance(ctx.result_var, TranslatedPureIndexedVar)
         assert isinstance(ctx.success_var, TranslatedPureIndexedVar)
@@ -87,7 +87,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
             ctx.pure_returns.append((self.viper_ast.TrueLit(), ctx.result_var.evaluate_idx(ctx)))
             ctx.pure_success.append((self.viper_ast.TrueLit(), ctx.success_var.evaluate_idx(ctx)))
 
-    def translate_If(self, node: ast.If, res: List[Stmt], ctx: Context):
+    def translate_If(self, node: ast.If, res: List[Expr], ctx: Context):
         pre_locals = self._local_variable_snapshot(ctx)
         pre_conds = ctx.pure_conds
 
@@ -120,22 +120,16 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         # Update condition
         ctx.pure_conds = pre_conds
         # Merge variable changed in the "then" or "else" branch
-        for name in pre_locals.keys():
-            else_idx, else_var = else_locals[name]
-            then_idx, then_var = then_locals[name]
-            if else_idx != then_idx:
-                var = ctx.locals[name]
-                assert isinstance(var, TranslatedPureIndexedVar)
-                var.new_idx()
-                expr = self.viper_ast.CondExp(cond_local_var, then_var, else_var, pos)
-                assign = self.viper_ast.EqCmp(var.local_var(ctx), expr, pos)
-                res.append(assign)
+        self._merge_snapshots(cond_local_var, then_locals, else_locals, len(then_locals) > len(else_locals), res, ctx)
 
-    def translate_For(self, node: ast.For, res: List[Stmt], ctx: Context):
+    def translate_For(self, node: ast.For, res: List[Expr], ctx: Context):
         pos = self.to_position(node, ctx)
 
+        pre_conds = ctx.pure_conds
+
         self._add_local_var(node.target, ctx)
-        loop_var = ctx.locals[node.target.id]
+        loop_var_name = node.target.id
+        loop_var = ctx.locals[loop_var_name]
         assert isinstance(loop_var, TranslatedPureIndexedVar)
         array = self.expression_translator.translate(node.iter, res, ctx)
         array_var = TranslatedPureIndexedVar('array', 'array', node.iter.type, self.viper_ast, pos)
@@ -149,8 +143,78 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         if times > 0:
             loop_invariants = ctx.function.loop_invariants.get(node)
             if loop_invariants:
-                assert False
+                # loop-array expression
+                ctx.loop_arrays[loop_var_name] = array_local_var
+                # New variable loop-idx
+                loop_idx_var = TranslatedPureIndexedVar('idx', 'idx', VYPER_UINT256, self.viper_ast, pos)
+                ctx.loop_indices[loop_var_name] = loop_idx_var
+                loop_idx_local_var = loop_idx_var.local_var(ctx)
+                # Havoc used variables
+                loop_used_var = {}
+                for var_name in ctx.function.analysis.loop_used_names.get(loop_var_name, []):
+                    if var_name == loop_var_name:
+                        continue
+                    var = ctx.locals.get(var_name)
+                    if var and isinstance(var, TranslatedPureIndexedVar):
+                        # Create new variable
+                        mangled_name = ctx.new_local_var_name(var.name)
+                        new_var = TranslatedPureIndexedVar(var.name, mangled_name, var.type,
+                                                           var.viper_ast, var.pos, var.info)
+                        copy_expr = self.viper_ast.EqCmp(new_var.local_var(ctx), var.local_var(ctx))
+                        res.append(copy_expr)
+                        loop_used_var[var.name] = new_var
+                        # Havoc old var
+                        var.new_idx()
+                # Assume loop 0 <= index < |array|
+                loop_idx_ge_zero = self.viper_ast.GeCmp(loop_idx_local_var, self.viper_ast.IntLit(0), rpos)
+                times_lit = self.viper_ast.IntLit(times)
+                loop_idx_lt_array_size = self.viper_ast.LtCmp(loop_idx_local_var, times_lit, rpos)
+                loop_idx_assumption = self.viper_ast.And(loop_idx_ge_zero, loop_idx_lt_array_size, rpos)
+                res.append(loop_idx_assumption)
+                # Set loop variable to array[index]
+                array_at = self.viper_ast.SeqIndex(array_local_var, loop_idx_local_var, rpos)
+                set_loop_var = self.viper_ast.EqCmp(loop_var.local_var(ctx), array_at, lpos)
+                res.append(set_loop_var)
+                with ctx.old_local_variables_scope(loop_used_var):
+                    with ctx.state_scope(ctx.current_state, ctx.current_state):
+                        for loop_invariant in loop_invariants:
+                            inv = self.specification_translator.translate_pre_or_postcondition(loop_invariant, res, ctx)
+                            inv_var = TranslatedPureIndexedVar('inv', 'inv', VYPER_BOOL, self.viper_ast, pos)
+                            inv_local_var = inv_var.local_var(ctx)
+                            res.append(self.viper_ast.EqCmp(inv_local_var, inv))
+                            ctx.pure_conds = self.viper_ast.And(ctx.pure_conds, inv_local_var)\
+                                if ctx.pure_conds else inv_local_var
+                # Store state before loop body
+                pre_locals = self._local_variable_snapshot(ctx)
+                # Loop Body
+                with ctx.break_scope():
+                    with ctx.continue_scope():
+                        with ctx.new_local_scope():
+                            self.translate_stmts(node.body, res, ctx)
+                        # After loop body increase idx
+                        loop_idx_inc = self.viper_ast.Add(loop_idx_local_var, self.viper_ast.IntLit(1), pos)
+                        loop_idx_var.new_idx()
+                        loop_idx_local_var = loop_idx_var.local_var(ctx)
+                        res.append(self.viper_ast.EqCmp(loop_idx_local_var, loop_idx_inc, pos))
+                        # Break if we reached the end of the array we iterate over
+                        loop_idx_eq_times = self.viper_ast.EqCmp(loop_idx_local_var, times_lit, pos)
+                        cond_var = TranslatedPureIndexedVar('cond', 'cond', VYPER_BOOL, self.viper_ast, pos)
+                        cond_local_var = cond_var.local_var(ctx)
+                        res.append(self.viper_ast.EqCmp(cond_local_var, loop_idx_eq_times))
+                        break_cond = self.viper_ast.And(ctx.pure_conds, cond_local_var)\
+                            if ctx.pure_conds else cond_local_var
+                        ctx.pure_breaks.append((break_cond, self._local_variable_snapshot(ctx)))
+
+                    # Assume that only one of the breaks happened
+                    only_one_break_cond = self._xor_conds([x[0] for x in ctx.pure_breaks])
+                    assert only_one_break_cond is not None
+                    res.append(only_one_break_cond)
+                    # Merge snapshots
+                    prev_snapshot = pre_locals
+                    for cond, snapshot in reversed(ctx.pure_breaks):
+                        prev_snapshot = self._merge_snapshots(cond, snapshot, prev_snapshot, False, res, ctx)
             else:
+                # Unroll loop if we have no loop invariants
                 pre_locals = self._local_variable_snapshot(ctx)
                 pre_conds = ctx.pure_conds
                 with ctx.break_scope():
@@ -169,42 +233,20 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
 
                             prev_snapshot = post_it_locals
                             for cond, snapshot in reversed(ctx.pure_continues):
-                                for name in snapshot.keys():
-                                    else_idx, else_var = prev_snapshot[name]
-                                    then_idx, then_var = snapshot[name]
-                                    if else_idx != then_idx:
-                                        var = ctx.locals[name]
-                                        assert isinstance(var, TranslatedPureIndexedVar)
-                                        var.new_idx()
-                                        expr = self.viper_ast.CondExp(cond, then_var, else_var, pos)
-                                        assign = self.viper_ast.EqCmp(var.local_var(ctx), expr, pos)
-                                        res.append(assign)
-                                        snapshot[name] = (var.evaluate_idx(ctx), var.local_var(ctx))
-                                prev_snapshot = snapshot
+                                prev_snapshot = self._merge_snapshots(cond, snapshot, prev_snapshot, True, res, ctx)
 
                     prev_snapshot = pre_locals
                     for cond, snapshot in reversed(ctx.pure_breaks):
-                        for name in prev_snapshot.keys():
-                            else_idx, else_var = prev_snapshot[name]
-                            then_idx, then_var = snapshot[name]
-                            if else_idx != then_idx:
-                                var = ctx.locals[name]
-                                assert isinstance(var, TranslatedPureIndexedVar)
-                                var.new_idx()
-                                expr = self.viper_ast.CondExp(cond, then_var, else_var, pos)
-                                assign = self.viper_ast.EqCmp(var.local_var(ctx), expr, pos)
-                                res.append(assign)
-                                snapshot[name] = (var.evaluate_idx(ctx), var.local_var(ctx))
-                        prev_snapshot = snapshot
-                ctx.pure_conds = pre_conds
+                        prev_snapshot = self._merge_snapshots(cond, snapshot, prev_snapshot, False, res, ctx)
+        ctx.pure_conds = pre_conds
 
-    def translate_Break(self, node: ast.Break, res: List[Stmt], ctx: Context):
+    def translate_Break(self, node: ast.Break, res: List[Expr], ctx: Context):
         ctx.pure_breaks.append((ctx.pure_conds, self._local_variable_snapshot(ctx)))
 
-    def translate_Continue(self, node: ast.Continue, res: List[Stmt], ctx: Context):
+    def translate_Continue(self, node: ast.Continue, res: List[Expr], ctx: Context):
         ctx.pure_continues.append((ctx.pure_conds, self._local_variable_snapshot(ctx)))
 
-    def translate_Pass(self, node: ast.Pass, res: List[Stmt], ctx: Context):
+    def translate_Pass(self, node: ast.Pass, res: List[Expr], ctx: Context):
         pass
 
     def _add_local_var(self, node: ast.Name, ctx: Context):
@@ -217,18 +259,48 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         var = TranslatedPureIndexedVar(variable_name, mangled_name, node.type, self.viper_ast, pos)
         ctx.locals[variable_name] = var
 
+    def _xor_conds(self, conds: List[Expr]) -> Optional[Expr]:
+        xor_cond = None
+        for i in range(len(conds)):
+            prev = None
+            for idx, cond in enumerate(conds):
+                and_cond = cond if idx == i else self.viper_ast.Not(cond)
+                prev = self.viper_ast.And(prev, and_cond) if prev else and_cond
+            xor_cond = self.viper_ast.Or(xor_cond, prev) if xor_cond else prev
+        return xor_cond
+
     @staticmethod
-    def _local_variable_snapshot(ctx) -> Dict[str, Tuple[int, Var]]:
+    def _local_variable_snapshot(ctx) -> VarSnapshot:
         return dict(((name, (var.evaluate_idx(ctx), var.local_var(ctx)))
                      for name, var in
                      filter(lambda x: isinstance(x[1], TranslatedPureIndexedVar), ctx.locals.items())))
 
     @staticmethod
-    def _reset_variable_to_snapshot(snapshot, ctx):
+    def _reset_variable_to_snapshot(snapshot: VarSnapshot, ctx):
         for name in snapshot.keys():
             var = ctx.locals[name]
             assert isinstance(var, TranslatedPureIndexedVar)
             var.idx, _ = snapshot[name]
+
+    def _merge_snapshots(self, cond: Expr, first_snapshot: VarSnapshot, second_snapshot: VarSnapshot,
+                         iterate_over_first: bool, res: List[Expr], ctx: Context) -> VarSnapshot:
+        res_snapshot = {}
+        it_snapshot = first_snapshot if iterate_over_first else second_snapshot
+        for name in it_snapshot.keys():
+            first_idx_and_var = first_snapshot.get(name)
+            second_idx_and_var = second_snapshot.get(name)
+            if first_idx_and_var and second_idx_and_var:
+                then_idx, then_var = first_idx_and_var
+                else_idx, else_var = second_idx_and_var
+                var = ctx.locals[name]
+                assert isinstance(var, TranslatedPureIndexedVar)
+                if else_idx != then_idx:
+                    var.new_idx()
+                    expr = self.viper_ast.CondExp(cond, then_var, else_var)
+                    assign = self.viper_ast.EqCmp(var.local_var(ctx), expr)
+                    res.append(assign)
+                res_snapshot[name] = (var.evaluate_idx(ctx), var.local_var(ctx))
+        return res_snapshot
 
 
 class _AssignmentTranslator(PureTranslatorMixin, AssignmentTranslator):

@@ -13,10 +13,10 @@ from twovyper.ast import names
 from twovyper.ast.ast_nodes import Expr
 from twovyper.ast.nodes import VyperFunction, VyperProgram
 from twovyper.translation import mangled
-from twovyper.viper.typedefs import Var
 
 if TYPE_CHECKING:
     from twovyper.translation.variable import TranslatedVar
+    from twovyper.translation import VarSnapshot
 
 
 class Context:
@@ -85,11 +85,11 @@ class Context:
         # List of all break statements in a loop
         # The tuple consists of an expression which is the condition under which the break statement is reached and
         # the dict is a snapshot of the local variables at the moment of the break statement
-        self.pure_continues: List[Tuple[Expr, Dict[str, Tuple[int, Var]]]] = []
+        self.pure_continues: List[Tuple[Expr, VarSnapshot]] = []
         # List of all continue statements in a loop
         # The tuple consists of an expression which is the condition under which the continue statement is reached and
         # the dict is a snapshot of the local variables at the moment of the continue statement
-        self.pure_breaks: List[Tuple[Expr, Dict[str, Tuple[int, Var]]]] = []
+        self.pure_breaks: List[Tuple[Expr, VarSnapshot]] = []
 
         self._pure_var_index_counter = 1  # It has to start at 2
         self._quantified_var_counter = -1
