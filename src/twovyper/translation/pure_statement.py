@@ -57,10 +57,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
 
         lhs.new_idx()
         assign = self.viper_ast.EqCmp(lhs.local_var(ctx, pos), rhs, pos)
-        if ctx.pure_conds:
-            res.append(self.viper_ast.Implies(ctx.pure_conds, assign, pos))
-        else:
-            res.append(assign)
+        res.append(assign)
 
     def translate_Raise(self, node: ast.Raise, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
@@ -82,12 +79,11 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
 
         ctx.result_var.new_idx()
         assign = self.viper_ast.EqCmp(ctx.result_var.local_var(ctx), expr, pos)
+        res.append(assign)
         if ctx.pure_conds:
-            res.append(self.viper_ast.Implies(ctx.pure_conds, assign, pos))
             ctx.pure_returns.append((ctx.pure_conds, ctx.result_var.evaluate_idx(ctx)))
             ctx.pure_success.append((ctx.pure_conds, ctx.success_var.evaluate_idx(ctx)))
         else:
-            res.append(assign)
             ctx.pure_returns.append((self.viper_ast.TrueLit(), ctx.result_var.evaluate_idx(ctx)))
             ctx.pure_success.append((self.viper_ast.TrueLit(), ctx.success_var.evaluate_idx(ctx)))
 
@@ -145,10 +141,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                 var.new_idx()
                 expr = self.viper_ast.CondExp(cond_local_var, then_var, else_var, pos)
                 assign = self.viper_ast.EqCmp(var.local_var(ctx), expr, pos)
-                if ctx.pure_conds:
-                    res.append(self.viper_ast.Implies(ctx.pure_conds, assign, pos))
-                else:
-                    res.append(assign)
+                res.append(assign)
 
     def translate_For(self, node: ast.For, res: List[Stmt], ctx: Context):
         assert False
@@ -197,10 +190,7 @@ class _AssignmentTranslator(PureTranslatorMixin, AssignmentTranslator):
             var.new_idx()
         lhs = self.expression_translator.translate(node, res, ctx)
         assign = self.viper_ast.EqCmp(lhs, value, pos)
-        if ctx.pure_conds:
-            res.append(self.viper_ast.Implies(ctx.pure_conds, assign, pos))
-        else:
-            res.append(assign)
+        res.append(assign)
 
     def assign_to_Attribute(self, node: ast.Attribute, value: Expr, res: List[Expr], ctx: Context):
         assert isinstance(node.value.type, StructType)

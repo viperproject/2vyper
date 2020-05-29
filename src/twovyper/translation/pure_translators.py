@@ -37,8 +37,8 @@ class PureTranslatorMixin(CommonTranslator):
         fail_cond = self.viper_ast.And(ctx.pure_conds, cond_local_var) if ctx.pure_conds else cond_local_var
         old_success_idx = ctx.success_var.evaluate_idx(ctx)
         ctx.success_var.new_idx()
-        expr = self.viper_ast.EqCmp(ctx.success_var.local_var(ctx), self.viper_ast.FalseLit())
-        res.append(self.viper_ast.Implies(fail_cond, expr, pos, info))
+        expr = self.viper_ast.EqCmp(ctx.success_var.local_var(ctx), self.viper_ast.FalseLit(), pos, info)
+        res.append(expr)
         ctx.pure_success.append((fail_cond, ctx.success_var.evaluate_idx(ctx)))
         ctx.success_var.idx = old_success_idx
 
