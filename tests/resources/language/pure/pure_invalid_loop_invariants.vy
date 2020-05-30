@@ -8,35 +8,37 @@
 #@pure
 @private
 @constant
-def foo(a: bool) -> int128:
+def foo() -> int128:
     res: int128 = 0
     for i in range(10000):
-        #@ invariant: loop_iteration(i) <= 4
         #@ invariant: loop_iteration(i) <= 3 ==> res == 0
+        #:: ExpectedOutput(loop.invariant.not.preserved:assertion.false)
         #@ invariant: loop_iteration(i) > 3 ==> res == 3
-        if a:
-            break
         if i == 4:
             break
-            continue
-        if i == 2:
-            continue
-        if i == 1:
+        if i <= 2:
             continue
         res += i
-        continue
-        break
+    return res
+
+#@pure
+@private
+@constant
+def bar() -> int128:
+    res: int128 = 0
+    for i in range(10000):
+        #:: ExpectedOutput(loop.invariant.not.established:assertion.false)
+        #@ invariant: False
+        if i == 4:
+            break
+        if i <= 2:
+            continue
+        res += i
     return res
 
 
-#@ ensures: result(self.foo(False)) == 3
-#@ ensures: result(self.foo(True)) == 0
+#@ ensures: success(self.foo())
+#@ ensures: success(self.bar())
 @public
-def bar(i: int128):
-    pass
-
-#:: ExpectedOutput(postcondition.violated:assertion.false)
-#@ ensures: result(self.foo(False)) != 3
-@public
-def bar_fail(i: int128):
+def baz(i: int128):
     pass

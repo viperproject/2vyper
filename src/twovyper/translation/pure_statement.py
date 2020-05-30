@@ -62,6 +62,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
     def translate_Raise(self, node: ast.Raise, res: List[Expr], ctx: Context):
         pos = self.to_position(node, ctx)
         self.fail_if(self.viper_ast.TrueLit(), [], res, ctx, pos)
+        ctx.pure_conds = self.viper_ast.FalseLit()
 
     def translate_Assert(self, node: ast.Assert, res: List[Expr], ctx: Context):
         pos = self.to_position(node, ctx)
@@ -186,11 +187,13 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                                 if ctx.pure_conds else inv_local_var
                 # Store state before loop body
                 pre_locals = self._local_variable_snapshot(ctx)
+                pre_loop_iteration_conds = ctx.pure_conds
                 # Loop Body
                 with ctx.break_scope():
                     with ctx.continue_scope():
                         with ctx.new_local_scope():
                             self.translate_stmts(node.body, res, ctx)
+                        ctx.pure_conds = pre_loop_iteration_conds
                         # After loop body increase idx
                         loop_idx_inc = self.viper_ast.Add(loop_idx_local_var, self.viper_ast.IntLit(1), pos)
                         loop_idx_var.new_idx()
@@ -216,9 +219,9 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
             else:
                 # Unroll loop if we have no loop invariants
                 pre_locals = self._local_variable_snapshot(ctx)
-                pre_conds = ctx.pure_conds
                 with ctx.break_scope():
                     for i in range(times):
+                        pre_loop_iteration_conds = ctx.pure_conds
                         with ctx.continue_scope():
                             idx = self.viper_ast.IntLit(i, lpos)
                             array_at = self.viper_ast.SeqIndex(array_local_var, idx, rpos)
@@ -235,6 +238,8 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                             for cond, snapshot in reversed(ctx.pure_continues):
                                 prev_snapshot = self._merge_snapshots(cond, snapshot, prev_snapshot, True, res, ctx)
 
+                        ctx.pure_conds = pre_loop_iteration_conds
+
                     prev_snapshot = pre_locals
                     for cond, snapshot in reversed(ctx.pure_breaks):
                         prev_snapshot = self._merge_snapshots(cond, snapshot, prev_snapshot, False, res, ctx)
@@ -242,9 +247,11 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
 
     def translate_Break(self, node: ast.Break, res: List[Expr], ctx: Context):
         ctx.pure_breaks.append((ctx.pure_conds, self._local_variable_snapshot(ctx)))
+        ctx.pure_conds = self.viper_ast.FalseLit()
 
     def translate_Continue(self, node: ast.Continue, res: List[Expr], ctx: Context):
         ctx.pure_continues.append((ctx.pure_conds, self._local_variable_snapshot(ctx)))
+        ctx.pure_conds = self.viper_ast.FalseLit()
 
     def translate_Pass(self, node: ast.Pass, res: List[Expr], ctx: Context):
         pass

@@ -15,15 +15,16 @@ def foo(a: bool) -> int128:
             break
         if i == 4:
             break
-        if i == 2:
             continue
         if i == 1:
             continue
         res += i
+        continue
+        break
     return res
 
 
-#@ ensures: result(self.foo(False)) == 3
+#@ ensures: result(self.foo(False)) == 5
 #@ ensures: result(self.foo(True)) == 0
 @public
 def bar(i: int128):
