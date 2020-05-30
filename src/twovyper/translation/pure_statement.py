@@ -57,12 +57,13 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
 
         lhs.new_idx()
         assign = self.viper_ast.EqCmp(lhs.local_var(ctx, pos), rhs, pos)
-        res.append(assign)
+        expr = self.viper_ast.Implies(ctx.pure_conds, assign, pos) if ctx.pure_conds else assign
+        res.append(expr)
 
     def translate_Raise(self, node: ast.Raise, res: List[Expr], ctx: Context):
         pos = self.to_position(node, ctx)
-        self.fail_if(self.viper_ast.TrueLit(), [], res, ctx, pos)
-        ctx.pure_conds = self.viper_ast.FalseLit()
+        self.fail_if(self.viper_ast.TrueLit(pos), [], res, ctx, pos)
+        ctx.pure_conds = self.viper_ast.FalseLit(pos)
 
     def translate_Assert(self, node: ast.Assert, res: List[Expr], ctx: Context):
         pos = self.to_position(node, ctx)
@@ -80,13 +81,14 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
 
         ctx.result_var.new_idx()
         assign = self.viper_ast.EqCmp(ctx.result_var.local_var(ctx), expr, pos)
-        res.append(assign)
+        expr = self.viper_ast.Implies(ctx.pure_conds, assign, pos) if ctx.pure_conds else assign
+        res.append(expr)
         if ctx.pure_conds:
             ctx.pure_returns.append((ctx.pure_conds, ctx.result_var.evaluate_idx(ctx)))
             ctx.pure_success.append((ctx.pure_conds, ctx.success_var.evaluate_idx(ctx)))
         else:
-            ctx.pure_returns.append((self.viper_ast.TrueLit(), ctx.result_var.evaluate_idx(ctx)))
-            ctx.pure_success.append((self.viper_ast.TrueLit(), ctx.success_var.evaluate_idx(ctx)))
+            ctx.pure_returns.append((self.viper_ast.TrueLit(pos), ctx.result_var.evaluate_idx(ctx)))
+            ctx.pure_success.append((self.viper_ast.TrueLit(pos), ctx.success_var.evaluate_idx(ctx)))
 
     def translate_If(self, node: ast.If, res: List[Expr], ctx: Context):
         pre_locals = self._local_variable_snapshot(ctx)
@@ -96,13 +98,15 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         cond = self.expression_translator.translate(node.test, res, ctx)
 
         cond_var = TranslatedPureIndexedVar('cond', 'cond', VYPER_BOOL, self.viper_ast, pos)
-        res.append(self.viper_ast.EqCmp(cond_var.local_var(ctx), cond))
+        assign = self.viper_ast.EqCmp(cond_var.local_var(ctx), cond, pos)
+        expr = self.viper_ast.Implies(ctx.pure_conds, assign, pos) if ctx.pure_conds else assign
+        res.append(expr)
         cond_local_var = cond_var.local_var(ctx)
 
         # "Then" branch
         with ctx.new_local_scope():
             # Update condition
-            ctx.pure_conds = self.viper_ast.And(pre_conds, cond_local_var) if pre_conds else cond_local_var
+            ctx.pure_conds = self.viper_ast.And(pre_conds, cond_local_var, pos) if pre_conds else cond_local_var
             self.translate_stmts(node.body, res, ctx)
             # Get current state of local variable state after "then"-branch
             then_locals = self._local_variable_snapshot(ctx)
@@ -111,8 +115,8 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         # "Else" branch
         with ctx.new_local_scope():
             # Update condition
-            negated_local_var = self.viper_ast.Not(cond_local_var)
-            ctx.pure_conds = self.viper_ast.And(pre_conds, negated_local_var) if pre_conds else negated_local_var
+            negated_local_var = self.viper_ast.Not(cond_local_var, pos)
+            ctx.pure_conds = self.viper_ast.And(pre_conds, negated_local_var, pos) if pre_conds else negated_local_var
             self.translate_stmts(node.orelse, res, ctx)
             # Get current state of local variable state after "else"-branch
             else_locals = self._local_variable_snapshot(ctx)
@@ -134,7 +138,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         assert isinstance(loop_var, TranslatedPureIndexedVar)
         array = self.expression_translator.translate(node.iter, res, ctx)
         array_var = TranslatedPureIndexedVar('array', 'array', node.iter.type, self.viper_ast, pos)
-        res.append(self.viper_ast.EqCmp(array_var.local_var(ctx), array))
+        res.append(self.viper_ast.EqCmp(array_var.local_var(ctx), array, pos))
         array_local_var = array_var.local_var(ctx)
 
         times = node.iter.type.size
@@ -161,7 +165,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                         mangled_name = ctx.new_local_var_name(var.name)
                         new_var = TranslatedPureIndexedVar(var.name, mangled_name, var.type,
                                                            var.viper_ast, var.pos, var.info)
-                        copy_expr = self.viper_ast.EqCmp(new_var.local_var(ctx), var.local_var(ctx))
+                        copy_expr = self.viper_ast.EqCmp(new_var.local_var(ctx), var.local_var(ctx), rpos)
                         res.append(copy_expr)
                         loop_used_var[var.name] = new_var
                         # Havoc old var
@@ -179,11 +183,14 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                 with ctx.old_local_variables_scope(loop_used_var):
                     with ctx.state_scope(ctx.current_state, ctx.current_state):
                         for loop_invariant in loop_invariants:
+                            cond_pos = self.to_position(loop_invariant, ctx)
                             inv = self.specification_translator.translate_pre_or_postcondition(loop_invariant, res, ctx)
-                            inv_var = TranslatedPureIndexedVar('inv', 'inv', VYPER_BOOL, self.viper_ast, pos)
+                            inv_var = TranslatedPureIndexedVar('inv', 'inv', VYPER_BOOL, self.viper_ast, cond_pos)
                             inv_local_var = inv_var.local_var(ctx)
-                            res.append(self.viper_ast.EqCmp(inv_local_var, inv))
-                            ctx.pure_conds = self.viper_ast.And(ctx.pure_conds, inv_local_var)\
+                            assign = self.viper_ast.EqCmp(inv_local_var, inv, cond_pos)
+                            expr = self.viper_ast.Implies(pre_conds, assign, cond_pos) if pre_conds else assign
+                            res.append(expr)
+                            ctx.pure_conds = self.viper_ast.And(ctx.pure_conds, inv_local_var, pos)\
                                 if ctx.pure_conds else inv_local_var
                 # Store state before loop body
                 pre_locals = self._local_variable_snapshot(ctx)
@@ -203,8 +210,8 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                         loop_idx_eq_times = self.viper_ast.EqCmp(loop_idx_local_var, times_lit, pos)
                         cond_var = TranslatedPureIndexedVar('cond', 'cond', VYPER_BOOL, self.viper_ast, pos)
                         cond_local_var = cond_var.local_var(ctx)
-                        res.append(self.viper_ast.EqCmp(cond_local_var, loop_idx_eq_times))
-                        break_cond = self.viper_ast.And(ctx.pure_conds, cond_local_var)\
+                        res.append(self.viper_ast.EqCmp(cond_local_var, loop_idx_eq_times, pos))
+                        break_cond = self.viper_ast.And(ctx.pure_conds, cond_local_var, pos)\
                             if ctx.pure_conds else cond_local_var
                         ctx.pure_breaks.append((break_cond, self._local_variable_snapshot(ctx)))
 
@@ -334,7 +341,8 @@ class _AssignmentTranslator(PureTranslatorMixin, AssignmentTranslator):
             var.new_idx()
         lhs = self.expression_translator.translate(node, res, ctx)
         assign = self.viper_ast.EqCmp(lhs, value, pos)
-        res.append(assign)
+        expr = self.viper_ast.Implies(ctx.pure_conds, assign, pos) if ctx.pure_conds else assign
+        res.append(expr)
 
     def assign_to_Attribute(self, node: ast.Attribute, value: Expr, res: List[Expr], ctx: Context):
         assert isinstance(node.value.type, StructType)
