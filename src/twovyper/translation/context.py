@@ -16,7 +16,7 @@ from twovyper.translation import mangled
 
 if TYPE_CHECKING:
     from twovyper.translation.variable import TranslatedVar
-    from twovyper.translation import VarSnapshot
+    from twovyper.translation import LocalVarSnapshot
 
 
 class Context:
@@ -85,11 +85,11 @@ class Context:
         # List of all break statements in a loop
         # The tuple consists of an expression which is the condition under which the break statement is reached and
         # the dict is a snapshot of the local variables at the moment of the break statement
-        self.pure_continues: List[Tuple[Expr, VarSnapshot]] = []
+        self.pure_continues: List[Tuple[Optional[Expr], LocalVarSnapshot]] = []
         # List of all continue statements in a loop
         # The tuple consists of an expression which is the condition under which the continue statement is reached and
         # the dict is a snapshot of the local variables at the moment of the continue statement
-        self.pure_breaks: List[Tuple[Expr, VarSnapshot]] = []
+        self.pure_breaks: List[Tuple[Optional[Expr], LocalVarSnapshot]] = []
 
         self._pure_var_index_counter = 1  # It has to start at 2
         self._quantified_var_counter = -1
