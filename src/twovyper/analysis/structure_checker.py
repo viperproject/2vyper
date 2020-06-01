@@ -478,6 +478,19 @@ class _FunctionPureChecker(NodeVisitor):
     Checks if a given VyperFunction is pure
     """
 
+    def __init__(self):
+        super().__init__()
+        self._ghost_allowed = False
+
+    @contextmanager
+    def _ghost_code_allowed(self):
+        ghost_allowed = self._ghost_allowed
+        self._ghost_allowed = True
+
+        yield
+
+        self._ghost_allowed = ghost_allowed
+
     def check_function(self, function: VyperFunction, program: VyperProgram):
         # A function must be constant, private and non-payable to be valid
         if not (function.is_constant() and function.is_private() and (not function.is_payable())):
@@ -501,11 +514,15 @@ class _FunctionPureChecker(NodeVisitor):
             if function.postconditions:
                 _assert(False, function.postconditions[0], 'invalid.pure',
                         'A pure function must not have postconditions')
+            # Check loop invariants
+            with self._ghost_code_allowed():
+                for loop_invariants in function.loop_invariants.values():
+                    self.visit_nodes(loop_invariants, program)
             # Check Code
             self.visit_nodes(function.node.body, program)
 
     def visit(self, node, *args):
-        _assert(not node.is_ghost_code, node, 'invalid.pure',
+        _assert(self._ghost_allowed or not node.is_ghost_code, node, 'invalid.pure',
                 'A pure function must not have ghost code statements')
         return super().visit(node, *args)
 
@@ -532,14 +549,33 @@ class _FunctionPureChecker(NodeVisitor):
                     case(names.RAW_LOG)
                     # Specification functions with side effects
                     or case(names.ACCESSIBLE)
+                    or case(names.EVENT)
                     or case(names.INDEPENDENT)
                     or case(names.REORDER_INDEPENDENT)
-                    or case(names.EVENT)
-                    or case(names.PUBLIC_OLD)
-                    or case(names.ISSUED)
             ):
                 _assert(False, node, 'invalid.pure',
                         f'Only functions without side effects may be used in pure functions ("{node.name}" is invalid)')
+            elif (
+                    # Not supported specification functions
+                    case(names.ALLOCATED)
+                    or case(names.FAILED)
+                    or case(names.IMPLEMENTS)
+                    or case(names.ISSUED)
+                    or case(names.LOCKED)
+                    or case(names.OFFERED)
+                    or case(names.OUT_OF_GAS)
+                    or case(names.OVERFLOW)
+                    or case(names.PUBLIC_OLD)
+                    or case(names.RECEIVED)
+                    or case(names.SENT)
+                    or case(names.STORAGE)
+                    or case(names.TRUSTED)
+            ):
+                _assert(False, node, 'invalid.pure',
+                        f'This function may not be used in pure functions ("{node.name}" is invalid)')
+            elif case(names.SUCCESS):
+                _assert(len(node.keywords) == 0, node, 'invalid.pure',
+                        f'Only success without keywords may be used in pure functions')
             else:
                 self.generic_visit(node, program)
 
