@@ -117,7 +117,7 @@ def main() -> None:
         default=config.boogie_path
     )
     parser.add_argument(
-        '--model',
+        '--counterexample',
         action='store_true',
         help='print a counterexample if the verification fails',
     )
@@ -187,7 +187,7 @@ def main() -> None:
 def translate_and_verify(vyper_file, jvm, args, print=print):
     try:
         start = time()
-        tw = TwoVyper(jvm, args.model)
+        tw = TwoVyper(jvm, args.counterexample)
         program = tw.translate(vyper_file, args.vyper_root, args.skip_vyper)
         if args.print_viper:
             print(str(program))
@@ -207,7 +207,7 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
                 print(f"{i}, {args.benchmark}, {start}, {end}, {end - start}")
         else:
             vresult = tw.verify(program, vyper_file, backend)
-        print(vresult.string(args.ide_mode, include_model=args.model))
+        print(vresult.string(args.ide_mode, include_model=args.counterexample))
         end = time()
         duration = end - start
         print(f"Verification took {duration:.2f} seconds.")

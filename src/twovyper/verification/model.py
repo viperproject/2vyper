@@ -20,7 +20,7 @@ ModelTransformation = Callable[[str, Any], Optional[Tuple[str, str]]]
 class Model:
 
     def __init__(self, error: AbstractVerificationError, transform: Optional[ModelTransformation]):
-        self._model = error.parsedModel().get()
+        self._model = error.counterexample().get().model()
         self._transform = transform
         self.values()
 
