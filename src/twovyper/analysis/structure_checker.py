@@ -293,6 +293,10 @@ class StructureChecker(NodeVisitor):
                 _assert(func.is_pure(), argument, 'spec.success',
                         'Only pure functions can be called from the specification.')
                 self.generic_visit(argument, ctx, program, function)
+            elif (ctx == _Context.INVARIANT
+                  or ctx == _Context.TRANSITIVE_POSTCONDITION
+                  or ctx == _Context.LOOP_INVARIANT):
+                _assert(False, node, f'{ctx.value}.call')
 
             return
         # Accessible is of the form accessible(to, amount, self.some_func(args...))
@@ -357,6 +361,11 @@ class StructureChecker(NodeVisitor):
                 self.generic_visit(argument, ctx, program, function)
 
                 return
+            elif (ctx == _Context.CHECK
+                  or ctx == _Context.INVARIANT
+                  or ctx == _Context.TRANSITIVE_POSTCONDITION
+                  or ctx == _Context.LOOP_INVARIANT):
+                _assert(False, node, f'{ctx.value}.call')
 
         elif node.name == names.INDEPENDENT:
             with self._inside_pure_scope('independent expressions'):
