@@ -169,6 +169,7 @@ class ProgramTranslator(CommonTranslator):
         functions.extend(self._translate_ghost_function(func, ctx) for func in vyper_program.ghost_functions.values())
         domains.append(self._translate_implements(vyper_program, ctx))
 
+        # Pure functions
         pure_vyper_functions = filter(VyperFunction.is_pure,  vyper_program.functions.values())
         functions += [self.pure_function_translator.translate(function, ctx) for function in pure_vyper_functions]
 
@@ -177,20 +178,21 @@ class ProgramTranslator(CommonTranslator):
         accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
         predicates.extend([*events, *accs])
 
+        # Viper methods
         def translate_condition_for_vyper_function(func: VyperFunction) -> bool:
-            if func.is_pure():
-                has_checks = len(func.checks) > 0
-                has_performs = len(func.performs) > 0
-                has_pre_conditions = len(func.preconditions) > 0
-                has_post_conditions = len(func.postconditions) > 0
+            has_general_postcondition = (len(vyper_program.general_postconditions) > 0
+                                         or len(vyper_program.transitive_postconditions) > 0)
+            if not has_general_postcondition and func.is_pure():
                 has_loop_invariants = len(func.loop_invariants) > 0
-                return has_checks or has_performs or has_pre_conditions or has_post_conditions or has_loop_invariants
+                has_unreachable_assertions = func.analysis.uses_unreachable
+                return has_loop_invariants or has_unreachable_assertions
             return True
-
         vyper_functions = filter(translate_condition_for_vyper_function, vyper_program.functions.values())
         methods.append(self._create_transitivity_check(ctx))
         methods.append(self._create_forced_ether_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
+
+        # Viper Program
         viper_program = self.viper_ast.Program(domains, [], functions, predicates, methods)
         return viper_program
 

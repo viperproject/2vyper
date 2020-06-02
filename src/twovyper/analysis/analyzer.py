@@ -79,6 +79,8 @@ class FunctionAnalysis:
         self.accessible_tags = set()
         # The set of variable names which get changed by a loop
         self.loop_used_names: Dict[str, List[str]] = {}
+        # True if and only if "assert e, UNREACHABLE" or "raise UNREACHABLE" is used
+        self.uses_unreachable = False
 
 
 class _ProgramAnalyzer(NodeVisitor):
@@ -177,6 +179,12 @@ class _FunctionAnalyzer(NodeVisitor):
             self.visit_nodes(function.checks, program, function)
         self.generic_visit(function.node, program, function)
 
+    def visit_Assert(self, node: ast.Assert, program: VyperProgram, function: VyperFunction):
+        if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
+            function.analysis.uses_unreachable = True
+
+        self.generic_visit(node, program, function)
+
     def visit_FunctionCall(self, node: ast.FunctionCall, program: VyperProgram, function: VyperFunction):
         if node.name == names.ISSUED:
             function.analysis.uses_issued = True
@@ -200,6 +208,12 @@ class _FunctionAnalyzer(NodeVisitor):
                     pass
                 else:
                     self.used_names.add(node.id)
+        self.generic_visit(node, program, function)
+
+    def visit_Raise(self, node: ast.Raise, program: VyperProgram, function: VyperFunction):
+        if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
+            function.analysis.uses_unreachable = True
+
         self.generic_visit(node, program, function)
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall, program: VyperProgram, function: VyperFunction):
