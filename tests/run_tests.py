@@ -14,7 +14,7 @@ from conftest import option
 from tests import _init_jvm, _init_model, _init_store_viper, _test
 
 
-def setup_module(module):
+def setup_module():
     _init_jvm(option.verifier)
     _init_model(option.model)
     _init_store_viper(option.store_viper)
