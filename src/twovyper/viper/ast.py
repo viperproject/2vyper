@@ -203,8 +203,8 @@ class ViperAST:
     def DomainAxiom(self, name, expr, domain_name, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        return self.ast.DomainAxiom(name, expr, position, info, domain_name,
-                                    self.NoTrafos)
+        return self.ast.NamedDomainAxiom(name, expr, position, info, domain_name,
+                                         self.NoTrafos)
 
     def DomainType(self, name, type_vars_map, type_vars):
         map = self.to_map(type_vars_map)

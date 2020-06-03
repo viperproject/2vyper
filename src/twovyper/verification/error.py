@@ -115,7 +115,7 @@ class Error:
         self.identifier = error_id
         self._error_info = error_item
         self.reason = Reason(reason_id, viper_reason, reason_item)
-        if error.parsedModel().isDefined():
+        if error.counterexample().isDefined():
             self.model = Model(error, error_item.model_transformation)
         else:
             self._model = None
