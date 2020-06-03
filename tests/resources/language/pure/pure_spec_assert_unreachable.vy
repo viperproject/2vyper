@@ -48,13 +48,13 @@ def get_b_fail() -> int128:
 def compliant():
     pass
 
-#:: ExpectedOutput(function.failed:function.revert)
+#:: ExpectedOutput(function.failed:function.revert) | ExpectedOutput(carbon)(postcondition.violated:assertion.false)
 #@ ensures: result(self.get_a_fail()) == self.a
 @public
 def not_compliant_1():
     pass
 
-#:: ExpectedOutput(function.failed:function.revert)
+#:: ExpectedOutput(function.failed:function.revert) | ExpectedOutput(carbon)(postcondition.violated:assertion.false)
 #@ ensures: result(self.get_b_fail()) == self.b
 @public
 def not_compliant_2():

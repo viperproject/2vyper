@@ -15,7 +15,7 @@ def baz(i: int128) -> int128:
         return 1
     return 0
 
-#:: ExpectedOutput(function.failed:function.revert)
+#:: ExpectedOutput(silicon)(function.failed:function.revert)
 #@ ensures: result(self.baz(4)) == 1
 @public
 def test(i: int128):

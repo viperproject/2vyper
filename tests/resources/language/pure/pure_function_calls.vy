@@ -44,7 +44,7 @@ def bar(i: int128):
     self.foo(i)
 
 
-#:: ExpectedOutput(function.failed:function.revert)
+#:: ExpectedOutput(function.failed:function.revert) | ExpectedOutput(carbon)(postcondition.violated:assertion.false)
 #@ ensures: result(self.foo(4)) == 6
 @public
 def bar_fail():
