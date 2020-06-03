@@ -9,6 +9,9 @@ import abc
 import logging
 
 from enum import Enum
+from typing import Optional, Any
+
+from jpype import JPackage
 
 from twovyper import config
 
@@ -22,12 +25,16 @@ from twovyper.verification.result import VerificationResult, Success, Failure
 
 class AbstractVerifier(abc.ABC):
 
+    def __init__(self):
+        self.jvm: Optional[JVM] = None
+        self.silver: Optional[JPackage] = None
+
     @abc.abstractmethod
-    def initialize(self, jvm: JVM, file: str, get_model: bool = False):
+    def _initialize(self, jvm: JVM, file: str, get_model: bool = False):
         pass
 
     @abc.abstractmethod
-    def verify(self, program: Program) -> VerificationResult:
+    def verify(self, program: Program, jvm: JVM, filename: str, get_model: bool = False) -> VerificationResult:
         pass
 
 
@@ -36,7 +43,11 @@ class Silicon(AbstractVerifier):
     Provides access to the Silicon verifier
     """
 
-    def initialize(self, jvm: JVM, filename: str, get_model: bool = False):
+    def __init__(self):
+        super().__init__()
+        self.silicon: Optional[Any] = None
+
+    def _initialize(self, jvm: JVM, filename: str, get_model: bool = False):
         self.jvm = jvm
         self.silver = jvm.viper.silver
         if not jvm.is_known_class(jvm.viper.silicon.Silicon):
@@ -52,18 +63,17 @@ class Silicon(AbstractVerifier):
 
         self.silicon.parseCommandLine(list_to_seq(args, jvm))
         self.silicon.start()
-        self.ready = True
 
         logging.info("Initialized Silicon.")
 
-    def verify(self, program: Program) -> VerificationResult:
+    def verify(self, program: Program, jvm: JVM, filename: str, get_model: bool = False) -> VerificationResult:
         """
         Verifies the given program using Silicon
         """
-        if not self.ready:
-            self.silicon.restart()
+        if self.silicon is None:
+            self._initialize(jvm, filename, get_model)
+            assert self.silicon is not None
         result = self.silicon.verify(program)
-        self.ready = False
         if isinstance(result, self.silver.verifier.Failure):
             logging.info("Silicon returned with: Failure.")
             it = result.errors().toIterator()
@@ -76,16 +86,20 @@ class Silicon(AbstractVerifier):
             return Success()
 
     def __del__(self):
-        if hasattr(self, 'silicon') and self.silicon:
+        if self.silicon is not None:
             self.silicon.stop()
 
 
-class Carbon:
+class Carbon(AbstractVerifier):
     """
     Provides access to the Carbon verifier
     """
 
-    def initialize(self, jvm: JVM, filename: str, get_model: bool = False):
+    def __init__(self):
+        super().__init__()
+        self.carbon: Optional[Any] = None
+
+    def _initialize(self, jvm: JVM, filename: str, get_model: bool = False):
         self.silver = jvm.viper.silver
         if not jvm.is_known_class(jvm.viper.carbon.CarbonVerifier):
             raise Exception('Carbon backend not found on classpath.')
@@ -102,19 +116,18 @@ class Carbon:
 
         self.carbon.parseCommandLine(list_to_seq(args, jvm))
         self.carbon.start()
-        self.ready = True
         self.jvm = jvm
 
         logging.info("Initialized Carbon.")
 
-    def verify(self, program: Program) -> VerificationResult:
+    def verify(self, program: Program, jvm: JVM, filename: str, get_model: bool = False) -> VerificationResult:
         """
         Verifies the given program using Carbon
         """
-        if not self.ready:
-            self.carbon.restart()
+        if self.carbon is None:
+            self._initialize(jvm, filename, get_model)
+            assert self.carbon is not None
         result = self.carbon.verify(program)
-        self.ready = False
         if isinstance(result, self.silver.verifier.Failure):
             logging.info("Carbon returned with: Failure.")
             it = result.errors().toIterator()
@@ -125,6 +138,10 @@ class Carbon:
         else:
             logging.info("Carbon returned with: Success.")
             return Success()
+
+    def __del__(self):
+        if self.carbon is not None:
+            self.carbon.stop()
 
 
 class ViperVerifier(Enum):
