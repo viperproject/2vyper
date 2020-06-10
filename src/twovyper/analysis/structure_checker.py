@@ -70,6 +70,7 @@ class StructureChecker(NodeVisitor):
         self._non_pure_parent_description: Union[str, None] = None
         self._visited_an_event = False
         self._only_one_event_allowed = False
+        self._function_pure_checker = _FunctionPureChecker()
 
     @contextmanager
     def _inside_old_scope(self):
@@ -113,6 +114,8 @@ class StructureChecker(NodeVisitor):
 
         for function in program.functions.values():
             self.visit(function.node, _Context.CODE, program, function)
+            if function.is_pure():
+                self._function_pure_checker.check_function(function, program)
 
             for postcondition in function.postconditions:
                 self.visit(postcondition, _Context.POSTCONDITION, program, function)
@@ -280,6 +283,21 @@ class StructureChecker(NodeVisitor):
                 _assert(node.keywords[0].name == names.SUCCESS_IF_NOT, node, 'spec.success')
                 check_success_args(node.keywords[0].value)
 
+            if len(node.keywords) == 0 and len(node.args) == 1:
+                argument = node.args[0]
+                _assert(isinstance(argument, ast.ReceiverCall), node, 'spec.success')
+                assert isinstance(argument, ast.ReceiverCall)
+                func = program.functions.get(argument.name)
+                _assert(func is not None, argument, 'spec.success',
+                        'Only functions defined in this contract can be called from the specification.')
+                _assert(func.is_pure(), argument, 'spec.success',
+                        'Only pure functions can be called from the specification.')
+                self.generic_visit(argument, ctx, program, function)
+            elif (ctx == _Context.INVARIANT
+                  or ctx == _Context.TRANSITIVE_POSTCONDITION
+                  or ctx == _Context.LOOP_INVARIANT):
+                _assert(False, node, f'{ctx.value}.call')
+
             return
         # Accessible is of the form accessible(to, amount, self.some_func(args...))
         elif node.name == names.ACCESSIBLE:
@@ -328,11 +346,27 @@ class StructureChecker(NodeVisitor):
         elif node.name in [names.OLD, names.PUBLIC_OLD]:
             with self._inside_old_scope():
                 self.generic_visit(node, ctx, program, function)
-        elif node.name in [names.OLD, names.PUBLIC_OLD]:
-            with self._inside_old_scope():
-                self.generic_visit(node, ctx, program, function)
 
             return
+        elif node.name == names.RESULT or node.name == names.REVERT:
+            if len(node.args) == 1:
+                argument = node.args[0]
+                _assert(isinstance(argument, ast.ReceiverCall), node, f"spec.{node.name}")
+                assert isinstance(argument, ast.ReceiverCall)
+                func = program.functions.get(argument.name)
+                _assert(func is not None, argument, f"spec.{node.name}",
+                        'Only functions defined in this contract can be called from the specification.')
+                _assert(func.is_pure(), argument, f"spec.{node.name}",
+                        'Only pure functions can be called from the specification.')
+                self.generic_visit(argument, ctx, program, function)
+
+                return
+            elif (ctx == _Context.CHECK
+                  or ctx == _Context.INVARIANT
+                  or ctx == _Context.TRANSITIVE_POSTCONDITION
+                  or ctx == _Context.LOOP_INVARIANT):
+                _assert(False, node, f'{ctx.value}.call')
+
         elif node.name == names.INDEPENDENT:
             with self._inside_pure_scope('independent expressions'):
                 self.visit(node.args[0], ctx, program, function)
@@ -416,7 +450,7 @@ class StructureChecker(NodeVisitor):
         else:
             self.visit_nodes(chain(node.args, node.keywords), arg_ctx, program, function)
 
-    def visit_ReceiverCall(self, node: ast.Name, ctx: _Context,
+    def visit_ReceiverCall(self, node: ast.ReceiverCall, ctx: _Context,
                            program: VyperProgram, function: Optional[VyperFunction]):
         if ctx == _Context.GHOST_CODE:
             _assert(False, node, 'invalid.ghost.code')
@@ -446,3 +480,127 @@ class StructureChecker(NodeVisitor):
     def visit_Raise(self, node: ast.Raise, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         self._visit_assertion(node, ctx)
         self.generic_visit(node, ctx, program, function)
+
+
+class _FunctionPureChecker(NodeVisitor):
+    """
+    Checks if a given VyperFunction is pure
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._ghost_allowed = False
+        self.max_allowed_function_index = -1
+
+    @contextmanager
+    def _ghost_code_allowed(self):
+        ghost_allowed = self._ghost_allowed
+        self._ghost_allowed = True
+
+        yield
+
+        self._ghost_allowed = ghost_allowed
+
+    def check_function(self, function: VyperFunction, program: VyperProgram):
+        # A function must be constant, private and non-payable to be valid
+        if not (function.is_constant() and function.is_private() and (not function.is_payable())):
+            _assert(False, function.node, 'invalid.pure', 'A pure function must be constant, private and non-payable')
+        elif not function.type.return_type:
+            _assert(False, function.node, 'invalid.pure', 'A pure function must have a return type')
+        else:
+            self.max_allowed_function_index = function.index - 1
+            # Check checks
+            if function.checks:
+                _assert(False, function.checks[0], 'invalid.pure',
+                        'A pure function must not have checks')
+            # Check performs
+            if function.performs:
+                _assert(False, function.performs[0], 'invalid.pure',
+                        'A pure function must not have performs')
+            # Check preconditions
+            if function.preconditions:
+                _assert(False, function.preconditions[0], 'invalid.pure',
+                        'A pure function must not have preconditions')
+            # Check postconditions
+            if function.postconditions:
+                _assert(False, function.postconditions[0], 'invalid.pure',
+                        'A pure function must not have postconditions')
+            # Check loop invariants
+            with self._ghost_code_allowed():
+                for loop_invariants in function.loop_invariants.values():
+                    self.visit_nodes(loop_invariants, program)
+            # Check Code
+            self.visit_nodes(function.node.body, program)
+
+    def visit(self, node, *args):
+        _assert(self._ghost_allowed or not node.is_ghost_code, node, 'invalid.pure',
+                'A pure function must not have ghost code statements')
+        return super().visit(node, *args)
+
+    def visit_Name(self, node: ast.Name, program: VyperProgram):
+        with switch(node.id) as case:
+            if case(names.MSG) \
+                    or case(names.BLOCK) \
+                    or case(names.TX):
+                _assert(False, node, 'invalid.pure', 'Pure functions are not allowed to use "msg", "block" or "tx".')
+        self.generic_visit(node, program)
+
+    def visit_ExprStmt(self, node: ast.ExprStmt, program: VyperProgram):
+        # A call to clear is an assignment, all other expressions are not valid.
+        if isinstance(node.value, ast.FunctionCall) and node.value.name == names.CLEAR:
+            self.generic_visit(node, program)
+        else:
+            _assert(False, node, 'invalid.pure', 'Pure functions are not allowed to have just an expression as a '
+                                                 'statement,  since expressions must not have side effects.')
+
+    def visit_FunctionCall(self, node: ast.FunctionCall, program: VyperProgram):
+        with switch(node.name) as case:
+            if (
+                    # Vyper functions with side effects
+                    case(names.RAW_LOG)
+                    # Specification functions with side effects
+                    or case(names.ACCESSIBLE)
+                    or case(names.EVENT)
+                    or case(names.INDEPENDENT)
+                    or case(names.REORDER_INDEPENDENT)
+            ):
+                _assert(False, node, 'invalid.pure',
+                        f'Only functions without side effects may be used in pure functions ("{node.name}" is invalid)')
+            elif (
+                    # Not supported specification functions
+                    case(names.ALLOCATED)
+                    or case(names.FAILED)
+                    or case(names.IMPLEMENTS)
+                    or case(names.ISSUED)
+                    or case(names.LOCKED)
+                    or case(names.OFFERED)
+                    or case(names.OUT_OF_GAS)
+                    or case(names.OVERFLOW)
+                    or case(names.PUBLIC_OLD)
+                    or case(names.RECEIVED)
+                    or case(names.SENT)
+                    or case(names.STORAGE)
+                    or case(names.TRUSTED)
+            ):
+                _assert(False, node, 'invalid.pure',
+                        f'This function may not be used in pure functions ("{node.name}" is invalid)')
+            elif case(names.SUCCESS):
+                _assert(len(node.keywords) == 0, node, 'invalid.pure',
+                        f'Only success without keywords may be used in pure functions')
+
+        self.generic_visit(node, program)
+
+    def visit_ReceiverCall(self, node: ast.ReceiverCall, program: VyperProgram):
+        with switch(node.receiver.id) as case:
+            if case(names.SELF):
+                self.generic_visit(node, program)
+                _assert(program.functions[node.name].is_pure(), node, 'invalid.pure',
+                        'Pure function may only call other pure functions')
+                _assert(program.functions[node.name].index <= self.max_allowed_function_index, node, 'invalid.pure',
+                        'Only functions defined above this function can be called from here')
+            elif case(names.LOG):
+                _assert(False, node, 'invalid.pure',
+                        'Pure function may not log events.')
+            else:
+                _assert(False, node, 'invalid.pure',
+                        'Pure function must not call functions of another contract.')

@@ -7,20 +7,22 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
-from typing import Union, Dict, TYPE_CHECKING, List, Any
+from typing import Union, Dict, TYPE_CHECKING, List, Any, Optional, Tuple
 
 from twovyper.ast import names
 from twovyper.ast.ast_nodes import Expr
-from twovyper.ast.nodes import VyperFunction
+from twovyper.ast.nodes import VyperFunction, VyperProgram
 from twovyper.translation import mangled
+
 if TYPE_CHECKING:
     from twovyper.translation.variable import TranslatedVar
+    from twovyper.translation import LocalVarSnapshot
 
 
 class Context:
 
     def __init__(self):
-        self.program = None
+        self.program: Optional[VyperProgram] = None
         # The program whose code is currently being translated, i.e., a VyperProgram
         # normally, and a VyperInterface when we translate interface specifications.
         self.current_program = None
@@ -54,9 +56,9 @@ class Context:
         self.break_label = None
         self.continue_label = None
 
-        self.success_var = None
+        self.success_var: Optional[TranslatedVar] = None
         self.revert_label = None
-        self.result_var = None
+        self.result_var: Optional[TranslatedVar] = None
         self.return_label = None
 
         self.inside_trigger = False
@@ -66,10 +68,30 @@ class Context:
         self.new_local_vars = []
 
         self.loop_arrays: Dict[str, Expr] = {}
-        self.loop_indices: Dict[str, ] = {}
+        self.loop_indices: Dict[str, TranslatedVar] = {}
 
         self.event_vars: Dict[str, List[Any]] = {}
 
+        # And-ed conditions which must be all true when an assignment is made in a pure translator.
+        self.pure_conds: Optional[Expr] = None
+        # List of all assignments to the result variable
+        # The tuple consists of an expression which is the condition under which the assignment happened and
+        # the index of the variable (since this is SSA like, the result_var has many indices)
+        self.pure_returns: List[Tuple[Expr, int]] = []
+        # List of all assignments to the success variable
+        # The tuple consists of an expression which is the condition under which the assignment happened and
+        # the index of the variable (since this is SSA like, the success_var has many indices)
+        self.pure_success: List[Tuple[Expr, int]] = []
+        # List of all break statements in a loop
+        # The tuple consists of an expression which is the condition under which the break statement is reached and
+        # the dict is a snapshot of the local variables at the moment of the break statement
+        self.pure_continues: List[Tuple[Optional[Expr], LocalVarSnapshot]] = []
+        # List of all continue statements in a loop
+        # The tuple consists of an expression which is the condition under which the continue statement is reached and
+        # the dict is a snapshot of the local variables at the moment of the continue statement
+        self.pure_breaks: List[Tuple[Optional[Expr], LocalVarSnapshot]] = []
+
+        self._pure_var_index_counter = 1  # It has to start at 2
         self._quantified_var_counter = -1
         self._inline_counter = -1
         self._current_inline = -1
@@ -147,6 +169,10 @@ class Context:
         else:
             return f'i{self._current_inline}$'
 
+    def next_pure_var_index(self) -> int:
+        self._pure_var_index_counter += 1
+        return self._pure_var_index_counter
+
     def _next_break_label(self) -> str:
         self._break_label_counter += 1
         return f'break_{self._break_label_counter}'
@@ -166,7 +192,7 @@ class Context:
         function = self.function
 
         args = self.args
-        locals = self.locals
+        local_variables = self.locals
         old_locals = self.old_locals
         current_state = self.current_state
         current_old_state = self.current_old_state
@@ -204,6 +230,13 @@ class Context:
         loop_indices = self.loop_indices
 
         event_vars = self.event_vars
+
+        pure_conds = self.pure_conds
+        pure_returns = self.pure_returns
+        pure_success = self.pure_success
+        pure_var_index_counter = self._pure_var_index_counter
+        pure_continues = self.pure_continues
+        pure_breaks = self.pure_breaks
 
         self.function = None
 
@@ -244,12 +277,19 @@ class Context:
 
         self.event_vars = {}
 
+        self.pure_conds = []
+        self.pure_returns = []
+        self.pure_success = []
+        self._pure_var_index_counter = 1
+        self.pure_continues = []
+        self.pure_breaks = []
+
         yield
 
         self.function = function
 
         self.args = args
-        self.locals = locals
+        self.locals = local_variables
         self.old_locals = old_locals
         self.current_state = current_state
         self.current_old_state = current_old_state
@@ -287,6 +327,13 @@ class Context:
         self.loop_indices = loop_indices
 
         self.event_vars = event_vars
+
+        self.pure_conds = pure_conds
+        self.pure_returns = pure_returns
+        self.pure_success = pure_success
+        self._pure_var_index_counter = pure_var_index_counter
+        self.pure_continues = pure_continues
+        self.pure_breaks = pure_breaks
 
     @contextmanager
     def quantified_var_scope(self):
@@ -413,18 +460,28 @@ class Context:
         break_label = self.break_label
         self.break_label = self._next_break_label()
 
+        pure_break = self.pure_breaks
+        self.pure_breaks = []
+
         yield
 
         self.break_label = break_label
+
+        self.pure_breaks = pure_break
 
     @contextmanager
     def continue_scope(self):
         continue_label = self.continue_label
         self.continue_label = self._next_continue_label()
 
+        pure_continue = self.pure_continues
+        self.pure_continues = []
+
         yield
 
         self.continue_label = continue_label
+
+        self.pure_continues = pure_continue
 
     @contextmanager
     def old_local_variables_scope(self, old_locals):

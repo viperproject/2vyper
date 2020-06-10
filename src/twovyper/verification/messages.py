@@ -92,7 +92,9 @@ ERRORS = {
     'function.not.wellformed':
         lambda i: "Function might not be well-formed.",
     'predicate.not.wellformed':
-        lambda i: "Predicate might not be well-formed."
+        lambda i: "Predicate might not be well-formed.",
+    'function.failed':
+        lambda i: f"The function call {pprint(i.node)} might not succeed."
 }
 
 REASONS = {
@@ -135,5 +137,8 @@ REASONS = {
     'negative.permission':
         lambda i: f"Fraction {pprint(i.node)} might be negative.",
     'insufficient.permission':
-        lambda i: f"There might be insufficient permission to access {pprint(i.node)}."
+        lambda i: f"There might be insufficient permission to access {pprint(i.node)}.",
+    'function.revert':
+        lambda i: f"The function {i.function.name} might revert."
+
 }

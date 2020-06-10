@@ -119,6 +119,9 @@ IMPLEMENTS_DOMAIN = '$Implements'
 TRANSITIVITY_CHECK = '$transitivity_check'
 FORCED_ETHER_CHECK = '$forced_ether_check'
 
+PURE_SUCCESS = '$pure$success_get'
+PURE_RESULT = '$pure$return_get'
+
 
 def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'
@@ -155,6 +158,10 @@ def interface_function_name(vyper_iname: str, vyper_fname: str) -> str:
 
 def ghost_function_name(vyper_name: str) -> str:
     return f'g${vyper_name}'
+
+
+def pure_function_name(vyper_name: str) -> str:
+    return f'p${vyper_name}'
 
 
 def axiom_name(viper_name: str) -> str:

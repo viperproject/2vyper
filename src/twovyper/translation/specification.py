@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from collections import ChainMap
 from contextlib import contextmanager
 from functools import reduce
-from itertools import chain, starmap
+from itertools import chain, starmap, zip_longest
 from typing import List, Optional
 
 from twovyper.ast import ast_nodes as ast, names, types
@@ -155,7 +155,29 @@ class SpecificationTranslator(ExpressionTranslator):
                 quant_var_decls = [var.var_decl(ctx) for var in quants]
                 return self.viper_ast.Forall(quant_var_decls, triggers, expr, pos)
         elif name == names.RESULT:
-            return ctx.result_var.local_var(ctx, pos)
+            if node.args:
+                call = node.args[0]
+                assert isinstance(call, ast.ReceiverCall)
+                func = ctx.program.functions[call.name]
+                viper_result_type = self.type_translator.translate(func.type.return_type, ctx)
+                mangled_name = mangled.pure_function_name(call.name)
+                pos = self.to_position(call, ctx, rules=rules.PURE_FUNCTION_FAIL, values={'function': func})
+                function_args = call.args.copy()
+                for (name, _), arg in zip_longest(func.args.items(), call.args):
+                    if not arg:
+                        function_args.append(func.defaults[name])
+                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + function_args]
+                func_app = self.viper_ast.FuncApp(mangled_name, args, pos,
+                                                  type=helpers.struct_type(self.viper_ast))
+                result_func_app = self.viper_ast.FuncApp(mangled.PURE_RESULT, [func_app], pos, type=self.viper_ast.Int)
+
+                domain = mangled.STRUCT_OPS_DOMAIN
+                getter = mangled.STRUCT_GET
+                type_map = {self.viper_ast.TypeVar(mangled.STRUCT_OPS_VALUE_VAR): viper_result_type}
+                return self.viper_ast.DomainFuncApp(getter, [result_func_app], viper_result_type, pos, None,
+                                                    domain_name=domain, type_var_map=type_map)
+            else:
+                return ctx.result_var.local_var(ctx, pos)
         elif name == names.SUCCESS:
             # The syntax for success is either
             #   - success()
@@ -197,10 +219,37 @@ class SpecificationTranslator(ExpressionTranslator):
                 or_op = reduce(lambda l, r: self.viper_ast.Or(l, r, pos), or_conds)
                 not_or_op = self.viper_ast.Not(or_op, pos)
                 return self.viper_ast.Implies(not_or_op, success, pos)
+            elif node.args:
+                call = node.args[0]
+                assert isinstance(call, ast.ReceiverCall)
+                func = ctx.program.functions[call.name]
+                mangled_name = mangled.pure_function_name(call.name)
+                function_args = call.args.copy()
+                for (name, _), arg in zip_longest(func.args.items(), call.args):
+                    if not arg:
+                        function_args.append(func.defaults[name])
+                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + function_args]
+                func_app = self.viper_ast.FuncApp(mangled_name, args, pos,
+                                                  type=helpers.struct_type(self.viper_ast))
+                return self.viper_ast.FuncApp(mangled.PURE_SUCCESS, [func_app], pos, type=self.viper_ast.Bool)
             else:
                 return success
         elif name == names.REVERT:
-            success = ctx.success_var.local_var(ctx, pos)
+            if node.args:
+                call = node.args[0]
+                assert isinstance(call, ast.ReceiverCall)
+                func = ctx.program.functions[call.name]
+                mangled_name = mangled.pure_function_name(call.name)
+                function_args = call.args.copy()
+                for (name, _), arg in zip_longest(func.args.items(), call.args):
+                    if not arg:
+                        function_args.append(func.defaults[name])
+                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + function_args]
+                func_app = self.viper_ast.FuncApp(mangled_name, args, pos,
+                                                  type=helpers.struct_type(self.viper_ast))
+                success = self.viper_ast.FuncApp(mangled.PURE_SUCCESS, [func_app], pos, type=self.viper_ast.Bool)
+            else:
+                success = ctx.success_var.local_var(ctx, pos)
             return self.viper_ast.Not(success, pos)
         elif name == names.PREVIOUS:
             arg = node.args[0]

@@ -27,7 +27,7 @@ def _check(condition: bool, node: ast.Node, reason_code: str, msg: Optional[str]
         raise InvalidProgramException(node, reason_code, msg)
 
 
-def _check_number_of_arguments(node: ast.FunctionCall, *expected: int,
+def _check_number_of_arguments(node: Union[ast.FunctionCall, ast.ReceiverCall], *expected: int,
                                allowed_keywords: List[str] = [], required_keywords: List[str] = [],
                                resources: int = 0):
     _check(len(node.args) in expected, node, 'invalid.no.args')
@@ -37,7 +37,7 @@ def _check_number_of_arguments(node: ast.FunctionCall, *expected: int,
     for kw in required_keywords:
         _check(any(k.name == kw for k in node.keywords), node, 'invalid.no.args')
 
-    if node.resource:
+    if isinstance(node, ast.FunctionCall) and node.resource:
         if resources == 1:
             cond = not isinstance(node.resource, ast.Exchange)
         elif resources == 2:
@@ -358,8 +358,21 @@ class TypeAnnotator(NodeVisitor):
                 return [ntype], [node]
             elif case(names.SUCCESS):
                 _check_number_of_arguments(node, 0, 1, allowed_keywords=[names.SUCCESS_IF_NOT])
+                if node.args:
+                    argument = node.args[0]
+                    assert isinstance(argument, ast.ReceiverCall)
+                    self.annotate(argument)
+                    _check(isinstance(argument.receiver.type, types.SelfType), argument, 'spec.success',
+                           'Only functions defined in this contract can be called from the specification.')
                 return [types.VYPER_BOOL], [node]
             elif case(names.REVERT):
+                _check_number_of_arguments(node, 0, 1)
+                if node.args:
+                    argument = node.args[0]
+                    assert isinstance(argument, ast.ReceiverCall)
+                    self.annotate(argument)
+                    _check(isinstance(argument.receiver.type, types.SelfType), argument, 'spec.success',
+                           'Only functions defined in this contract can be called from the specification.')
                 return [types.VYPER_BOOL], [node]
             elif case(names.FORALL):
                 return self._visit_forall(node)
@@ -543,7 +556,15 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[1], types.VYPER_BOOL)
                 return [types.VYPER_BOOL], [node]
             elif case(names.RESULT):
-                _check_number_of_arguments(node, 0)
+                _check_number_of_arguments(node, 0, 1)
+                if node.args:
+                    argument = node.args[0]
+                    assert isinstance(argument, ast.ReceiverCall)
+                    self.annotate(argument)
+                    _check(isinstance(argument.receiver.type, types.SelfType), argument, 'spec.success',
+                           'Only functions defined in this contract can be called from the specification.')
+                    func = self.program.functions[argument.name]
+                    return [func.type.return_type], [node]
                 return [self.current_func.type.return_type], [node]
             elif case(names.SUM):
                 _check_number_of_arguments(node, 1)
@@ -719,28 +740,35 @@ class TypeAnnotator(NodeVisitor):
         self.annotate_expected(node.receiver, expected)
         receiver_type = node.receiver.type
 
-        # We don't have to type check calls as they are not allowed in specifications
-        for arg in node.args:
-            self.annotate(arg)
-
-        for kw in node.keywords:
-            self.annotate(kw.value)
-
-        # A logging call
-        if not receiver_type:
-            return [None], [node]
-
         # A self call
         if isinstance(receiver_type, SelfType):
             function = self.program.functions[node.name]
+            num_args = len(function.args)
+            num_defaults = len(function.defaults)
+            _check_number_of_arguments(node, *range(num_args - num_defaults, num_args + 1))
+            for arg, func_arg in zip(node.args, function.args.values()):
+                self.annotate_expected(arg, func_arg.type)
             return [function.type.return_type], [node]
-        # A contract call
-        elif isinstance(receiver_type, ContractType):
-            return [receiver_type.function_types[node.name].return_type], [node]
-        elif isinstance(receiver_type, InterfaceType):
-            interface = self.program.interfaces[receiver_type.name]
-            function = interface.functions[node.name]
-            return [function.type.return_type], [node]
+        else:
+
+            for arg in node.args:
+                self.annotate(arg)
+
+            for kw in node.keywords:
+                self.annotate(kw.value)
+
+            # A logging call
+            if not receiver_type:
+                return [None], [node]
+            # A contract call
+            elif isinstance(receiver_type, ContractType):
+                return [receiver_type.function_types[node.name].return_type], [node]
+            elif isinstance(receiver_type, InterfaceType):
+                interface = self.program.interfaces[receiver_type.name]
+                function = interface.functions[node.name]
+                return [function.type.return_type], [node]
+            else:
+                assert False
 
     def _visit_resource(self, node: ast.Node):
         if isinstance(node, ast.Name):
