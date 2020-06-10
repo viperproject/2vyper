@@ -60,6 +60,7 @@ class ProgramBuilder(NodeVisitor):
 
         self.field_types = {}
         self.functions = {}
+        self.function_counter = 0
         self.interfaces = {}
         self.structs = {}
         self.contracts = {}
@@ -368,10 +369,11 @@ class ProgramBuilder(NodeVisitor):
         decs = node.decorators
         loop_invariant_transformer = LoopInvariantTransformer()
         loop_invariant_transformer.visit(node)
-        function = VyperFunction(node.name, args, defaults, type,
+        function = VyperFunction(node.name, self.function_counter, args, defaults, type,
                                  self.postconditions, self.preconditions, self.checks,
                                  loop_invariant_transformer.loop_invariants, self.performs, decs, node)
         self.functions[node.name] = function
+        self.function_counter += 1
         # Reset local specs
         self.postconditions = []
         self.preconditions = []

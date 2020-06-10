@@ -490,6 +490,7 @@ class _FunctionPureChecker(NodeVisitor):
     def __init__(self):
         super().__init__()
         self._ghost_allowed = False
+        self.max_allowed_function_index = -1
 
     @contextmanager
     def _ghost_code_allowed(self):
@@ -507,6 +508,7 @@ class _FunctionPureChecker(NodeVisitor):
         elif not function.type.return_type:
             _assert(False, function.node, 'invalid.pure', 'A pure function must have a return type')
         else:
+            self.max_allowed_function_index = function.index - 1
             # Check checks
             if function.checks:
                 _assert(False, function.checks[0], 'invalid.pure',
@@ -585,8 +587,8 @@ class _FunctionPureChecker(NodeVisitor):
             elif case(names.SUCCESS):
                 _assert(len(node.keywords) == 0, node, 'invalid.pure',
                         f'Only success without keywords may be used in pure functions')
-            else:
-                self.generic_visit(node, program)
+
+        self.generic_visit(node, program)
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall, program: VyperProgram):
         with switch(node.receiver.id) as case:
@@ -594,6 +596,8 @@ class _FunctionPureChecker(NodeVisitor):
                 self.generic_visit(node, program)
                 _assert(program.functions[node.name].is_pure(), node, 'invalid.pure',
                         'Pure function may only call other pure functions')
+                _assert(program.functions[node.name].index <= self.max_allowed_function_index, node, 'invalid.pure',
+                        'Only functions defined above this function can be called from here')
             elif case(names.LOG):
                 _assert(False, node, 'invalid.pure',
                         'Pure function may not log events.')

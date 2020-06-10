@@ -36,6 +36,7 @@ class VyperFunction:
 
     def __init__(self,
                  name: str,
+                 index: int,
                  args: Dict[str, VyperVar],
                  defaults: Dict[str, Optional[ast.Expr]],
                  type: FunctionType,
@@ -47,6 +48,7 @@ class VyperFunction:
                  decorators: List[ast.Decorator],
                  node: Optional[ast.FunctionDef]):
         self.name = name
+        self.index = index
         self.args = args
         self.defaults = defaults
         self.type = type
