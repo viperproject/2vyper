@@ -164,6 +164,8 @@ class TypeTranslator(CommonTranslator):
                     implies = self.viper_ast.Implies(bounds, r)
                     quantifier = self.viper_ast.Forall([quant_decl], [trigger], implies)
                     ret.append(quantifier)
+            elif isinstance(type, (ContractType, InterfaceType)):
+                return construct(types.VYPER_ADDRESS, node)
             # If we encounter a struct type we simply add the necessary assumptions for
             # all struct members
             # Additionally, we add an assumption about the type tag

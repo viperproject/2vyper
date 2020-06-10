@@ -99,7 +99,8 @@ class ExpressionTranslator(NodeTranslator):
     def translate_Name(self, node: ast.Name, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        if node.id == names.SELF and node.type == types.VYPER_ADDRESS:
+        if node.id == names.SELF and (node.type == types.VYPER_ADDRESS
+                                      or isinstance(node.type, (ContractType, InterfaceType))):
             return ctx.self_address or helpers.self_address(self.viper_ast, pos)
         elif ctx.inside_inline_analysis and node.id not in ctx.all_vars:
             # Generate new local variable
