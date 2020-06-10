@@ -179,6 +179,9 @@ class ProgramBuilder(NodeVisitor):
             self.visit(stmt)
 
     def visit_Import(self, node: ast.Import):
+        if node.is_ghost_code:
+            raise InvalidProgramException(node, 'invalid.ghost.code')
+
         files = {}
         for alias in node.names:
             components = alias.name.split('.')
@@ -191,6 +194,9 @@ class ProgramBuilder(NodeVisitor):
             self.interfaces[name] = interface
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
+        if node.is_ghost_code:
+            raise InvalidProgramException(node, 'invalid.ghost.code')
+
         module = node.module or ''
         components = module.split('.')
 
@@ -247,12 +253,18 @@ class ProgramBuilder(NodeVisitor):
         self.resources[node.name] = resource
 
     def visit_ContractDef(self, node: ast.ContractDef):
+        if node.is_ghost_code:
+            raise InvalidProgramException(node, 'invalid.ghost.code')
+
         vyper_type = self.type_builder.build(node)
         assert isinstance(vyper_type, ContractType)
         contract = VyperContract(node.name, vyper_type, node)
         self.contracts[contract.name] = contract
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
+        if node.is_ghost_code:
+            raise InvalidProgramException(node, 'invalid.ghost.code')
+
         # No local specs are allowed before contract state variables
         self._check_no_local_spec()
 
@@ -395,6 +407,9 @@ class ProgramBuilder(NodeVisitor):
         function = VyperFunction(node.name, self.function_counter, args, defaults, vyper_type,
                                  self.postconditions, self.preconditions, self.checks,
                                  loop_invariant_transformer.loop_invariants, self.performs, decs, node)
+        for decorator in node.decorators:
+            if decorator.is_ghost_code and decorator.name != names.PURE:
+                raise InvalidProgramException(decorator, 'invalid.ghost.code')
         self.functions[node.name] = function
         self.function_counter += 1
         # Reset local specs
