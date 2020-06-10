@@ -106,6 +106,12 @@ class Error:
         viper_reason = error.reason()
         error_id = error.id()
         reason_id = viper_reason.id()
+
+        # This error might come from a precondition fail of the Viper function "$pure$return_get" which has no position.
+        # if the reason_item could not be found due to this, use the error_item instead.
+        if error_id == 'application.precondition' and reason_item is None:
+            reason_item = error_item
+
         key = error_id, reason_id
         if key in rules:
             error_id, reason_id = rules[key]

@@ -122,8 +122,6 @@ class ErrorManager:
         if rules is None:
             rules = {}
         error_item = self._get_error_info(position)
-        if not reason_item:
-            reason_item = error_item
         return Error(error, rules, reason_item, error_item)
 
 
