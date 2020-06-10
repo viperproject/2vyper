@@ -52,7 +52,7 @@ class TwoVyper:
 
         logging.debug("Start parsing.")
 
-        vyper_program = parser.parse(path, vyper_root)
+        vyper_program = parser.parse(path, vyper_root, name=os.path.basename(path.split('.')[0]))
 
         logging.info("Finished parsing.")
         logging.debug("Start analyzing.")

@@ -13,9 +13,10 @@ from twovyper.utils import first_index, switch
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.types import (
-    TypeBuilder, VyperType, MapType, ArrayType, StringType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
+    TypeBuilder, VyperType, MapType, ArrayType, StringType, StructType, AnyStructType,
+    SelfType, ContractType, InterfaceType
 )
-from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction
+from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction, VyperInterface
 from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
@@ -584,7 +585,9 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 2)
                 address = node.args[0]
                 interface = node.args[1]
-                is_interface = isinstance(interface, ast.Name) and interface.id in self.program.interfaces
+                is_interface = (isinstance(interface, ast.Name)
+                                and (interface.id in self.program.interfaces
+                                     or isinstance(self.program, VyperInterface) and interface.id == self.program.name))
                 _check(is_interface, node, 'invalid.interface')
                 self.annotate_expected(address, types.VYPER_ADDRESS)
                 return [types.VYPER_BOOL], [node]
