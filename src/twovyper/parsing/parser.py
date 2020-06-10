@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 from typing import Optional, Dict, Union, List
 
-from twovyper.utils import switch
+from twovyper.utils import switch, first
 
 from twovyper.parsing import lark
 from twovyper.parsing.preprocessor import preprocess
@@ -24,7 +24,10 @@ from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
     Config, VyperInterface, GhostFunction, Resource
 )
-from twovyper.ast.types import TypeBuilder, FunctionType, EventType, SelfType, InterfaceType, ResourceType
+from twovyper.ast.types import (
+    TypeBuilder, FunctionType, EventType, SelfType, InterfaceType, ResourceType,
+    StructType, ContractType
+)
 
 from twovyper.exceptions import InvalidProgramException
 
@@ -157,6 +160,17 @@ class ProgramBuilder(NodeVisitor):
             return
         raise InvalidProgramException(node, 'local.spec', f"{cond} only allowed before function")
 
+    def _check_no_ghost_function(self):
+        if self.ghost_functions:
+            cond = "Ghost function declaration"
+            node = first(self.ghost_functions.values()).node
+        elif self.ghost_function_implementations:
+            cond = "Ghost function definition"
+            node = first(self.ghost_function_implementations.values()).node
+        else:
+            return
+        raise InvalidProgramException(node, 'invalid.ghost', f'{cond} only allowed after "#@ interface"')
+
     def generic_visit(self, node: ast.Node, *args):
         raise InvalidProgramException(node, 'invalid.spec')
 
@@ -215,8 +229,9 @@ class ProgramBuilder(NodeVisitor):
             self.interfaces[name] = interface
 
     def visit_StructDef(self, node: ast.StructDef):
-        type = self.type_builder.build(node)
-        struct = VyperStruct(node.name, type, node)
+        vyper_type = self.type_builder.build(node)
+        assert isinstance(vyper_type, StructType)
+        struct = VyperStruct(node.name, vyper_type, node)
         self.structs[struct.name] = struct
 
     def visit_FunctionStub(self, node: ast.FunctionStub):
@@ -226,13 +241,15 @@ class ProgramBuilder(NodeVisitor):
         if node.name in self.resources or node.name == names.CREATOR:
             raise InvalidProgramException(node, 'duplicate.resource')
 
-        type = self.type_builder.build(node)
-        resource = Resource(node.name, type, node)
+        vyper_type = self.type_builder.build(node)
+        assert isinstance(vyper_type, ResourceType)
+        resource = Resource(node.name, vyper_type, node)
         self.resources[node.name] = resource
 
     def visit_ContractDef(self, node: ast.ContractDef):
-        type = self.type_builder.build(node)
-        contract = VyperContract(node.name, type, node)
+        vyper_type = self.type_builder.build(node)
+        assert isinstance(vyper_type, ContractType)
+        contract = VyperContract(node.name, vyper_type, node)
         self.contracts[contract.name] = contract
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
@@ -278,6 +295,7 @@ class ProgramBuilder(NodeVisitor):
                 self.config = Config(options)
             elif case(names.INTERFACE):
                 self._check_no_local_spec()
+                self._check_no_ghost_function()
                 self.is_interface = True
             elif case(names.INVARIANT):
                 # No local specifications allowed before invariants
@@ -332,8 +350,11 @@ class ProgramBuilder(NodeVisitor):
                     raise InvalidProgramException(func, 'invalid.ghost')
 
             check_ghost(isinstance(func, ast.FunctionDef))
+            assert isinstance(func, ast.FunctionDef)
             check_ghost(len(func.body) == 1)
-            check_ghost(isinstance(func.body[0], ast.ExprStmt))
+            func_body = func.body[0]
+            check_ghost(isinstance(func_body, ast.ExprStmt))
+            assert isinstance(func_body, ast.ExprStmt)
             check_ghost(func.returns)
 
             decorators = [dec.name for dec in func.decorators]
@@ -343,33 +364,35 @@ class ProgramBuilder(NodeVisitor):
             args = {arg.name: self._arg(arg) for arg in func.args}
             arg_types = [arg.type for arg in args.values()]
             return_type = None if func.returns is None else self.type_builder.build(func.returns)
-            type = FunctionType(arg_types, return_type)
+            vyper_type = FunctionType(arg_types, return_type)
 
             if names.IMPLEMENTS in decorators:
+                check_ghost(not self.is_interface)
                 check_ghost(len(decorators) == 1)
 
                 ghost_functions = self.ghost_function_implementations
             else:
+                check_ghost(self.is_interface)
                 check_ghost(not decorators)
-                check_ghost(isinstance(func.body[0].value, ast.Ellipsis))
+                check_ghost(isinstance(func_body.value, ast.Ellipsis))
 
                 ghost_functions = self.ghost_functions
 
             if name in ghost_functions:
                 raise InvalidProgramException(func, 'duplicate.ghost')
 
-            ghost_functions[name] = GhostFunction(name, args, type, func)
+            ghost_functions[name] = GhostFunction(name, args, vyper_type, func)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         args = {arg.name: self._arg(arg) for arg in node.args}
         defaults = {arg.name: arg.default for arg in node.args}
         arg_types = [arg.type for arg in args.values()]
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
-        type = FunctionType(arg_types, return_type)
+        vyper_type = FunctionType(arg_types, return_type)
         decs = node.decorators
         loop_invariant_transformer = LoopInvariantTransformer()
         loop_invariant_transformer.visit(node)
-        function = VyperFunction(node.name, self.function_counter, args, defaults, type,
+        function = VyperFunction(node.name, self.function_counter, args, defaults, vyper_type,
                                  self.postconditions, self.preconditions, self.checks,
                                  loop_invariant_transformer.loop_invariants, self.performs, decs, node)
         self.functions[node.name] = function
