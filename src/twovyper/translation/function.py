@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2020 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -426,6 +426,7 @@ class FunctionTranslator(CommonTranslator):
                         cond_fail = self.specification_translator.translate_check(check, checks_fail, ctx, True)
                         checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
+                self.expression_translator.assert_caller_private(model_translator, checks_succ, ctx)
                 for check in ctx.program.general_checks:
                     cond_succ = self.specification_translator.translate_check(check, checks_succ, ctx, False)
 

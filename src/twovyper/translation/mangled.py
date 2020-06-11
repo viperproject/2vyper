@@ -43,6 +43,8 @@ OVERFLOW = '$overflow'
 OUT_OF_GAS = '$out_of_gas'
 FAILED = '$failed'
 
+CALLER = '$caller'
+
 FIRST_PUBLIC_STATE = '$first_public_state'
 
 END_LABEL = 'end'

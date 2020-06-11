@@ -4,7 +4,7 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
-
+from functools import reduce
 from itertools import chain
 from typing import List, Optional, Tuple
 
@@ -33,6 +33,7 @@ from twovyper.utils import switch, first_index
 
 from twovyper.verification import rules
 from twovyper.verification.error import Via
+from twovyper.verification.model import ModelTransformation
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt
@@ -659,7 +660,43 @@ class ExpressionTranslator(NodeTranslator):
         else:
             assert False
 
+    def assert_caller_private(self, modelt: ModelTransformation, res: List[Stmt], ctx: Context):
+        for interface_type in ctx.program.implements:
+            interface = ctx.program.interfaces[interface_type.name]
+            with ctx.program_scope(interface):
+                with ctx.state_scope(ctx.current_state, ctx.current_old_state):
+                    for caller_private in interface.caller_private:
+                        pos = self.to_position(caller_private, ctx, modelt=modelt)
+                        # Quantified variable
+                        q_name = mangled.quantifier_var_name(mangled.CALLER)
+                        q_var = TranslatedVar(mangled.CALLER, q_name, types.VYPER_ADDRESS, self.viper_ast, pos)
+                        ctx.locals[mangled.CALLER] = q_var
+
+                        # $caller != msg.sender ==> Expr == old(Expr)
+                        msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+                        ignore_cond = self.viper_ast.NeCmp(msg_sender, q_var.local_var(ctx, pos), pos)
+                        curr_caller_private = self.spec_translator.translate_caller_private(caller_private, ctx)
+                        with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
+                            old_caller_private = self.spec_translator.translate_caller_private(caller_private, ctx)
+                        caller_private_cond = self.viper_ast.EqCmp(curr_caller_private, old_caller_private, pos)
+                        expr = self.viper_ast.Implies(ignore_cond, caller_private_cond, pos)
+
+                        # Address type assumption
+                        type_assumptions = self.type_translator.type_assumptions(q_var.local_var(ctx), q_var.type, ctx)
+                        type_assumptions = reduce(self.viper_ast.And, type_assumptions, self.viper_ast.TrueLit())
+                        expr = self.viper_ast.Implies(type_assumptions, expr, pos)
+
+                        # Trigger
+                        with ctx.inside_trigger_scope():
+                            caller_private_trigger = self.spec_translator.translate_caller_private(caller_private, ctx)
+                            trigger = self.viper_ast.Trigger([caller_private_trigger], pos)
+
+                        # Assertion
+                        forall = self.viper_ast.Forall([q_var.var_decl(ctx)], [trigger], expr, pos)
+                        res.append(self.viper_ast.Assert(forall, pos))
+
     def _log_event(self, event: VyperEvent, args: List[Expr], res: List[Stmt], ctx: Context, pos=None):
+        assert ctx
         event_name = mangled.event_name(event.name)
         pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)
         one = self.viper_ast.FullPerm(pos)
@@ -719,6 +756,7 @@ class ExpressionTranslator(NodeTranslator):
 
         modelt = self.model_translator.save_variables(res, ctx, pos)
 
+        self.assert_caller_private(modelt, res, ctx)
         for check in chain(ctx.function.checks, ctx.program.general_checks):
             check_cond = self.spec_translator.translate_check(check, res, ctx)
             via = [Via('check', check_cond.pos())]
