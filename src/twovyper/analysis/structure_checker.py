@@ -126,9 +126,15 @@ class StructureChecker(NodeVisitor):
             for precondition in function.preconditions:
                 self.visit(precondition, _Context.PRECONDITION, program, function)
 
+            if function.checks:
+                _assert(not program.is_interface(), function.checks[0],
+                        'invalid.checks', 'No checks are allowed in interfaces.')
             for check in function.checks:
                 self.visit(check, _Context.CHECK, program, function)
 
+            if function.performs:
+                _assert(not program.is_interface(), function.performs[0],
+                        'invalid.performs', 'No performs are allowed in interfaces.')
             for performs in function.performs:
                 self._visit_performs(performs, program, function)
 
@@ -141,6 +147,9 @@ class StructureChecker(NodeVisitor):
         for postcondition in program.general_postconditions:
             self.visit(postcondition, _Context.POSTCONDITION, program, None)
 
+        if program.transitive_postconditions:
+            _assert(not program.is_interface(), program.transitive_postconditions[0],
+                    'invalid.transitive.postconditions', 'No transitive postconditions are allowed in interfaces')
         for postcondition in program.transitive_postconditions:
             self.visit(postcondition, _Context.TRANSITIVE_POSTCONDITION, program, None)
 
