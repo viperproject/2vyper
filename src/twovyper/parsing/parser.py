@@ -111,6 +111,7 @@ class ProgramBuilder(NodeVisitor):
                                   self.name,
                                   self.config,
                                   self.functions,
+                                  self.invariants,
                                   self.ghost_functions,
                                   self.general_postconditions,
                                   self.caller_private,

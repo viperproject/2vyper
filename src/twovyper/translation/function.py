@@ -175,7 +175,17 @@ class FunctionTranslator(CommonTranslator):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_issued.append(self.viper_ast.Inhale(inv))
 
-                    for inv in ctx.program.invariants:
+                    # Assume implemented interface invariants
+                    for interface_type in ctx.program.implements:
+                        interface = ctx.program.interfaces[interface_type.name]
+                        with ctx.program_scope(interface):
+                            for inv in ctx.current_program.invariants:
+                                program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                                expr = self.specification_translator.translate_invariant(inv, inv_pres_issued,
+                                                                                         ctx, True)
+                                inv_pres_issued.append(self.viper_ast.Inhale(expr, program_pos))
+                    # Assume own invariants
+                    for inv in ctx.current_program.invariants:
                         program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                         expr = self.specification_translator.translate_invariant(inv, inv_pres_issued, ctx, True)
                         inv_pres_issued.append(self.viper_ast.Inhale(expr, program_pos))
@@ -191,7 +201,17 @@ class FunctionTranslator(CommonTranslator):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_self.append(self.viper_ast.Inhale(inv))
 
-                    for inv in ctx.program.invariants:
+                    # Assume implemented interface invariants
+                    for interface_type in ctx.program.implements:
+                        interface = ctx.program.interfaces[interface_type.name]
+                        with ctx.program_scope(interface):
+                            for inv in ctx.current_program.invariants:
+                                program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                                expr = self.specification_translator.translate_invariant(inv, inv_pres_self, ctx)
+                                inv_pres_self.append(self.viper_ast.Inhale(expr, program_pos))
+
+                    # Assume own invariants
+                    for inv in ctx.current_program.invariants:
                         program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                         expr = self.specification_translator.translate_invariant(inv, inv_pres_self, ctx)
                         inv_pres_self.append(self.viper_ast.Inhale(expr, program_pos))
@@ -409,7 +429,7 @@ class FunctionTranslator(CommonTranslator):
             self.seqn_with_info(post_stmts, "Assert postconditions", body)
 
             # Checks and Invariants can be checked in the end of public functions
-            # but not in the end of private funcitons
+            # but not in the end of private functions
             if function.is_public():
                 # Assert checks
                 # For the checks we need to differentiate between success and failure because we
@@ -462,11 +482,23 @@ class FunctionTranslator(CommonTranslator):
                 # Assert the invariants
                 invariant_stmts = []
                 invariant_model_translator = self.model_translator.save_variables(invariant_stmts, ctx, pos)
-                for inv in ctx.program.invariants:
-                    inv_pos = self.to_position(inv, ctx)
+
+                # Collect all invariants
+                invariant_conditions = []
+                for interface_type in ctx.program.implements:
+                    interface = ctx.program.interfaces[interface_type.name]
+                    with ctx.program_scope(interface):
+                        for inv in ctx.current_program.invariants:
+                            cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
+                            invariant_conditions.append((inv, cond))
+                for inv in ctx.current_program.invariants:
                     # We ignore accessible here because we use a separate check
                     cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
+                    invariant_conditions.append((inv, cond))
 
+                # Assert collected invariants
+                for inv, cond in invariant_conditions:
+                    inv_pos = self.to_position(inv, ctx)
                     # If we have a synthesized __init__ we only create an
                     # error message on the invariant
                     if is_init:

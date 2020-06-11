@@ -769,7 +769,18 @@ class ExpressionTranslator(NodeTranslator):
             # Havoc contract state
             self.state_translator.havoc_state_except_self(ctx.current_state, res, ctx)
 
-        for inv in ctx.program.invariants:
+        # Assert implemented interface invariants
+        for interface_type in ctx.program.implements:
+            interface = ctx.program.interfaces[interface_type.name]
+            with ctx.program_scope(interface):
+                for inv in ctx.current_program.invariants:
+                    cond = self.spec_translator.translate_invariant(inv, res, ctx, True)
+                    via = [Via('invariant', cond.pos())]
+                    call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via, modelt)
+                    res.append(self.viper_ast.Assert(cond, call_pos))
+
+        # Assert own invariants
+        for inv in ctx.current_program.invariants:
             # We ignore accessible because it only has to be checked in the end of
             # the function
             cond = self.spec_translator.translate_invariant(inv, res, ctx, True)
@@ -826,7 +837,17 @@ class ExpressionTranslator(NodeTranslator):
             for inv in ctx.unchecked_invariants():
                 assume_invs.append(self.viper_ast.Inhale(inv))
 
-            for inv in ctx.program.invariants:
+            # Assume implemented interface invariants
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                with ctx.program_scope(interface):
+                    for inv in ctx.current_program.invariants:
+                        cond = self.spec_translator.translate_invariant(inv, assume_invs, ctx, True)
+                        ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        assume_invs.append(self.viper_ast.Inhale(cond, ipos))
+
+            # Assume own invariants
+            for inv in ctx.current_program.invariants:
                 cond = self.spec_translator.translate_invariant(inv, assume_invs, ctx, True)
                 ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 assume_invs.append(self.viper_ast.Inhale(cond, ipos))

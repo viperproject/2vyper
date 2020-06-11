@@ -272,6 +272,10 @@ class StructureChecker(NodeVisitor):
         if node.name == names.CALLER:
             self._visited_caller_spec = True
 
+        if node.name == names.SENT or node.name == names.RECEIVED:
+            _assert(not program.is_interface(), node, f'invalid.{node.name}',
+                    f'"{node.name}" cannot be used in interfaces')
+
         elif node.name == names.EVENT:
             if ctx == _Context.PRECONDITION \
                     or ctx == _Context.POSTCONDITION \
@@ -324,6 +328,7 @@ class StructureChecker(NodeVisitor):
             return
         # Accessible is of the form accessible(to, amount, self.some_func(args...))
         elif node.name == names.ACCESSIBLE:
+            _assert(not program.is_interface(), node, 'invalid.accessible', 'Accessible cannot be used in interfaces')
             _assert(not self._inside_old, node, 'spec.old.accessible')
             _assert(len(node.args) == 2 or len(node.args) == 3, node, 'spec.accessible')
 

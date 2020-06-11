@@ -200,6 +200,7 @@ class VyperInterface(VyperProgram):
                  name: Optional[str],
                  config: Config,
                  functions: Dict[str, VyperFunction],
+                 invariants: List[ast.Expr],
                  ghost_functions: Dict[str, GhostFunction],
                  general_postconditions: List[ast.Expr],
                  caller_private: List[ast.Expr],
@@ -213,7 +214,7 @@ class VyperInterface(VyperProgram):
                          empty_struct,
                          functions,
                          {}, {}, {}, {}, {},
-                         [],
+                         invariants,
                          general_postconditions,
                          [], [], [], {})
         self.name = name

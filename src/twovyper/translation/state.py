@@ -121,7 +121,17 @@ class StateTranslator(CommonTranslator):
             for inv in ctx.unchecked_invariants():
                 assume_invs.append(self.viper_ast.Inhale(inv))
 
-            for inv in ctx.program.invariants:
+            # Assume implemented interface invariants
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                with ctx.program_scope(interface):
+                    for inv in ctx.current_program.invariants:
+                        cond = specification_translator.translate_invariant(inv, assume_invs, ctx, True)
+                        inv_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        assume_invs.append(self.viper_ast.Inhale(cond, inv_pos))
+
+            # Assume own invariants
+            for inv in ctx.current_program.invariants:
                 cond = specification_translator.translate_invariant(inv, assume_invs, ctx, True)
                 inv_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 assume_invs.append(self.viper_ast.Inhale(cond, inv_pos))

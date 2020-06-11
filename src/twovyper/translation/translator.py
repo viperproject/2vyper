@@ -343,7 +343,14 @@ class ProgramTranslator(CommonTranslator):
         with ctx.state_scope(self_state, old_state):
             for inv in ctx.unchecked_invariants():
                 res.append(self.viper_ast.Inhale(inv))
-            for inv in ctx.program.invariants:
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                with ctx.program_scope(interface):
+                    for inv in ctx.current_program.invariants:
+                        pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        inv_expr = self.specification_translator.translate_invariant(inv, res, ctx)
+                        res.append(self.viper_ast.Inhale(inv_expr, pos))
+            for inv in ctx.current_program.invariants:
                 pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 inv_expr = self.specification_translator.translate_invariant(inv, res, ctx)
                 res.append(self.viper_ast.Inhale(inv_expr, pos))
@@ -419,7 +426,16 @@ class ProgramTranslator(CommonTranslator):
 
             # Check invariants for current state 2 and old state 0
             with ctx.state_scope(states[2], states[0]):
-                for inv in ctx.program.invariants:
+                for interface_type in ctx.program.implements:
+                    interface = ctx.program.interfaces[interface_type.name]
+                    with ctx.program_scope(interface):
+                        for inv in ctx.current_program.invariants:
+                            rule = rules.INVARIANT_TRANSITIVITY_VIOLATED
+                            apos = self.to_position(inv, ctx, rule)
+                            inv_expr = self.specification_translator.translate_invariant(inv, body, ctx)
+                            body.append(self.viper_ast.Assert(inv_expr, apos))
+
+                for inv in ctx.current_program.invariants:
                     rule = rules.INVARIANT_TRANSITIVITY_VIOLATED
                     apos = self.to_position(inv, ctx, rule)
                     inv_expr = self.specification_translator.translate_invariant(inv, body, ctx)
