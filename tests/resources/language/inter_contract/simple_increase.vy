@@ -17,6 +17,8 @@
 #@ always ensures: msg.sender != self ==> storage(msg.sender) == old(storage(msg.sender))
 #@ always ensures: forall({a: address}, {storage(a)}, a != self ==> storage(a) == old(storage(a)))
 
+#@ invariant: mapping(self)[ZERO_ADDRESS] == 0
+
 #@ caller private: mapping(self)[caller()]
 
 #@ ensures: forall({a: address}, {mapping(self)[a]}, a != msg.sender ==> old(mapping(self)[a]) == mapping(self)[a])

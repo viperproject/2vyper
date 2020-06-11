@@ -243,7 +243,9 @@ class StructureChecker(NodeVisitor):
     @staticmethod
     def visit_Name(node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         if ctx == _Context.GHOST_FUNCTION and node.id in names.ENV_VARIABLES:
-            _assert(node.id not in names.ENV_VARIABLES, node, 'invalid.ghost.function')
+            _assert(False, node, 'invalid.ghost.function')
+        elif ctx == _Context.CALLER_PRIVATE and node.id in names.ENV_VARIABLES:
+            _assert(False, node, 'invalid.caller.private')
         elif ctx == _Context.INVARIANT:
             _assert(node.id != names.MSG, node, 'invariant.msg')
             _assert(node.id != names.BLOCK, node, 'invariant.block')

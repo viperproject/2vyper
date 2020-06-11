@@ -73,9 +73,11 @@ class StateTranslator(CommonTranslator):
                 assign = self.viper_ast.LocalVarAssign(var.local_var(ctx), default)
                 res.append(assign)
 
-    def copy_state(self, from_state: State, to_state: State, res: List[Stmt], ctx: Context, pos=None):
+    def copy_state(self, from_state: State, to_state: State, res: List[Stmt], ctx: Context, pos=None, unless=None):
         copies = []
         for name in set(from_state) & set(to_state):
+            if unless and unless(name):
+                continue
             to_var = to_state[name].local_var(ctx)
             from_var = from_state[name].local_var(ctx)
             copies.append(self.viper_ast.LocalVarAssign(to_var, from_var, pos))

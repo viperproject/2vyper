@@ -446,7 +446,8 @@ class FunctionTranslator(CommonTranslator):
                         cond_fail = self.specification_translator.translate_check(check, checks_fail, ctx, True)
                         checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
-                self.expression_translator.assert_caller_private(model_translator, checks_succ, ctx)
+                self.expression_translator.assert_caller_private(model_translator, checks_succ, ctx,
+                                                                 [Via('end of function body', pos)])
                 for check in ctx.program.general_checks:
                     cond_succ = self.specification_translator.translate_check(check, checks_succ, ctx, False)
 
@@ -474,6 +475,17 @@ class FunctionTranslator(CommonTranslator):
                 self._havoc_balance(body, ctx)
                 # Havoc other contract state
                 self.state_translator.havoc_state_except_self(ctx.current_state, body, ctx)
+
+                known_interface_ref = []
+                self_type = ctx.program.fields.type
+                for member_name, member_type in self_type.member_types.items():
+                    viper_type = self.type_translator.translate(member_type, ctx)
+                    if isinstance(member_type, types.InterfaceType):
+                        get = helpers.struct_get(self.viper_ast, ctx.self_var.local_var(ctx), member_name,
+                                                 viper_type, self_type)
+                        known_interface_ref.append((member_type.name, get))
+
+                self.expression_translator.assume_contract_state(known_interface_ref, body, ctx)
 
                 # In init set old to current self, if this is the first public state
                 if is_init:

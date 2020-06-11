@@ -39,6 +39,7 @@ from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt
 
 
+# noinspection PyUnusedLocal
 class ExpressionTranslator(NodeTranslator):
 
     def __init__(self, viper_ast: ViperAST):
@@ -160,12 +161,12 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         value = self.translate(node.value, res, ctx)
-        list = self.translate(node.list, res, ctx)
+        expr_list = self.translate(node.list, res, ctx)
 
         if node.op == ast.ContainmentOperator.IN:
-            return helpers.array_contains(self.viper_ast, value, list, pos)
+            return helpers.array_contains(self.viper_ast, value, expr_list, pos)
         elif node.op == ast.ContainmentOperator.NOT_IN:
-            return helpers.array_not_contains(self.viper_ast, value, list, pos)
+            return helpers.array_not_contains(self.viper_ast, value, expr_list, pos)
         else:
             assert False
 
@@ -181,9 +182,6 @@ class ExpressionTranslator(NodeTranslator):
             return self.type_translator.neq(lhs, rhs, node.left.type, ctx, pos)
         else:
             assert False
-
-    def translate_operator(self, operator):
-        return self._operations[type(operator)]
 
     def translate_Attribute(self, node: ast.Attribute, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
@@ -216,8 +214,8 @@ class ExpressionTranslator(NodeTranslator):
             value_type = helpers.struct_type(self.viper_ast)
             struct = helpers.map_get(self.viper_ast, contracts, expr, key_type, value_type)
 
-        type = self.type_translator.translate(node.type, ctx)
-        get = helpers.struct_get(self.viper_ast, struct, node.attr, type, struct_type, pos)
+        viper_type = self.type_translator.translate(node.type, ctx)
+        get = helpers.struct_get(self.viper_ast, struct, node.attr, viper_type, struct_type, pos)
         return get
 
     def translate_Subscript(self, node: ast.Subscript, res: List[Stmt], ctx: Context) -> Expr:
@@ -236,6 +234,8 @@ class ExpressionTranslator(NodeTranslator):
                 self.type_translator.array_bounds_check(value, index, res, ctx)
             element_type = self.type_translator.translate(node_type.element_type, ctx)
             call = helpers.array_get(self.viper_ast, value, index, element_type, pos)
+        else:
+            assert False
 
         return call
 
@@ -243,8 +243,8 @@ class ExpressionTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         if not node.elements:
-            type = self.type_translator.translate(node.type.element_type, ctx)
-            return self.viper_ast.EmptySeq(type, pos)
+            viper_type = self.type_translator.translate(node.type.element_type, ctx)
+            return self.viper_ast.EmptySeq(viper_type, pos)
         else:
             elems = [self.translate(e, res, ctx) for e in node.elements]
             return self.viper_ast.ExplicitSeq(elems, pos)
@@ -252,8 +252,8 @@ class ExpressionTranslator(NodeTranslator):
     def translate_Str(self, node: ast.Str, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
         if not node.s:
-            type = self.type_translator.translate(node.type.element_type, ctx)
-            return self.viper_ast.EmptySeq(type, pos)
+            viper_type = self.type_translator.translate(node.type.element_type, ctx)
+            return self.viper_ast.EmptySeq(viper_type, pos)
         else:
             elems = [self.viper_ast.IntLit(e, pos) for e in bytes(node.s, 'utf-8')]
             return self.viper_ast.ExplicitSeq(elems, pos)
@@ -261,8 +261,8 @@ class ExpressionTranslator(NodeTranslator):
     def translate_Bytes(self, node: ast.Bytes, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
         if not node.s:
-            type = self.type_translator.translate(node.type.element_type, ctx)
-            return self.viper_ast.EmptySeq(type, pos)
+            viper_type = self.type_translator.translate(node.type.element_type, ctx)
+            return self.viper_ast.EmptySeq(viper_type, pos)
         else:
             elems = [self.viper_ast.IntLit(e, pos) for e in node.s]
             return self.viper_ast.ExplicitSeq(elems, pos)
@@ -308,6 +308,8 @@ class ExpressionTranslator(NodeTranslator):
                 expr = helpers.floor(self.viper_ast, arg, scaling_factor, pos)
             elif name == names.CEIL:
                 expr = helpers.ceil(self.viper_ast, arg, scaling_factor, pos)
+            else:
+                assert False
 
             return expr
         elif name == names.SHIFT:
@@ -330,8 +332,10 @@ class ExpressionTranslator(NodeTranslator):
             return helpers.bitwise_not(self.viper_ast, arg, pos)
         elif name == names.AS_WEI_VALUE:
             arg = self.translate(node.args[0], res, ctx)
-            unit = node.args[1].s
-            unit_pos = self.to_position(node.args[1], ctx)
+            second_arg = node.args[1]
+            assert isinstance(second_arg, ast.Str)
+            unit = second_arg.s
+            unit_pos = self.to_position(second_arg, ctx)
             multiplier = next(v for k, v in names.ETHER_UNITS.items() if unit in k)
             multiplier_lit = self.viper_ast.IntLit(multiplier, unit_pos)
             num = self.viper_ast.Mul(arg, multiplier_lit, pos)
@@ -357,12 +361,12 @@ class ExpressionTranslator(NodeTranslator):
         elif name == names.CONCAT:
             concats = [self.translate(arg, res, ctx) for arg in node.args]
 
-            def concat(args):
-                arg, *tail = args
+            def concat(arguments):
+                argument, *tail = arguments
                 if not tail:
-                    return arg
+                    return argument
                 else:
-                    return self.viper_ast.SeqAppend(arg, concat(tail), pos)
+                    return self.viper_ast.SeqAppend(argument, concat(tail), pos)
 
             return concat(concats)
         elif name == names.CONVERT:
@@ -466,7 +470,8 @@ class ExpressionTranslator(NodeTranslator):
 
             block = ctx.block_var.local_var(ctx)
             number_type = self.type_translator.translate(types.BLOCK_TYPE.member_types[names.BLOCK_NUMBER], ctx)
-            block_number = helpers.struct_get(self.viper_ast, block, names.BLOCK_NUMBER, number_type, types.BLOCK_TYPE, pos)
+            block_number = helpers.struct_get(self.viper_ast, block, names.BLOCK_NUMBER, number_type,
+                                              types.BLOCK_TYPE, pos)
 
             # Only the last 256 blocks (before the current block) are available in blockhash, else we revert
             lt = self.viper_ast.LtCmp(arg, block_number, pos)
@@ -507,8 +512,8 @@ class ExpressionTranslator(NodeTranslator):
 
             val = self.viper_ast.TrueLit(pos)
             member = mangled.SELFDESTRUCT_FIELD
-            type = self.type_translator.translate(self_type.member_types[member], ctx)
-            sset = helpers.struct_set(self.viper_ast, self_var, val, member, type, self_type, pos)
+            viper_type = self.type_translator.translate(self_type.member_types[member], ctx)
+            sset = helpers.struct_set(self.viper_ast, self_var, val, member, viper_type, self_type, pos)
             res.append(self.viper_ast.LocalVarAssign(self_var, sset, pos))
 
             self.balance_translator.increase_sent(to, balance, res, ctx, pos)
@@ -585,8 +590,8 @@ class ExpressionTranslator(NodeTranslator):
                 self.balance_translator.decrease_balance(amount, res, ctx, pos)
 
             new_name = ctx.new_local_var_name('$new')
-            type = self.type_translator.translate(node.type, ctx)
-            new_var_decl = self.viper_ast.LocalVarDecl(new_name, type, pos)
+            viper_type = self.type_translator.translate(node.type, ctx)
+            new_var_decl = self.viper_ast.LocalVarDecl(new_name, viper_type, pos)
             ctx.new_local_vars.append(new_var_decl)
             new_var = new_var_decl.localVar()
 
@@ -596,8 +601,10 @@ class ExpressionTranslator(NodeTranslator):
             return new_var
         # This is a struct initializer
         elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
+            first_arg = node.args[0]
+            assert isinstance(first_arg, ast.Dict)
             exprs = {}
-            for key, value in zip(node.args[0].keys, node.args[0].values):
+            for key, value in zip(first_arg.keys, first_arg.values):
                 value_expr = self.translate(value, res, ctx)
                 idx = node.type.member_indices[key.id]
                 exprs[idx] = value_expr
@@ -660,13 +667,13 @@ class ExpressionTranslator(NodeTranslator):
         else:
             assert False
 
-    def assert_caller_private(self, modelt: ModelTransformation, res: List[Stmt], ctx: Context):
+    def assert_caller_private(self, modelt: ModelTransformation, res: List[Stmt], ctx: Context, vias: List[Via] = None):
         for interface_type in ctx.program.implements:
             interface = ctx.program.interfaces[interface_type.name]
             with ctx.program_scope(interface):
                 with ctx.state_scope(ctx.current_state, ctx.current_old_state):
                     for caller_private in interface.caller_private:
-                        pos = self.to_position(caller_private, ctx, modelt=modelt)
+                        pos = self.to_position(caller_private, ctx, rules.CALLER_PRIVATE_FAIL, vias or [], modelt)
                         # Quantified variable
                         q_name = mangled.quantifier_var_name(mangled.CALLER)
                         q_var = TranslatedVar(mangled.CALLER, q_name, types.VYPER_ADDRESS, self.viper_ast, pos)
@@ -695,6 +702,54 @@ class ExpressionTranslator(NodeTranslator):
                         forall = self.viper_ast.Forall([q_var.var_decl(ctx)], [trigger], expr, pos)
                         res.append(self.viper_ast.Assert(forall, pos))
 
+    def assume_contract_state(self, known_interface_refs: List[Tuple[str, Expr]], res: List[Stmt], ctx: Context,
+                              receiver: Optional[Expr] = None):
+        for interface_name, interface_ref in known_interface_refs:
+            body = []
+
+            # Assume caller private
+            interface = ctx.program.interfaces[interface_name]
+            with ctx.program_scope(interface):
+                with ctx.state_scope(ctx.current_state, ctx.current_old_state):
+                    for caller_private in interface.caller_private:
+                        pos = self.to_position(caller_private, ctx, rules.INHALE_CALLER_PRIVATE_FAIL)
+                        # Caller variable
+                        mangled_name = ctx.new_local_var_name(mangled.CALLER)
+                        caller_var = TranslatedVar(mangled.CALLER, mangled_name, types.VYPER_ADDRESS,
+                                                   self.viper_ast, pos)
+                        ctx.locals[mangled.CALLER] = caller_var
+                        ctx.new_local_vars.append(caller_var.var_decl(ctx, pos))
+                        self_address = ctx.self_address or helpers.self_address(self.viper_ast, pos)
+                        assign = self.viper_ast.LocalVarAssign(caller_var.local_var(ctx, pos), self_address, pos)
+                        body.append(assign)
+
+                        # Caller private assumption
+                        with ctx.self_address_scope(interface_ref):
+                            curr_caller_private = self.spec_translator.translate_caller_private(caller_private, ctx)
+                            with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
+                                old_caller_private = self.spec_translator.translate_caller_private(caller_private, ctx)
+                            caller_private_cond = self.viper_ast.EqCmp(curr_caller_private, old_caller_private, pos)
+                            body.append(self.viper_ast.Inhale(caller_private_cond, pos))
+
+            if receiver and body:
+                neq_cmp = self.viper_ast.NeCmp(receiver, interface_ref)
+                body = [self.viper_ast.If(neq_cmp, body, [])]
+
+            # Assume interface invariants
+            interface = ctx.program.interfaces[interface_name]
+            with ctx.program_scope(interface):
+                with ctx.self_address_scope(interface_ref):
+                    for inv in ctx.current_program.invariants:
+                        cond = self.spec_translator.translate_invariant(inv, res, ctx, True)
+                        i_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        body.append(self.viper_ast.Inhale(cond, i_pos))
+
+            if ctx.program.config.has_option(names.CONFIG_TRUST_CASTS):
+                res.extend(body)
+            else:
+                implements = helpers.implements(self.viper_ast, interface_ref, interface_name, ctx)
+                res.append(self.viper_ast.If(implements, body, []))
+
     def _log_event(self, event: VyperEvent, args: List[Expr], res: List[Stmt], ctx: Context, pos=None):
         assert ctx
         event_name = mangled.event_name(event.name)
@@ -718,26 +773,33 @@ class ExpressionTranslator(NodeTranslator):
         #    - Increment sent by amount
         #    - Subtract amount from self.balance (self.balance -= amount)
         #    - If in init, set old_self to self if this is the first public state
-        #    - Create new old state which old in the invariants after the call refers to
         #    - The next steps are only necessary if the function is not constant:
+        #       - Create new old contract state
         #       - Havoc contracts
         #       - Assume 'caller private' of interface state variables and receiver
         #       - Assume invariants of interface state variables and receiver
-        #    - Assert checks, own 'caller private' and invariants
+        #    - In the case of an interface call:
+        #       - Assume postconditions
         #    - Fail based on an unknown value (i.e. the call could fail)
+        #    - Assert checks, own 'caller private' and invariants
+        #    - Create new old state which old in the invariants after the call refers to (except contract state)
         #    - The next steps are only necessary if the function is not constant:
         #       - Havoc self
         #       - Assume type assumptions for self
         #       - Assume invariants (where old refers to the state before send)
+        #    - Create new old state which subsequent old expressions refer to
         #    - In the case of an interface call:
         #       - Assume postconditions
-        #    - Create new old state which subsequent old expressions refer to
 
         pos = self.to_position(node, ctx)
         self_var = ctx.self_var.local_var(ctx)
 
         if known:
             interface, function, args = known
+        else:
+            interface = None
+            function = None
+            args = None
 
         if amount:
             self.balance_translator.check_balance(amount, res, ctx, pos)
@@ -756,18 +818,78 @@ class ExpressionTranslator(NodeTranslator):
 
         modelt = self.model_translator.save_variables(res, ctx, pos)
 
-        self.assert_caller_private(modelt, res, ctx)
+        self.assert_caller_private(modelt, res, ctx, [Via('external function call', pos)])
         for check in chain(ctx.function.checks, ctx.program.general_checks):
             check_cond = self.spec_translator.translate_check(check, res, ctx)
             via = [Via('check', check_cond.pos())]
             check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via, modelt)
             res.append(self.viper_ast.Assert(check_cond, check_pos))
 
-        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
-
+        # Copy contract state
+        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
+                                         unless=lambda n: n != mangled.CONTRACTS)
         if not constant:
+            # Save the values of to, amount, and args, as self could be changed by reentrancy
+            if known:
+                def new_var(variable, name='v'):
+                    var_name = ctx.new_local_var_name(name)
+                    var_decl = self.viper_ast.LocalVarDecl(var_name, variable.typ(), pos)
+                    ctx.new_local_vars.append(var_decl)
+                    res.append(self.viper_ast.LocalVarAssign(var_decl.localVar(), variable))
+                    return var_decl.localVar()
+
+                to = new_var(to, 'to')
+                if amount:
+                    amount = new_var(amount, 'amount')
+                # Force evaluation at this point
+                args = list(map(new_var, args))
+
             # Havoc contract state
-            self.state_translator.havoc_state_except_self(ctx.current_state, res, ctx)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx,
+                                              unless=lambda n: n != mangled.CONTRACTS)
+
+            known_interface_ref = []
+
+            self_type = ctx.program.fields.type
+            for member_name, member_type in self_type.member_types.items():
+                viper_type = self.type_translator.translate(member_type, ctx)
+                if isinstance(member_type, types.InterfaceType):
+                    get = helpers.struct_get(self.viper_ast, ctx.self_var.local_var(ctx), member_name,
+                                             viper_type, self_type)
+                    known_interface_ref.append((member_type.name, get))
+
+            for var in chain(ctx.locals.values(), ctx.args.values()):
+                assert isinstance(var, TranslatedVar)
+                if isinstance(var.type, types.InterfaceType):
+                    known_interface_ref.append((var.type.name, var.local_var(ctx)))
+
+            self.assume_contract_state(known_interface_ref, res, ctx, to)
+
+        send_fail_name = ctx.new_local_var_name('send_fail')
+        send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
+        ctx.new_local_vars.append(send_fail)
+        fail_cond = send_fail.localVar()
+
+        if node.type:
+            ret_name = ctx.new_local_var_name('raw_ret')
+            ret_type = self.type_translator.translate(node.type, ctx)
+            ret_var = self.viper_ast.LocalVarDecl(ret_name, ret_type, pos)
+            ctx.new_local_vars.append(ret_var)
+            return_value = ret_var.localVar()
+            type_ass = self.type_translator.type_assumptions(return_value, node.type, ctx)
+            res.extend(self.viper_ast.Inhale(ass) for ass in type_ass)
+        else:
+            return_value = None
+
+        call_failed = helpers.call_failed(self.viper_ast, to, pos)
+        self.fail_if(fail_cond, [call_failed], res, ctx, pos)
+
+        success = self.viper_ast.Not(fail_cond, pos)
+
+        if known:
+            amount = amount or self.viper_ast.IntLit(0)
+            self._assume_interface_specifications(node, interface, function, args, to, amount, success, return_value,
+                                                  res, ctx)
 
         # Assert implemented interface invariants
         for interface_type in ctx.program.implements:
@@ -792,34 +914,15 @@ class ExpressionTranslator(NodeTranslator):
         if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
             self.allocation_translator.send_leak_check(node, res, ctx, pos)
 
-        send_fail_name = ctx.new_local_var_name('send_fail')
-        send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
-        ctx.new_local_vars.append(send_fail)
-        fail_cond = send_fail.localVar()
-        call_failed = helpers.call_failed(self.viper_ast, to, pos)
-        self.fail_if(fail_cond, [call_failed], res, ctx, pos)
-
         self.forget_about_all_events(res, ctx, pos)
 
+        # Copy contract state except contract state
+        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
+                                         unless=lambda n: n == mangled.CONTRACTS)
         if not constant:
-            # Save the values of to, amount, and args, as self could be changed by reentrancy
-            if known:
-
-                def new_var(var, name='v'):
-                    var_name = ctx.new_local_var_name(name)
-                    var_decl = self.viper_ast.LocalVarDecl(var_name, var.typ(), pos)
-                    ctx.new_local_vars.append(var_decl)
-                    res.append(self.viper_ast.LocalVarAssign(var_decl.localVar(), var))
-                    return var_decl.localVar()
-
-                to = new_var(to, 'to')
-                if amount:
-                    amount = new_var(amount, 'amount')
-                # Force evaluation at this point
-                args = list(map(new_var, args))
-
             # Havoc state except contract state
-            self.state_translator.havoc_state(ctx.current_state, res, ctx, unless=lambda n: n == mangled.CONTRACTS)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx,
+                                              unless=lambda n: n == mangled.CONTRACTS)
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
@@ -854,22 +957,9 @@ class ExpressionTranslator(NodeTranslator):
 
             self.seqn_with_info(assume_invs, "Assume invariants", res)
 
-        if node.type:
-            ret_name = ctx.new_local_var_name('raw_ret')
-            ret_type = self.type_translator.translate(node.type, ctx)
-            ret_var = self.viper_ast.LocalVarDecl(ret_name, ret_type, pos)
-            ctx.new_local_vars.append(ret_var)
-            return_value = ret_var.localVar()
-            type_ass = self.type_translator.type_assumptions(return_value, node.type, ctx)
-            res.extend(self.viper_ast.Inhale(ass) for ass in type_ass)
-        else:
-            return_value = None
-
-        success = self.viper_ast.Not(fail_cond, pos)
-
         if known:
-            amount = amount or self.viper_ast.IntLit(0)
-            self._assume_interface_specifications(node, interface, function, args, to, amount, success, return_value, res, ctx)
+            self._assume_interface_specifications(node, interface, function, args, to, amount, success, return_value,
+                                                  res, ctx)
 
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
@@ -883,8 +973,9 @@ class ExpressionTranslator(NodeTranslator):
         # to exhale no permissions under a quantifier.
         for event in ctx.program.events.values():
             event_name = mangled.event_name(event.name)
-            types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
-            event_args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos) for idx, type in enumerate(types)]
+            viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+            event_args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', viper_type, pos)
+                          for idx, viper_type in enumerate(viper_types)]
             local_args = [arg.localVar() for arg in event_args]
             pa = self.viper_ast.PredicateAccess(local_args, event_name, pos)
             perm = self.viper_ast.CurrentPerm(pa, pos)
@@ -969,7 +1060,8 @@ class ExpressionTranslator(NodeTranslator):
             if function.type.return_type:
                 ret_name = ctx.inline_prefix + mangled.RESULT_VAR
                 ret_pos = return_value.pos()
-                ctx.result_var = TranslatedVar(names.RESULT, ret_name, function.type.return_type, self.viper_ast, ret_pos)
+                ctx.result_var = TranslatedVar(names.RESULT, ret_name, function.type.return_type,
+                                               self.viper_ast, ret_pos)
                 ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, ret_pos))
                 body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ret_pos), return_value, ret_pos))
 
