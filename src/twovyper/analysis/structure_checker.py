@@ -10,9 +10,10 @@ from enum import Enum
 from itertools import chain
 from typing import Optional, Union
 
-from twovyper.utils import switch
+from twovyper.utils import switch, first
+
 from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.nodes import VyperProgram, VyperFunction
+from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperInterface
 from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
@@ -36,6 +37,7 @@ class _Context(Enum):
     POSTCONDITION = 'postcondition'
     PRECONDITION = 'precondition'
     TRANSITIVE_POSTCONDITION = 'transitive.postcondition'
+    CALLER_PRIVATE = 'caller.private'
     GHOST_CODE = 'ghost.code'
     GHOST_FUNCTION = 'ghost.function'
     GHOST_STATEMENT = 'ghost.statement'
@@ -52,7 +54,7 @@ class _Context(Enum):
 class StructureChecker(NodeVisitor):
 
     def __init__(self):
-        self.allowed = {
+        self.not_allowed = {
             _Context.CODE: [],
             _Context.INVARIANT: names.NOT_ALLOWED_IN_INVARIANT,
             _Context.LOOP_INVARIANT: names.NOT_ALLOWED_IN_LOOP_INVARIANT,
@@ -60,6 +62,7 @@ class StructureChecker(NodeVisitor):
             _Context.POSTCONDITION: names.NOT_ALLOWED_IN_POSTCONDITION,
             _Context.PRECONDITION: names.NOT_ALLOWED_IN_PRECONDITION,
             _Context.TRANSITIVE_POSTCONDITION: names.NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION,
+            _Context.CALLER_PRIVATE: names.NOT_ALLOWED_IN_CALLER_PRIVATE,
             _Context.GHOST_CODE: names.NOT_ALLOWED_IN_GHOST_CODE,
             _Context.GHOST_FUNCTION: names.NOT_ALLOWED_IN_GHOST_FUNCTION,
             _Context.GHOST_STATEMENT: names.NOT_ALLOWED_IN_GHOST_STATEMENT
@@ -108,7 +111,7 @@ class StructureChecker(NodeVisitor):
 
     def check(self, program: VyperProgram):
         if program.resources and not program.config.has_option(names.CONFIG_ALLOCATION):
-            resource = next(iter(program.resources.values()))
+            resource = first(program.resources.values())
             msg = "Resources require allocation config option."
             raise InvalidProgramException(resource.node, 'alloc.not.alloc', msg)
 
@@ -155,6 +158,10 @@ class StructureChecker(NodeVisitor):
 
         for ghost_function in program.ghost_function_implementations.values():
             self.visit(ghost_function.node, _Context.GHOST_FUNCTION, program, None)
+
+        if isinstance(program, VyperInterface):
+            for caller_private in program.caller_private:
+                self.visit(caller_private, _Context.CALLER_PRIVATE, program, None)
 
     def visit(self, node: ast.Node, *args):
         assert len(args) == 3
@@ -241,7 +248,7 @@ class StructureChecker(NodeVisitor):
 
     def visit_FunctionCall(self, node: ast.FunctionCall, ctx: _Context,
                            program: VyperProgram, function: Optional[VyperFunction]):
-        _assert(node.name not in self.allowed[ctx], node, f'{ctx.value}.call')
+        _assert(node.name not in self.not_allowed[ctx], node, f'{ctx.value}.call')
 
         if ctx == _Context.POSTCONDITION and function and function.name == names.INIT:
             _assert(node.name != names.OLD, node, 'postcondition.init.old')

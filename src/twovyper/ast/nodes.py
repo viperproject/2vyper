@@ -202,6 +202,7 @@ class VyperInterface(VyperProgram):
                  functions: Dict[str, VyperFunction],
                  ghost_functions: Dict[str, GhostFunction],
                  general_postconditions: List[ast.Expr],
+                 caller_private: List[ast.Expr],
                  type: InterfaceType):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})
@@ -218,6 +219,7 @@ class VyperInterface(VyperProgram):
         self.name = name
         self.ghost_functions = ghost_functions
         self.type = type
+        self.caller_private = caller_private
 
     def is_interface(self) -> bool:
         return True

@@ -80,6 +80,7 @@ class ProgramBuilder(NodeVisitor):
         self.postconditions = []
         self.preconditions = []
         self.checks = []
+        self.caller_private = []
         self.performs = []
 
         self.is_preserves = False
@@ -112,8 +113,13 @@ class ProgramBuilder(NodeVisitor):
                                   self.functions,
                                   self.ghost_functions,
                                   self.general_postconditions,
+                                  self.caller_private,
                                   interface_type)
         else:
+            if self.caller_private:
+                node = first(self.caller_private)
+                raise InvalidProgramException(node, 'invalid.caller.private',
+                                              'Caller private is only allowed in interfaces')
             # Create the self-type
             self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
@@ -333,6 +339,11 @@ class ProgramBuilder(NodeVisitor):
                 self.preconditions.append(node.value)
             elif case(names.CHECK):
                 self.checks.append(node.value)
+            elif case(names.CALLER_PRIVATE):
+                # No local specifications allowed before caller private
+                self._check_no_local_spec()
+
+                self.caller_private.append(node.value)
             elif case(names.PERFORMS):
                 self.performs.append(node.value)
             else:
