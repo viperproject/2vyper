@@ -72,6 +72,7 @@ class StructureChecker(NodeVisitor):
         self._is_pure = False
         self._non_pure_parent_description: Union[str, None] = None
         self._visited_an_event = False
+        self._visited_caller_spec = False
         self._only_one_event_allowed = False
         self._function_pure_checker = _FunctionPureChecker()
 
@@ -161,7 +162,10 @@ class StructureChecker(NodeVisitor):
 
         if isinstance(program, VyperInterface):
             for caller_private in program.caller_private:
+                self._visited_caller_spec = False
                 self.visit(caller_private, _Context.CALLER_PRIVATE, program, None)
+                _assert(self._visited_caller_spec, caller_private, 'invalid.caller.private',
+                        'A caller private expression must contain "caller()"')
 
     def visit(self, node: ast.Node, *args):
         assert len(args) == 3
@@ -265,7 +269,10 @@ class StructureChecker(NodeVisitor):
             elif ctx == _Context.PRECONDITION:
                 _assert(function.is_private(), node, 'precondition.event')
 
-        if node.name == names.EVENT:
+        if node.name == names.CALLER:
+            self._visited_caller_spec = True
+
+        elif node.name == names.EVENT:
             if ctx == _Context.PRECONDITION \
                     or ctx == _Context.POSTCONDITION \
                     or ctx == _Context.LOOP_INVARIANT:
