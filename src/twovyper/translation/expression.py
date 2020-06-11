@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2020 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -681,15 +681,20 @@ class ExpressionTranslator(NodeTranslator):
         #    - Increment sent by amount
         #    - Subtract amount from self.balance (self.balance -= amount)
         #    - If in init, set old_self to self if this is the first public state
-        #    - Assert checks and invariants
         #    - Create new old state which old in the invariants after the call refers to
-        #    - Fail based on an unkown value (i.e. the call could fail)
         #    - The next steps are only necessary if the function is not constant:
-        #       - Havoc self and contracts
+        #       - Havoc contracts
+        #       - Assume 'caller private' of interface state variables and receiver
+        #       - Assume invariants of interface state variables and receiver
+        #    - Assert checks, own 'caller private' and invariants
+        #    - Fail based on an unknown value (i.e. the call could fail)
+        #    - The next steps are only necessary if the function is not constant:
+        #       - Havoc self
         #       - Assume type assumptions for self
         #       - Assume invariants (where old refers to the state before send)
-        #       - Create new old state which subsequent old expressions refer to
-        #    - In the case of an interface call: Assume postconditions
+        #    - In the case of an interface call:
+        #       - Assume postconditions
+        #    - Create new old state which subsequent old expressions refer to
 
         pos = self.to_position(node, ctx)
         self_var = ctx.self_var.local_var(ctx)
@@ -720,6 +725,12 @@ class ExpressionTranslator(NodeTranslator):
             check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via, modelt)
             res.append(self.viper_ast.Assert(check_cond, check_pos))
 
+        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
+
+        if not constant:
+            # Havoc contract state
+            self.state_translator.havoc_state_except_self(ctx.current_state, res, ctx)
+
         for inv in ctx.program.invariants:
             # We ignore accessible because it only has to be checked in the end of
             # the function
@@ -738,8 +749,6 @@ class ExpressionTranslator(NodeTranslator):
         fail_cond = send_fail.localVar()
         call_failed = helpers.call_failed(self.viper_ast, to, pos)
         self.fail_if(fail_cond, [call_failed], res, ctx, pos)
-
-        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
         self.forget_about_all_events(res, ctx, pos)
 
@@ -760,8 +769,8 @@ class ExpressionTranslator(NodeTranslator):
                 # Force evaluation at this point
                 args = list(map(new_var, args))
 
-            # Havoc state
-            self.state_translator.havoc_state(ctx.current_state, res, ctx, pos)
+            # Havoc state except contract state
+            self.state_translator.havoc_state(ctx.current_state, res, ctx, unless=lambda n: n == mangled.CONTRACTS)
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
