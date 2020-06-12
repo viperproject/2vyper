@@ -26,7 +26,7 @@ _lock: bool
 
 # Invariant we want to prove
 #:: Label(INV)
-#@ invariant: not self._lock ==> self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self]
+#@ inter contract invariant: not self._lock ==> self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self]
 
 
 @public
@@ -50,6 +50,6 @@ def __init__(token_A_address: address , token_B_address: address):
 #@ ensures: success() ==> self.token_A != self.token_B
 @private
 def fail():
-    #:: ExpectedOutput(call.invariant:assertion.false, INV)
+    #:: ExpectedOutput(after.call.invariant:assertion.false, INV)
     self.token_A.increase()
     self.token_B.increase()

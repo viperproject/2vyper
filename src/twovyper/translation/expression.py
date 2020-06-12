@@ -773,23 +773,27 @@ class ExpressionTranslator(NodeTranslator):
         #    - Increment sent by amount
         #    - Subtract amount from self.balance (self.balance -= amount)
         #    - If in init, set old_self to self if this is the first public state
+        #    - Assert checks, own 'caller private' and inter contract invariants
+        #    - Create new old-contract state
+        #    - The next step is only necessary if the function is not constant:
+        #       - Havoc contract state
+        #    - Assert local state invariants
+        #    - Fail based on an unknown value (i.e. the call could fail)
+        #    - The next step is only necessary if the function is not constant:
+        #       - Undo havocing of contract state
+        #    - Create new old state which old in the invariants after the call refers to
         #    - The next steps are only necessary if the function is not constant:
-        #       - Create new old contract state
-        #       - Havoc contracts
-        #       - Assume 'caller private' of interface state variables and receiver
+        #       - Havoc state
+        #       - Assume type assumptions for self
+        #       - Assume local state invariants (where old refers to the state before send)
+        #       - Assume 'caller private' of interface state variables but NOT receiver
         #       - Assume invariants of interface state variables and receiver
         #    - In the case of an interface call:
         #       - Assume postconditions
-        #    - Fail based on an unknown value (i.e. the call could fail)
-        #    - Assert checks, own 'caller private' and invariants
-        #    - Create new old state which old in the invariants after the call refers to (except contract state)
-        #    - The next steps are only necessary if the function is not constant:
-        #       - Havoc self
-        #       - Assume type assumptions for self
-        #       - Assume invariants (where old refers to the state before send)
+        #       - Assert inter contract invariants
+        #    - Else:
+        #       - Assume inter contract invariants (where old refers to the state before send)
         #    - Create new old state which subsequent old expressions refer to
-        #    - In the case of an interface call:
-        #       - Assume postconditions
 
         pos = self.to_position(node, ctx)
         self_var = ctx.self_var.local_var(ctx)
@@ -825,6 +829,30 @@ class ExpressionTranslator(NodeTranslator):
             check_pos = self.to_position(node, ctx, rules.CALL_CHECK_FAIL, via, modelt)
             res.append(self.viper_ast.Assert(check_cond, check_pos))
 
+        assert_inter_contract_invariants = []
+        # Assert implemented interface invariants
+        for interface_type in ctx.program.implements:
+            interface = ctx.program.interfaces[interface_type.name]
+            with ctx.program_scope(interface):
+                for inv in ctx.current_program.inter_contract_invariants:
+                    cond = self.spec_translator.translate_invariant(inv, assert_inter_contract_invariants, ctx, True)
+                    via = [Via('invariant', cond.pos())]
+                    call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via, modelt)
+                    assert_inter_contract_invariants.append(self.viper_ast.Assert(cond, call_pos))
+
+        # Assert own invariants
+        for inv in ctx.current_program.inter_contract_invariants:
+            # We ignore accessible because it only has to be checked in the end of
+            # the function
+            cond = self.spec_translator.translate_invariant(inv, assert_inter_contract_invariants, ctx, True)
+            via = [Via('invariant', cond.pos())]
+            call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via, modelt)
+            assert_inter_contract_invariants.append(self.viper_ast.Assert(cond, call_pos))
+
+        self.seqn_with_info(assert_inter_contract_invariants, "Assert inter contract invariants before call", res)
+
+        self.forget_about_all_events(res, ctx, pos)
+
         # Copy contract state
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
                                          unless=lambda n: n != mangled.CONTRACTS)
@@ -848,22 +876,31 @@ class ExpressionTranslator(NodeTranslator):
             self.state_translator.havoc_state(ctx.current_state, res, ctx,
                                               unless=lambda n: n != mangled.CONTRACTS)
 
-            known_interface_ref = []
+        assert_local_state_invariants = []
+        # Assert implemented interface invariants
+        for interface_type in ctx.program.implements:
+            interface = ctx.program.interfaces[interface_type.name]
+            with ctx.program_scope(interface):
+                for inv in ctx.current_program.local_state_invariants:
+                    cond = self.spec_translator.translate_invariant(inv, assert_local_state_invariants, ctx, True)
+                    via = [Via('invariant', cond.pos())]
+                    call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via, modelt)
+                    assert_local_state_invariants.append(self.viper_ast.Assert(cond, call_pos))
 
-            self_type = ctx.program.fields.type
-            for member_name, member_type in self_type.member_types.items():
-                viper_type = self.type_translator.translate(member_type, ctx)
-                if isinstance(member_type, types.InterfaceType):
-                    get = helpers.struct_get(self.viper_ast, ctx.self_var.local_var(ctx), member_name,
-                                             viper_type, self_type)
-                    known_interface_ref.append((member_type.name, get))
+        # Assert own invariants
+        for inv in ctx.current_program.local_state_invariants:
+            # We ignore accessible because it only has to be checked in the end of
+            # the function
+            cond = self.spec_translator.translate_invariant(inv, assert_local_state_invariants, ctx, True)
+            via = [Via('invariant', cond.pos())]
+            call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via, modelt)
+            assert_local_state_invariants.append(self.viper_ast.Assert(cond, call_pos))
 
-            for var in chain(ctx.locals.values(), ctx.args.values()):
-                assert isinstance(var, TranslatedVar)
-                if isinstance(var.type, types.InterfaceType):
-                    known_interface_ref.append((var.type.name, var.local_var(ctx)))
+        self.seqn_with_info(assert_local_state_invariants, "Assert local state invariants before call", res)
 
-            self.assume_contract_state(known_interface_ref, res, ctx, to)
+        # We check that the invariant tracks all allocation by doing a leak check.
+        if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            self.allocation_translator.send_leak_check(node, res, ctx, pos)
 
         send_fail_name = ctx.new_local_var_name('send_fail')
         send_fail = self.viper_ast.LocalVarDecl(send_fail_name, self.viper_ast.Bool)
@@ -884,45 +921,14 @@ class ExpressionTranslator(NodeTranslator):
         call_failed = helpers.call_failed(self.viper_ast, to, pos)
         self.fail_if(fail_cond, [call_failed], res, ctx, pos)
 
-        success = self.viper_ast.Not(fail_cond, pos)
-
-        if known:
-            amount = amount or self.viper_ast.IntLit(0)
-            self._assume_interface_specifications(node, interface, function, args, to, amount, success, return_value,
-                                                  res, ctx)
-
-        # Assert implemented interface invariants
-        for interface_type in ctx.program.implements:
-            interface = ctx.program.interfaces[interface_type.name]
-            with ctx.program_scope(interface):
-                for inv in ctx.current_program.invariants:
-                    cond = self.spec_translator.translate_invariant(inv, res, ctx, True)
-                    via = [Via('invariant', cond.pos())]
-                    call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via, modelt)
-                    res.append(self.viper_ast.Assert(cond, call_pos))
-
-        # Assert own invariants
-        for inv in ctx.current_program.invariants:
-            # We ignore accessible because it only has to be checked in the end of
-            # the function
-            cond = self.spec_translator.translate_invariant(inv, res, ctx, True)
-            via = [Via('invariant', cond.pos())]
-            call_pos = self.to_position(node, ctx, rules.CALL_INVARIANT_FAIL, via, modelt)
-            res.append(self.viper_ast.Assert(cond, call_pos))
-
-        # We check that the invariant tracks all allocation by doing a leak check.
-        if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-            self.allocation_translator.send_leak_check(node, res, ctx, pos)
-
-        self.forget_about_all_events(res, ctx, pos)
-
-        # Copy contract state except contract state
-        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
-                                         unless=lambda n: n == mangled.CONTRACTS)
+        # Copy state
+        if not constant:
+            self.state_translator.copy_state(ctx.current_old_state, ctx.current_state, res, ctx,
+                                             unless=lambda n: n != mangled.CONTRACTS)
+        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
         if not constant:
             # Havoc state except contract state
-            self.state_translator.havoc_state(ctx.current_state, res, ctx,
-                                              unless=lambda n: n == mangled.CONTRACTS)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx)
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
@@ -944,22 +950,81 @@ class ExpressionTranslator(NodeTranslator):
             for interface_type in ctx.program.implements:
                 interface = ctx.program.interfaces[interface_type.name]
                 with ctx.program_scope(interface):
-                    for inv in ctx.current_program.invariants:
+                    for inv in ctx.current_program.local_state_invariants:
                         cond = self.spec_translator.translate_invariant(inv, assume_invs, ctx, True)
                         ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                         assume_invs.append(self.viper_ast.Inhale(cond, ipos))
 
             # Assume own invariants
-            for inv in ctx.current_program.invariants:
+            for inv in ctx.current_program.local_state_invariants:
                 cond = self.spec_translator.translate_invariant(inv, assume_invs, ctx, True)
                 ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 assume_invs.append(self.viper_ast.Inhale(cond, ipos))
 
-            self.seqn_with_info(assume_invs, "Assume invariants", res)
+            self.seqn_with_info(assume_invs, "Assume local state invariants", res)
 
+            known_interface_ref = []
+            self_type = ctx.program.fields.type
+            for member_name, member_type in self_type.member_types.items():
+                viper_type = self.type_translator.translate(member_type, ctx)
+                if isinstance(member_type, types.InterfaceType):
+                    get = helpers.struct_get(self.viper_ast, ctx.self_var.local_var(ctx), member_name,
+                                             viper_type, self_type)
+                    known_interface_ref.append((member_type.name, get))
+
+            for var in chain(ctx.locals.values(), ctx.args.values()):
+                assert isinstance(var, TranslatedVar)
+                if isinstance(var.type, types.InterfaceType):
+                    known_interface_ref.append((var.type.name, var.local_var(ctx)))
+            self.assume_contract_state(known_interface_ref, res, ctx, to)
+
+        success = self.viper_ast.Not(fail_cond, pos)
         if known:
+            amount = amount or self.viper_ast.IntLit(0)
             self._assume_interface_specifications(node, interface, function, args, to, amount, success, return_value,
                                                   res, ctx)
+
+            assert_inter_contract_invariants = []
+            # Assert implemented interface invariants
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                with ctx.program_scope(interface):
+                    for inv in ctx.current_program.inter_contract_invariants:
+                        cond = self.spec_translator.translate_invariant(inv, assert_inter_contract_invariants,
+                                                                        ctx, True)
+                        via = [Via('invariant', cond.pos())]
+                        call_pos = self.to_position(node, ctx, rules.AFTER_CALL_INVARIANT_FAIL, via, modelt)
+                        assert_inter_contract_invariants.append(self.viper_ast.Assert(cond, call_pos))
+
+            # Assert own invariants
+            for inv in ctx.current_program.inter_contract_invariants:
+                # We ignore accessible because it only has to be checked in the end of
+                # the function
+                cond = self.spec_translator.translate_invariant(inv, assert_inter_contract_invariants, ctx, True)
+                via = [Via('invariant', cond.pos())]
+                call_pos = self.to_position(node, ctx, rules.AFTER_CALL_INVARIANT_FAIL, via, modelt)
+                assert_inter_contract_invariants.append(self.viper_ast.Assert(cond, call_pos))
+
+            self.seqn_with_info(assert_inter_contract_invariants, "Assert inter contract invariants after call", res)
+        else:
+            assume_inter_contract_invariants = []
+            # Assume implemented interface invariants
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                with ctx.program_scope(interface):
+                    for inv in ctx.current_program.inter_contract_invariants:
+                        cond = self.spec_translator.translate_invariant(inv, assume_inter_contract_invariants,
+                                                                        ctx, True)
+                        ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        assume_inter_contract_invariants.append(self.viper_ast.Inhale(cond, ipos))
+
+            # Assume own invariants
+            for inv in ctx.current_program.inter_contract_invariants:
+                cond = self.spec_translator.translate_invariant(inv, assume_inter_contract_invariants, ctx, True)
+                ipos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                assume_inter_contract_invariants.append(self.viper_ast.Inhale(cond, ipos))
+
+            self.seqn_with_info(assume_inter_contract_invariants, "Assume inter contract invariants after call", res)
 
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 

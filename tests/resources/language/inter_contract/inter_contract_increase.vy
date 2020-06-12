@@ -32,7 +32,10 @@ _init: bool
 #@ invariant: self.token_A != self.token_B
 
 # Invariant we want to prove
-#@ invariant: not self._lock and self._init ==> self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self]
+#@ inter contract invariant: not self._lock and self._init ==> self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self]
+#@ inter contract invariant: self._diff == 0 \
+    #@ or self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self] \
+    #@ or self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self] - 1
 
 
 @public
@@ -54,6 +57,7 @@ def __init__(token_A_address: address , token_B_address: address):
 @public
 def increase() -> bool:
     assert not self._lock
+    assert self._init
     result: bool = False
     if self.token_A.get() != MAX_UINT256 and self.token_B.get() != MAX_UINT256:
         self._lock = True

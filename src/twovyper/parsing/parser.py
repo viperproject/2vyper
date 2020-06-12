@@ -70,6 +70,7 @@ class ProgramBuilder(NodeVisitor):
         self.events = {}
         self.resources = {}
         self.invariants = []
+        self.inter_contract_invariants = []
         self.general_postconditions = []
         self.transitive_postconditions = []
         self.general_checks = []
@@ -142,6 +143,7 @@ class ProgramBuilder(NodeVisitor):
                                 self.events,
                                 self.resources,
                                 self.invariants,
+                                self.inter_contract_invariants,
                                 self.general_postconditions,
                                 self.transitive_postconditions,
                                 self.general_checks,
@@ -321,6 +323,11 @@ class ProgramBuilder(NodeVisitor):
                 self._check_no_local_spec()
 
                 self.invariants.append(node.value)
+            elif case(names.INTER_CONTRACT_INVARIANTS):
+                # No local specifications allowed before inter contract invariants
+                self._check_no_local_spec()
+
+                self.inter_contract_invariants.append(node.value)
             elif case(names.GENERAL_POSTCONDITION):
                 # No local specifications allowed before general postconditions
                 self._check_no_local_spec()

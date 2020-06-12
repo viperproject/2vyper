@@ -148,6 +148,7 @@ CREATE_FORWARDER_TO_VALUE = 'value'
 
 # Verification
 INVARIANT = 'invariant'
+INTER_CONTRACT_INVARIANTS = 'inter_contract_invariant'
 GENERAL_POSTCONDITION = 'always_ensures'
 GENERAL_CHECK = 'always_check'
 POSTCONDITION = 'ensures'

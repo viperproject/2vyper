@@ -476,6 +476,51 @@ class FunctionTranslator(CommonTranslator):
                 # Havoc other contract state
                 self.state_translator.havoc_state_except_self(ctx.current_state, body, ctx)
 
+                # In init set old to current self, if this is the first public state
+                if is_init:
+                    self.state_translator.check_first_public_state(body, ctx, False)
+
+                def assert_collected_invariants(collected_invariants) -> List[Expr]:
+                    invariant_assertions = []
+                    # Assert collected invariants
+                    for invariant, invariant_condition in collected_invariants:
+                        invariant_pos = self.to_position(invariant, ctx)
+                        # If we have a synthesized __init__ we only create an
+                        # error message on the invariant
+                        if is_init:
+                            # Invariants do not have to hold if __init__ fails
+                            invariant_condition = self.viper_ast.Implies(success_var, invariant_condition,
+                                                                         invariant_pos)
+                            assertion_pos = self.to_position(invariant, ctx, rules.INVARIANT_FAIL,
+                                                             modelt=invariant_model_translator)
+                        else:
+                            assertion_pos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL,
+                                                             [Via('invariant', invariant_pos)],
+                                                             invariant_model_translator)
+
+                        invariant_assertions.append(self.viper_ast.Assert(invariant_condition, assertion_pos))
+                    return invariant_assertions
+
+                # Assert the invariants
+                invariant_stmts = []
+                invariant_model_translator = self.model_translator.save_variables(invariant_stmts, ctx, pos)
+
+                # Collect all local state invariants
+                invariant_conditions = []
+                for interface_type in ctx.program.implements:
+                    interface = ctx.program.interfaces[interface_type.name]
+                    with ctx.program_scope(interface):
+                        for inv in ctx.current_program.local_state_invariants:
+                            cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
+                            invariant_conditions.append((inv, cond))
+                for inv in ctx.current_program.local_state_invariants:
+                    # We ignore accessible here because we use a separate check
+                    cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
+                    invariant_conditions.append((inv, cond))
+
+                invariant_stmts.extend(assert_collected_invariants(invariant_conditions))
+                self.seqn_with_info(invariant_stmts, "Assert Local State Invariants", body)
+
                 known_interface_ref = []
                 self_type = ctx.program.fields.type
                 for member_name, member_type in self_type.member_types.items():
@@ -487,44 +532,22 @@ class FunctionTranslator(CommonTranslator):
 
                 self.expression_translator.assume_contract_state(known_interface_ref, body, ctx)
 
-                # In init set old to current self, if this is the first public state
-                if is_init:
-                    self.state_translator.check_first_public_state(body, ctx, False)
-
-                # Assert the invariants
+                # Collect all inter contract invariants
                 invariant_stmts = []
-                invariant_model_translator = self.model_translator.save_variables(invariant_stmts, ctx, pos)
-
-                # Collect all invariants
                 invariant_conditions = []
                 for interface_type in ctx.program.implements:
                     interface = ctx.program.interfaces[interface_type.name]
                     with ctx.program_scope(interface):
-                        for inv in ctx.current_program.invariants:
+                        for inv in ctx.current_program.inter_contract_invariants:
                             cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
                             invariant_conditions.append((inv, cond))
-                for inv in ctx.current_program.invariants:
+                for inv in ctx.current_program.inter_contract_invariants:
                     # We ignore accessible here because we use a separate check
                     cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
                     invariant_conditions.append((inv, cond))
 
-                # Assert collected invariants
-                for inv, cond in invariant_conditions:
-                    inv_pos = self.to_position(inv, ctx)
-                    # If we have a synthesized __init__ we only create an
-                    # error message on the invariant
-                    if is_init:
-                        # Invariants do not have to hold if __init__ fails
-                        cond = self.viper_ast.Implies(success_var, cond, inv_pos)
-                        apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL, modelt=invariant_model_translator)
-                    else:
-                        via = [Via('invariant', inv_pos)]
-                        apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL,
-                                                via, invariant_model_translator)
-
-                    invariant_stmts.append(self.viper_ast.Assert(cond, apos))
-
-                self.seqn_with_info(invariant_stmts, "Assert Invariants", body)
+                invariant_stmts.extend(assert_collected_invariants(invariant_conditions))
+                self.seqn_with_info(invariant_stmts, "Assert Inter Contract Invariants", body)
 
                 # We check that the invariant tracks all allocation by doing a leak check.
                 # We also check that all necessary operations stated in perform clauses were

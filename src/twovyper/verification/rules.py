@@ -147,6 +147,11 @@ CALL_INVARIANT_FAIL = {
         ('call.invariant', 'assertion.false')
 }
 
+AFTER_CALL_INVARIANT_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('after.call.invariant', 'assertion.false')
+}
+
 CALL_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('call.check', 'assertion.false')
