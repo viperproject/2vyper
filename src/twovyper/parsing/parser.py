@@ -69,7 +69,7 @@ class ProgramBuilder(NodeVisitor):
         self.contracts = {}
         self.events = {}
         self.resources = {}
-        self.invariants = []
+        self.local_state_invariants = []
         self.inter_contract_invariants = []
         self.general_postconditions = []
         self.transitive_postconditions = []
@@ -112,10 +112,13 @@ class ProgramBuilder(NodeVisitor):
                                   self.name,
                                   self.config,
                                   self.functions,
-                                  self.invariants,
-                                  self.ghost_functions,
+                                  self.local_state_invariants,
+                                  self.inter_contract_invariants,
                                   self.general_postconditions,
+                                  self.transitive_postconditions,
+                                  self.general_checks,
                                   self.caller_private,
+                                  self.ghost_functions,
                                   interface_type)
         else:
             if self.caller_private:
@@ -142,7 +145,7 @@ class ProgramBuilder(NodeVisitor):
                                 self.contracts,
                                 self.events,
                                 self.resources,
-                                self.invariants,
+                                self.local_state_invariants,
                                 self.inter_contract_invariants,
                                 self.general_postconditions,
                                 self.transitive_postconditions,
@@ -322,7 +325,7 @@ class ProgramBuilder(NodeVisitor):
                 # No local specifications allowed before invariants
                 self._check_no_local_spec()
 
-                self.invariants.append(node.value)
+                self.local_state_invariants.append(node.value)
             elif case(names.INTER_CONTRACT_INVARIANTS):
                 # No local specifications allowed before inter contract invariants
                 self._check_no_local_spec()

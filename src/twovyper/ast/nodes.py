@@ -206,10 +206,13 @@ class VyperInterface(VyperProgram):
                  name: Optional[str],
                  config: Config,
                  functions: Dict[str, VyperFunction],
-                 invariants: List[ast.Expr],
-                 ghost_functions: Dict[str, GhostFunction],
+                 local_state_invariants: List[ast.Expr],
+                 inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
+                 transitive_postconditions: List[ast.Expr],
+                 general_checks: List[ast.Expr],
                  caller_private: List[ast.Expr],
+                 ghost_functions: Dict[str, GhostFunction],
                  type: InterfaceType):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})
@@ -220,9 +223,12 @@ class VyperInterface(VyperProgram):
                          empty_struct,
                          functions,
                          {}, {}, {}, {}, {},
-                         invariants, [],
+                         local_state_invariants,
+                         inter_contract_invariants,
                          general_postconditions,
-                         [], [], [], {})
+                         transitive_postconditions,
+                         general_checks,
+                         [], {})
         self.name = name
         self.ghost_functions = ghost_functions
         self.type = type

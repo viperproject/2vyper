@@ -142,9 +142,15 @@ class StructureChecker(NodeVisitor):
             for performs in function.performs:
                 self._visit_performs(performs, program, function)
 
+        if program.inter_contract_invariants:
+            _assert(not program.is_interface(), program.inter_contract_invariants[0],
+                    'invalid.inter.contract.invariant', 'No inter contract invariants are allowed in interfaces.')
         for invariant in program.invariants:
             self.visit(invariant, _Context.INVARIANT, program, None)
 
+        if program.general_checks:
+            _assert(not program.is_interface(), program.general_checks[0],
+                    'invalid.checks', 'No checks are allowed in interfaces.')
         for check in program.general_checks:
             self.visit(check, _Context.CHECK, program, None)
 
