@@ -586,7 +586,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
         arg_neq = reduce(or_op, starmap(ne_op, zip(*targs)), false)
         if is_zero:
-            arg_neq = self.viper_ast.Or(arg_neq, reduce(or_op, is_zero))
+            arg_neq = self.viper_ast.Or(arg_neq, reduce(or_op, is_zero), pos)
 
         expr = self.viper_ast.Implies(tas, self.viper_ast.Implies(cond, arg_neq, pos), pos)
         quant = self.viper_ast.Forall([var.var_decl(ctx) for var in chain(*qtvars)], [], expr, pos)
