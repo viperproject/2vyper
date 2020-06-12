@@ -591,14 +591,15 @@ class FunctionTranslator(CommonTranslator):
                     out_of_gas = helpers.out_of_gas_var(self.viper_ast, inv_pos).localVar()
                     not_sender_failed = self.viper_ast.Not(self.viper_ast.Or(sender_failed, out_of_gas, inv_pos),
                                                            inv_pos)
-                    succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var, inv_pos)
+                    succ_if_not = self.viper_ast.Implies(not_sender_failed,
+                                                         ctx.success_var.local_var(ctx, inv_pos), inv_pos)
 
                     sent_to = self.balance_translator.get_sent(self_var, msg_sender, ctx, inv_pos)
                     pre_sent_to = self.balance_translator.get_sent(pre_self_var, msg_sender, ctx, inv_pos)
 
                     diff = self.viper_ast.Sub(sent_to, pre_sent_to, inv_pos)
                     ge_sent_local = self.viper_ast.GeCmp(diff, amount_local, inv_pos)
-                    succ_impl = self.viper_ast.Implies(success_var, ge_sent_local, inv_pos)
+                    succ_impl = self.viper_ast.Implies(ctx.success_var.local_var(ctx, inv_pos), ge_sent_local, inv_pos)
                     conj = self.viper_ast.And(succ_if_not, succ_impl, inv_pos)
                     impl = self.viper_ast.Implies(pos_perm, conj, inv_pos)
                     trigger = self.viper_ast.Trigger([acc_pred], inv_pos)
