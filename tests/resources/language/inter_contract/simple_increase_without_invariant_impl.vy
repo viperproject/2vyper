@@ -8,9 +8,9 @@
 contract C:
     def do_something(): modifying
 
-from . import simple_increase
+from . import simple_increase_without_invariant
 
-implements: simple_increase
+implements: simple_increase_without_invariant
 
 amounts: map(address, uint256)
 
@@ -20,7 +20,11 @@ amounts: map(address, uint256)
 
 @public
 def increase() -> bool:
-    self.amounts[msg.sender] += 1
+    temp: uint256 = self.amounts[msg.sender]
+    self.amounts[msg.sender] = 0
+    b: address = 0x000000001000000000010000000000000600000a
+    C(b).do_something()
+    self.amounts[msg.sender] = temp + 1
     return True
 
 @public

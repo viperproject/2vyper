@@ -33,9 +33,6 @@ _init: bool
 
 # Invariant we want to prove
 #@ inter contract invariant: not self._lock and self._init ==> self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self]
-#@ inter contract invariant: self._diff == 0 \
-    #@ or self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self] \
-    #@ or self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self] - 1
 
 
 @public

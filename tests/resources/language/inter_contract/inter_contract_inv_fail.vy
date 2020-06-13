@@ -46,10 +46,11 @@ def __init__(token_A_address: address , token_B_address: address):
 #@ requires: self.token_A == public_old(self.token_A)
 #@ requires: self.token_B == public_old(self.token_B)
 #@ requires: self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self]
-#@ ensures: success() ==> self.token_A == self.token_B
-#@ ensures: success() ==> self.token_A != self.token_B
+#:: ExpectedOutput(carbon)(postcondition.violated:assertion.false)
+#@ ensures: revert()
 @private
 def fail():
-    #:: ExpectedOutput(after.call.invariant:assertion.false, INV)
+    #:: ExpectedOutput(during.call.invariant:assertion.false, INV)
     self.token_A.increase()
+    #:: ExpectedOutput(carbon)(during.call.invariant:assertion.false, INV)
     self.token_B.increase()

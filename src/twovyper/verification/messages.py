@@ -21,6 +21,8 @@ ERRORS = {
         lambda i: f"An invariant might not hold before the call {pprint(i.node)}.",
     'after.call.invariant':
         lambda i: f"An invariant might not hold after the call {pprint(i.node)}.",
+    'during.call.invariant':
+        lambda i: f"An invariant might not hold during the call {pprint(i.node)}.",
     'call.check':
         lambda i: f"A check might not hold before the call {pprint(i.node)}.",
     'private.call.check':

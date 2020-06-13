@@ -789,6 +789,7 @@ class ExpressionTranslator(NodeTranslator):
         #       - Assume 'caller private' of interface state variables but NOT receiver
         #       - Assume invariants of interface state variables and receiver
         #    - In the case of an interface call:
+        #       - Assert inter contract invariants
         #       - Assume postconditions
         #       - Assert inter contract invariants
         #    - Else:
@@ -980,10 +981,32 @@ class ExpressionTranslator(NodeTranslator):
 
         success = self.viper_ast.Not(fail_cond, pos)
         if known:
+            assert_inter_contract_invariants = []
+            # Assert implemented interface invariants
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                with ctx.program_scope(interface):
+                    for inv in ctx.current_program.inter_contract_invariants:
+                        cond = self.spec_translator.translate_invariant(inv, assert_inter_contract_invariants,
+                                                                        ctx, True)
+                        via = [Via('invariant', cond.pos())]
+                        call_pos = self.to_position(node, ctx, rules.DURING_CALL_INVARIANT_FAIL, via, modelt)
+                        assert_inter_contract_invariants.append(self.viper_ast.Assert(cond, call_pos))
+
+            # Assert own invariants
+            for inv in ctx.current_program.inter_contract_invariants:
+                # We ignore accessible because it only has to be checked in the end of
+                # the function
+                cond = self.spec_translator.translate_invariant(inv, assert_inter_contract_invariants, ctx, True)
+                via = [Via('invariant', cond.pos())]
+                call_pos = self.to_position(node, ctx, rules.DURING_CALL_INVARIANT_FAIL, via, modelt)
+                assert_inter_contract_invariants.append(self.viper_ast.Assert(cond, call_pos))
+
+            self.seqn_with_info(assert_inter_contract_invariants, "Assert inter contract invariants during call", res)
+
             amount = amount or self.viper_ast.IntLit(0)
             self._assume_interface_specifications(node, interface, function, args, to, amount, success, return_value,
                                                   res, ctx)
-
             assert_inter_contract_invariants = []
             # Assert implemented interface invariants
             for interface_type in ctx.program.implements:

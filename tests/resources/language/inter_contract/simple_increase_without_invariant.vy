@@ -10,9 +10,6 @@
 #@ ghost:
     #@ def mapping() -> map(address, uint256): ...
 
-#@ invariant: mapping(self)[ZERO_ADDRESS] == 0
-#@ invariant: forall({a: address}, mapping(self)[a] >= old(mapping(self)[a]))
-
 #@ caller private: mapping(self)[caller()]
 
 #@ ensures: success() ==> old(mapping(self)[msg.sender]) + 1 == mapping(self)[msg.sender]

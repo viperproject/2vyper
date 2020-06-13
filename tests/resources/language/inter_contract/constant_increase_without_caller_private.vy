@@ -45,6 +45,7 @@ def increase() -> bool:
     assert self._init
     result: bool = False
     if self.token_A.get() != MAX_UINT256:
+        #:: ExpectedOutput(carbon)(during.call.invariant:assertion.false, INV)
         self.token_A.increase()
         result = True
     return result

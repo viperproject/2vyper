@@ -5,11 +5,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-from . import simple_increase
+from . import simple_increase_without_invariant
 
 #@ config: trust_casts
 
-token_A: simple_increase
+token_A: simple_increase_without_invariant
 _value: uint256
 _init: bool
 
@@ -27,13 +27,13 @@ _init: bool
 
 # Invariant we want to prove
 #:: Label(INV)
-#@ inter contract invariant: self._init ==> self._value >= mapping(self.token_A)[self]
+#@ inter contract invariant: self._init ==> self._value <= mapping(self.token_A)[self]
 
 
 @public
 def __init__(token_A_address: address , token_B_address: address):
     assert token_A_address != self and token_A_address != ZERO_ADDRESS
-    self.token_A = simple_increase(token_A_address)
+    self.token_A = simple_increase_without_invariant(token_A_address)
     value_A: uint256 = self.token_A.get()
     self._value = value_A
     self._init = True
