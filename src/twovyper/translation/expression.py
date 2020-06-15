@@ -775,31 +775,35 @@ class ExpressionTranslator(NodeTranslator):
         #    - Subtract amount from self.balance (self.balance -= amount)
         #    - If in init, set old_self to self if this is the first public state
         #    - Assert checks, own 'caller private' and inter contract invariants
-        #    - Create new old-contract state
-        #    - The next step is only necessary if the function is not constant:
+        #    - The next step is only necessary if the function is modifying:
+        #       - Create new old-contract state
         #       - Havoc contract state
         #    - Assert local state invariants
         #    - Fail based on an unknown value (i.e. the call could fail)
-        #    - The next step is only necessary if the function is not constant:
+        #    - The next step is only necessary if the function is modifying:
         #       - Undo havocing of contract state
-        #    - Create new old state which old in the invariants after the call refers to
-        #    - The next steps are only necessary if the function is not constant:
+        #    - The next steps are only necessary if the function is modifying:
+        #       - Create new old state which old in the invariants after the call refers to
         #       - Havoc state
         #       - Assume type assumptions for self
         #       - Assume local state invariants (where old refers to the state before send)
         #       - Assume 'caller private' of interface state variables but NOT receiver
         #       - Assume invariants of interface state variables and receiver
-        #    - In the case of an interface call:
-        #       - The next step is only necessary if the function is not constant:
-        #           - Assert inter contract invariants
-        #       - Assume postconditions
-        #       - Assert inter contract invariants
-        #    - Else:
-        #       - Assume inter contract invariants (where old refers to the state before send)
+        #    - The next step is only necessary if the function is modifying:
+        #       - In the case of an interface call:
+        #           - Assert inter contract invariants (during call)
+        #           - Assume postconditions
+        #           - Assert inter contract invariants (after call)
+        #        - Else:
+        #           - Assume inter contract invariants (where old refers to the state before send)
+        #    - Else in the case of an interface call:
+        #        - Assume postconditions
         #    - Create new old state which subsequent old expressions refer to
 
         pos = self.to_position(node, ctx)
         self_var = ctx.self_var.local_var(ctx)
+
+        modifying = not constant
 
         if known:
             interface, function, args = known
@@ -876,10 +880,10 @@ class ExpressionTranslator(NodeTranslator):
 
         self.forget_about_all_events(res, ctx, pos)
 
-        # Copy contract state
-        self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
-                                         unless=lambda n: n != mangled.CONTRACTS)
-        if not constant:
+        if modifying:
+            # Copy contract state
+            self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
+                                             unless=lambda n: n != mangled.CONTRACTS)
             # Save the values of to, amount, and args, as self could be changed by reentrancy
             if known:
                 def new_var(variable, name='v'):
@@ -926,13 +930,14 @@ class ExpressionTranslator(NodeTranslator):
         call_failed = helpers.call_failed(self.viper_ast, to, pos)
         self.fail_if(fail_cond, [call_failed], res, ctx, pos)
 
-        # Copy state
-        if not constant:
+        if modifying:
+            # Undo havocing of contract state
             self.state_translator.copy_state(ctx.current_old_state, ctx.current_state, res, ctx,
                                              unless=lambda n: n != mangled.CONTRACTS)
+        # Copy state
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
-        if not constant:
-            # Havoc state except contract state
+        if modifying:
+            # Havoc state
             self.state_translator.havoc_state(ctx.current_state, res, ctx)
 
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
@@ -970,23 +975,26 @@ class ExpressionTranslator(NodeTranslator):
             self.assume_contract_state(known_interface_ref, res, ctx, to)
 
         success = self.viper_ast.Not(fail_cond, pos)
+        amount = amount or self.viper_ast.IntLit(0)
 
-        if known:
-            if not constant:
+        if modifying:
+            if known:
                 assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
                                                 rules.DURING_CALL_INVARIANT_FAIL)
                 self.seqn_with_info(assert_invs, "Assert inter contract invariants during call", res)
 
-            amount = amount or self.viper_ast.IntLit(0)
-            self._assume_interface_specifications(node, interface, function, args, to, amount, success, return_value,
-                                                  res, ctx)
+                self._assume_interface_specifications(node, interface, function, args, to, amount, success,
+                                                      return_value, res, ctx)
 
-            assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
-                                            rules.AFTER_CALL_INVARIANT_FAIL)
-            self.seqn_with_info(assert_invs, "Assert inter contract invariants after call", res)
-        else:
-            assume_invs = assume_invariants(lambda c: c.current_program.inter_contract_invariants)
-            self.seqn_with_info(assume_invs, "Assume inter contract invariants after call", res)
+                assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
+                                                rules.AFTER_CALL_INVARIANT_FAIL)
+                self.seqn_with_info(assert_invs, "Assert inter contract invariants after call", res)
+            else:
+                assume_invs = assume_invariants(lambda c: c.current_program.inter_contract_invariants)
+                self.seqn_with_info(assume_invs, "Assume inter contract invariants after call", res)
+        elif known:
+            self._assume_interface_specifications(node, interface, function, args, to, amount, success,
+                                                  return_value, res, ctx)
 
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
