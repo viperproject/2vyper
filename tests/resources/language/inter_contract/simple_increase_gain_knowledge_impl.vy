@@ -5,9 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-from . import simple_increase
+from . import simple_increase_gain_knowledge
 
-implements: simple_increase
+implements: simple_increase_gain_knowledge
 
 amounts: map(address, uint256)
 
@@ -17,6 +17,7 @@ amounts: map(address, uint256)
 
 @public
 def increase() -> bool:
+    assert msg.sender != 0x000000001000000000010000000000000600000a
     self.amounts[msg.sender] += 1
     return True
 
