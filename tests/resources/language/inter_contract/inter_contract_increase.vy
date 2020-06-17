@@ -18,6 +18,9 @@ _init: bool
 #@ preserves:
     #@ always ensures: old(self._lock) == self._lock
     #@ always ensures: old(self._init) == self._init
+    #:: Label(ICP)
+    #@ always ensures: self._lock ==> mapping(self.token_A)[self] == old(mapping(self.token_A)[self])
+    #@ always ensures: self._lock ==> mapping(self.token_B)[self] == old(mapping(self.token_B)[self])
 
 # These variables are constant
 #@ invariant: self.token_A == old(self.token_A)
@@ -53,5 +56,19 @@ def increase() -> bool:
         self.token_A.increase()
         self.token_B.increase()
         self._lock = False
+        result = True
+    return result
+
+#:: ExpectedOutput(postcondition.violated:assertion.false, ICP)
+@public
+def fail() -> bool:
+    assert self._init
+    result: bool = False
+    if self.token_A.get() != MAX_UINT256 and self.token_B.get() != MAX_UINT256:
+        temp_lock: bool = self._lock
+        self._lock = True
+        self.token_A.increase()
+        self.token_B.increase()
+        self._lock = temp_lock
         result = True
     return result

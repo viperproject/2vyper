@@ -18,6 +18,8 @@ _init: bool
 #@ preserves:
     #@ always ensures: old(self._lock) == self._lock
     #@ always ensures: old(self._init) == self._init
+    #@ always ensures: self._lock ==> mapping(self.token_A)[self] == old(mapping(self.token_A)[self])
+    #@ always ensures: self._lock ==> mapping(self.token_B)[self] == old(mapping(self.token_B)[self])
 
 # These variables are constant
 #@ invariant: self.token_A == old(self.token_A)
