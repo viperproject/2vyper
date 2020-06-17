@@ -117,6 +117,7 @@ CONVERT_PAD32 = '$pad32'
 IMPLEMENTS_DOMAIN = '$Implements'
 
 TRANSITIVITY_CHECK = '$transitivity_check'
+REFLEXIVITY_CHECK = '$reflexivity_check'
 FORCED_ETHER_CHECK = '$forced_ether_check'
 
 

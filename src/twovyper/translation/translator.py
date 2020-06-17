@@ -174,6 +174,7 @@ class ProgramTranslator(CommonTranslator):
 
         vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
         methods.append(self._create_transitivity_check(ctx))
+        methods.append(self._create_reflexivity_check(ctx))
         methods.append(self._create_forced_ether_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
         viper_program = self.viper_ast.Program(domains, [], functions, predicates, methods)
@@ -410,6 +411,76 @@ class ProgramTranslator(CommonTranslator):
 
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_TRANSITIVITY_VIOLATED
+                    apos = self.to_position(post, ctx, rule)
+                    post_expr = self.specification_translator.translate_invariant(post, body, ctx)
+                    pos = self.to_position(post, ctx)
+                    is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
+                    post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
+                    body.append(self.viper_ast.Assert(post_expr, apos))
+
+            local_vars.extend(ctx.new_local_vars)
+            return self.viper_ast.Method(name, [], [], [], [], local_vars, body)
+
+    def _create_reflexivity_check(self, ctx: Context):
+        # Creates a check that all invariants and transitive postconditions are reflexive.
+        # This is needed, because we want to assume them after a call, which could have
+        # reentered zero times.
+        # To check transitivity, we create 2 states, assume the global unchecked invariants
+        # for both of them, assume the invariants for state no 2 with state no 1 being the
+        # old state.
+        # In the end we assert the invariants for state no 2 with state no 2 being the old state.
+        # The transitive postconditions are checked similarly, but conditioned under an unknown
+        # boolean variable so we can't assume them for checking the invariants
+
+        with ctx.function_scope():
+            name = mangled.REFLEXIVITY_CHECK
+
+            states = [self.state_translator.state(lambda n: f'${n}${i}', ctx) for i in range(2)]
+
+            block = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
+            ctx.locals[names.BLOCK] = block
+            is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
+            local_vars = [*flatten(s.values() for s in states), block]
+            local_vars = [var.var_decl(ctx) for var in local_vars]
+            local_vars.append(is_post)
+
+            if ctx.program.analysis.uses_issued:
+                ctx.issued_state = self.state_translator.state(mangled.issued_state_var_name, ctx)
+                local_vars.extend(var.var_decl(ctx) for var in ctx.issued_state.values())
+                all_states = chain(states, [ctx.issued_state])
+            else:
+                all_states = states
+
+            body = []
+
+            # Assume type assumptions for all self-states
+            for state in all_states:
+                for var in state.values():
+                    local = var.local_var(ctx)
+                    type_assumptions = self.type_translator.type_assumptions(local, var.type, ctx)
+                    body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
+
+            # Assume type assumptions for block
+            block_var = block.local_var(ctx)
+            block_assumptions = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
+            body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
+
+            def assume_assertions(s1, s2):
+                self._assume_assertions(s1, s2, body, ctx)
+
+            # Assume assertions for current state 1 and old state 0
+            assume_assertions(states[1], states[0])
+
+            # Check invariants for current state 1 and old state 1
+            with ctx.state_scope(states[1], states[1]):
+                for inv in ctx.program.invariants:
+                    rule = rules.INVARIANT_REFLEXIVITY_VIOLATED
+                    apos = self.to_position(inv, ctx, rule)
+                    inv_expr = self.specification_translator.translate_invariant(inv, body, ctx)
+                    body.append(self.viper_ast.Assert(inv_expr, apos))
+
+                for post in ctx.program.transitive_postconditions:
+                    rule = rules.POSTCONDITION_REFLEXIVITY_VIOLATED
                     apos = self.to_position(post, ctx, rule)
                     post_expr = self.specification_translator.translate_invariant(post, body, ctx)
                     pos = self.to_position(post, ctx)
