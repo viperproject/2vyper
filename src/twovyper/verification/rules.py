@@ -147,9 +147,24 @@ CALL_INVARIANT_FAIL = {
         ('call.invariant', 'assertion.false')
 }
 
+AFTER_CALL_INVARIANT_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('after.call.invariant', 'assertion.false')
+}
+
+DURING_CALL_INVARIANT_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('during.call.invariant', 'assertion.false')
+}
+
 CALL_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('call.check', 'assertion.false')
+}
+
+CALLER_PRIVATE_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('caller.private.violated', 'assertion.false')
 }
 
 PRIVATE_CALL_CHECK_FAIL = {
@@ -169,6 +184,15 @@ INHALE_INVARIANT_FAIL = {
         ('invariant.not.wellformed', 'seq.index.length'),
     ('inhale.failed', 'seq.index.negative'):
         ('invariant.not.wellformed', 'seq.index.negative')
+}
+
+INHALE_CALLER_PRIVATE_FAIL = {
+    ('inhale.failed', 'division.by.zero'):
+        ('caller.private.not.wellformed', 'division.by.zero'),
+    ('inhale.failed', 'seq.index.length'):
+        ('caller.private.not.wellformed', 'seq.index.length'),
+    ('inhale.failed', 'seq.index.negative'):
+        ('caller.private.not.wellformed', 'seq.index.negative')
 }
 
 INHALE_LOOP_INVARIANT_FAIL = {

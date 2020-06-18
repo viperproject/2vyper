@@ -4,7 +4,7 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
-
+from itertools import chain
 from typing import Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from twovyper.ast import ast_nodes as ast, names
@@ -149,7 +149,8 @@ class VyperProgram:
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
                  resources: Dict[str, VyperStruct],
-                 invariants: List[ast.Expr],
+                 local_state_invariants: List[ast.Expr],
+                 inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
                  transitive_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr],
@@ -165,7 +166,8 @@ class VyperProgram:
         self.contracts = contracts
         self.events = events
         self.resources = resources
-        self.invariants = invariants
+        self.local_state_invariants = local_state_invariants
+        self.inter_contract_invariants = inter_contract_invariants
         self.general_postconditions = general_postconditions
         self.transitive_postconditions = transitive_postconditions
         self.general_checks = general_checks
@@ -191,6 +193,10 @@ class VyperProgram:
             for name, func in interface.ghost_functions.items():
                 yield name, func
 
+    @property
+    def invariants(self):
+        return chain(self.local_state_invariants, self.inter_contract_invariants)
+
 
 class VyperInterface(VyperProgram):
 
@@ -200,8 +206,13 @@ class VyperInterface(VyperProgram):
                  name: Optional[str],
                  config: Config,
                  functions: Dict[str, VyperFunction],
-                 ghost_functions: Dict[str, GhostFunction],
+                 local_state_invariants: List[ast.Expr],
+                 inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
+                 transitive_postconditions: List[ast.Expr],
+                 general_checks: List[ast.Expr],
+                 caller_private: List[ast.Expr],
+                 ghost_functions: Dict[str, GhostFunction],
                  type: InterfaceType):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})
@@ -212,12 +223,16 @@ class VyperInterface(VyperProgram):
                          empty_struct,
                          functions,
                          {}, {}, {}, {}, {},
-                         [],
+                         local_state_invariants,
+                         inter_contract_invariants,
                          general_postconditions,
-                         [], [], [], {})
+                         transitive_postconditions,
+                         general_checks,
+                         [], {})
         self.name = name
         self.ghost_functions = ghost_functions
         self.type = type
+        self.caller_private = caller_private
 
     def is_interface(self) -> bool:
         return True

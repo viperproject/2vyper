@@ -158,6 +158,10 @@ class TypeAnnotator(NodeVisitor):
         for check in self.program.general_checks:
             self.annotate_expected(check, types.VYPER_BOOL)
 
+        if isinstance(self.program, VyperInterface):
+            for caller_private in self.program.caller_private:
+                self.annotate(caller_private)
+
     def generic_visit(self, node: ast.Node, *args):
         assert False
 
@@ -398,6 +402,9 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate(node.args[0])
                 self._retrieve_loop(node, names.LOOP_ITERATION)
                 return [types.VYPER_UINT256], [node]
+            elif case(names.CALLER):
+                _check_number_of_arguments(node, 0)
+                return [types.VYPER_ADDRESS], [node]
             elif case(names.RANGE):
                 _check_number_of_arguments(node, 1, 2)
                 return self._visit_range(node)

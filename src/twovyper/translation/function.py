@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2020 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -175,7 +175,17 @@ class FunctionTranslator(CommonTranslator):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_issued.append(self.viper_ast.Inhale(inv))
 
-                    for inv in ctx.program.invariants:
+                    # Assume implemented interface invariants
+                    for interface_type in ctx.program.implements:
+                        interface = ctx.program.interfaces[interface_type.name]
+                        with ctx.program_scope(interface):
+                            for inv in ctx.current_program.invariants:
+                                program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                                expr = self.specification_translator.translate_invariant(inv, inv_pres_issued,
+                                                                                         ctx, True)
+                                inv_pres_issued.append(self.viper_ast.Inhale(expr, program_pos))
+                    # Assume own invariants
+                    for inv in ctx.current_program.invariants:
                         program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                         expr = self.specification_translator.translate_invariant(inv, inv_pres_issued, ctx, True)
                         inv_pres_issued.append(self.viper_ast.Inhale(expr, program_pos))
@@ -191,7 +201,17 @@ class FunctionTranslator(CommonTranslator):
                     for inv in ctx.unchecked_invariants():
                         inv_pres_self.append(self.viper_ast.Inhale(inv))
 
-                    for inv in ctx.program.invariants:
+                    # Assume implemented interface invariants
+                    for interface_type in ctx.program.implements:
+                        interface = ctx.program.interfaces[interface_type.name]
+                        with ctx.program_scope(interface):
+                            for inv in ctx.current_program.invariants:
+                                program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                                expr = self.specification_translator.translate_invariant(inv, inv_pres_self, ctx)
+                                inv_pres_self.append(self.viper_ast.Inhale(expr, program_pos))
+
+                    # Assume own invariants
+                    for inv in ctx.current_program.invariants:
                         program_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                         expr = self.specification_translator.translate_invariant(inv, inv_pres_self, ctx)
                         inv_pres_self.append(self.viper_ast.Inhale(expr, program_pos))
@@ -409,7 +429,7 @@ class FunctionTranslator(CommonTranslator):
             self.seqn_with_info(post_stmts, "Assert postconditions", body)
 
             # Checks and Invariants can be checked in the end of public functions
-            # but not in the end of private funcitons
+            # but not in the end of private functions
             if function.is_public():
                 # Assert checks
                 # For the checks we need to differentiate between success and failure because we
@@ -426,6 +446,8 @@ class FunctionTranslator(CommonTranslator):
                         cond_fail = self.specification_translator.translate_check(check, checks_fail, ctx, True)
                         checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
+                self.expression_translator.assert_caller_private(model_translator, checks_succ, ctx,
+                                                                 [Via('end of function body', pos)])
                 for check in ctx.program.general_checks:
                     cond_succ = self.specification_translator.translate_check(check, checks_succ, ctx, False)
 
@@ -458,28 +480,74 @@ class FunctionTranslator(CommonTranslator):
                 if is_init:
                     self.state_translator.check_first_public_state(body, ctx, False)
 
+                def assert_collected_invariants(collected_invariants) -> List[Expr]:
+                    invariant_assertions = []
+                    # Assert collected invariants
+                    for invariant, invariant_condition in collected_invariants:
+                        invariant_pos = self.to_position(invariant, ctx)
+                        # If we have a synthesized __init__ we only create an
+                        # error message on the invariant
+                        if is_init:
+                            # Invariants do not have to hold if __init__ fails
+                            invariant_condition = self.viper_ast.Implies(success_var, invariant_condition,
+                                                                         invariant_pos)
+                            assertion_pos = self.to_position(invariant, ctx, rules.INVARIANT_FAIL,
+                                                             modelt=invariant_model_translator)
+                        else:
+                            assertion_pos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL,
+                                                             [Via('invariant', invariant_pos)],
+                                                             invariant_model_translator)
+
+                        invariant_assertions.append(self.viper_ast.Assert(invariant_condition, assertion_pos))
+                    return invariant_assertions
+
                 # Assert the invariants
                 invariant_stmts = []
                 invariant_model_translator = self.model_translator.save_variables(invariant_stmts, ctx, pos)
-                for inv in ctx.program.invariants:
-                    inv_pos = self.to_position(inv, ctx)
+
+                # Collect all local state invariants
+                invariant_conditions = []
+                for interface_type in ctx.program.implements:
+                    interface = ctx.program.interfaces[interface_type.name]
+                    with ctx.program_scope(interface):
+                        for inv in ctx.current_program.local_state_invariants:
+                            cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
+                            invariant_conditions.append((inv, cond))
+                for inv in ctx.current_program.local_state_invariants:
                     # We ignore accessible here because we use a separate check
                     cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
+                    invariant_conditions.append((inv, cond))
 
-                    # If we have a synthesized __init__ we only create an
-                    # error message on the invariant
-                    if is_init:
-                        # Invariants do not have to hold if __init__ fails
-                        cond = self.viper_ast.Implies(success_var, cond, inv_pos)
-                        apos = self.to_position(inv, ctx, rules.INVARIANT_FAIL, modelt=invariant_model_translator)
-                    else:
-                        via = [Via('invariant', inv_pos)]
-                        apos = self.to_position(function.node, ctx, rules.INVARIANT_FAIL,
-                                                via, invariant_model_translator)
+                invariant_stmts.extend(assert_collected_invariants(invariant_conditions))
+                self.seqn_with_info(invariant_stmts, "Assert Local State Invariants", body)
 
-                    invariant_stmts.append(self.viper_ast.Assert(cond, apos))
+                known_interface_ref = []
+                self_type = ctx.program.fields.type
+                for member_name, member_type in self_type.member_types.items():
+                    viper_type = self.type_translator.translate(member_type, ctx)
+                    if isinstance(member_type, types.InterfaceType):
+                        get = helpers.struct_get(self.viper_ast, ctx.self_var.local_var(ctx), member_name,
+                                                 viper_type, self_type)
+                        known_interface_ref.append((member_type.name, get))
 
-                self.seqn_with_info(invariant_stmts, "Assert Invariants", body)
+                self.expression_translator.assume_contract_state(known_interface_ref, body, ctx)
+
+                # Collect all inter contract invariants
+                invariant_stmts = []
+                invariant_conditions = []
+                for interface_type in ctx.program.implements:
+                    interface = ctx.program.interfaces[interface_type.name]
+                    with ctx.program_scope(interface):
+                        for inv in ctx.current_program.inter_contract_invariants:
+                            cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
+                            invariant_conditions.append((inv, cond))
+                for inv in ctx.current_program.inter_contract_invariants:
+                    # We ignore accessible here because we use a separate check
+                    cond = self.specification_translator.translate_invariant(inv, invariant_stmts, ctx, True)
+                    invariant_conditions.append((inv, cond))
+
+                invariant_stmts.extend(assert_collected_invariants(invariant_conditions))
+                self.seqn_with_info(invariant_stmts, "Assert Inter Contract Invariants", body)
 
                 # We check that the invariant tracks all allocation by doing a leak check.
                 # We also check that all necessary operations stated in perform clauses were
@@ -523,14 +591,15 @@ class FunctionTranslator(CommonTranslator):
                     out_of_gas = helpers.out_of_gas_var(self.viper_ast, inv_pos).localVar()
                     not_sender_failed = self.viper_ast.Not(self.viper_ast.Or(sender_failed, out_of_gas, inv_pos),
                                                            inv_pos)
-                    succ_if_not = self.viper_ast.Implies(not_sender_failed, success_var, inv_pos)
+                    succ_if_not = self.viper_ast.Implies(not_sender_failed,
+                                                         ctx.success_var.local_var(ctx, inv_pos), inv_pos)
 
                     sent_to = self.balance_translator.get_sent(self_var, msg_sender, ctx, inv_pos)
                     pre_sent_to = self.balance_translator.get_sent(pre_self_var, msg_sender, ctx, inv_pos)
 
                     diff = self.viper_ast.Sub(sent_to, pre_sent_to, inv_pos)
                     ge_sent_local = self.viper_ast.GeCmp(diff, amount_local, inv_pos)
-                    succ_impl = self.viper_ast.Implies(success_var, ge_sent_local, inv_pos)
+                    succ_impl = self.viper_ast.Implies(ctx.success_var.local_var(ctx, inv_pos), ge_sent_local, inv_pos)
                     conj = self.viper_ast.And(succ_if_not, succ_impl, inv_pos)
                     impl = self.viper_ast.Implies(pos_perm, conj, inv_pos)
                     trigger = self.viper_ast.Trigger([acc_pred], inv_pos)

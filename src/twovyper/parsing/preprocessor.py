@@ -33,8 +33,10 @@ def preprocess(program: str) -> str:
     replace(r'#@\s*check\s*:', replacement('check', '='))
     replace(r'#@\s*performs\s*:', replacement('performs', '='))
     replace(r'#@\s*invariant\s*:', replacement('invariant', '='))
+    replace(r'#@\s*inter\s*contract\s*invariant\s*:', replacement('inter_contract_invariant', '='))
     replace(r'#@\s*always\s*ensures\s*:', replacement('always_ensures', '='))
     replace(r'#@\s*always\s*check\s*:', replacement('always_check', '='))
+    replace(r'#@\s*caller\s*private\s*:', replacement('caller_private', '='))
     replace(r'#@\s*preserves\s*:', replacement('if False', ':'))
     replace(r'#@\s*pure', replacement('@pure', ''))
     return program

@@ -90,6 +90,9 @@ class SpecificationTranslator(ExpressionTranslator):
         with self._ignore_accessible_scope(ignore_accessible):
             return self.translate(inv, res, ctx)
 
+    def translate_caller_private(self, expr: ast.Expr, ctx: Context) -> Expr:
+        return self._translate_spec(expr, ctx)
+
     def _translate_spec(self, node: ast.Node, ctx: Context) -> Expr:
         stmts = []
         expr = self.translate(node, stmts, ctx)
@@ -121,9 +124,12 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.FORALL:
             with ctx.quantified_var_scope():
                 num_args = len(node.args)
+                assert len(node.args) > 0
+                dict_arg = node.args[0]
+                assert isinstance(dict_arg, ast.Dict)
 
                 # The first argument to forall is the variable declaration dict
-                quants, type_assumptions = self._translate_quantified_vars(node.args[0], ctx)
+                quants, type_assumptions = self._translate_quantified_vars(dict_arg, ctx)
                 # Add the quantified variables to the context
                 for var in quants:
                     ctx.quantified_vars[var.name] = var
@@ -508,6 +514,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
             rpos = self.to_position(node, ctx, rules.PRECONDITION_IMPLEMENTS_INTERFACE)
             return helpers.ghost_function(self.viper_ast, name, address, struct, args[1:], return_type, rpos)
+        elif name == names.CALLER:
+            return ctx.all_vars[mangled.CALLER].local_var(ctx)
         elif name not in names.NOT_ALLOWED_IN_SPEC:
             return super().translate_FunctionCall(node, res, ctx)
         else:
@@ -578,7 +586,7 @@ class SpecificationTranslator(ExpressionTranslator):
 
         arg_neq = reduce(or_op, starmap(ne_op, zip(*targs)), false)
         if is_zero:
-            arg_neq = self.viper_ast.Or(arg_neq, reduce(or_op, is_zero))
+            arg_neq = self.viper_ast.Or(arg_neq, reduce(or_op, is_zero), pos)
 
         expr = self.viper_ast.Implies(tas, self.viper_ast.Implies(cond, arg_neq, pos), pos)
         quant = self.viper_ast.Forall([var.var_decl(ctx) for var in chain(*qtvars)], [], expr, pos)
@@ -766,8 +774,11 @@ class SpecificationTranslator(ExpressionTranslator):
 
             return None
         elif name == names.FOREACH:
+            assert len(node.args) > 0
+            dict_arg = node.args[0]
+            assert isinstance(dict_arg, ast.Dict)
             with ctx.quantified_var_scope():
-                quants, _ = self._translate_quantified_vars(node.args[0], ctx)
+                quants, _ = self._translate_quantified_vars(dict_arg, ctx)
                 for var in quants:
                     ctx.quantified_vars[var.name] = var
 

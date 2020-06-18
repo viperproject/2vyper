@@ -25,7 +25,7 @@ class Context:
         self.program: Optional[VyperProgram] = None
         # The program whose code is currently being translated, i.e., a VyperProgram
         # normally, and a VyperInterface when we translate interface specifications.
-        self.current_program = None
+        self.current_program: Optional[VyperProgram] = None
         self.options = None
         # The translated types of all fields
         self.field_types = {}

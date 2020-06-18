@@ -19,6 +19,10 @@ ERRORS = {
         lambda i: f"Function {i.function.name} might not be well-formed.",
     'call.invariant':
         lambda i: f"An invariant might not hold before the call {pprint(i.node)}.",
+    'after.call.invariant':
+        lambda i: f"An invariant might not hold after the call {pprint(i.node)}.",
+    'during.call.invariant':
+        lambda i: f"An invariant might not hold during the call {pprint(i.node)}.",
     'call.check':
         lambda i: f"A check might not hold before the call {pprint(i.node)}.",
     'private.call.check':
@@ -53,6 +57,10 @@ ERRORS = {
         lambda i: f"Loop invariant not preserved.",
     'check.violated':
         lambda i: f"A check might not hold after the body of {i.function.name}.",
+    'caller.private.violated':
+        lambda i: f"A caller private expression might got changed for another caller.",
+    'caller.private.not.wellformed':
+        lambda i: f"Caller private {pprint(i.node)} might not be well-formed.",
     'invariant.not.wellformed':
         lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
     'loop.invariant.not.wellformed':

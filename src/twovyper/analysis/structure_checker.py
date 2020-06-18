@@ -10,9 +10,10 @@ from enum import Enum
 from itertools import chain
 from typing import Optional, Union
 
-from twovyper.utils import switch
+from twovyper.utils import switch, first
+
 from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.nodes import VyperProgram, VyperFunction
+from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperInterface
 from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
@@ -36,6 +37,7 @@ class _Context(Enum):
     POSTCONDITION = 'postcondition'
     PRECONDITION = 'precondition'
     TRANSITIVE_POSTCONDITION = 'transitive.postcondition'
+    CALLER_PRIVATE = 'caller.private'
     GHOST_CODE = 'ghost.code'
     GHOST_FUNCTION = 'ghost.function'
     GHOST_STATEMENT = 'ghost.statement'
@@ -52,7 +54,7 @@ class _Context(Enum):
 class StructureChecker(NodeVisitor):
 
     def __init__(self):
-        self.allowed = {
+        self.not_allowed = {
             _Context.CODE: [],
             _Context.INVARIANT: names.NOT_ALLOWED_IN_INVARIANT,
             _Context.LOOP_INVARIANT: names.NOT_ALLOWED_IN_LOOP_INVARIANT,
@@ -60,6 +62,7 @@ class StructureChecker(NodeVisitor):
             _Context.POSTCONDITION: names.NOT_ALLOWED_IN_POSTCONDITION,
             _Context.PRECONDITION: names.NOT_ALLOWED_IN_PRECONDITION,
             _Context.TRANSITIVE_POSTCONDITION: names.NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION,
+            _Context.CALLER_PRIVATE: names.NOT_ALLOWED_IN_CALLER_PRIVATE,
             _Context.GHOST_CODE: names.NOT_ALLOWED_IN_GHOST_CODE,
             _Context.GHOST_FUNCTION: names.NOT_ALLOWED_IN_GHOST_FUNCTION,
             _Context.GHOST_STATEMENT: names.NOT_ALLOWED_IN_GHOST_STATEMENT
@@ -69,6 +72,7 @@ class StructureChecker(NodeVisitor):
         self._is_pure = False
         self._non_pure_parent_description: Union[str, None] = None
         self._visited_an_event = False
+        self._visited_caller_spec = False
         self._only_one_event_allowed = False
         self._function_pure_checker = _FunctionPureChecker()
 
@@ -108,7 +112,7 @@ class StructureChecker(NodeVisitor):
 
     def check(self, program: VyperProgram):
         if program.resources and not program.config.has_option(names.CONFIG_ALLOCATION):
-            resource = next(iter(program.resources.values()))
+            resource = first(program.resources.values())
             msg = "Resources require allocation config option."
             raise InvalidProgramException(resource.node, 'alloc.not.alloc', msg)
 
@@ -126,26 +130,48 @@ class StructureChecker(NodeVisitor):
             for precondition in function.preconditions:
                 self.visit(precondition, _Context.PRECONDITION, program, function)
 
+            if function.checks:
+                _assert(not program.is_interface(), function.checks[0],
+                        'invalid.checks', 'No checks are allowed in interfaces.')
             for check in function.checks:
                 self.visit(check, _Context.CHECK, program, function)
 
+            if function.performs:
+                _assert(not program.is_interface(), function.performs[0],
+                        'invalid.performs', 'No performs are allowed in interfaces.')
             for performs in function.performs:
                 self._visit_performs(performs, program, function)
 
+        if program.inter_contract_invariants:
+            _assert(not program.is_interface(), program.inter_contract_invariants[0],
+                    'invalid.inter.contract.invariant', 'No inter contract invariants are allowed in interfaces.')
         for invariant in program.invariants:
             self.visit(invariant, _Context.INVARIANT, program, None)
 
+        if program.general_checks:
+            _assert(not program.is_interface(), program.general_checks[0],
+                    'invalid.checks', 'No checks are allowed in interfaces.')
         for check in program.general_checks:
             self.visit(check, _Context.CHECK, program, None)
 
         for postcondition in program.general_postconditions:
             self.visit(postcondition, _Context.POSTCONDITION, program, None)
 
+        if program.transitive_postconditions:
+            _assert(not program.is_interface(), program.transitive_postconditions[0],
+                    'invalid.transitive.postconditions', 'No transitive postconditions are allowed in interfaces')
         for postcondition in program.transitive_postconditions:
             self.visit(postcondition, _Context.TRANSITIVE_POSTCONDITION, program, None)
 
         for ghost_function in program.ghost_function_implementations.values():
             self.visit(ghost_function.node, _Context.GHOST_FUNCTION, program, None)
+
+        if isinstance(program, VyperInterface):
+            for caller_private in program.caller_private:
+                self._visited_caller_spec = False
+                self.visit(caller_private, _Context.CALLER_PRIVATE, program, None)
+                _assert(self._visited_caller_spec, caller_private, 'invalid.caller.private',
+                        'A caller private expression must contain "caller()"')
 
     def visit(self, node: ast.Node, *args):
         assert len(args) == 3
@@ -223,7 +249,9 @@ class StructureChecker(NodeVisitor):
     @staticmethod
     def visit_Name(node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
         if ctx == _Context.GHOST_FUNCTION and node.id in names.ENV_VARIABLES:
-            _assert(node.id not in names.ENV_VARIABLES, node, 'invalid.ghost.function')
+            _assert(False, node, 'invalid.ghost.function')
+        elif ctx == _Context.CALLER_PRIVATE and node.id in names.ENV_VARIABLES:
+            _assert(False, node, 'invalid.caller.private')
         elif ctx == _Context.INVARIANT:
             _assert(node.id != names.MSG, node, 'invariant.msg')
             _assert(node.id != names.BLOCK, node, 'invariant.block')
@@ -232,7 +260,7 @@ class StructureChecker(NodeVisitor):
 
     def visit_FunctionCall(self, node: ast.FunctionCall, ctx: _Context,
                            program: VyperProgram, function: Optional[VyperFunction]):
-        _assert(node.name not in self.allowed[ctx], node, f'{ctx.value}.call')
+        _assert(node.name not in self.not_allowed[ctx], node, f'{ctx.value}.call')
 
         if ctx == _Context.POSTCONDITION and function and function.name == names.INIT:
             _assert(node.name != names.OLD, node, 'postcondition.init.old')
@@ -249,7 +277,14 @@ class StructureChecker(NodeVisitor):
             elif ctx == _Context.PRECONDITION:
                 _assert(function.is_private(), node, 'precondition.event')
 
-        if node.name == names.EVENT:
+        if node.name == names.CALLER:
+            self._visited_caller_spec = True
+
+        if node.name == names.SENT or node.name == names.RECEIVED:
+            _assert(not program.is_interface(), node, f'invalid.{node.name}',
+                    f'"{node.name}" cannot be used in interfaces')
+
+        elif node.name == names.EVENT:
             if ctx == _Context.PRECONDITION \
                     or ctx == _Context.POSTCONDITION \
                     or ctx == _Context.LOOP_INVARIANT:
@@ -301,6 +336,7 @@ class StructureChecker(NodeVisitor):
             return
         # Accessible is of the form accessible(to, amount, self.some_func(args...))
         elif node.name == names.ACCESSIBLE:
+            _assert(not program.is_interface(), node, 'invalid.accessible', 'Accessible cannot be used in interfaces')
             _assert(not self._inside_old, node, 'spec.old.accessible')
             _assert(len(node.args) == 2 or len(node.args) == 3, node, 'spec.accessible')
 

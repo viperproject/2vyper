@@ -73,9 +73,11 @@ class StateTranslator(CommonTranslator):
                 assign = self.viper_ast.LocalVarAssign(var.local_var(ctx), default)
                 res.append(assign)
 
-    def copy_state(self, from_state: State, to_state: State, res: List[Stmt], ctx: Context, pos=None):
+    def copy_state(self, from_state: State, to_state: State, res: List[Stmt], ctx: Context, pos=None, unless=None):
         copies = []
         for name in set(from_state) & set(to_state):
+            if unless and unless(name):
+                continue
             to_var = to_state[name].local_var(ctx)
             from_var = from_state[name].local_var(ctx)
             copies.append(self.viper_ast.LocalVarAssign(to_var, from_var, pos))
@@ -121,7 +123,17 @@ class StateTranslator(CommonTranslator):
             for inv in ctx.unchecked_invariants():
                 assume_invs.append(self.viper_ast.Inhale(inv))
 
-            for inv in ctx.program.invariants:
+            # Assume implemented interface invariants
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                with ctx.program_scope(interface):
+                    for inv in ctx.current_program.invariants:
+                        cond = specification_translator.translate_invariant(inv, assume_invs, ctx, True)
+                        inv_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        assume_invs.append(self.viper_ast.Inhale(cond, inv_pos))
+
+            # Assume own invariants
+            for inv in ctx.current_program.invariants:
                 cond = specification_translator.translate_invariant(inv, assume_invs, ctx, True)
                 inv_pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 assume_invs.append(self.viper_ast.Inhale(cond, inv_pos))
