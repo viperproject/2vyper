@@ -7,7 +7,7 @@
 
 from . import simple_increase
 
-#@ config: trust_casts, no_gas
+#@ config: trust_casts
 
 token_A: simple_increase
 token_B: simple_increase
@@ -18,6 +18,7 @@ _init: bool
 #@ preserves:
     #@ always ensures: old(self._lock) == self._lock
     #@ always ensures: old(self._init) == self._init
+    #:: Label(ICP)
     #@ always ensures: self._lock ==> mapping(self.token_A)[self] == old(mapping(self.token_A)[self])
     #@ always ensures: self._lock ==> mapping(self.token_B)[self] == old(mapping(self.token_B)[self])
 
@@ -29,7 +30,6 @@ _init: bool
 #@ invariant: old(self._init) ==> self._init and self._diff == old(self._diff)
 
 # Invariant we want to prove
-#:: Label(INV)
 #@ inter contract invariant: not self._lock and self._init ==> self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self]
 
 
@@ -45,17 +45,17 @@ def __init__(token_A_address: address , token_B_address: address):
     self._lock = False
     self._init = True
 
-#@ requires: self._init
-#@ requires: not self._lock
-#@ requires: self.token_A == public_old(self.token_A)
-#@ requires: self.token_B == public_old(self.token_B)
-#@ requires: self._diff == public_old(self._diff)
-#@ requires: self._diff == mapping(self.token_A)[self] - mapping(self.token_B)[self]
-#:: ExpectedOutput(carbon)(postcondition.violated:assertion.false)
-#@ ensures: revert()
-@private
-def fail():
-    #:: ExpectedOutput(during.call.invariant:assertion.false, INV) | ExpectedOutput(carbon)(after.call.invariant:assertion.false, INV)
-    self.token_A.increase()
-    #:: ExpectedOutput(carbon)(during.call.invariant:assertion.false, INV) | ExpectedOutput(carbon)(after.call.invariant:assertion.false, INV)
-    self.token_B.increase()
+
+#:: ExpectedOutput(postcondition.violated:assertion.false, ICP)
+@public
+def increase() -> bool:
+    assert self._init
+    result: bool = False
+    if self.token_A.get() != MAX_UINT256 and self.token_B.get() != MAX_UINT256:
+        temp_lock: bool = self._lock
+        self._lock = True
+        self.token_A.increase()
+        self.token_B.increase()
+        self._lock = temp_lock
+        result = True
+    return result

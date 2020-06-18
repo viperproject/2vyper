@@ -990,6 +990,8 @@ class ExpressionTranslator(NodeTranslator):
             self.seqn_with_info(assert_invs, "Assert inter contract invariants during call", res)
             # Assume caller private in a new contract state
             assume_caller_private = []
+            self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
+                                             unless=lambda n: n != mangled.CONTRACTS)
             self.state_translator.havoc_state(ctx.current_state, assume_caller_private, ctx,
                                               unless=lambda n: n != mangled.CONTRACTS)
             self.assume_contract_state(known_interface_ref, assume_caller_private, ctx, to)
