@@ -785,6 +785,7 @@ class ExpressionTranslator(NodeTranslator):
         #       - Undo havocing of contract state
         #    - The next steps are only necessary if the function is modifying:
         #       - Create new old state which old in the invariants after the call refers to
+        #       - Store state before call (To be used to restore old contract state)
         #       - Havoc state
         #       - Assume type assumptions for self
         #       - Assume local state invariants (where old refers to the state before send)
@@ -795,6 +796,7 @@ class ExpressionTranslator(NodeTranslator):
         #       - Havoc contract state
         #       - Assume 'caller private' of interface state variables but NOT receiver
         #       - Assume invariants of interface state variables and receiver
+        #       - Restore old contract state
         #    - In the case of an interface call:
         #       - Assume postconditions
         #    - The next step is only necessary if the function is modifying:
@@ -931,9 +933,14 @@ class ExpressionTranslator(NodeTranslator):
         call_failed = helpers.call_failed(self.viper_ast, to, pos)
         self.fail_if(fail_cond, [call_failed], res, ctx, pos)
 
+        with ctx.inline_scope(None):
+            # Create pre_state for function call
+            def inlined_pre_state(name: str) -> str:
+                return ctx.inline_prefix + mangled.pre_state_var_name(name)
+            old_state_for_postconditions = self.state_translator.state(inlined_pre_state, ctx)
         known_interface_ref = []
         if modifying:
-            # Assume contract state
+            # Collect known interface references
             self_type = ctx.program.fields.type
             for member_name, member_type in self_type.member_types.items():
                 viper_type = self.type_translator.translate(member_type, ctx)
@@ -946,11 +953,16 @@ class ExpressionTranslator(NodeTranslator):
                 assert isinstance(var, TranslatedVar)
                 if isinstance(var.type, types.InterfaceType):
                     known_interface_ref.append((var.type.name, var.local_var(ctx)))
-            self.assume_contract_state(known_interface_ref, res, ctx)
 
+            # Undo havocing of contract state
+            self.state_translator.copy_state(ctx.current_old_state, ctx.current_state, res, ctx,
+                                             unless=lambda n: n != mangled.CONTRACTS)
+            for val in old_state_for_postconditions.values():
+                ctx.new_local_vars.append(val.var_decl(ctx, pos))
         # Copy state
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
         if modifying:
+            self.state_translator.copy_state(ctx.current_state, old_state_for_postconditions, res, ctx)
             # Havoc state
             self.state_translator.havoc_state(ctx.current_state, res, ctx)
 
@@ -964,30 +976,25 @@ class ExpressionTranslator(NodeTranslator):
             assume_invs.extend(assume_invariants(lambda c: c.current_program.local_state_invariants))
             self.seqn_with_info(assume_invs, "Assume local state invariants", res)
 
-            reentrant_call_name = ctx.new_local_var_name('reentrant_call')
-            reentrant_call = self.viper_ast.LocalVarDecl(reentrant_call_name, self.viper_ast.Bool)
-            ctx.new_local_vars.append(reentrant_call)
-            reentrant_call_cond = reentrant_call.localVar()
-
             # Assume transitive postconditions
-            assume_inter_contract_posts = []
-            self.assume_contract_state(known_interface_ref, assume_inter_contract_posts, ctx, skip_caller_private=True)
+            assume_transitive_posts = []
+            self.assume_contract_state(known_interface_ref, assume_transitive_posts, ctx, skip_caller_private=True)
             for post in ctx.program.transitive_postconditions:
-                post_expr = self.spec_translator.translate_pre_or_postcondition(post, assume_inter_contract_posts, ctx)
+                post_expr = self.spec_translator.translate_pre_or_postcondition(post, assume_transitive_posts, ctx)
                 ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                assume_inter_contract_posts.append(self.viper_ast.Inhale(post_expr, ppos))
-            self.seqn_with_info(assume_inter_contract_posts, "Assume transitive postconditions", res)
+                assume_transitive_posts.append(self.viper_ast.Inhale(post_expr, ppos))
+            self.seqn_with_info(assume_transitive_posts, "Assume transitive postconditions", res)
             # Assert inter contract invariants during call
             assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
                                             rules.DURING_CALL_INVARIANT_FAIL)
             self.seqn_with_info(assert_invs, "Assert inter contract invariants during call", res)
             # Assume caller private in a new contract state
             assume_caller_private = []
-            self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, assume_caller_private, ctx,
-                                             unless=lambda n: n != mangled.CONTRACTS)
             self.state_translator.havoc_state(ctx.current_state, assume_caller_private, ctx,
                                               unless=lambda n: n != mangled.CONTRACTS)
             self.assume_contract_state(known_interface_ref, assume_caller_private, ctx, to)
+            self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state, assume_caller_private,
+                                             ctx, unless=lambda n: n != mangled.CONTRACTS)
             self.seqn_with_info(assume_caller_private, "Assume caller private", res)
 
         success = self.viper_ast.Not(fail_cond, pos)
