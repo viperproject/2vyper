@@ -102,6 +102,8 @@ REASONS = {
         lambda i: f"Assertion {pprint(i.node)} might not hold.",
     'transitivity.violated':
         lambda i: f"It might not be transitive.",
+    'reflexivity.violated':
+        lambda i: f"It might not be reflexive.",
     'constant.balance':
         lambda i: f"It might assume constant balance.",
     'division.by.zero':

@@ -212,9 +212,19 @@ INVARIANT_TRANSITIVITY_VIOLATED = {
         ('invariant.not.wellformed', 'transitivity.violated')
 }
 
+INVARIANT_REFLEXIVITY_VIOLATED = {
+    ('assert.failed', 'assertion.false'):
+        ('invariant.not.wellformed', 'reflexivity.violated')
+}
+
 POSTCONDITION_TRANSITIVITY_VIOLATED = {
     ('assert.failed', 'assertion.false'):
         ('postcondition.not.wellformed', 'transitivity.violated')
+}
+
+POSTCONDITION_REFLEXIVITY_VIOLATED = {
+    ('assert.failed', 'assertion.false'):
+        ('postcondition.not.wellformed', 'reflexivity.violated')
 }
 
 POSTCONDITION_CONSTANT_BALANCE = {
