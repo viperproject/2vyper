@@ -578,7 +578,7 @@ class ProgramTranslator(CommonTranslator):
             else:
                 assume_assertions(present_state, present_state)
 
-            self.state_translator.copy_state(pre_state, present_state, body, ctx)
+            self.state_translator.copy_state(present_state, pre_state, body, ctx)
 
             with ctx.state_scope(present_state, present_state):
                 self.balance_translator.increase_balance(havoc.localVar(), body, ctx)
