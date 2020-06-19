@@ -787,6 +787,10 @@ class ExpressionTranslator(NodeTranslator):
         #       - Create new old state which old in the invariants after the call refers to
         #       - Store state before call (To be used to restore old contract state)
         #       - Havoc state
+        #       - Assume 'caller private' of interface state variables but NOT receiver
+        #       - Assume invariants of interface state variables and receiver
+        #       - Create new old-contract state
+        #       - Havoc contract state
         #       - Assume type assumptions for self
         #       - Assume local state invariants (where old refers to the state before send)
         #       - Assume invariants of interface state variables and receiver
@@ -969,6 +973,22 @@ class ExpressionTranslator(NodeTranslator):
             # Havoc state
             self.state_translator.havoc_state(ctx.current_state, res, ctx)
 
+            # Assume caller private and create new contract state
+            assume_caller_private = []
+            self.assume_contract_state(known_interface_ref, assume_caller_private, ctx, to)
+            self.seqn_with_info(assume_caller_private, "Assume caller private", res)
+            self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
+                                             unless=lambda n: n != mangled.CONTRACTS)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx,
+                                              unless=lambda n: n != mangled.CONTRACTS)
+
+            ############################################################################################################
+            #                         We did not yet make any assumptions about the self state.                        #
+            #                                                                                                          #
+            #  The contract state (which models all self states of other contracts) is at a point where anything could #
+            #  have happened, but it is before the receiver of the external call has made any re-entrant call to self. #
+            ############################################################################################################
+
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
             self.seqn_with_info(assume_type_ass, "Assume type assumptions", res)
@@ -992,8 +1012,10 @@ class ExpressionTranslator(NodeTranslator):
             #      At this point, we have a self state with all the assumptions of a self state in a public state.     #
             #     This self state corresponds to the last state of self after any (zero or more) re-entrant calls.     #
             #                                                                                                          #
-            #     The contract state (which models all self states of other contracts) is at this point also at the    #
-            #                           public state after the last re-entrant call to self.                           #
+            #   The contract state is at this point also at the public state after the last re-entrant call to self.   #
+            #   Due to re-entrant calls, any caller private expression might have gotten modified. But we can assume   #
+            #              that they are only modified by self and only in such a way as described in the              #
+            #                                        transitive postconditions.                                        #
             ############################################################################################################
 
             # Assume caller private in a new contract state
