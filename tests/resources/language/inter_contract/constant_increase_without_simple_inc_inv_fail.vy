@@ -15,7 +15,6 @@ _init: bool
 
 #@ preserves:
     #@ always ensures: old(self._init) == self._init
-    #@ always ensures: old(mapping(self.token_A)[self]) <= mapping(self.token_A)[self]
 
 # These variables are constant
 #@ invariant: self.token_A == old(self.token_A)
@@ -27,6 +26,7 @@ _init: bool
 #@ invariant: self.token_A != self and self.token_A != ZERO_ADDRESS
 
 # Invariant we want to prove
+#:: Label(INV)
 #@ inter contract invariant: self._init ==> self._value <= mapping(self.token_A)[self]
 
 
@@ -44,6 +44,7 @@ def increase() -> bool:
     assert self._init
     result: bool = False
     if self.token_A.get() != MAX_UINT256:
+        #:: ExpectedOutput(during.call.invariant:assertion.false, INV)
         self.token_A.increase()
         result = True
     return result

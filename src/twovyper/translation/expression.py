@@ -791,6 +791,9 @@ class ExpressionTranslator(NodeTranslator):
         #       - Assume local state invariants (where old refers to the state before send)
         #       - Assume invariants of interface state variables and receiver
         #       - Assume transitive postcondition
+        #       - Create new old-contract state
+        #       - Havoc contract state
+        #       - Assume 'caller private' of interface state variables and receiver
         #       - Assert inter contract invariants (during call)
         #       - Create new old-contract state
         #       - Havoc contract state
@@ -984,20 +987,56 @@ class ExpressionTranslator(NodeTranslator):
                 ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                 assume_transitive_posts.append(self.viper_ast.Inhale(post_expr, ppos))
             self.seqn_with_info(assume_transitive_posts, "Assume transitive postconditions", res)
+
+            ############################################################################################################
+            #      At this point, we have a self state with all the assumptions of a self state in a public state.     #
+            #     This self state corresponds to the last state of self after any (zero or more) re-entrant calls.     #
+            #                                                                                                          #
+            #     The contract state (which models all self states of other contracts) is at this point also at the    #
+            #                           public state after the last re-entrant call to self.                           #
+            ############################################################################################################
+
+            # Assume caller private in a new contract state
+            self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
+                                             unless=lambda n: n != mangled.CONTRACTS)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx,
+                                              unless=lambda n: n != mangled.CONTRACTS)
+            assume_caller_private = []
+            self.assume_contract_state(known_interface_ref, assume_caller_private, ctx)
+            self.seqn_with_info(assume_caller_private, "Assume caller private", res)
+
+            ############################################################################################################
+            #           Since no more re-entrant calls can happen, the self state does not change anymore.             #
+            #                                                                                                          #
+            # The contract state is at a point where the last call, which lead to a re-entrant call to self, returned. #
+            #   We can assume all caller private expressions of self stayed constant, since the contract state above.  #
+            #     We can only assume that variables captured with a caller private expression did not change, since    #
+            #   any other contract might got called which could change everything except caller private expressions.   #
+            ############################################################################################################
+
             # Assert inter contract invariants during call
             assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
                                             rules.DURING_CALL_INVARIANT_FAIL)
             self.seqn_with_info(assert_invs, "Assert inter contract invariants during call", res)
             # Assume caller private in a new contract state
-            assume_caller_private = []
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
                                              unless=lambda n: n != mangled.CONTRACTS)
-            self.state_translator.havoc_state(ctx.current_state, assume_caller_private, ctx,
+            self.state_translator.havoc_state(ctx.current_state, res, ctx,
                                               unless=lambda n: n != mangled.CONTRACTS)
+            assume_caller_private = []
             self.assume_contract_state(known_interface_ref, assume_caller_private, ctx, to)
-            self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state, assume_caller_private,
-                                             ctx, unless=lambda n: n != mangled.CONTRACTS)
             self.seqn_with_info(assume_caller_private, "Assume caller private", res)
+
+            ############################################################################################################
+            # The contract state is at the point where the external call returns. Since the last modeled public state, #
+            #             any non-caller-private expression might have changed but also the caller private             #
+            #   expressions of the receiver. Therefore, we can only assume that all but the receiver's caller private  #
+            #                                       expressions stayed constant.                                       #
+            ############################################################################################################
+
+            # Restore old state for postcondition
+            self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state, res,
+                                             ctx, unless=lambda n: n != mangled.CONTRACTS)
 
         success = self.viper_ast.Not(fail_cond, pos)
         amount = amount or self.viper_ast.IntLit(0)

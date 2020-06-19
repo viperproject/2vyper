@@ -15,6 +15,7 @@ _init: bool
 
 #@ preserves:
     #@ always ensures: old(self._init) == self._init
+    #@ always ensures: old(mapping(self.token_A)[self]) <= mapping(self.token_A)[self]
 
 # These variables are constant
 #@ invariant: self.token_A == old(self.token_A)
