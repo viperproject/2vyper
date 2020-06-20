@@ -795,6 +795,10 @@ class ExpressionTranslator(NodeTranslator):
         #       - Assume local state invariants (where old refers to the state before send)
         #       - Assume invariants of interface state variables and receiver
         #       - Assume transitive postcondition
+        #       - Assume that there were no reentrant calls based on an unknown value
+        #       - If there were no reentrant calls:
+        #           - Restore state from old state
+        #           - Restore old contract state
         #       - Create new old-contract state
         #       - Havoc contract state
         #       - Assume 'caller private' of interface state variables and receiver
@@ -1007,6 +1011,20 @@ class ExpressionTranslator(NodeTranslator):
                 ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                 assume_transitive_posts.append(self.viper_ast.Inhale(post_expr, ppos))
             self.seqn_with_info(assume_transitive_posts, "Assume transitive postconditions", res)
+
+            no_reentrant_name = ctx.new_local_var_name('no_reentrant_call')
+            no_reentrant = self.viper_ast.LocalVarDecl(no_reentrant_name, self.viper_ast.Bool)
+            ctx.new_local_vars.append(no_reentrant)
+            no_reentrant_cond = no_reentrant.localVar()
+            
+            # If there were no reentrant calls, reset the contract state.
+            use_zero_reentrant_call_state = []
+            self.state_translator.copy_state(ctx.current_old_state, ctx.current_state,
+                                             use_zero_reentrant_call_state, ctx)
+            self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state,
+                                             use_zero_reentrant_call_state, ctx,
+                                             unless=lambda n: n != mangled.CONTRACTS)
+            res.append(self.viper_ast.If(no_reentrant_cond, use_zero_reentrant_call_state, []))
 
             ############################################################################################################
             #      At this point, we have a self state with all the assumptions of a self state in a public state.     #
