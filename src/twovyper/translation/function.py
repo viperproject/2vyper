@@ -324,12 +324,12 @@ class FunctionTranslator(CommonTranslator):
                 self.statement_translator.translate_stmts(function.node.body, body_stmts, ctx)
                 self.seqn_with_info(body_stmts, "Function body", body)
 
-            # Unset @nonreentrant locks
-            self._set_locked(function, False, body, ctx)
-
             # If we reach this point we either jumped to it by returning or got there directly
             # because we didn't revert (yet)
             body.append(return_label)
+
+            # Unset @nonreentrant locks
+            self._set_locked(function, False, body, ctx)
 
             # Add variable for success(if_not=out_of_gas) that tracks whether the contract ran out of gas
             out_of_gas_var = helpers.out_of_gas_var(self.viper_ast)
