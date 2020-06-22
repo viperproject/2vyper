@@ -266,6 +266,13 @@ def _clearApproval(_owner: address, _tokenId: uint256):
         self.idToApprovals[_tokenId] = ZERO_ADDRESS
 
 
+#@ requires: _sender == msg.sender
+#@ requires: self.idToOwner == public_old(self.idToOwner)
+#@ requires: self.idToApprovals == public_old(self.idToApprovals)
+#@ requires: self.ownerToOperators == public_old(self.ownerToOperators)
+#@ requires: forall({a: address, o: address}, trusted(o, by=a) == public_old(trusted(o, by=a)))
+#@ requires: forall({a: address, id: uint256}, allocated[token(id)](a) == public_old(allocated[token(id)](a)))
+#@ requires: forall({id: uint256, o: address, a: address}, offered[token(id) <-> nothing](1, 0, o, a) == public_old(offered[token(id) <-> nothing](1, 0, o, a)))
 @private
 def _transferFrom(_from: address, _to: address, _tokenId: uint256, _sender: address):
     """
@@ -289,13 +296,10 @@ def _transferFrom(_from: address, _to: address, _tokenId: uint256, _sender: addr
     self._addTokenTo(_to, _tokenId)
 
     #@ if _sender == _from or self.ownerToOperators[_from][_sender]:
-        #:: UnexpectedOutput(revoke.failed:not.trusted, 0)
         #@ revoke[token(_tokenId) <-> nothing](1, 0, to=old(self.idToApprovals[_tokenId]), acting_for=_from)
     #@ else:
-        #:: UnexpectedOutput(carbon)(exchange.failed:no.offer, 0) | UnexpectedOutput(carbon)(exchange.failed:insufficient.funds, 0)
         #@ exchange[token(_tokenId) <-> nothing](1, 0, _from, _sender, times=1)
 
-    #:: UnexpectedOutput(carbon)(reallocate.failed:insufficient.funds, 0) | UnexpectedOutput(carbon)(reallocate.failed:not.trusted, 0)
     #@ reallocate[token(_tokenId)](1, to=_to, acting_for=_from if self.ownerToOperators[_from][_sender] else _sender)
 
     # Log the transfer
