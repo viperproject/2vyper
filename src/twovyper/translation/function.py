@@ -621,7 +621,7 @@ class FunctionTranslator(CommonTranslator):
         function = ctx.program.functions[call.name]
         if function.is_pure():
             return self._call_pure(call, args, res, ctx)
-        elif function.postconditions or function.preconditions or function.checks:
+        elif function.postconditions or function.checks:
             return self._assume_private_function(call, args, res, ctx)
         else:
             return self._inline(call, args, res, ctx)
@@ -657,6 +657,17 @@ class FunctionTranslator(CommonTranslator):
             return_label_name = ctx.inline_prefix + mangled.RETURN_LABEL
             return_label = self.viper_ast.Label(return_label_name)
             ctx.return_label = return_label_name
+
+            # Check preconditions
+            pre_stmts = []
+            with ctx.state_scope(ctx.current_state, ctx.current_old_state):
+                for precondition in function.preconditions:
+                    cond = self.specification_translator.translate_pre_or_postcondition(precondition, pre_stmts, ctx)
+                    pre_pos = self.to_position(precondition, ctx, rules.PRECONDITION_FAIL,
+                                               values={'function': function})
+                    pre_stmts.append(self.viper_ast.Exhale(cond, pre_pos))
+
+            self.seqn_with_info(pre_stmts, "Check preconditions", body)
 
             # Revert if a @nonreentrant lock is set
             self._assert_unlocked(function, body, ctx)
