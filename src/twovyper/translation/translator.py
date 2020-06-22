@@ -154,7 +154,18 @@ class ProgramTranslator(CommonTranslator):
             else:
                 return [sent_inc]
 
+        def unchecked_transitive_postconditions():
+            assume_locked = []
+            for lock in ctx.program.nonreentrant_keys():
+                with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
+                    old_lock_val = helpers.get_lock(self.viper_ast, lock, ctx)
+                with ctx.state_scope(ctx.current_state, ctx.current_state):
+                    new_lock_val = helpers.get_lock(self.viper_ast, lock, ctx)
+                assume_locked.append(self.viper_ast.EqCmp(old_lock_val, new_lock_val))
+            return assume_locked
+
         ctx.unchecked_invariants = unchecked_invariants
+        ctx.unchecked_transitive_postconditions = unchecked_transitive_postconditions
 
         # Structs
         structs = vyper_program.structs.values()
@@ -355,12 +366,15 @@ class ProgramTranslator(CommonTranslator):
                 pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 inv_expr = self.specification_translator.translate_invariant(inv, res, ctx)
                 res.append(self.viper_ast.Inhale(inv_expr, pos))
+            is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool)
             for post in ctx.program.transitive_postconditions:
                 pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
                 post_expr = self.specification_translator.translate_pre_or_postcondition(post, res, ctx)
-                is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                 post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
                 res.append(self.viper_ast.Inhale(post_expr, pos))
+            for post in ctx.unchecked_transitive_postconditions():
+                post_expr = self.viper_ast.Implies(is_post_var, post)
+                res.append(self.viper_ast.Inhale(post_expr))
 
     def _create_transitivity_check(self, ctx: Context):
         # Creates a check that all invariants and transitive postconditions are transitive.

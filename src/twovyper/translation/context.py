@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
-from typing import Union, Dict, TYPE_CHECKING, List, Any, Optional, Tuple
+from typing import Union, Dict, TYPE_CHECKING, List, Any, Optional, Tuple, Callable
 
 from twovyper.ast import names
 from twovyper.ast.ast_nodes import Expr
@@ -30,7 +30,9 @@ class Context:
         # The translated types of all fields
         self.field_types = {}
         # Invariants that are known to be true and therefore don't need to be checked
-        self.unchecked_invariants = []
+        self.unchecked_invariants: Optional[Callable[[], List[Expr]]] = None
+        # Transitive postconditions that are known to be true and therefore don't need to be checked
+        self.unchecked_transitive_postconditions: Optional[Callable[[], List[Expr]]] = None
 
         self.function: Union[VyperFunction, None] = None
 

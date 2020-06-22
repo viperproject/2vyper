@@ -1006,6 +1006,8 @@ class ExpressionTranslator(NodeTranslator):
             # Assume transitive postconditions
             assume_transitive_posts = []
             self.assume_contract_state(known_interface_ref, assume_transitive_posts, ctx, skip_caller_private=True)
+            for post in ctx.unchecked_transitive_postconditions():
+                assume_transitive_posts.append(self.viper_ast.Inhale(post))
             for post in ctx.program.transitive_postconditions:
                 post_expr = self.spec_translator.translate_pre_or_postcondition(post, assume_transitive_posts, ctx)
                 ppos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
