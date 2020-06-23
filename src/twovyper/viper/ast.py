@@ -616,7 +616,7 @@ class ViperAST:
     def Exists(self, variables, triggers, exp, position=None, info=None):
         position = position or self.NoPosition
         info = info or self.NoInfo
-        res = self.ast.Exists(self.to_seq(variables), self._to_seq(triggers), exp, position, info, self.NoTrafos)
+        res = self.ast.Exists(self.to_seq(variables), self.to_seq(triggers), exp, position, info, self.NoTrafos)
         return res
 
     def Trigger(self, exps, position=None, info=None):

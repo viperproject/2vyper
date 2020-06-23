@@ -7,28 +7,38 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
+from typing import Union, Dict, TYPE_CHECKING, List, Any, Optional, Tuple, Callable
 
 from twovyper.ast import names
+from twovyper.ast.ast_nodes import Expr
+from twovyper.ast.nodes import VyperFunction, VyperProgram
 from twovyper.translation import mangled
+
+if TYPE_CHECKING:
+    from twovyper.translation.variable import TranslatedVar
+    from twovyper.translation import LocalVarSnapshot
 
 
 class Context:
 
     def __init__(self):
-        self.program = None
+        self.program: Optional[VyperProgram] = None
         # The program whose code is currently being translated, i.e., a VyperProgram
         # normally, and a VyperInterface when we translate interface specifications.
-        self.current_program = None
+        self.current_program: Optional[VyperProgram] = None
         self.options = None
         # The translated types of all fields
         self.field_types = {}
         # Invariants that are known to be true and therefore don't need to be checked
-        self.unchecked_invariants = []
+        self.unchecked_invariants: Optional[Callable[[], List[Expr]]] = None
+        # Transitive postconditions that are known to be true and therefore don't need to be checked
+        self.unchecked_transitive_postconditions: Optional[Callable[[], List[Expr]]] = None
 
-        self.function = None
+        self.function: Union[VyperFunction, None] = None
 
         self.args = {}
-        self.locals = {}
+        self.locals: Dict[str, TranslatedVar] = {}
+        self.old_locals: Dict[str, TranslatedVar] = {}
         # The state which is currently regarded as 'present'
         self.current_state = {}
         # The state which is currently regarded as 'old'
@@ -48,23 +58,49 @@ class Context:
         self.break_label = None
         self.continue_label = None
 
-        self.success_var = None
+        self.success_var: Optional[TranslatedVar] = None
         self.revert_label = None
-        self.result_var = None
+        self.result_var: Optional[TranslatedVar] = None
         self.return_label = None
 
         self.inside_trigger = False
+        self.inside_inline_analysis = False
 
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
 
+        self.loop_arrays: Dict[str, Expr] = {}
+        self.loop_indices: Dict[str, TranslatedVar] = {}
+
+        self.event_vars: Dict[str, List[Any]] = {}
+
+        # And-ed conditions which must be all true when an assignment is made in a pure translator.
+        self.pure_conds: Optional[Expr] = None
+        # List of all assignments to the result variable
+        # The tuple consists of an expression which is the condition under which the assignment happened and
+        # the index of the variable (since this is SSA like, the result_var has many indices)
+        self.pure_returns: List[Tuple[Expr, int]] = []
+        # List of all assignments to the success variable
+        # The tuple consists of an expression which is the condition under which the assignment happened and
+        # the index of the variable (since this is SSA like, the success_var has many indices)
+        self.pure_success: List[Tuple[Expr, int]] = []
+        # List of all break statements in a loop
+        # The tuple consists of an expression which is the condition under which the break statement is reached and
+        # the dict is a snapshot of the local variables at the moment of the break statement
+        self.pure_continues: List[Tuple[Optional[Expr], LocalVarSnapshot]] = []
+        # List of all continue statements in a loop
+        # The tuple consists of an expression which is the condition under which the continue statement is reached and
+        # the dict is a snapshot of the local variables at the moment of the continue statement
+        self.pure_breaks: List[Tuple[Optional[Expr], LocalVarSnapshot]] = []
+
+        self._pure_var_index_counter = 1  # It has to start at 2
         self._quantified_var_counter = -1
         self._inline_counter = -1
         self._current_inline = -1
         self.inline_vias = []
 
     @property
-    def all_vars(self):
+    def all_vars(self) -> ChainMap:
         return ChainMap(self.quantified_vars, self.current_state, self.locals, self.args)
 
     @property
@@ -135,6 +171,10 @@ class Context:
         else:
             return f'i{self._current_inline}$'
 
+    def next_pure_var_index(self) -> int:
+        self._pure_var_index_counter += 1
+        return self._pure_var_index_counter
+
     def _next_break_label(self) -> str:
         self._break_label_counter += 1
         return f'break_{self._break_label_counter}'
@@ -154,7 +194,8 @@ class Context:
         function = self.function
 
         args = self.args
-        locals = self.locals
+        local_variables = self.locals
+        old_locals = self.old_locals
         current_state = self.current_state
         current_old_state = self.current_old_state
         quantified_vars = self.quantified_vars
@@ -177,6 +218,7 @@ class Context:
         return_label = self.return_label
 
         inside_trigger = self.inside_trigger
+        inside_inline_analysis = self.inside_inline_analysis
 
         local_var_counter = self._local_var_counter
         new_local_vars = self.new_local_vars
@@ -186,10 +228,23 @@ class Context:
         current_inline = self._current_inline
         inline_vias = self.inline_vias.copy()
 
+        loop_arrays = self.loop_arrays
+        loop_indices = self.loop_indices
+
+        event_vars = self.event_vars
+
+        pure_conds = self.pure_conds
+        pure_returns = self.pure_returns
+        pure_success = self.pure_success
+        pure_var_index_counter = self._pure_var_index_counter
+        pure_continues = self.pure_continues
+        pure_breaks = self.pure_breaks
+
         self.function = None
 
         self.args = {}
         self.locals = {}
+        self.old_locals = {}
         self.current_state = {}
         self.current_old_state = {}
         self.quantified_vars = {}
@@ -210,6 +265,7 @@ class Context:
         self.return_label = None
 
         self.inside_trigger = False
+        self.inside_inline_analysis = False
 
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
@@ -218,12 +274,25 @@ class Context:
         self._inline_counter = -1
         self._current_inline = -1
 
+        self.loop_arrays = {}
+        self.loop_indices = {}
+
+        self.event_vars = {}
+
+        self.pure_conds = []
+        self.pure_returns = []
+        self.pure_success = []
+        self._pure_var_index_counter = 1
+        self.pure_continues = []
+        self.pure_breaks = []
+
         yield
 
         self.function = function
 
         self.args = args
-        self.locals = locals
+        self.locals = local_variables
+        self.old_locals = old_locals
         self.current_state = current_state
         self.current_old_state = current_old_state
         self.quantified_vars = quantified_vars
@@ -246,6 +315,7 @@ class Context:
         self.return_label = return_label
 
         self.inside_trigger = inside_trigger
+        self.inside_inline_analysis = inside_inline_analysis
 
         self._local_var_counter = local_var_counter
         self.new_local_vars = new_local_vars
@@ -254,6 +324,18 @@ class Context:
         self._inline_counter = inline_counter
         self._current_inline = current_inline
         self.inline_vias = inline_vias
+
+        self.loop_arrays = loop_arrays
+        self.loop_indices = loop_indices
+
+        self.event_vars = event_vars
+
+        self.pure_conds = pure_conds
+        self.pure_returns = pure_returns
+        self.pure_success = pure_success
+        self._pure_var_index_counter = pure_var_index_counter
+        self.pure_continues = pure_continues
+        self.pure_breaks = pure_breaks
 
     @contextmanager
     def quantified_var_scope(self):
@@ -277,6 +359,7 @@ class Context:
 
     @contextmanager
     def inline_scope(self, via):
+        success_var = self.success_var
         result_var = self.result_var
         self.result_var = None
 
@@ -294,8 +377,12 @@ class Context:
         inline_vias = self.inline_vias.copy()
         self.inline_vias.append(via)
 
+        inside_inline_analysis = self.inside_inline_analysis
+        self.inside_inline_analysis = True
+
         yield
 
+        self.success_var = success_var
         self.result_var = result_var
         self.return_label = return_label
 
@@ -304,6 +391,8 @@ class Context:
         self._current_inline = old_inline
 
         self.inline_vias = inline_vias
+
+        self.inside_inline_analysis = inside_inline_analysis
 
     @contextmanager
     def interface_call_scope(self):
@@ -341,10 +430,14 @@ class Context:
         self.current_state = present_state
         self.current_old_state = old_state
 
+        local_vars = self.locals.copy()
+
         yield
 
         self.current_state = current_state
         self.current_old_state = current_old_state
+
+        self.locals = local_vars
 
     @contextmanager
     def allocated_scope(self, allocated):
@@ -369,15 +462,42 @@ class Context:
         break_label = self.break_label
         self.break_label = self._next_break_label()
 
+        pure_break = self.pure_breaks
+        self.pure_breaks = []
+
         yield
 
         self.break_label = break_label
+
+        self.pure_breaks = pure_break
 
     @contextmanager
     def continue_scope(self):
         continue_label = self.continue_label
         self.continue_label = self._next_continue_label()
 
+        pure_continue = self.pure_continues
+        self.pure_continues = []
+
         yield
 
         self.continue_label = continue_label
+
+        self.pure_continues = pure_continue
+
+    @contextmanager
+    def old_local_variables_scope(self, old_locals):
+        prev_old_locals = self.old_locals
+        self.old_locals = old_locals
+
+        yield
+
+        self.old_locals = prev_old_locals
+
+    @contextmanager
+    def new_local_scope(self):
+        event_vars = self.event_vars
+
+        yield
+
+        self.event_vars = event_vars

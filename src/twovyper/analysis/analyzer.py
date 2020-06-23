@@ -5,6 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from contextlib import contextmanager
+from typing import Set, Dict, List
+
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.nodes import VyperProgram, VyperFunction
 from twovyper.ast.visitors import NodeVisitor
@@ -15,6 +18,7 @@ from twovyper.analysis.symbol_checker import check_symbols
 from twovyper.analysis.type_annotator import TypeAnnotator
 
 from twovyper.exceptions import UnsupportedException
+from twovyper.utils import switch
 
 
 def analyze(program: VyperProgram):
@@ -30,11 +34,12 @@ def analyze(program: VyperProgram):
     program_analyzer = _ProgramAnalyzer()
     invariant_analyzer = _InvariantAnalyzer()
 
+    program.analysis = ProgramAnalysis()
+
     for function in program.functions.values():
         function.analysis = FunctionAnalysis()
-        function_analyzer.analyze(function)
+        function_analyzer.analyze(program, function)
 
-    program.analysis = ProgramAnalysis()
     # The heuristics are need for analysis, therefore do them first
     heuristics.compute(program)
     program_analyzer.analyze(program)
@@ -67,9 +72,16 @@ class FunctionAnalysis:
         self.uses_issued = False
         # The set of tags for which accessibility needs to be proven in the function
         self.accessible_tags = set()
+        # The set of variable names which get changed by a loop
+        self.loop_used_names: Dict[str, List[str]] = {}
+        # True if and only if "assert e, UNREACHABLE" or "raise UNREACHABLE" is used
+        self.uses_unreachable = False
 
 
 class _ProgramAnalyzer(NodeVisitor):
+
+    def __init__(self):
+        super().__init__()
 
     def analyze(self, program: VyperProgram):
         self.visit_nodes(program.invariants, program)
@@ -100,7 +112,9 @@ class _InvariantAnalyzer(NodeVisitor):
         elif node.name == names.ACCESSIBLE:
             program.analysis.accessible_tags[node] = tag
             if len(node.args) == 3:
-                function_name = node.args[2].name
+                func_arg = node.args[2]
+                assert isinstance(func_arg, ast.ReceiverCall)
+                function_name = func_arg.name
             else:
                 if not program.analysis.accessible_function:
                     msg = "No matching function for accessible could be determined."
@@ -113,12 +127,78 @@ class _InvariantAnalyzer(NodeVisitor):
 
 class _FunctionAnalyzer(NodeVisitor):
 
-    def analyze(self, function: VyperFunction):
-        self.visit_nodes(function.postconditions, function)
-        self.visit_nodes(function.checks, function)
+    def __init__(self):
+        super().__init__()
+        self.inside_loop = False
+        self.inside_spec = False
+        self.used_names: Set[str] = set()
 
-    def visit_FunctionCall(self, node: ast.FunctionCall, function: VyperFunction):
+    @contextmanager
+    def _loop_scope(self):
+        used_variables = self.used_names
+        inside_loop = self.inside_loop
+
+        self.used_names = set()
+        self.inside_loop = True
+
+        yield
+
+        if inside_loop:
+            for name in used_variables:
+                self.used_names.add(name)
+        else:
+            self.used_names = used_variables
+        self.inside_loop = inside_loop
+
+    @contextmanager
+    def _spec_scope(self):
+        inside_spec = self.inside_spec
+        self.inside_spec = True
+
+        yield
+
+        self.inside_spec = inside_spec
+
+    def analyze(self, program: VyperProgram, function: VyperFunction):
+        with self._spec_scope():
+            self.visit_nodes(function.postconditions, program, function)
+            self.visit_nodes(function.preconditions, program, function)
+            self.visit_nodes(function.checks, program, function)
+        self.generic_visit(function.node, program, function)
+
+    def visit_Assert(self, node: ast.Assert, program: VyperProgram, function: VyperFunction):
+        if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
+            function.analysis.uses_unreachable = True
+
+        self.generic_visit(node, program, function)
+
+    def visit_FunctionCall(self, node: ast.FunctionCall, program: VyperProgram, function: VyperFunction):
         if node.name == names.ISSUED:
             function.analysis.uses_issued = True
 
-        self.generic_visit(node, function)
+        self.generic_visit(node, program, function)
+
+    def visit_For(self, node: ast.For, program: VyperProgram, function: VyperFunction):
+        with self._loop_scope():
+            self.generic_visit(node, program, function)
+            function.analysis.loop_used_names[node.target.id] = list(self.used_names)
+        with self._spec_scope():
+            self.visit_nodes(function.loop_invariants.get(node, []), program, function)
+
+    def visit_Name(self, node: ast.Name, program: VyperProgram, function: VyperFunction):
+        if self.inside_loop:
+            with switch(node.id) as case:
+                if case(names.MSG)\
+                        or case(names.BLOCK)\
+                        or case(names.CHAIN)\
+                        or case(names.TX):
+                    pass
+                else:
+                    self.used_names.add(node.id)
+        self.generic_visit(node, program, function)
+
+    def visit_Raise(self, node: ast.Raise, program: VyperProgram, function: VyperFunction):
+        if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
+            function.analysis.uses_unreachable = True
+
+        self.generic_visit(node, program, function)

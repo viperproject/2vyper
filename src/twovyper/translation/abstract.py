@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Iterable
 
 from twovyper.ast import ast_nodes as ast
 from twovyper.ast.visitors import NodeVisitor
@@ -93,5 +93,11 @@ class NodeTranslator(NodeVisitor, CommonTranslator):
     def translate(self, node: ast.Node, res: List[Stmt], ctx: Context):
         return self.visit(node, res, ctx)
 
-    def generic_visit(self, node: ast.Node, ctx: Context):
+    def visit_nodes(self, nodes: Iterable[ast.Node], *args):
+        ret = []
+        for node in nodes:
+            ret += self.visit(node, *args)
+        return ret
+
+    def generic_visit(self, node: ast.Node, *args):
         raise AssertionError(f"Node of type {type(node)} not supported.")

@@ -54,9 +54,13 @@ domain $Math {
     axiom $powN0_ax {
         forall $a: Int :: { $pow($a, 0) } $a != 0 ==> $pow($a, 0) == 1
     }
-    
+
     axiom $pow_non_negative_ax {
-        forall $a: Int, $b: Int :: { $pow($a, $b) } $a >= 0 && $b >= 0 ==> $pow($a, $b) >= 0
+        forall $a: Int, $b: Int :: { $pow($a, $b) } $a >= 0 ==> $pow($a, $b) >= 0
+    }
+
+    axiom $pow_non_negative_and_non_null_ax {
+        forall $a: Int, $b: Int :: { $pow($a, $b) } $a > 0 && $b >= 0 ==> $pow($a, $b) > 0
     }
 
     axiom $floor_ax {

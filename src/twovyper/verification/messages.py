@@ -19,8 +19,14 @@ ERRORS = {
         lambda i: f"Function {i.function.name} might not be well-formed.",
     'call.invariant':
         lambda i: f"An invariant might not hold before the call {pprint(i.node)}.",
+    'after.call.invariant':
+        lambda i: f"An invariant might not hold after the call {pprint(i.node)}.",
+    'during.call.invariant':
+        lambda i: f"An invariant might not hold during the call {pprint(i.node)}.",
     'call.check':
         lambda i: f"A check might not hold before the call {pprint(i.node)}.",
+    'private.call.check':
+        lambda i: f"A check might not hold in the private function.",
     'call.precondition':
         lambda i: f"The precondition of function {pprint(i.node)} might not hold.",
     'call.leakcheck':
@@ -41,14 +47,28 @@ ERRORS = {
         lambda i: f"Postcondition of {i.function.name} might not hold.",
     'postcondition.not.implemented':
         lambda i: f"Function {i.function.name} might not correctly implement an interface.",
+    'precondition.violated':
+        lambda i: f"Precondition of {i.function.name} might not hold.",
     'invariant.violated':
         lambda i: f"Invariant not preserved by {i.function.name}.",
+    'loop.invariant.not.established':
+        lambda i: f"Loop invariant not established.",
+    'loop.invariant.not.preserved':
+        lambda i: f"Loop invariant not preserved.",
     'check.violated':
         lambda i: f"A check might not hold after the body of {i.function.name}.",
+    'caller.private.violated':
+        lambda i: f"A caller private expression might got changed for another caller.",
+    'caller.private.not.wellformed':
+        lambda i: f"Caller private {pprint(i.node)} might not be well-formed.",
     'invariant.not.wellformed':
         lambda i: f"Invariant {pprint(i.node)} might not be well-formed.",
+    'loop.invariant.not.wellformed':
+        lambda i: f"Loop invariant {pprint(i.node)} might not be well-formed.",
     'postcondition.not.wellformed':
-        lambda i: f"General postcondition {pprint(i.node)} might not be well-formed.",
+        lambda i: f"(General) Postcondition {pprint(i.node)} might not be well-formed.",
+    'precondition.not.wellformed':
+        lambda i: f"Precondition {pprint(i.node)} might not be well-formed.",
     'interface.postcondition.not.wellformed':
         lambda i: f"Postcondition of {pprint(i.node)} might not be well-formed.",
     'reallocate.failed':
@@ -80,7 +100,9 @@ ERRORS = {
     'function.not.wellformed':
         lambda i: "Function might not be well-formed.",
     'predicate.not.wellformed':
-        lambda i: "Predicate might not be well-formed."
+        lambda i: "Predicate might not be well-formed.",
+    'function.failed':
+        lambda i: f"The function call {pprint(i.node)} might not succeed."
 }
 
 REASONS = {
@@ -88,6 +110,8 @@ REASONS = {
         lambda i: f"Assertion {pprint(i.node)} might not hold.",
     'transitivity.violated':
         lambda i: f"It might not be transitive.",
+    'reflexivity.violated':
+        lambda i: f"It might not be reflexive.",
     'constant.balance':
         lambda i: f"It might assume constant balance.",
     'division.by.zero':
@@ -123,5 +147,8 @@ REASONS = {
     'negative.permission':
         lambda i: f"Fraction {pprint(i.node)} might be negative.",
     'insufficient.permission':
-        lambda i: f"There might be insufficient permission to access {pprint(i.node)}."
+        lambda i: f"There might be insufficient permission to access {pprint(i.node)}.",
+    'function.revert':
+        lambda i: f"The function {i.function.name} might revert."
+
 }

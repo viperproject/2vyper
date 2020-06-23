@@ -4,13 +4,15 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
-
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from itertools import chain
+from typing import Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.types import (
     VyperType, FunctionType, StructType, ResourceType, ContractType, EventType, InterfaceType
 )
+if TYPE_CHECKING:
+    from twovyper.analysis.analyzer import FunctionAnalysis, ProgramAnalysis
 
 
 class Config:
@@ -34,25 +36,31 @@ class VyperFunction:
 
     def __init__(self,
                  name: str,
+                 index: int,
                  args: Dict[str, VyperVar],
                  defaults: Dict[str, Optional[ast.Expr]],
                  type: FunctionType,
                  postconditions: List[ast.Expr],
+                 preconditions: List[ast.Expr],
                  checks: List[ast.Expr],
+                 loop_invariants: Dict[ast.For, List[ast.Expr]],
                  performs: List[ast.Expr],
                  decorators: List[ast.Decorator],
                  node: Optional[ast.FunctionDef]):
         self.name = name
+        self.index = index
         self.args = args
         self.defaults = defaults
         self.type = type
         self.postconditions = postconditions
+        self.preconditions = preconditions
         self.checks = checks
+        self.loop_invariants = loop_invariants
         self.performs = performs
         self.decorators = decorators
         self.node = node
         # Gets set in the analyzer
-        self.analysis = None
+        self.analysis: Optional[FunctionAnalysis] = None
 
     @property
     def _decorator_names(self) -> Iterable[str]:
@@ -70,6 +78,9 @@ class VyperFunction:
 
     def is_constant(self) -> bool:
         return names.CONSTANT in self._decorator_names
+
+    def is_pure(self) -> bool:
+        return names.PURE in self._decorator_names
 
     def nonreentrant_keys(self) -> Iterable[str]:
         for dec in self.decorators:
@@ -138,12 +149,13 @@ class VyperProgram:
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
                  resources: Dict[str, VyperStruct],
-                 invariants: List[ast.Expr],
+                 local_state_invariants: List[ast.Expr],
+                 inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
                  transitive_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr],
                  implements: List[InterfaceType],
-                 ghost_function_implementations: Dict[str, ast.Expr]):
+                 ghost_function_implementations: Dict[str, GhostFunction]):
         self.node = node
         self.file = file
         self.config = config
@@ -154,7 +166,8 @@ class VyperProgram:
         self.contracts = contracts
         self.events = events
         self.resources = resources
-        self.invariants = invariants
+        self.local_state_invariants = local_state_invariants
+        self.inter_contract_invariants = inter_contract_invariants
         self.general_postconditions = general_postconditions
         self.transitive_postconditions = transitive_postconditions
         self.general_checks = general_checks
@@ -163,7 +176,7 @@ class VyperProgram:
         self.ghost_function_implementations = ghost_function_implementations
         self.type = fields.type
         # Is set in the analyzer
-        self.analysis = None
+        self.analysis: Optional[ProgramAnalysis] = None
 
     def is_interface(self) -> bool:
         return False
@@ -180,6 +193,10 @@ class VyperProgram:
             for name, func in interface.ghost_functions.items():
                 yield name, func
 
+    @property
+    def invariants(self):
+        return chain(self.local_state_invariants, self.inter_contract_invariants)
+
 
 class VyperInterface(VyperProgram):
 
@@ -189,8 +206,13 @@ class VyperInterface(VyperProgram):
                  name: Optional[str],
                  config: Config,
                  functions: Dict[str, VyperFunction],
-                 ghost_functions: Dict[str, GhostFunction],
+                 local_state_invariants: List[ast.Expr],
+                 inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
+                 transitive_postconditions: List[ast.Expr],
+                 general_checks: List[ast.Expr],
+                 caller_private: List[ast.Expr],
+                 ghost_functions: Dict[str, GhostFunction],
                  type: InterfaceType):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})
@@ -201,12 +223,16 @@ class VyperInterface(VyperProgram):
                          empty_struct,
                          functions,
                          {}, {}, {}, {}, {},
-                         [],
+                         local_state_invariants,
+                         inter_contract_invariants,
                          general_postconditions,
-                         [], [], [], {})
+                         transitive_postconditions,
+                         general_checks,
+                         [], {})
         self.name = name
         self.ghost_functions = ghost_functions
         self.type = type
+        self.caller_private = caller_private
 
     def is_interface(self) -> bool:
         return True

@@ -26,6 +26,7 @@ from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.allocation import AllocationTranslator
 from twovyper.translation.balance import BalanceTranslator
 from twovyper.translation.function import FunctionTranslator
+from twovyper.translation.pure_function import PureFunctionTranslator
 from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
@@ -74,10 +75,11 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
 class ProgramTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST, builtins: Program):
-        self.viper_ast = viper_ast
+        super().__init__(viper_ast)
         self.builtins = builtins
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.function_translator = FunctionTranslator(viper_ast)
+        self.pure_function_translator = PureFunctionTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
         self.resource_translator = ResourceTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
@@ -152,7 +154,18 @@ class ProgramTranslator(CommonTranslator):
             else:
                 return [sent_inc]
 
+        def unchecked_transitive_postconditions():
+            assume_locked = []
+            for lock in ctx.program.nonreentrant_keys():
+                with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
+                    old_lock_val = helpers.get_lock(self.viper_ast, lock, ctx)
+                with ctx.state_scope(ctx.current_state, ctx.current_state):
+                    new_lock_val = helpers.get_lock(self.viper_ast, lock, ctx)
+                assume_locked.append(self.viper_ast.EqCmp(old_lock_val, new_lock_val))
+            return assume_locked
+
         ctx.unchecked_invariants = unchecked_invariants
+        ctx.unchecked_transitive_postconditions = unchecked_transitive_postconditions
 
         # Structs
         structs = vyper_program.structs.values()
@@ -167,15 +180,35 @@ class ProgramTranslator(CommonTranslator):
         functions.extend(self._translate_ghost_function(func, ctx) for func in vyper_program.ghost_functions.values())
         domains.append(self._translate_implements(vyper_program, ctx))
 
+        # Pure functions
+        pure_vyper_functions = filter(VyperFunction.is_pure,  vyper_program.functions.values())
+        functions += [self.pure_function_translator.translate(function, ctx) for function in pure_vyper_functions]
+
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
         accs = [self._translate_accessible(acc, ctx) for acc in vyper_program.functions.values()]
         predicates.extend([*events, *accs])
 
-        vyper_functions = [f for f in vyper_program.functions.values() if f.is_public()]
+        # Viper methods
+        def translate_condition_for_vyper_function(func: VyperFunction) -> bool:
+            has_general_postcondition = (len(vyper_program.general_postconditions) > 0
+                                         or len(vyper_program.transitive_postconditions) > 0)
+            if not has_general_postcondition and func.is_pure():
+                has_loop_invariants = len(func.loop_invariants) > 0
+                has_unreachable_assertions = func.analysis.uses_unreachable
+                return has_loop_invariants or has_unreachable_assertions
+            if func.is_private():
+                # We have to generate a Viper method to check the specification
+                # if the specification of the function could get assumed.
+                return self.function_translator.can_assume_private_function(func)
+            return True
+        vyper_functions = filter(translate_condition_for_vyper_function, vyper_program.functions.values())
         methods.append(self._create_transitivity_check(ctx))
+        methods.append(self._create_reflexivity_check(ctx))
         methods.append(self._create_forced_ether_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
+
+        # Viper Program
         viper_program = self.viper_ast.Program(domains, [], functions, predicates, methods)
         return viper_program
 
@@ -326,16 +359,26 @@ class ProgramTranslator(CommonTranslator):
         with ctx.state_scope(self_state, old_state):
             for inv in ctx.unchecked_invariants():
                 res.append(self.viper_ast.Inhale(inv))
-            for inv in ctx.program.invariants:
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                with ctx.program_scope(interface):
+                    for inv in ctx.current_program.invariants:
+                        pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                        inv_expr = self.specification_translator.translate_invariant(inv, res, ctx)
+                        res.append(self.viper_ast.Inhale(inv_expr, pos))
+            for inv in ctx.current_program.invariants:
                 pos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
                 inv_expr = self.specification_translator.translate_invariant(inv, res, ctx)
                 res.append(self.viper_ast.Inhale(inv_expr, pos))
+            is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool)
             for post in ctx.program.transitive_postconditions:
                 pos = self.to_position(post, ctx, rules.INHALE_POSTCONDITION_FAIL)
-                post_expr = self.specification_translator.translate_postcondition(post, res, ctx)
-                is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
+                post_expr = self.specification_translator.translate_pre_or_postcondition(post, res, ctx)
                 post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
                 res.append(self.viper_ast.Inhale(post_expr, pos))
+            for post in ctx.unchecked_transitive_postconditions():
+                post_expr = self.viper_ast.Implies(is_post_var, post)
+                res.append(self.viper_ast.Inhale(post_expr))
 
     def _create_transitivity_check(self, ctx: Context):
         # Creates a check that all invariants and transitive postconditions are transitive.
@@ -402,7 +445,16 @@ class ProgramTranslator(CommonTranslator):
 
             # Check invariants for current state 2 and old state 0
             with ctx.state_scope(states[2], states[0]):
-                for inv in ctx.program.invariants:
+                for interface_type in ctx.program.implements:
+                    interface = ctx.program.interfaces[interface_type.name]
+                    with ctx.program_scope(interface):
+                        for inv in ctx.current_program.invariants:
+                            rule = rules.INVARIANT_TRANSITIVITY_VIOLATED
+                            apos = self.to_position(inv, ctx, rule)
+                            inv_expr = self.specification_translator.translate_invariant(inv, body, ctx)
+                            body.append(self.viper_ast.Assert(inv_expr, apos))
+
+                for inv in ctx.current_program.invariants:
                     rule = rules.INVARIANT_TRANSITIVITY_VIOLATED
                     apos = self.to_position(inv, ctx, rule)
                     inv_expr = self.specification_translator.translate_invariant(inv, body, ctx)
@@ -410,6 +462,76 @@ class ProgramTranslator(CommonTranslator):
 
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_TRANSITIVITY_VIOLATED
+                    apos = self.to_position(post, ctx, rule)
+                    post_expr = self.specification_translator.translate_invariant(post, body, ctx)
+                    pos = self.to_position(post, ctx)
+                    is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
+                    post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)
+                    body.append(self.viper_ast.Assert(post_expr, apos))
+
+            local_vars.extend(ctx.new_local_vars)
+            return self.viper_ast.Method(name, [], [], [], [], local_vars, body)
+
+    def _create_reflexivity_check(self, ctx: Context):
+        # Creates a check that all invariants and transitive postconditions are reflexive.
+        # This is needed, because we want to assume them after a call, which could have
+        # reentered zero times.
+        # To check transitivity, we create 2 states, assume the global unchecked invariants
+        # for both of them, assume the invariants for state no 2 with state no 1 being the
+        # old state.
+        # In the end we assert the invariants for state no 2 with state no 2 being the old state.
+        # The transitive postconditions are checked similarly, but conditioned under an unknown
+        # boolean variable so we can't assume them for checking the invariants
+
+        with ctx.function_scope():
+            name = mangled.REFLEXIVITY_CHECK
+
+            states = [self.state_translator.state(lambda n: f'${n}${i}', ctx) for i in range(2)]
+
+            block = TranslatedVar(names.BLOCK, mangled.BLOCK, types.BLOCK_TYPE, self.viper_ast)
+            ctx.locals[names.BLOCK] = block
+            is_post = self.viper_ast.LocalVarDecl('$post', self.viper_ast.Bool)
+            local_vars = [*flatten(s.values() for s in states), block]
+            local_vars = [var.var_decl(ctx) for var in local_vars]
+            local_vars.append(is_post)
+
+            if ctx.program.analysis.uses_issued:
+                ctx.issued_state = self.state_translator.state(mangled.issued_state_var_name, ctx)
+                local_vars.extend(var.var_decl(ctx) for var in ctx.issued_state.values())
+                all_states = chain(states, [ctx.issued_state])
+            else:
+                all_states = states
+
+            body = []
+
+            # Assume type assumptions for all self-states
+            for state in all_states:
+                for var in state.values():
+                    local = var.local_var(ctx)
+                    type_assumptions = self.type_translator.type_assumptions(local, var.type, ctx)
+                    body.extend(self.viper_ast.Inhale(a) for a in type_assumptions)
+
+            # Assume type assumptions for block
+            block_var = block.local_var(ctx)
+            block_assumptions = self.type_translator.type_assumptions(block_var, types.BLOCK_TYPE, ctx)
+            body.extend(self.viper_ast.Inhale(a) for a in block_assumptions)
+
+            def assume_assertions(s1, s2):
+                self._assume_assertions(s1, s2, body, ctx)
+
+            # Assume assertions for current state 1 and old state 0
+            assume_assertions(states[1], states[0])
+
+            # Check invariants for current state 1 and old state 1
+            with ctx.state_scope(states[1], states[1]):
+                for inv in ctx.program.invariants:
+                    rule = rules.INVARIANT_REFLEXIVITY_VIOLATED
+                    apos = self.to_position(inv, ctx, rule)
+                    inv_expr = self.specification_translator.translate_invariant(inv, body, ctx)
+                    body.append(self.viper_ast.Assert(inv_expr, apos))
+
+                for post in ctx.program.transitive_postconditions:
+                    rule = rules.POSTCONDITION_REFLEXIVITY_VIOLATED
                     apos = self.to_position(post, ctx, rule)
                     post_expr = self.specification_translator.translate_invariant(post, body, ctx)
                     pos = self.to_position(post, ctx)
@@ -474,7 +596,7 @@ class ProgramTranslator(CommonTranslator):
             else:
                 assume_assertions(present_state, present_state)
 
-            self.state_translator.copy_state(pre_state, present_state, body, ctx)
+            self.state_translator.copy_state(present_state, pre_state, body, ctx)
 
             with ctx.state_scope(present_state, present_state):
                 self.balance_translator.increase_balance(havoc.localVar(), body, ctx)
@@ -483,7 +605,7 @@ class ProgramTranslator(CommonTranslator):
                 for post in ctx.program.transitive_postconditions:
                     rule = rules.POSTCONDITION_CONSTANT_BALANCE
                     apos = self.to_position(post, ctx, rule)
-                    post_expr = self.specification_translator.translate_postcondition(post, body, ctx)
+                    post_expr = self.specification_translator.translate_pre_or_postcondition(post, body, ctx)
                     pos = self.to_position(post, ctx)
                     is_post_var = self.viper_ast.LocalVar('$post', self.viper_ast.Bool, pos)
                     post_expr = self.viper_ast.Implies(is_post_var, post_expr, pos)

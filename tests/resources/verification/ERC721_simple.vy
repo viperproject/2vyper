@@ -44,6 +44,8 @@ def __init__(_recipients: address[NUM_TOKENS], _tokenIds: uint256[NUM_TOKENS]):
   # ERC721-metadata interface ID not yet implemented
   self.supportedInterfaces[b'\x5b\x5e\x13\x9f'] = False
   for i in range(NUM_TOKENS):
+    #@ invariant: self.ownerToNFTokenCount[ZERO_ADDRESS] == 0
+    #@ invariant: forall({j: int128}, (j >= 0 and j < i) ==> self.ownerToNFTokenCount[_recipients[j]] > 0)
     # stop as soon as there is a non-specified recipient
     assert _recipients[i] != ZERO_ADDRESS
     self.idToOwner[_tokenIds[i]] = _recipients[i]
@@ -85,6 +87,10 @@ def ownerOf(_tokenId: uint256) -> address:
 # Throws if `_from` is not the current owner. 
 # Throws if `_to` is the zero address. 
 # Throws if `_tokenId` is not a valid NFT.
+#@ requires: self.ownerToNFTokenCount == public_old(self.ownerToNFTokenCount)
+#@ ensures: _from == ZERO_ADDRESS ==> revert()
+#@ ensures: _to == ZERO_ADDRESS ==> revert()
+#@ ensures: self.ownerToNFTokenCount == public_old(self.ownerToNFTokenCount)
 @private
 def _validateTransferFrom(_from: address, _to: address, _tokenId: uint256, _sender: address):
   assert _from != ZERO_ADDRESS # Throws if `_tokenId` is not a valid NFT.
@@ -97,6 +103,11 @@ def _validateTransferFrom(_from: address, _to: address, _tokenId: uint256, _send
   assert (senderIsOwner or senderIsApproved) or senderIsOperator
   assert _to != ZERO_ADDRESS # Throws if `_to` is the zero address. 
 
+#@ requires: _from != ZERO_ADDRESS
+#@ requires: _to != ZERO_ADDRESS
+#@ requires: self.ownerToNFTokenCount == public_old(self.ownerToNFTokenCount)
+#@ ensures: self.ownerToNFTokenCount[ZERO_ADDRESS] == 0
+#@ ensures: sum(self.ownerToNFTokenCount) == public_old(sum(self.ownerToNFTokenCount))
 @private
 def _doTransfer(_from: address, _to: address, _tokenId: uint256):
   self.idToOwner[_tokenId] = _to # 1. update idToOwner

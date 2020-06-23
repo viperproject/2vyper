@@ -28,7 +28,7 @@ from twovyper.verification import error_manager
 
 from twovyper.verification.verifier import (
     VerificationResult,
-    ViperVerifier
+    ViperVerifier, AbstractVerifier
 )
 
 from twovyper.exceptions import (
@@ -52,7 +52,7 @@ class TwoVyper:
 
         logging.debug("Start parsing.")
 
-        vyper_program = parser.parse(path, vyper_root)
+        vyper_program = parser.parse(path, vyper_root, name=os.path.basename(path.split('.')[0]))
 
         logging.info("Finished parsing.")
         logging.debug("Start analyzing.")
@@ -77,9 +77,8 @@ class TwoVyper:
         """
         logging.debug("Start verifying.")
 
-        verifier = ViperVerifier[backend].value
-        verifier.initialize(self.jvm, path, self.get_model)
-        result = verifier.verify(program)
+        verifier: AbstractVerifier = ViperVerifier[backend].value
+        result = verifier.verify(program, self.jvm, path, self.get_model)
 
         logging.info("Finished verifying.")
 

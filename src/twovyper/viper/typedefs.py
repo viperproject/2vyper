@@ -17,6 +17,7 @@ Expr = Any  # 'silver.ast.Exp'
 Program = Any  # 'silver.ast.Program'
 Field = Any  # 'silver.ast.Field'
 Method = Any  # 'silver.ast.Method'
+Function = Any  # 'silver.ast.Function'
 
 Domain = Any  # 'silver.ast.Domain'
 DomainAxiom = Any  # 'silver.ast.DomainAxiom'

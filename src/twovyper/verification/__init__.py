@@ -6,3 +6,4 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from twovyper.verification.manager import manager as error_manager
+from twovyper.verification.error import Error as TwoVyperError

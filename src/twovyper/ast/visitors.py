@@ -11,7 +11,7 @@ from twovyper.ast import ast_nodes as ast
 
 
 def children(node: ast.Node) -> Iterable[Tuple[str, Union[Optional[ast.Node], List[ast.Node]]]]:
-    for child in node._children:
+    for child in node.children:
         yield child, getattr(node, child)
 
 
@@ -43,7 +43,7 @@ class NodeVisitor:
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node, *args)
 
-    def visit_nodes(self, nodes: List[ast.Node], *args):
+    def visit_nodes(self, nodes: Iterable[ast.Node], *args):
         for node in nodes:
             self.visit(node, *args)
         return None

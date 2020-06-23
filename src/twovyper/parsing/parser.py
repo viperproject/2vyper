@@ -7,20 +7,27 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
 
-from typing import Optional
+from contextlib import contextmanager
+
+from typing import Optional, Dict, Union, List
+
+from twovyper.utils import switch, first
 
 from twovyper.parsing import lark
 from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
 
 from twovyper.ast import ast_nodes as ast, interfaces, names
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.ast.visitors import NodeVisitor, NodeTransformer
 
 from twovyper.ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
     Config, VyperInterface, GhostFunction, Resource
 )
-from twovyper.ast.types import TypeBuilder, FunctionType, EventType, SelfType, InterfaceType, ResourceType
+from twovyper.ast.types import (
+    TypeBuilder, FunctionType, EventType, SelfType, InterfaceType, ResourceType,
+    StructType, ContractType
+)
 
 from twovyper.exceptions import InvalidProgramException
 
@@ -56,12 +63,14 @@ class ProgramBuilder(NodeVisitor):
 
         self.field_types = {}
         self.functions = {}
+        self.function_counter = 0
         self.interfaces = {}
         self.structs = {}
         self.contracts = {}
         self.events = {}
         self.resources = {}
-        self.invariants = []
+        self.local_state_invariants = []
+        self.inter_contract_invariants = []
         self.general_postconditions = []
         self.transitive_postconditions = []
         self.general_checks = []
@@ -70,7 +79,9 @@ class ProgramBuilder(NodeVisitor):
         self.ghost_function_implementations = {}
 
         self.postconditions = []
+        self.preconditions = []
         self.checks = []
+        self.caller_private = []
         self.performs = []
 
         self.is_preserves = False
@@ -101,10 +112,19 @@ class ProgramBuilder(NodeVisitor):
                                   self.name,
                                   self.config,
                                   self.functions,
-                                  self.ghost_functions,
+                                  self.local_state_invariants,
+                                  self.inter_contract_invariants,
                                   self.general_postconditions,
+                                  self.transitive_postconditions,
+                                  self.general_checks,
+                                  self.caller_private,
+                                  self.ghost_functions,
                                   interface_type)
         else:
+            if self.caller_private:
+                node = first(self.caller_private)
+                raise InvalidProgramException(node, 'invalid.caller.private',
+                                              'Caller private is only allowed in interfaces')
             # Create the self-type
             self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
@@ -125,7 +145,8 @@ class ProgramBuilder(NodeVisitor):
                                 self.contracts,
                                 self.events,
                                 self.resources,
-                                self.invariants,
+                                self.local_state_invariants,
+                                self.inter_contract_invariants,
                                 self.general_postconditions,
                                 self.transitive_postconditions,
                                 self.general_checks,
@@ -151,6 +172,17 @@ class ProgramBuilder(NodeVisitor):
             return
         raise InvalidProgramException(node, 'local.spec', f"{cond} only allowed before function")
 
+    def _check_no_ghost_function(self):
+        if self.ghost_functions:
+            cond = "Ghost function declaration"
+            node = first(self.ghost_functions.values()).node
+        elif self.ghost_function_implementations:
+            cond = "Ghost function definition"
+            node = first(self.ghost_function_implementations.values()).node
+        else:
+            return
+        raise InvalidProgramException(node, 'invalid.ghost', f'{cond} only allowed after "#@ interface"')
+
     def generic_visit(self, node: ast.Node, *args):
         raise InvalidProgramException(node, 'invalid.spec')
 
@@ -159,6 +191,9 @@ class ProgramBuilder(NodeVisitor):
             self.visit(stmt)
 
     def visit_Import(self, node: ast.Import):
+        if node.is_ghost_code:
+            raise InvalidProgramException(node, 'invalid.ghost.code')
+
         files = {}
         for alias in node.names:
             components = alias.name.split('.')
@@ -171,6 +206,9 @@ class ProgramBuilder(NodeVisitor):
             self.interfaces[name] = interface
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
+        if node.is_ghost_code:
+            raise InvalidProgramException(node, 'invalid.ghost.code')
+
         module = node.module or ''
         components = module.split('.')
 
@@ -209,8 +247,9 @@ class ProgramBuilder(NodeVisitor):
             self.interfaces[name] = interface
 
     def visit_StructDef(self, node: ast.StructDef):
-        type = self.type_builder.build(node)
-        struct = VyperStruct(node.name, type, node)
+        vyper_type = self.type_builder.build(node)
+        assert isinstance(vyper_type, StructType)
+        struct = VyperStruct(node.name, vyper_type, node)
         self.structs[struct.name] = struct
 
     def visit_FunctionStub(self, node: ast.FunctionStub):
@@ -220,16 +259,24 @@ class ProgramBuilder(NodeVisitor):
         if node.name in self.resources or node.name == names.CREATOR:
             raise InvalidProgramException(node, 'duplicate.resource')
 
-        type = self.type_builder.build(node)
-        resource = Resource(node.name, type, node)
+        vyper_type = self.type_builder.build(node)
+        assert isinstance(vyper_type, ResourceType)
+        resource = Resource(node.name, vyper_type, node)
         self.resources[node.name] = resource
 
     def visit_ContractDef(self, node: ast.ContractDef):
-        type = self.type_builder.build(node)
-        contract = VyperContract(node.name, type, node)
+        if node.is_ghost_code:
+            raise InvalidProgramException(node, 'invalid.ghost.code')
+
+        vyper_type = self.type_builder.build(node)
+        assert isinstance(vyper_type, ContractType)
+        contract = VyperContract(node.name, vyper_type, node)
         self.contracts[contract.name] = contract
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
+        if node.is_ghost_code:
+            raise InvalidProgramException(node, 'invalid.ghost.code')
+
         # No local specs are allowed before contract state variables
         self._check_no_local_spec()
 
@@ -257,47 +304,61 @@ class ProgramBuilder(NodeVisitor):
             msg = f"Only general postconditions are allowed in preserves. ({name} is not allowed)"
             raise InvalidProgramException(node, 'invalid.preserves', msg)
 
-        if name == names.CONFIG:
-            if isinstance(node.value, ast.Name):
-                options = [node.value.id]
-            elif isinstance(node.value, ast.Tuple):
-                options = [n.id for n in node.value.elements]
+        with switch(name) as case:
+            if case(names.CONFIG):
+                if isinstance(node.value, ast.Name):
+                    options = [node.value.id]
+                elif isinstance(node.value, ast.Tuple):
+                    options = [n.id for n in node.value.elements]
 
-            for option in options:
-                if option not in names.CONFIG_OPTIONS:
-                    msg = f"Option {option} is invalid."
-                    raise InvalidProgramException(node, 'invalid.config.option', msg)
+                for option in options:
+                    if option not in names.CONFIG_OPTIONS:
+                        msg = f"Option {option} is invalid."
+                        raise InvalidProgramException(node, 'invalid.config.option', msg)
 
-            self.config = Config(options)
-        elif name == names.INTERFACE:
-            self._check_no_local_spec()
-            self.is_interface = True
-        elif name == names.INVARIANT:
-            # No local specifications allowed before invariants
-            self._check_no_local_spec()
+                self.config = Config(options)
+            elif case(names.INTERFACE):
+                self._check_no_local_spec()
+                self._check_no_ghost_function()
+                self.is_interface = True
+            elif case(names.INVARIANT):
+                # No local specifications allowed before invariants
+                self._check_no_local_spec()
 
-            self.invariants.append(node.value)
-        elif name == names.GENERAL_POSTCONDITION:
-            # No local specifications allowed before general postconditions
-            self._check_no_local_spec()
+                self.local_state_invariants.append(node.value)
+            elif case(names.INTER_CONTRACT_INVARIANTS):
+                # No local specifications allowed before inter contract invariants
+                self._check_no_local_spec()
 
-            if self.is_preserves:
-                self.transitive_postconditions.append(node.value)
+                self.inter_contract_invariants.append(node.value)
+            elif case(names.GENERAL_POSTCONDITION):
+                # No local specifications allowed before general postconditions
+                self._check_no_local_spec()
+
+                if self.is_preserves:
+                    self.transitive_postconditions.append(node.value)
+                else:
+                    self.general_postconditions.append(node.value)
+            elif case(names.GENERAL_CHECK):
+                # No local specifications allowed before general check
+                self._check_no_local_spec()
+
+                self.general_checks.append(node.value)
+            elif case(names.POSTCONDITION):
+                self.postconditions.append(node.value)
+            elif case(names.PRECONDITION):
+                self.preconditions.append(node.value)
+            elif case(names.CHECK):
+                self.checks.append(node.value)
+            elif case(names.CALLER_PRIVATE):
+                # No local specifications allowed before caller private
+                self._check_no_local_spec()
+
+                self.caller_private.append(node.value)
+            elif case(names.PERFORMS):
+                self.performs.append(node.value)
             else:
-                self.general_postconditions.append(node.value)
-        elif name == names.GENERAL_CHECK:
-            # No local specifications allowed before general check
-            self._check_no_local_spec()
-
-            self.general_checks.append(node.value)
-        elif name == names.POSTCONDITION:
-            self.postconditions.append(node.value)
-        elif name == names.CHECK:
-            self.checks.append(node.value)
-        elif name == names.PERFORMS:
-            self.performs.append(node.value)
-        else:
-            assert False
+                assert False
 
     def visit_If(self, node: ast.If):
         # This is a preserves clause, since we replace all preserves clauses with if statements
@@ -323,8 +384,11 @@ class ProgramBuilder(NodeVisitor):
                     raise InvalidProgramException(func, 'invalid.ghost')
 
             check_ghost(isinstance(func, ast.FunctionDef))
+            assert isinstance(func, ast.FunctionDef)
             check_ghost(len(func.body) == 1)
-            check_ghost(isinstance(func.body[0], ast.ExprStmt))
+            func_body = func.body[0]
+            check_ghost(isinstance(func_body, ast.ExprStmt))
+            assert isinstance(func_body, ast.ExprStmt)
             check_ghost(func.returns)
 
             decorators = [dec.name for dec in func.decorators]
@@ -334,33 +398,88 @@ class ProgramBuilder(NodeVisitor):
             args = {arg.name: self._arg(arg) for arg in func.args}
             arg_types = [arg.type for arg in args.values()]
             return_type = None if func.returns is None else self.type_builder.build(func.returns)
-            type = FunctionType(arg_types, return_type)
+            vyper_type = FunctionType(arg_types, return_type)
 
             if names.IMPLEMENTS in decorators:
+                check_ghost(not self.is_interface)
                 check_ghost(len(decorators) == 1)
 
                 ghost_functions = self.ghost_function_implementations
             else:
+                check_ghost(self.is_interface)
                 check_ghost(not decorators)
-                check_ghost(isinstance(func.body[0].value, ast.Ellipsis))
+                check_ghost(isinstance(func_body.value, ast.Ellipsis))
 
                 ghost_functions = self.ghost_functions
 
             if name in ghost_functions:
                 raise InvalidProgramException(func, 'duplicate.ghost')
 
-            ghost_functions[name] = GhostFunction(name, args, type, func)
+            ghost_functions[name] = GhostFunction(name, args, vyper_type, func)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         args = {arg.name: self._arg(arg) for arg in node.args}
         defaults = {arg.name: arg.default for arg in node.args}
         arg_types = [arg.type for arg in args.values()]
         return_type = None if node.returns is None else self.type_builder.build(node.returns)
-        type = FunctionType(arg_types, return_type)
+        vyper_type = FunctionType(arg_types, return_type)
         decs = node.decorators
-        function = VyperFunction(node.name, args, defaults, type, self.postconditions, self.checks, self.performs, decs, node)
+        loop_invariant_transformer = LoopInvariantTransformer()
+        loop_invariant_transformer.visit(node)
+        function = VyperFunction(node.name, self.function_counter, args, defaults, vyper_type,
+                                 self.postconditions, self.preconditions, self.checks,
+                                 loop_invariant_transformer.loop_invariants, self.performs, decs, node)
+        for decorator in node.decorators:
+            if decorator.is_ghost_code and decorator.name != names.PURE:
+                raise InvalidProgramException(decorator, 'invalid.ghost.code')
         self.functions[node.name] = function
+        self.function_counter += 1
         # Reset local specs
         self.postconditions = []
+        self.preconditions = []
         self.checks = []
         self.performs = []
+
+
+class LoopInvariantTransformer(NodeTransformer):
+    """
+    Replaces all constants in the AST by their value.
+    """
+
+    def __init__(self):
+        self._last_loop: Union[ast.For, None] = None
+        self._possible_loop_invariant_nodes: List[ast.Assign] = []
+        self.loop_invariants: Dict[ast.For, List[ast.Expr]] = {}
+
+    @contextmanager
+    def _in_loop_scope(self, node: ast.For):
+        possible_loop_invariant_nodes = self._possible_loop_invariant_nodes
+        last_loop = self._last_loop
+        self._last_loop = node
+
+        yield
+
+        self._possible_loop_invariant_nodes = possible_loop_invariant_nodes
+        self._last_loop = last_loop
+
+    def visit_Assign(self, node: ast.Assign):
+        if node.is_ghost_code:
+            if isinstance(node.target, ast.Name) and node.target.id == names.INVARIANT:
+                if self._last_loop and node in self._possible_loop_invariant_nodes:
+                    self.loop_invariants.setdefault(self._last_loop, []).append(node.value)
+                else:
+                    raise InvalidProgramException(node, 'invalid.loop.invariant',
+                                                  'You may only write loop invariants at beginning in loops')
+                return None
+
+        return node
+
+    def visit_For(self, node: ast.For):
+        with self._in_loop_scope(node):
+            self._possible_loop_invariant_nodes = []
+            for n in node.body:
+                if isinstance(n, ast.Assign) and n.is_ghost_code and n.target.id == names.INVARIANT:
+                    self._possible_loop_invariant_nodes.append(n)
+                else:
+                    break
+            return self.generic_visit(node)

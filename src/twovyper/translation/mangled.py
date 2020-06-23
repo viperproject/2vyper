@@ -43,6 +43,8 @@ OVERFLOW = '$overflow'
 OUT_OF_GAS = '$out_of_gas'
 FAILED = '$failed'
 
+CALLER = '$caller'
+
 FIRST_PUBLIC_STATE = '$first_public_state'
 
 END_LABEL = 'end'
@@ -117,7 +119,11 @@ CONVERT_PAD32 = '$pad32'
 IMPLEMENTS_DOMAIN = '$Implements'
 
 TRANSITIVITY_CHECK = '$transitivity_check'
+REFLEXIVITY_CHECK = '$reflexivity_check'
 FORCED_ETHER_CHECK = '$forced_ether_check'
+
+PURE_SUCCESS = '$pure$success_get'
+PURE_RESULT = '$pure$return_get'
 
 
 def method_name(vyper_name: str) -> str:
@@ -157,6 +163,10 @@ def ghost_function_name(vyper_name: str) -> str:
     return f'g${vyper_name}'
 
 
+def pure_function_name(vyper_name: str) -> str:
+    return f'p${vyper_name}'
+
+
 def axiom_name(viper_name: str) -> str:
     return f'{viper_name}$ax'
 
@@ -183,6 +193,10 @@ def present_state_var_name(name: str) -> str:
 
 def old_state_var_name(name: str) -> str:
     return f'$old_{name}'
+
+
+def pre_old_state_var_name(name: str) -> str:
+    return f'$pre_old_{name}'
 
 
 def pre_state_var_name(name: str) -> str:

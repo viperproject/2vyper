@@ -35,11 +35,12 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import abc
 import os
+from abc import ABC
+
 import pytest
 import re
 import tokenize
-from collections import Counter
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 # Change path such that the subsequent imports succeed
 import context  # noqa
@@ -49,16 +50,15 @@ from twovyper.main import TwoVyper
 
 from twovyper.exceptions import InvalidProgramException
 
-from twovyper.verification import error_manager
-from twovyper.verification.verifier import ViperVerifier
-from twovyper.verification.result import VerificationResult
+from twovyper.verification import error_manager, TwoVyperError
+from twovyper.verification.result import VerificationResult, Failure
 
 from twovyper.viper.jvmaccess import JVM
 
 
 VYPER_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)))
 
-_JVM = None
+_JVM: Optional[JVM] = None
 VERIFIER = 'silicon'
 
 
@@ -139,7 +139,7 @@ class Error(abc.ABC):
 class VerificationError(Error):
     """Verification error reported by verifier."""
 
-    def __init__(self, actual_error: 'Error') -> None:
+    def __init__(self, actual_error: TwoVyperError) -> None:
         self._error = actual_error
 
     def __repr__(self) -> str:
@@ -215,12 +215,20 @@ class Annotation:
     def backend(self) -> str:
         """Back-end which this annotation is targeting."""
 
+    def get_vias(self) -> List[int]:
+        return []
 
-class BackendSpecificAnnotationMixIn:
+
+class BackendSpecificAnnotationMixIn(Annotation, ABC):
     """Annotation that depends on the back-end.
 
     The subclass is expected to define a field ``_backend``.
     """
+
+    def __init__(self, token: tokenize.TokenInfo, group_dict: Dict[str, Optional[str]]):
+        if not hasattr(self, '_backend'):
+            self._backend: Optional[str] = None
+        super().__init__(token, group_dict)
 
     @property
     def backend(self) -> str:
@@ -228,11 +236,16 @@ class BackendSpecificAnnotationMixIn:
         return self._backend or _BACKEND_ANY
 
 
-class ErrorMatchingAnnotationMixIn:
+class ErrorMatchingAnnotationMixIn(Annotation, ABC):
     """An annotation that can match an error.
 
     The subclass is expected to define fields ``_id`` and ``_labels``.
     """
+
+    def __init__(self, token: tokenize.TokenInfo, group_dict: Dict[str, Optional[str]]):
+        if not hasattr(self, '_id'):
+            self._id: str = ''
+        super().__init__(token, group_dict)
 
     def match(self, error: Error) -> bool:
         """Check is error matches this annotation."""
@@ -241,14 +254,17 @@ class ErrorMatchingAnnotationMixIn:
                 self.get_vias() == error.get_vias())
 
 
-class UsingLabelsAnnotationMixIn:
+class UsingLabelsAnnotationMixIn(Annotation, ABC):
     """An annotation that can refer to labels.
 
     The subclass is expected to define the field ``_labels``.
     """
+    def __init__(self, token: tokenize.TokenInfo, group_dict: Dict[str, Optional[str]]):
+        if not hasattr(self, '_labels'):
+            self._labels: List[Union[str, 'LabelAnnotation']] = []
+        super().__init__(token, group_dict)
 
-    def resolve_labels(
-            self, labels_dict: Dict[str, 'LabelAnnotation']) -> None:
+    def resolve_labels(self, labels_dict: Dict[str, 'LabelAnnotation']) -> None:
         """Resolve label names to label objects."""
         for i, label in enumerate(self._labels):
             self._labels[i] = labels_dict[label]
@@ -424,7 +440,7 @@ class AnnotationManager:
             r'\('
             # Error message, or label id. Matches everything except
             # comma.
-            r'(?P<id>[a-zA-Z\.\(\)_\-:;\d ?\'"]+)'
+            r'(?P<id>[a-zA-Z.()_\-:;\d ?\'"]+)'
             # Issue id in the issue tracker.
             r'(, (?P<issue_id>\d+))?'
             # Labels. Note that label must start with a letter.
@@ -440,8 +456,7 @@ class AnnotationManager:
         }
         self._backend = backend
 
-    def _create_annotation(
-            self, annotation_string: str, token: tokenize.TokenInfo) -> None:
+    def _create_annotation(self, annotation_string: str, token: tokenize.TokenInfo) -> None:
         """Create annotation object from the ``annotation_string``."""
         match = self._matcher.match(annotation_string)
         assert match, "Failed to match: {}".format(annotation_string)
@@ -509,8 +524,8 @@ class AnnotationManager:
 
     def has_unexpected_missing(self) -> bool:
         """Check if there are unexpected or missing output annotations."""
-        return (self._annotations['UnexpectedOutput'] or
-                self._annotations['MissingOutput'])
+        return len(self._annotations['UnexpectedOutput'] or
+                   self._annotations['MissingOutput']) > 0
 
     def extract_annotations(self, token: tokenize.TokenInfo) -> None:
         """Extract annotations mentioned in the token."""
@@ -531,7 +546,8 @@ class AnnotatedTest:
     indicate expected verification errors.
     """
 
-    def _is_annotation(self, token: tokenize.TokenInfo) -> bool:
+    @staticmethod
+    def _is_annotation(token: tokenize.TokenInfo) -> bool:
         """Check if token is a test annotation.
 
         A test annotation is a comment starting with ``#::``.
@@ -555,8 +571,7 @@ class AnnotatedTest:
 class TwoVyperTest(AnnotatedTest):
     """Test for testing correct behavior of 2vyper for annotated programs."""
 
-    def test_file(
-            self, path: str, jvm: JVM, verifier: ViperVerifier, store_viper: bool):
+    def test_file(self, path: str, jvm: JVM, verifier: str, store_viper: bool):
         """Test specific Vyper file."""
         annotation_manager = self.get_annotation_manager(path, verifier)
         if annotation_manager.ignore_file():
@@ -575,41 +590,42 @@ class TwoVyperTest(AnnotatedTest):
                 import string
                 valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
                 file_name = "".join(x for x in path if x in valid_chars) + '.vpr'
-                dir = 'viper_out'
-                if not os.path.exists(dir):
-                    os.makedirs(dir)
-                file_path = os.path.join(dir, file_name)
+                dir_name = 'viper_out'
+                if not os.path.exists(dir_name):
+                    os.makedirs(dir_name)
+                file_path = os.path.join(dir_name, file_name)
                 with open(file_path, 'w') as fp:
                     fp.write(str(prog))
-            vresult = tw.verify(prog, abspath, verifier)
-            self._evaluate_result(vresult, annotation_manager, jvm)
+            verification_result: VerificationResult = tw.verify(prog, abspath, verifier)
+            self._evaluate_result(verification_result, annotation_manager, jvm)
 
-    def _evaluate_result(
-            self, vresult: VerificationResult,
-            annotation_manager: AnnotationManager, jvm: JVM):
+    @staticmethod
+    def _evaluate_result(verification_result: VerificationResult,
+                         annotation_manager: AnnotationManager, jvm: JVM):
         """Evaluate verification result with regard to test annotations."""
-        if vresult:
+        if verification_result:
             actual_errors = []
         else:
+            assert isinstance(verification_result, Failure)
             assert all(
                 isinstance(error.pos(), jvm.viper.silver.ast.HasLineColumn)
-                for error in vresult.errors)
+                for error in verification_result.errors)
             actual_errors = [
-                VerificationError(error) for error in vresult.errors]
-            if False:  # sif
-                # carbon will report all functional errors twice, as we model two
-                # executions, therefore we filter duplicated errors here.
-                # (Note: we don't make errors unique, just remove one duplicate)
-                distinct = []
-                reprs = map(lambda e: e.__repr__(), actual_errors)
-                repr_counts = Counter(reprs)
-                repr_counts = dict(map(lambda rc: (rc[0], -(-rc[1] // 2)),
-                                       repr_counts.items()))
-                for err in actual_errors:
-                    if repr_counts[err.__repr__()] > 0:
-                        distinct.append(err)
-                        repr_counts[err.__repr__()] -= 1
-                actual_errors = distinct
+                VerificationError(error) for error in verification_result.errors]
+            # if False:  # sif
+            #     # carbon will report all functional errors twice, as we model two
+            #     # executions, therefore we filter duplicated errors here.
+            #     # (Note: we don't make errors unique, just remove one duplicate)
+            #     distinct = []
+            #     reprs = map(lambda e: e.__repr__(), actual_errors)
+            #     repr_counts = Counter(reprs)
+            #     repr_counts = dict(map(lambda rc: (rc[0], -(-rc[1] // 2)),
+            #                            repr_counts.items()))
+            #     for err in actual_errors:
+            #         if repr_counts[err.__repr__()] > 0:
+            #             distinct.append(err)
+            #             repr_counts[err.__repr__()] -= 1
+            #     actual_errors = distinct
         annotation_manager.check_errors(actual_errors)
         if annotation_manager.has_unexpected_missing():
             pytest.skip('Unexpected or missing output')

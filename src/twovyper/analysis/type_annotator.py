@@ -6,16 +6,17 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 
 from twovyper.utils import first_index, switch
 
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.types import (
-    TypeBuilder, VyperType, MapType, ArrayType, StringType, StructType, AnyStructType, SelfType, ContractType, InterfaceType
+    TypeBuilder, VyperType, MapType, ArrayType, StringType, StructType, AnyStructType,
+    SelfType, ContractType, InterfaceType
 )
-from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction
+from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction, VyperInterface
 from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
@@ -26,7 +27,7 @@ def _check(condition: bool, node: ast.Node, reason_code: str, msg: Optional[str]
         raise InvalidProgramException(node, reason_code, msg)
 
 
-def _check_number_of_arguments(node: ast.FunctionCall, *expected: int,
+def _check_number_of_arguments(node: Union[ast.FunctionCall, ast.ReceiverCall], *expected: int,
                                allowed_keywords: List[str] = [], required_keywords: List[str] = [],
                                resources: int = 0):
     _check(len(node.args) in expected, node, 'invalid.no.args')
@@ -36,7 +37,7 @@ def _check_number_of_arguments(node: ast.FunctionCall, *expected: int,
     for kw in required_keywords:
         _check(any(k.name == kw for k in node.keywords), node, 'invalid.no.args')
 
-    if node.resource:
+    if isinstance(node, ast.FunctionCall) and node.resource:
         if resources == 1:
             cond = not isinstance(node.resource, ast.Exchange)
         elif resources == 2:
@@ -73,7 +74,8 @@ class TypeAnnotator(NodeVisitor):
         self.type_builder = TypeBuilder(type_map)
 
         self.program = program
-        self.current_func = None
+        self.current_func: Union[VyperFunction, None] = None
+        self.current_loops: Dict[str, ast.For] = {}
 
         self_type = self.program.fields.type
         # Contains the possible types a variable can have
@@ -106,6 +108,14 @@ class TypeAnnotator(NodeVisitor):
 
         self.variables = old_variables
 
+    @contextmanager
+    def _loop_scope(self):
+        current_loops = self.current_loops
+
+        yield
+
+        self.current_loops = current_loops
+
     @property
     def method_name(self):
         return 'visit'
@@ -122,6 +132,9 @@ class TypeAnnotator(NodeVisitor):
                 for post in function.postconditions:
                     self.annotate_expected(post, types.VYPER_BOOL)
 
+                for pre in function.preconditions:
+                    self.annotate_expected(pre, types.VYPER_BOOL)
+
                 for check in function.checks:
                     self.annotate_expected(check, types.VYPER_BOOL)
 
@@ -129,6 +142,7 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate(performs)
 
         for ghost_function in self.program.ghost_function_implementations.values():
+            assert isinstance(ghost_function, GhostFunction)
             with self._function_scope(ghost_function):
                 self.annotate_expected(ghost_function.node.body[0].value, ghost_function.type.return_type)
 
@@ -144,7 +158,11 @@ class TypeAnnotator(NodeVisitor):
         for check in self.program.general_checks:
             self.annotate_expected(check, types.VYPER_BOOL)
 
-    def generic_visit(self, node: ast.Node):
+        if isinstance(self.program, VyperInterface):
+            for caller_private in self.program.caller_private:
+                self.annotate(caller_private)
+
+    def generic_visit(self, node: ast.Node, *args):
         assert False
 
     def pass_through(self, node1, node=None):
@@ -262,8 +280,17 @@ class TypeAnnotator(NodeVisitor):
         self.variables[var_name] = [var_type]
 
         self.annotate_expected(node.target, var_type)
-        for stmt in node.body:
-            self.visit(stmt)
+
+        with self._loop_scope():
+            self.current_loops[var_name] = node
+
+            # Visit loop invariants
+            for loop_inv in self.current_func.loop_invariants.get(node, []):
+                self.annotate_expected(loop_inv, types.VYPER_BOOL)
+
+            # Visit body
+            for stmt in node.body:
+                self.visit(stmt)
 
     def visit_If(self, node: ast.If):
         self.annotate_expected(node.test, types.VYPER_BOOL)
@@ -335,8 +362,21 @@ class TypeAnnotator(NodeVisitor):
                 return [ntype], [node]
             elif case(names.SUCCESS):
                 _check_number_of_arguments(node, 0, 1, allowed_keywords=[names.SUCCESS_IF_NOT])
+                if node.args:
+                    argument = node.args[0]
+                    assert isinstance(argument, ast.ReceiverCall)
+                    self.annotate(argument)
+                    _check(isinstance(argument.receiver.type, types.SelfType), argument, 'spec.success',
+                           'Only functions defined in this contract can be called from the specification.')
                 return [types.VYPER_BOOL], [node]
             elif case(names.REVERT):
+                _check_number_of_arguments(node, 0, 1)
+                if node.args:
+                    argument = node.args[0]
+                    assert isinstance(argument, ast.ReceiverCall)
+                    self.annotate(argument)
+                    _check(isinstance(argument.receiver.type, types.SelfType), argument, 'spec.success',
+                           'Only functions defined in this contract can be called from the specification.')
                 return [types.VYPER_BOOL], [node]
             elif case(names.FORALL):
                 return self._visit_forall(node)
@@ -345,6 +385,26 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.EVENT):
                 _check_number_of_arguments(node, 1, 2)
                 return self._visit_event(node)
+            elif case(names.PREVIOUS):
+                _check_number_of_arguments(node, 1)
+                self.annotate(node.args[0])
+                loop = self._retrieve_loop(node, names.PREVIOUS)
+                loop_array_type = loop.iter.type
+                assert isinstance(loop_array_type, ArrayType)
+                return [ArrayType(loop_array_type.element_type, loop_array_type.size, False)], [node]
+            elif case(names.LOOP_ARRAY):
+                _check_number_of_arguments(node, 1)
+                self.annotate(node.args[0])
+                loop = self._retrieve_loop(node, names.LOOP_ARRAY)
+                return [loop.iter.type], [node]
+            elif case(names.LOOP_ITERATION):
+                _check_number_of_arguments(node, 1)
+                self.annotate(node.args[0])
+                self._retrieve_loop(node, names.LOOP_ITERATION)
+                return [types.VYPER_UINT256], [node]
+            elif case(names.CALLER):
+                _check_number_of_arguments(node, 0)
+                return [types.VYPER_ADDRESS], [node]
             elif case(names.RANGE):
                 _check_number_of_arguments(node, 1, 2)
                 return self._visit_range(node)
@@ -373,7 +433,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 self.annotate_expected(node.args[1], types.VYPER_UINT256)
                 return [types.VYPER_UINT256], [node]
-            elif case(names.OLD) or case(names.ISSUED):
+            elif case(names.OLD) or case(names.PUBLIC_OLD) or case(names.ISSUED):
                 _check_number_of_arguments(node, 1)
                 return self.pass_through(node.args[0], node)
             elif case(names.INDEPENDENT):
@@ -503,16 +563,31 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[1], types.VYPER_BOOL)
                 return [types.VYPER_BOOL], [node]
             elif case(names.RESULT):
-                _check_number_of_arguments(node, 0)
+                _check_number_of_arguments(node, 0, 1)
+                if node.args:
+                    argument = node.args[0]
+                    assert isinstance(argument, ast.ReceiverCall)
+                    self.annotate(argument)
+                    _check(isinstance(argument.receiver.type, types.SelfType), argument, 'spec.success',
+                           'Only functions defined in this contract can be called from the specification.')
+                    func = self.program.functions[argument.name]
+                    return [func.type.return_type], [node]
                 return [self.current_func.type.return_type], [node]
             elif case(names.SUM):
                 _check_number_of_arguments(node, 1)
 
-                def is_numeric_map(t):
-                    return isinstance(t, types.MapType) and types.is_integer(t.value_type)
+                def is_numeric_map_or_array(t):
+                    return isinstance(t, types.MapType) and types.is_numeric(t.value_type) \
+                           or isinstance(t, types.ArrayType) and types.is_numeric(t.element_type)
 
-                self.annotate_expected(node.args[0], is_numeric_map)
-                return [node.args[0].type.value_type], [node]
+                self.annotate_expected(node.args[0], is_numeric_map_or_array)
+                if isinstance(node.args[0].type, types.MapType):
+                    vyper_type = node.args[0].type.value_type
+                elif isinstance(node.args[0].type, types.ArrayType):
+                    vyper_type = node.args[0].type.element_type
+                else:
+                    assert False
+                return [vyper_type], [node]
             elif case(names.SENT) or case(names.RECEIVED) or case(names.ALLOCATED):
                 _check_number_of_arguments(node, 0, 1, resources=1 if case(names.ALLOCATED) else 0)
 
@@ -538,7 +613,9 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 2)
                 address = node.args[0]
                 interface = node.args[1]
-                is_interface = isinstance(interface, ast.Name) and interface.id in self.program.interfaces
+                is_interface = (isinstance(interface, ast.Name)
+                                and (interface.id in self.program.interfaces
+                                     or isinstance(self.program, VyperInterface) and interface.id == self.program.name))
                 _check(is_interface, node, 'invalid.interface')
                 self.annotate_expected(address, types.VYPER_ADDRESS)
                 return [types.VYPER_BOOL], [node]
@@ -670,28 +747,35 @@ class TypeAnnotator(NodeVisitor):
         self.annotate_expected(node.receiver, expected)
         receiver_type = node.receiver.type
 
-        # We don't have to type check calls as they are not allowed in specifications
-        for arg in node.args:
-            self.annotate(arg)
-
-        for kw in node.keywords:
-            self.annotate(kw.value)
-
-        # A logging call
-        if not receiver_type:
-            return [None], [node]
-
         # A self call
         if isinstance(receiver_type, SelfType):
             function = self.program.functions[node.name]
+            num_args = len(function.args)
+            num_defaults = len(function.defaults)
+            _check_number_of_arguments(node, *range(num_args - num_defaults, num_args + 1))
+            for arg, func_arg in zip(node.args, function.args.values()):
+                self.annotate_expected(arg, func_arg.type)
             return [function.type.return_type], [node]
-        # A contract call
-        elif isinstance(receiver_type, ContractType):
-            return [receiver_type.function_types[node.name].return_type], [node]
-        elif isinstance(receiver_type, InterfaceType):
-            interface = self.program.interfaces[receiver_type.name]
-            function = interface.functions[node.name]
-            return [function.type.return_type], [node]
+        else:
+
+            for arg in node.args:
+                self.annotate(arg)
+
+            for kw in node.keywords:
+                self.annotate(kw.value)
+
+            # A logging call
+            if not receiver_type:
+                return [None], [node]
+            # A contract call
+            elif isinstance(receiver_type, ContractType):
+                return [receiver_type.function_types[node.name].return_type], [node]
+            elif isinstance(receiver_type, InterfaceType):
+                interface = self.program.interfaces[receiver_type.name]
+                function = interface.functions[node.name]
+                return [function.type.return_type], [node]
+            else:
+                assert False
 
     def _visit_resource(self, node: ast.Node):
         if isinstance(node, ast.Name):
@@ -784,19 +868,38 @@ class TypeAnnotator(NodeVisitor):
         return [ntype], [node]
 
     def _visit_range(self, node: ast.FunctionCall):
-        self.annotate_expected(node.args[0], types.VYPER_INT128)
+        _check(len(node.args) > 0, node, 'invalid.range')
+        first_arg = node.args[0]
+        self.annotate_expected(first_arg, types.is_integer)
 
         if len(node.args) == 1:
             # A range expression of the form 'range(n)' where 'n' is a constant
-            size = node.args[0].n
+            assert isinstance(first_arg, ast.Num)
+            size = first_arg.n
         elif len(node.args) == 2:
-            # A range expression of the form 'range(x, x + n)' where 'n' is a constant
-            self.annotate_expected(node.args[1], types.VYPER_INT128)
-            size = node.args[1].right.n
+            second_arg = node.args[1]
+            self.annotate_expected(second_arg, types.is_integer)
+            if isinstance(second_arg, ast.ArithmeticOp) \
+                    and second_arg.op == ast.ArithmeticOperator.ADD \
+                    and ast.compare_nodes(first_arg, second_arg.left):
+                assert isinstance(second_arg.right, ast.Num)
+                # A range expression of the form 'range(x, x + n)' where 'n' is a constant
+                size = second_arg.right.n
+            else:
+                assert isinstance(first_arg, ast.Num) and isinstance(second_arg, ast.Num)
+                # A range expression of the form 'range(n1, n2)' where 'n1' and 'n2 are constants
+                size = second_arg.n - first_arg.n
         else:
             raise InvalidProgramException(node, 'invalid.range')
 
+        _check(size > 0, node, 'invalid.range', 'The size of a range(...) must be greater than zero.')
         return [ArrayType(types.VYPER_INT128, size, True)], [node]
+
+    def _retrieve_loop(self, node, name):
+        loop_var_name = node.args[0].id
+        loop = self.current_loops.get(loop_var_name)
+        _check(loop is not None, node, f"invalid.{name}")
+        return loop
 
     def visit_Bytes(self, node: ast.Bytes):
         # Bytes could either be non-strict or (if it has length 32) strict
