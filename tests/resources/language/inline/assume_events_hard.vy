@@ -25,7 +25,7 @@ def disjunction_test(a: bool, b: bool):
 #@ check: forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 @private
 def forall_event_test(a: address):
-    #:: UnexpectedOutput(carbon)(call.check:assertion.false, 0, CHECK)
+    #:: UnexpectedOutput(carbon)(call.check:assertion.false, 33, CHECK)
     C(a).send()
     log.SomeEvent(3)
     log.SomeEvent(4)
@@ -35,7 +35,7 @@ def forall_event_test(a: address):
     log.SomeEvent(8)
     log.SomeEvent(9)
 
-#:: UnexpectedOutput(carbon)(check.violated:assertion.false, 0) | UnexpectedOutput(carbon)(private.call.check:assertion.false, 0, CALL)
+#:: UnexpectedOutput(carbon)(check.violated:assertion.false, 33) | UnexpectedOutput(carbon)(private.call.check:assertion.false, 33, CALL)
 #@ check: success() ==> forall({i: uint256}, {event(SomeEvent(i))}, i >= 3 and i < 10 ==> event(SomeEvent(i), 1))
 @public
 def foo():
