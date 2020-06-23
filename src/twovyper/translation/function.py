@@ -617,11 +617,17 @@ class FunctionTranslator(CommonTranslator):
             method = self.viper_ast.Method(viper_name, args_list, ret_list, [], [], locals_list, body, pos)
             return method
 
+    @staticmethod
+    def can_assume_private_function(function: VyperFunction) -> bool:
+        if function.postconditions or function.preconditions or function.checks:
+            return True
+        return False
+
     def inline(self, call: ast.ReceiverCall, args: List[Expr], res: List[Stmt], ctx: Context) -> Expr:
         function = ctx.program.functions[call.name]
         if function.is_pure():
             return self._call_pure(call, args, res, ctx)
-        elif function.postconditions or function.checks:
+        elif self.can_assume_private_function(function):
             return self._assume_private_function(call, args, res, ctx)
         else:
             return self._inline(call, args, res, ctx)
@@ -658,16 +664,18 @@ class FunctionTranslator(CommonTranslator):
             return_label = self.viper_ast.Label(return_label_name)
             ctx.return_label = return_label_name
 
-            # Check preconditions
-            pre_stmts = []
-            with ctx.state_scope(ctx.current_state, ctx.current_old_state):
-                for precondition in function.preconditions:
-                    cond = self.specification_translator.translate_pre_or_postcondition(precondition, pre_stmts, ctx)
-                    pre_pos = self.to_position(precondition, ctx, rules.PRECONDITION_FAIL,
-                                               values={'function': function})
-                    pre_stmts.append(self.viper_ast.Exhale(cond, pre_pos))
+            old_state_for_postconditions = ctx.current_state
+            if not function.is_constant():
+                # Create pre_state for private function
+                def inlined_pre_state(name: str) -> str:
+                    return ctx.inline_prefix + mangled.pre_state_var_name(name)
 
-            self.seqn_with_info(pre_stmts, "Check preconditions", body)
+                old_state_for_postconditions = self.state_translator.state(inlined_pre_state, ctx)
+                for val in old_state_for_postconditions.values():
+                    ctx.new_local_vars.append(val.var_decl(ctx, pos))
+
+                # Copy present state to this created pre_state
+                self.state_translator.copy_state(ctx.current_state, old_state_for_postconditions, res, ctx)
 
             # Revert if a @nonreentrant lock is set
             self._assert_unlocked(function, body, ctx)
@@ -679,6 +687,23 @@ class FunctionTranslator(CommonTranslator):
 
             # Unset @nonreentrant locks
             self._set_locked(function, False, body, ctx)
+
+            post_stmts = []
+            with ctx.state_scope(ctx.current_state, old_state_for_postconditions):
+                for post in chain(ctx.program.general_postconditions, ctx.program.transitive_postconditions):
+                    cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
+                    post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, values={'function': function})
+                    post_stmts.append(self.viper_ast.Assert(cond, post_pos))
+
+                for interface_type in ctx.program.implements:
+                    interface = ctx.program.interfaces[interface_type.name]
+                    postconditions = interface.general_postconditions
+                    for post in postconditions:
+                        with ctx.program_scope(interface):
+                            cond = self.specification_translator.translate_pre_or_postcondition(post, post_stmts, ctx)
+                        post_pos = self.to_position(post, ctx, rules.POSTCONDITION_FAIL, values={'function': function})
+                        post_stmts.append(self.viper_ast.Inhale(cond, post_pos))
+            self.seqn_with_info(post_stmts, f"Assert general postconditions", body)
 
             self.seqn_with_info(body, f"Inlined call of {function.name}", res)
             res.append(return_label)

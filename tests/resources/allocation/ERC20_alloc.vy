@@ -187,8 +187,6 @@ def mint(_to: address, _value: uint256):
     log.Transfer(ZERO_ADDRESS, _to, _value)
 
 
-#@ requires: self.balanceOf == public_old(self.balanceOf)
-#@ requires: allocated[token]()[msg.sender] >= min(_value, self.balanceOf[_to])
 @private
 def _burn(_to: address, _value: uint256):
     """

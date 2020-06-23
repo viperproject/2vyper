@@ -24,7 +24,7 @@ def __init__():
 
 @private
 def use_assert_unreachable(a: int128):
-    #:: ExpectedOutput(assert.failed:assertion.false) | ExpectedOutput(assert.failed:assertion.false, UAC)
+    #:: ExpectedOutput(assert.failed:assertion.false, UAC)
     assert a == 0, UNREACHABLE
 
 
@@ -36,7 +36,7 @@ def call_use_assert_unreachable_fail():
 
 @private
 def inner(a: int128):
-    #:: ExpectedOutput(assert.failed:assertion.false) | ExpectedOutput(assert.failed:assertion.false, IC) | ExpectedOutput(assert.failed:assertion.false, IC, OC)
+    #:: ExpectedOutput(assert.failed:assertion.false, IC, OC)
     assert a == 0, UNREACHABLE
 
 
@@ -55,7 +55,7 @@ def call_outer_fail():
 @private
 def call_ext():
     self.val = 1
-    #:: ExpectedOutput(call.invariant:assertion.false, INV) | ExpectedOutput(call.invariant:assertion.false, CEC, INV)
+    #:: ExpectedOutput(call.invariant:assertion.false, CEC, INV)
     self.c.f()
     self.val = 0
 

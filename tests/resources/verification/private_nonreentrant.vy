@@ -14,7 +14,7 @@ pending_returns: map(address, wei_value)
 
 #@ preserves:
     #@ always ensures: old(locked('lock')) ==> locked('lock')
-    #:: Label(CONSTANT_SENT)
+    #:: ExpectedOutput(postcondition.violated:assertion.false, CALL)
     #@ always ensures: old(locked('lock')) ==> sent() == old(sent())
     #@ always ensures: old(locked('lock')) ==> self.pending_returns == old(self.pending_returns)
 
@@ -47,14 +47,13 @@ def withdraw_revert():
     self._withdraw(msg.sender)
 
 
-#:: ExpectedOutput(postcondition.violated:assertion.false, CONSTANT_SENT)
 @private
 def _withdraw_fail(a: address):
     C(a).pay(value=self.pending_returns[a])
     self.pending_returns[a] = 0
 
 
-#:: ExpectedOutput(postcondition.violated:assertion.false, CONSTANT_SENT)
 @public
 def withdraw_fail():
+    #:: Label(CALL)
     self._withdraw_fail(msg.sender)

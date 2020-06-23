@@ -266,13 +266,6 @@ def _clearApproval(_owner: address, _tokenId: uint256):
         self.idToApprovals[_tokenId] = ZERO_ADDRESS
 
 
-#@ requires: _sender == msg.sender
-#@ requires: self.idToOwner == public_old(self.idToOwner)
-#@ requires: self.idToApprovals == public_old(self.idToApprovals)
-#@ requires: self.ownerToOperators == public_old(self.ownerToOperators)
-#@ requires: forall({a: address, o: address}, trusted(o, by=a) == public_old(trusted(o, by=a)))
-#@ requires: forall({a: address, id: uint256}, allocated[token(id)](a) == public_old(allocated[token(id)](a)))
-#@ requires: forall({id: uint256, o: address, a: address}, offered[token(id) <-> nothing](1, 0, o, a) == public_old(offered[token(id) <-> nothing](1, 0, o, a)))
 @private
 def _transferFrom(_from: address, _to: address, _tokenId: uint256, _sender: address):
     """

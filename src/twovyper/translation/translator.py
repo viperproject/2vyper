@@ -197,6 +197,10 @@ class ProgramTranslator(CommonTranslator):
                 has_loop_invariants = len(func.loop_invariants) > 0
                 has_unreachable_assertions = func.analysis.uses_unreachable
                 return has_loop_invariants or has_unreachable_assertions
+            if func.is_private():
+                # We have to generate a Viper method to check the specification
+                # if the specification of the function could get assumed.
+                return self.function_translator.can_assume_private_function(func)
             return True
         vyper_functions = filter(translate_condition_for_vyper_function, vyper_program.functions.values())
         methods.append(self._create_transitivity_check(ctx))
