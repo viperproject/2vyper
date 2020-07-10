@@ -32,6 +32,7 @@ from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
+from twovyper.translation.wrapped_viper_ast import WrappedViperAST
 
 from twovyper.verification import rules
 
@@ -75,6 +76,7 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
 class ProgramTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST, builtins: Program):
+        viper_ast = WrappedViperAST(viper_ast)
         super().__init__(viper_ast)
         self.builtins = builtins
         self.allocation_translator = AllocationTranslator(viper_ast)

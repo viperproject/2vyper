@@ -15,6 +15,7 @@ from twovyper.viper.ast import ViperAST
 
 from twovyper.translation import mangled
 from twovyper.translation.context import Context
+from twovyper.translation.wrapped_viper_ast import WrappedViperAST, wrapped_integer_decorator
 
 from twovyper.utils import first_index
 
@@ -183,6 +184,68 @@ def implements(viper_ast: ViperAST, address, interface: str, ctx: Context, pos=N
     return viper_ast.DomainFuncApp(impl, [address, intf], viper_ast.Bool, pos, info, domain)
 
 
+def wrapped_int_type(viper_ast: ViperAST):
+    return viper_ast.DomainType(mangled.WRAPPED_INT_DOMAIN, {}, [])
+
+
+def w_mul(viper_ast: ViperAST, first, second, pos=None, info=None):
+    if isinstance(viper_ast, WrappedViperAST):
+        viper_ast = viper_ast.viper_ast
+    wi_mul = mangled.WRAPPED_INT_MUL
+    domain = mangled.WRAPPED_INT_DOMAIN
+    args = [first, second]
+    return viper_ast.DomainFuncApp(wi_mul, args, wrapped_int_type(viper_ast), pos, info, domain)
+
+
+def w_div(viper_ast: ViperAST, first, second, pos=None, info=None):
+    if isinstance(viper_ast, WrappedViperAST):
+        viper_ast = viper_ast.viper_ast
+    wi_div = mangled.WRAPPED_INT_DIV
+    domain = mangled.WRAPPED_INT_DOMAIN
+    args = [first, second]
+    func_app = viper_ast.DomainFuncApp(wi_div, args, wrapped_int_type(viper_ast), pos, info, domain)
+    is_div_zero = viper_ast.EqCmp(w_div_zero(viper_ast), func_app, pos, info)
+    artificial_div_zero = w_wrap(viper_ast, viper_ast.Div(w_unwrap(viper_ast, first, pos, info),
+                                                          w_unwrap(viper_ast, second, pos, info),
+                                                          pos, info), pos, info)
+    return viper_ast.CondExp(is_div_zero, artificial_div_zero, func_app, pos, info)
+
+
+def w_mod(viper_ast: ViperAST, first, second, pos=None, info=None):
+    if isinstance(viper_ast, WrappedViperAST):
+        viper_ast = viper_ast.viper_ast
+    wi_mod = mangled.WRAPPED_INT_MOD
+    domain = mangled.WRAPPED_INT_DOMAIN
+    args = [first, second]
+    func_app = viper_ast.DomainFuncApp(wi_mod, args, wrapped_int_type(viper_ast), pos, info, domain)
+    is_div_zero = viper_ast.EqCmp(w_div_zero(viper_ast), func_app)
+    return viper_ast.CondExp(is_div_zero, viper_ast.Div(first, second, pos, info), func_app)
+
+
+def w_wrap(viper_ast: ViperAST, value, pos=None, info=None):
+    if isinstance(viper_ast, WrappedViperAST):
+        viper_ast = viper_ast.viper_ast
+    wi_wrap = mangled.WRAPPED_INT_WRAP
+    domain = mangled.WRAPPED_INT_DOMAIN
+    return viper_ast.DomainFuncApp(wi_wrap, [value], wrapped_int_type(viper_ast), pos, info, domain)
+
+
+def w_unwrap(viper_ast: ViperAST, value, pos=None, info=None):
+    if isinstance(viper_ast, WrappedViperAST):
+        viper_ast = viper_ast.viper_ast
+    wi_unwrap = mangled.WRAPPED_INT_UNWRAP
+    domain = mangled.WRAPPED_INT_DOMAIN
+    return viper_ast.DomainFuncApp(wi_unwrap, [value], viper_ast.Int, pos, info, domain)
+
+
+def w_div_zero(viper_ast: ViperAST, pos=None, info=None):
+    if isinstance(viper_ast, WrappedViperAST):
+        viper_ast = viper_ast.viper_ast
+    wi_div_zero = mangled.WRAPPED_INT_DIV_ZERO
+    domain = mangled.WRAPPED_INT_DOMAIN
+    return viper_ast.DomainFuncApp(wi_div_zero, [], wrapped_int_type(viper_ast), pos, info, domain)
+
+
 def div(viper_ast: ViperAST, dividend, divisor, pos=None, info=None):
     # We need a special division function because Vyper uses truncating division
     # instead of Viper's floor division
@@ -284,6 +347,7 @@ def array_length(viper_ast: ViperAST, ref, pos=None, info=None):
     return viper_ast.SeqLength(ref, pos, info)
 
 
+@wrapped_integer_decorator([], True)
 def array_get(viper_ast: ViperAST, ref, idx, element_type, pos=None, info=None):
     return viper_ast.SeqIndex(ref, idx, pos, info)
 
@@ -326,6 +390,7 @@ def map_eq(viper_ast: ViperAST, left, right, key_type, value_type, pos=None, inf
     return viper_ast.DomainFuncApp(eq, [left, right], viper_ast.Bool, pos, info, domain, type_vars)
 
 
+@wrapped_integer_decorator([], True)
 def map_get(viper_ast: ViperAST, ref, idx, key_type, value_type, pos=None, info=None):
     type_vars = _map_type_var_map(viper_ast, key_type, value_type)
     get = mangled.MAP_GET
@@ -390,6 +455,7 @@ def _struct_type_var_map(viper_ast: ViperAST, member_type):
     return {member: member_type}
 
 
+@wrapped_integer_decorator([], True)
 def struct_get(viper_ast: ViperAST, ref, member: str, member_type, struct_type: StructType, pos=None, info=None):
     domain = mangled.STRUCT_OPS_DOMAIN
     idx = viper_ast.IntLit(struct_type.member_indices[member])
@@ -407,6 +473,7 @@ def struct_pure_get_result(viper_ast: ViperAST, ref, viper_type,  pos=None):
     return struct_get_idx(viper_ast, ref, 1, viper_type, pos)
 
 
+@wrapped_integer_decorator([], True)
 def struct_get_idx(viper_ast: ViperAST, ref, idx: int, viper_type, pos=None, info=None):
     domain = mangled.STRUCT_OPS_DOMAIN
     idx_lit = viper_ast.IntLit(idx)
@@ -438,12 +505,14 @@ def set_lock(viper_ast: ViperAST, name: str, val: bool, ctx: Context, pos=None, 
     return struct_set(viper_ast, self_var, value, lock_name, viper_ast.Bool, ctx.self_type, pos, info)
 
 
+@wrapped_integer_decorator([], True)
 def convert_bytes32_to_signed_int(viper_ast: ViperAST, bytes, pos=None, info=None):
     domain = mangled.CONVERT_DOMAIN
     function = mangled.CONVERT_BYTES32_TO_SIGNED_INT
     return viper_ast.DomainFuncApp(function, [bytes], viper_ast.Int, pos, info, domain)
 
 
+@wrapped_integer_decorator([], True)
 def convert_bytes32_to_unsigned_int(viper_ast: ViperAST, bytes, pos=None, info=None):
     domain = mangled.CONVERT_DOMAIN
     function = mangled.CONVERT_BYTES32_TO_UNSIGNED_INT

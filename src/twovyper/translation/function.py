@@ -846,6 +846,9 @@ class FunctionTranslator(CommonTranslator):
 
             self.fail_if(self.viper_ast.Not(success_var), [], res, ctx, call_pos)
 
+            if (types.is_numeric(function.type.return_type)
+                    and self.expression_translator.arithmetic_translator.is_unwrapped(ret_var)):
+                ret_var = helpers.w_wrap(self.viper_ast, ret_var)
             return ret_var
 
     def _generate_arguments_as_local_vars(self, function, args, res, pos, ctx):
@@ -854,10 +857,23 @@ class FunctionTranslator(CommonTranslator):
             apos = self.to_position(var.node, ctx)
             translated_arg = self._translate_var(var, ctx)
             ctx.args[name] = translated_arg
-            ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
             if not arg:
                 arg = self.expression_translator.translate(function.defaults[name], res, ctx)
-            res.append(self.viper_ast.LocalVarAssign(translated_arg.local_var(ctx), arg, apos))
+            lhs = translated_arg.local_var(ctx)
+            if (types.is_numeric(translated_arg.type)
+                    and self.expression_translator.arithmetic_translator.is_wrapped(arg)
+                    and self.expression_translator.arithmetic_translator.is_unwrapped(lhs)):
+                translated_arg.is_local = False
+                lhs = translated_arg.local_var(ctx)
+            elif (types.is_numeric(translated_arg.type)
+                    and self.expression_translator.arithmetic_translator.is_unwrapped(arg)
+                    and self.expression_translator.arithmetic_translator.is_wrapped(lhs)):
+                arg = helpers.w_wrap(self.viper_ast, arg)
+            elif (not types.is_numeric(translated_arg.type)
+                    and self.expression_translator.arithmetic_translator.is_wrapped(arg)):
+                arg = helpers.w_unwrap(self.viper_ast, arg)
+            ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
+            res.append(self.viper_ast.LocalVarAssign(lhs, arg, apos))
 
     def _translate_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)

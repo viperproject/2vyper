@@ -404,9 +404,11 @@ class ExpressionTranslator(NodeTranslator):
                 elif case(types.VYPER_BOOL, types.VYPER_DECIMAL):
                     d_one = 1 * types.VYPER_DECIMAL.scaling_factor
                     d_one_lit = self.viper_ast.IntLit(d_one, pos)
-                    return self.viper_ast.CondExp(arg, d_one_lit, zero, pos)
+                    return helpers.w_wrap(self.viper_ast, self.viper_ast.CondExp(arg, d_one_lit, zero, pos))
                 elif case(types.VYPER_BOOL, types.VYPER_BYTES32):
                     return self.viper_ast.CondExp(arg, one_array, zero_array, pos)
+                elif case(types.VYPER_BOOL, _, where=types.is_numeric(to_type)):
+                    return helpers.w_wrap(self.viper_ast, self.viper_ast.CondExp(arg, one, zero, pos))
                 elif case(types.VYPER_BOOL, _):
                     return self.viper_ast.CondExp(arg, one, zero, pos)
                 # --------------------- ? -> bool ---------------------
@@ -721,6 +723,8 @@ class ExpressionTranslator(NodeTranslator):
                             ctx.locals[mangled.CALLER] = caller_var
                             ctx.new_local_vars.append(caller_var.var_decl(ctx, pos))
                             self_address = ctx.self_address or helpers.self_address(self.viper_ast, pos)
+                            if self.arithmetic_translator.is_wrapped(self_address):
+                                self_address = helpers.w_unwrap(self.viper_ast, self_address)
                             assign = self.viper_ast.LocalVarAssign(caller_var.local_var(ctx, pos), self_address, pos)
                             body.append(assign)
 
@@ -1183,6 +1187,19 @@ class ExpressionTranslator(NodeTranslator):
                 apos = arg.pos()
                 arg_var = self._translate_var(var, ctx)
                 ctx.locals[name] = arg_var
+                lhs = arg_var.local_var(ctx)
+                if (types.is_numeric(arg_var.type)
+                        and self.arithmetic_translator.is_wrapped(arg)
+                        and self.arithmetic_translator.is_unwrapped(lhs)):
+                    arg_var.is_local = False
+                    lhs = arg_var.local_var(ctx)
+                elif (types.is_numeric(arg_var.type)
+                      and self.arithmetic_translator.is_unwrapped(arg)
+                      and self.arithmetic_translator.is_wrapped(lhs)):
+                    arg = helpers.w_wrap(self.viper_ast, arg)
+                elif (not types.is_numeric(arg_var.type)
+                      and self.arithmetic_translator.is_wrapped(arg)):
+                    arg = helpers.w_unwrap(self.viper_ast, arg)
                 ctx.new_local_vars.append(arg_var.var_decl(ctx))
                 body.append(self.viper_ast.LocalVarAssign(arg_var.local_var(ctx), arg, apos))
 
@@ -1191,8 +1208,11 @@ class ExpressionTranslator(NodeTranslator):
                 ret_name = ctx.inline_prefix + mangled.RESULT_VAR
                 ret_pos = return_value.pos()
                 ctx.result_var = TranslatedVar(names.RESULT, ret_name, function.type.return_type,
-                                               self.viper_ast, ret_pos)
+                                               self.viper_ast, ret_pos, is_local=False)
                 ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, ret_pos))
+
+                if self.arithmetic_translator.is_unwrapped(return_value):
+                    return_value = helpers.w_wrap(self.viper_ast, return_value)
                 body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ret_pos), return_value, ret_pos))
 
             # Add success variable

@@ -56,6 +56,8 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
             rhs = self.expression_translator.translate(node.value, res, ctx)
 
         lhs.new_idx()
+        if self.arithmetic_translator.is_wrapped(rhs):
+            lhs.is_local = False
         assign = self.viper_ast.EqCmp(lhs.local_var(ctx, pos), rhs, pos)
         expr = self.viper_ast.Implies(ctx.pure_conds, assign, pos) if ctx.pure_conds else assign
         res.append(expr)
@@ -78,6 +80,8 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         pos = self.to_position(node, ctx)
 
         expr = self.expression_translator.translate(node.value, res, ctx)
+        if self.arithmetic_translator.is_wrapped(expr):
+            expr = helpers.w_unwrap(self.viper_ast, expr)
 
         ctx.result_var.new_idx()
         assign = self.viper_ast.EqCmp(ctx.result_var.local_var(ctx), expr, pos)
@@ -343,6 +347,8 @@ class _AssignmentTranslator(PureTranslatorMixin, AssignmentTranslator):
         var = ctx.locals.get(node.id)
         if var and isinstance(var, TranslatedPureIndexedVar):
             var.new_idx()
+        if var and self.expression_translator.arithmetic_translator.is_wrapped(value):
+            var.is_local = False
         lhs = self.expression_translator.translate(node, res, ctx)
         assign = self.viper_ast.EqCmp(lhs, value, pos)
         expr = self.viper_ast.Implies(ctx.pure_conds, assign, pos) if ctx.pure_conds else assign
