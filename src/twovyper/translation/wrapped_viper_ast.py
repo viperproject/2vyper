@@ -7,76 +7,110 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import functools
 import inspect
-from itertools import chain
-from typing import List
+from typing import List, Optional, Union
 from collections.abc import Iterable
 
 from twovyper.translation import helpers
 
 from twovyper.viper.ast import ViperAST
+from twovyper.viper.typedefs import Expr
 
 
 def wrapped_integer_decorator(possible_wrapped_integer_inputs: List[str], wrap_output=False):
     def _decorator(func):
+        (arg_names, _, _, _, _, _, _) = inspect.getfullargspec(func)
+
+        pos_names = {"position", "pos"}
+        info_names = {"info"}
+        assert pos_names.isdisjoint(possible_wrapped_integer_inputs),\
+            'The "position" argument cannot contain wrapped integers.'
+        assert info_names.isdisjoint(possible_wrapped_integer_inputs),\
+            'The "info" argument cannot contain wrapped integers.'
+        assert wrap_output or len(possible_wrapped_integer_inputs) > 0,\
+            'The decorator is not necessary here.'
+
+        pos_index = -1
+        info_index = -1
+        possible_wrapped_integer_inputs_indices = []
+
+        for idx, arg_n in enumerate(arg_names):
+            if arg_n in pos_names:
+                assert pos_index == -1
+                pos_index = idx
+            elif arg_n in info_names:
+                assert info_index == -1
+                info_index = idx
+            elif arg_n in possible_wrapped_integer_inputs:
+                possible_wrapped_integer_inputs_indices.append(idx)
+
+        assert pos_index != -1, 'Could not find the "position" argument.'
+        assert info_index != -1, 'Could not find the "info" argument.'
+        assert len(possible_wrapped_integer_inputs_indices) == len(possible_wrapped_integer_inputs),\
+            'Some of the argument names of the decorator could not be found.'
+        possible_wrapped_integers = list(zip(possible_wrapped_integer_inputs_indices, possible_wrapped_integer_inputs))
+
+        wrapped_int_type = None
+
         @functools.wraps(func)
         def _wrapper(*args, **kwargs):
+            new_args = list(args)
+            new_kwargs = dict(kwargs)
             _self = args[0]
-            wrapped_int_type = helpers.wrapped_int_type(_self.viper_ast)
-            (arg_names, _, _, _, _, _, _) = inspect.getfullargspec(func)
+            assert isinstance(_self, WrappedViperAST)
+            nonlocal wrapped_int_type
+            if wrapped_int_type is None:
+                wrapped_int_type = helpers.wrapped_int_type(_self.viper_ast)
+
             had_wrapped_integers = wrap_output
+            provided_arg_length = len(args)
+            kwarg_names = set(kwargs.keys())
+
             pos = None
             info = None
-            for arg_name, arg in chain(zip(arg_names, args), kwargs):
-                if arg_name == "position" or arg_name == "pos":
-                    assert pos is None
-                    pos = arg
-                elif arg_name == "info":
-                    info = arg
+            # Search for position and info arguments
+            if pos_index < provided_arg_length:
+                pos = args[pos_index]
+            elif not kwarg_names.isdisjoint(pos_names):
+                pos = next((kwargs[arg_name] for arg_name in pos_names if arg_name in kwargs))
+            if info_index < provided_arg_length:
+                info = args[info_index]
+            elif not kwarg_names.isdisjoint(info_names):
+                info = next((kwargs[arg_name] for arg_name in info_names if arg_name in kwargs))
+
+            def unwrap(a: Expr) -> Expr:
+                if False if not hasattr(a, 'isSubtype') else a.isSubtype(wrapped_int_type):
+                    nonlocal had_wrapped_integers
+                    had_wrapped_integers = True
+                    return helpers.w_unwrap(_self.viper_ast, a, pos, info)
+                return a
+
+            def wrap(a: Expr) -> Expr:
+                if False if not hasattr(value, 'isSubtype') else value.isSubtype(_self.viper_ast.Int):
+                    return helpers.w_wrap(_self.viper_ast, a, pos, info)
+                return a
+
             # Unwrap wrapped integers
-            new_args = []
-            for arg_name, arg in zip(arg_names, args):
-                new_arg = arg
-                if arg_name in possible_wrapped_integer_inputs:
-                    if isinstance(arg, Iterable):
-                        new_arg = []
-                        for a in arg:
-                            new_a = a
-                            if False if not hasattr(a, 'isSubtype') else a.isSubtype(wrapped_int_type):
-                                new_a = helpers.w_unwrap(_self.viper_ast, a, pos, info)
-                                had_wrapped_integers = True
-                            new_arg.append(new_a)
-                    else:
-                        if False if not hasattr(arg, 'isSubtype') else arg.isSubtype(wrapped_int_type):
-                            new_arg = helpers.w_unwrap(_self.viper_ast, arg, pos, info)
-                            had_wrapped_integers = True
-                new_args.append(new_arg)
-            new_kwargs = {}
-            for arg_name, arg in kwargs.items():
-                new_arg = arg
-                if arg_name in possible_wrapped_integer_inputs:
-                    if isinstance(arg, Iterable):
-                        new_arg = []
-                        for a in arg:
-                            new_a = a
-                            if False if not hasattr(a, 'isSubtype') else a.isSubtype(wrapped_int_type):
-                                new_a = helpers.w_unwrap(_self.viper_ast, a, pos, info)
-                                had_wrapped_integers = True
-                            new_arg.append(new_a)
-                    else:
-                        if False if not hasattr(arg, 'isSubtype') else arg.isSubtype(wrapped_int_type):
-                            new_arg = helpers.w_unwrap(_self.viper_ast, arg, pos, info)
-                            had_wrapped_integers = True
-                new_kwargs[arg_name] = new_arg
+            for index, arg_name in possible_wrapped_integers:
+                arg: Optional[Union[Expr, Iterable]] = None
+                if index < provided_arg_length:
+                    arg = args[index]
+                elif arg_name in kwarg_names:
+                    arg = kwargs[arg_name]
+                if arg is not None:
+                    new_arg = [unwrap(a) for a in arg] if isinstance(arg, Iterable) else unwrap(arg)
+                    if index < provided_arg_length:
+                        new_args[index] = new_arg
+                    else:  # There are only two ways to get "arg" and the first one was not it.
+                        new_kwargs[arg_name] = new_arg
+
             # Call ast function
             value = func(*new_args, **new_kwargs)
+
             # Wrap output if one or more inputs were wrapped
             if had_wrapped_integers:
-                if False if not hasattr(value, 'isSubtype') else value.isSubtype(_self.viper_ast.Int):
-                    value = helpers.w_wrap(_self.viper_ast, value, pos, info)
+                return wrap(value)
             return value
-
         return _wrapper
-
     return _decorator
 
 
