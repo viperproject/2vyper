@@ -58,7 +58,7 @@ class FunctionTranslator(CommonTranslator):
             ctx.function = function
             is_init = (function.name == names.INIT)
 
-            args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
+            args = {name: self._translate_var(var, ctx, False) for name, var in function.args.items()}
             # Local variables will be added when translating.
             local_vars = {
                 # The msg variable
@@ -855,7 +855,7 @@ class FunctionTranslator(CommonTranslator):
         # Add arguments to local vars, assign passed args or default argument
         for (name, var), arg in zip_longest(function.args.items(), args):
             apos = self.to_position(var.node, ctx)
-            translated_arg = self._translate_var(var, ctx)
+            translated_arg = self._translate_var(var, ctx, True)
             ctx.args[name] = translated_arg
             if not arg:
                 arg = self.expression_translator.translate(function.defaults[name], res, ctx)
@@ -875,10 +875,10 @@ class FunctionTranslator(CommonTranslator):
             ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
             res.append(self.viper_ast.LocalVarAssign(lhs, arg, apos))
 
-    def _translate_var(self, var: VyperVar, ctx: Context):
+    def _translate_var(self, var: VyperVar, ctx: Context, is_local: bool):
         pos = self.to_position(var.node, ctx)
         name = mangled.local_var_name(ctx.inline_prefix, var.name)
-        return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)
+        return TranslatedVar(var.name, name, var.type, self.viper_ast, pos, is_local=is_local)
 
     def _assume_non_negative(self, var, res: List[Stmt]):
         zero = self.viper_ast.IntLit(0)
