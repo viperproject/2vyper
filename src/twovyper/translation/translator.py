@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from functools import reduce
 from itertools import chain
-from typing import List
+from typing import List, Optional
 
 from twovyper import resources
 
@@ -49,6 +49,9 @@ class TranslationOptions:
         self.create_model = create_model
 
 
+builtins: Optional[Program] = None
+
+
 def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM) -> Program:
     viper_ast = ViperAST(jvm)
     if not viper_ast.is_available():
@@ -59,8 +62,10 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
     if vyper_program.is_interface():
         return viper_ast.Program([], [], [], [], [])
 
-    viper_parser = ViperParser(jvm)
-    builtins = viper_parser.parse(*resources.viper_all())
+    global builtins
+    if builtins is None:
+        viper_parser = ViperParser(jvm)
+        builtins = viper_parser.parse(*resources.viper_all())
     translator = ProgramTranslator(viper_ast, builtins)
 
     viper_program = translator.translate(vyper_program, options)
