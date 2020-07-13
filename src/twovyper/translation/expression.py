@@ -29,6 +29,7 @@ from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
+from twovyper.translation.wrapped_viper_ast import WrappedViperAST
 
 from twovyper.utils import switch, first_index
 
@@ -65,6 +66,25 @@ class ExpressionTranslator(NodeTranslator):
             ast.ComparisonOperator.GTE: self.viper_ast.GeCmp,
             ast.ComparisonOperator.GT: self.viper_ast.GtCmp
         }
+
+    def translate_top_level_expression(self, node: ast.Node, res: List[Stmt], ctx: Context):
+        """
+        A top level expression is an expression directly used in a statement.
+
+        Generally, we do not need to $wrap inside of a top level expression. Therefore, we only keep the information if
+        some expressions got unwrapped inside this expression and if this expression could get wrapped. If both is true,
+        only then we wrap this expression again.
+        Doing this, prevents the $wrap($unwrap($wrap($unwrap(...))) chain during translation.
+        """
+        if isinstance(self.viper_ast, WrappedViperAST):
+            self.viper_ast.unwrapped_some_expressions = False
+            result = self.translate(node, res, ctx)
+            if self.viper_ast.unwrapped_some_expressions:
+                if self.arithmetic_translator.is_unwrapped(result):
+                    result = helpers.w_wrap(self.viper_ast, result)
+            return result
+        else:
+            return self.translate(node, res, ctx)
 
     @property
     def no_reverts(self) -> bool:
@@ -117,8 +137,13 @@ class ExpressionTranslator(NodeTranslator):
     def translate_ArithmeticOp(self, node: ast.ArithmeticOp, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        left = self.translate(node.left, res, ctx)
-        right = self.translate(node.right, res, ctx)
+        if node.op in self.arithmetic_translator.non_linear_ops:
+            # Since we need the information if an expression was wrapped, we can treat this expressions as top-level.
+            left = self.translate_top_level_expression(node.left, res, ctx)
+            right = self.translate_top_level_expression(node.right, res, ctx)
+        else:
+            left = self.translate(node.left, res, ctx)
+            right = self.translate(node.right, res, ctx)
 
         return self.arithmetic_translator.arithmetic_op(left, node.op, right, node.type, res, ctx, pos)
 

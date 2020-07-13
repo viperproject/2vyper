@@ -50,6 +50,12 @@ class ArithmeticTranslator(CommonTranslator):
             ast.ArithmeticOperator.POW: lambda l, r, pos: helpers.pow(viper_ast, l, r, pos),
         }
 
+        self.non_linear_ops = {
+            ast.ArithmeticOperator.MUL,
+            ast.ArithmeticOperator.DIV,
+            ast.ArithmeticOperator.MOD
+        }
+
     def is_wrapped(self, val):
         return False if not hasattr(val, 'isSubtype') else val.isSubtype(helpers.wrapped_int_type(self.viper_ast))
 

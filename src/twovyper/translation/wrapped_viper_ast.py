@@ -16,7 +16,7 @@ from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr
 
 
-def wrapped_integer_decorator(possible_wrapped_integer_inputs: List[str], wrap_output=False):
+def wrapped_integer_decorator(possible_wrapped_integer_inputs: List[str], wrap_output=False, store_unwrap_info=True):
     def _decorator(func):
         (arg_names, _, _, _, _, _, _) = inspect.getfullargspec(func)
 
@@ -108,7 +108,10 @@ def wrapped_integer_decorator(possible_wrapped_integer_inputs: List[str], wrap_o
 
             # Wrap output if one or more inputs were wrapped
             if had_wrapped_integers:
-                return wrap(value)
+                if store_unwrap_info:
+                    _self.unwrapped_some_expressions = True
+                else:
+                    value = wrap(value)
             return value
         return _wrapper
     return _decorator
@@ -119,6 +122,7 @@ class WrappedViperAST(ViperAST):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast.jvm)
         self.viper_ast = viper_ast
+        self.unwrapped_some_expressions = False
 
     @wrapped_integer_decorator(["args"])
     def PredicateAccess(self, args, pred_name, position=None, info=None):

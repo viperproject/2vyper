@@ -64,7 +64,10 @@ class StatementTranslator(NodeTranslator):
         if node.value is None:
             vyper_type = node.target.type
             rhs = self.type_translator.default_value(None, vyper_type, res, ctx)
+        elif types.is_numeric(node.value.type):
+            rhs = self.expression_translator.translate_top_level_expression(node.value, res, ctx)
         else:
+            # Ignore the $wrap information, if the node is not numeric
             rhs = self.expression_translator.translate(node.value, res, ctx)
 
         is_wrapped = False
@@ -83,14 +86,14 @@ class StatementTranslator(NodeTranslator):
 
     def translate_Assign(self, node: ast.Assign, res: List[Stmt], ctx: Context):
         # We only support single assignments for now
-        rhs = self.expression_translator.translate(node.value, res, ctx)
+        rhs = self.expression_translator.translate_top_level_expression(node.value, res, ctx)
         self.assignment_translator.assign_to(node.target, rhs, res, ctx)
 
     def translate_AugAssign(self, node: ast.AugAssign, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
 
-        lhs = self.expression_translator.translate(node.target, res, ctx)
-        rhs = self.expression_translator.translate(node.value, res, ctx)
+        lhs = self.expression_translator.translate_top_level_expression(node.target, res, ctx)
+        rhs = self.expression_translator.translate_top_level_expression(node.value, res, ctx)
 
         value = self.arithmetic_translator.arithmetic_op(lhs, node.op, rhs, node.value.type, res, ctx, pos)
 
@@ -142,7 +145,7 @@ class StatementTranslator(NodeTranslator):
 
         if node.value:
             lhs = ctx.result_var.local_var(ctx, pos)
-            expr = self.expression_translator.translate(node.value, res, ctx)
+            expr = self.expression_translator.translate_top_level_expression(node.value, res, ctx)
             if (self.expression_translator.arithmetic_translator.is_unwrapped(lhs)
                     and self.expression_translator.arithmetic_translator.is_wrapped(expr)):
                 expr = helpers.w_unwrap(self.viper_ast, expr)
@@ -179,7 +182,7 @@ class StatementTranslator(NodeTranslator):
             loop_invariants = ctx.function.loop_invariants.get(node)
             if loop_invariants:
                 # loop-array expression
-                array = self.expression_translator.translate(node.iter, res, ctx)
+                array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
                 ctx.loop_arrays[loop_var_name] = array
                 # New variable loop-idx
                 idx_var_name = '$idx'
@@ -332,7 +335,7 @@ class StatementTranslator(NodeTranslator):
             else:
                 with ctx.break_scope():
                     loop_var = ctx.all_vars[loop_var_name].local_var(ctx)
-                    array = self.expression_translator.translate(node.iter, res, ctx)
+                    array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
 
                     for i in range(times):
                         with ctx.continue_scope():
