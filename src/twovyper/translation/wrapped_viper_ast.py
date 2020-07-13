@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2020 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -85,7 +85,7 @@ def wrapped_integer_decorator(possible_wrapped_integer_inputs: List[str], wrap_o
                 return a
 
             def wrap(a: Expr) -> Expr:
-                if False if not hasattr(value, 'isSubtype') else value.isSubtype(_self.viper_ast.Int):
+                if False if not hasattr(a, 'isSubtype') else a.isSubtype(_self.viper_ast.Int):
                     return helpers.w_wrap(_self.viper_ast, a, pos, info)
                 return a
 
@@ -169,6 +169,18 @@ class WrappedViperAST(ViperAST):
     @wrapped_integer_decorator(["args"], True)
     def FuncApp(self, name, args, position=None, info=None, vtype=None):
         return super().FuncApp(name, args, position, info, vtype)
+
+    @wrapped_integer_decorator(["elems"])
+    def ExplicitSeq(self, elems, position=None, info=None):
+        return super().ExplicitSeq(elems, position, info)
+
+    @wrapped_integer_decorator(["elems"])
+    def ExplicitSet(self, elems, position=None, info=None):
+        return super().ExplicitSet(elems, position, info)
+
+    @wrapped_integer_decorator(["elems"])
+    def ExplicitMultiset(self, elems, position=None, info=None):
+        return super().ExplicitMultiset(elems, position, info)
 
     @wrapped_integer_decorator(["right"])
     def SeqAppend(self, left, right, position=None, info=None):

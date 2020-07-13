@@ -1,10 +1,11 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2020 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from contextlib import contextmanager, ExitStack
 from typing import List
 
 from twovyper.ast import ast_nodes as ast, names, types
@@ -23,6 +24,7 @@ from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
+from twovyper.translation.wrapped_viper_ast import WrappedViperAST
 from twovyper.verification import rules
 from twovyper.verification.error import Via
 
@@ -158,31 +160,49 @@ class StatementTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         translator = self.specification_translator if node.is_ghost_code else self.expression_translator
-        cond = translator.translate(node.test, res, ctx)
-        then_body = []
-        with ctx.new_local_scope():
-            self.translate_stmts(node.body, then_body, ctx)
-        else_body = []
-        with ctx.new_local_scope():
-            self.translate_stmts(node.orelse, else_body, ctx)
-        if_stmt = self.viper_ast.If(cond, then_body, else_body, pos)
-        res.append(if_stmt)
+        has_wrapped_information_in_cond = False
+
+        if isinstance(self.viper_ast, WrappedViperAST):
+            self.viper_ast.unwrapped_some_expressions = False
+            cond = translator.translate(node.test, res, ctx)
+            if self.viper_ast.unwrapped_some_expressions:
+                has_wrapped_information_in_cond = True
+        else:
+            cond = translator.translate(node.test, res, ctx)
+
+        with ExitStack() if not has_wrapped_information_in_cond else \
+                self.assignment_translator.assume_everything_has_wrapped_information():
+            then_body = []
+            with ctx.new_local_scope():
+                self.translate_stmts(node.body, then_body, ctx)
+            else_body = []
+            with ctx.new_local_scope():
+                self.translate_stmts(node.orelse, else_body, ctx)
+            if_stmt = self.viper_ast.If(cond, then_body, else_body, pos)
+            res.append(if_stmt)
 
     def translate_For(self, node: ast.For, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)
-
-        add_new_var(self, node.target, ctx, True)
-        loop_var_name = node.target.id
 
         times = node.iter.type.size
         lpos = self.to_position(node.target, ctx)
         rpos = self.to_position(node.iter, ctx)
 
         if times > 0:
+            has_wrapped_information_in_array = False
+            if isinstance(self.viper_ast, WrappedViperAST):
+                self.viper_ast.unwrapped_some_expressions = False
+                array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
+                if self.viper_ast.unwrapped_some_expressions:
+                    has_wrapped_information_in_array = True
+            else:
+                array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
+
+            add_new_var(self, node.target, ctx, not has_wrapped_information_in_array)
+            loop_var_name = node.target.id
+
             loop_invariants = ctx.function.loop_invariants.get(node)
             if loop_invariants:
-                # loop-array expression
-                array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
                 ctx.loop_arrays[loop_var_name] = array
                 # New variable loop-idx
                 idx_var_name = '$idx'
@@ -200,7 +220,8 @@ class StatementTranslator(NodeTranslator):
                 loop_idx_eq_zero = self.viper_ast.EqCmp(loop_idx_var, self.viper_ast.IntLit(0), rpos)
                 assume_base_case = self.viper_ast.Inhale(loop_idx_eq_zero, rpos)
                 array_at = self.viper_ast.SeqIndex(array, loop_idx_var, rpos)
-                # TODO
+                if has_wrapped_information_in_array:
+                    array_at = helpers.w_wrap(self.viper_ast, array_at, rpos)
                 set_loop_var = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos)
                 self.seqn_with_info([assume_base_case, set_loop_var],
                                     "Base case: Known property about loop variable", res)
@@ -230,18 +251,17 @@ class StatementTranslator(NodeTranslator):
                 self.state_translator.copy_state(ctx.current_state, pre_state_of_loop, havoc_stmts, ctx)
                 # Havoc loop variables
                 havoc_var = helpers.havoc_var(self.viper_ast, self.viper_ast.Int, ctx)
-                # TODO
                 havoc_loop_idx = self.viper_ast.LocalVarAssign(loop_idx_var, havoc_var)
                 havoc_stmts.append(havoc_loop_idx)
                 havoc_loop_var_type = self.type_translator.translate(node.target.type, ctx)
                 havoc_var = helpers.havoc_var(self.viper_ast, havoc_loop_var_type, ctx)
-                # TODO
+                if has_wrapped_information_in_array:
+                    havoc_var = helpers.w_wrap(self.viper_ast, havoc_var)
                 havoc_loop_var = self.viper_ast.LocalVarAssign(loop_var, havoc_var)
                 havoc_stmts.append(havoc_loop_var)
                 # Havoc old and current state
                 self.state_translator.havoc_old_and_current_state(self.specification_translator, havoc_stmts, ctx, pos)
                 # Havoc used variables
-                havoc_loop_used_var = []
                 loop_used_var = {}
                 for var_name in ctx.function.analysis.loop_used_names.get(loop_var_name, []):
                     if var_name == loop_var_name:
@@ -250,18 +270,13 @@ class StatementTranslator(NodeTranslator):
                     if var:
                         # Create new variable
                         mangled_name = ctx.new_local_var_name(var.name)
+                        # Since these variables changed in the loop may not be constant, we have to assume, that
+                        # they are not local anymore.
                         new_var = TranslatedVar(var.name, mangled_name, var.type, var.viper_ast,
-                                                var.pos, var.info, var.is_local)
+                                                var.pos, var.info, is_local=False)
                         ctx.new_local_vars.append(new_var.var_decl(ctx))
-                        copy_stmt = self.viper_ast.LocalVarAssign(new_var.local_var(ctx), var.local_var(ctx))
-                        havoc_loop_used_var.append(copy_stmt)
-                        loop_used_var[var.name] = new_var
-                        # Havoc old var
-                        var_type = self.type_translator.translate(var.type, ctx)
-                        havoc_var = helpers.havoc_var(self.viper_ast, var_type, ctx)
-                        havoc_stmt = self.viper_ast.LocalVarAssign(var.local_var(ctx), havoc_var)
-                        havoc_loop_used_var.append(havoc_stmt)
-                havoc_stmts.extend(havoc_loop_used_var)
+                        ctx.locals[var.name] = new_var
+                        loop_used_var[var.name] = var
                 self.seqn_with_info(havoc_stmts, "Havoc state", res)
                 # Havoc events
                 event_handling = []
@@ -276,7 +291,8 @@ class StatementTranslator(NodeTranslator):
                 loop_idx_assumption = self.viper_ast.And(loop_idx_ge_zero, loop_idx_lt_array_size, rpos)
                 assume_step_case = self.viper_ast.Inhale(loop_idx_assumption, rpos)
                 array_at = self.viper_ast.SeqIndex(array, loop_idx_var, rpos)
-                # TODO
+                if has_wrapped_information_in_array:
+                    array_at = helpers.w_wrap(self.viper_ast, array_at, rpos)
                 set_loop_var = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos)
                 self.seqn_with_info([assume_step_case, set_loop_var],
                                     "Step case: Known property about loop variable", res)
@@ -296,22 +312,24 @@ class StatementTranslator(NodeTranslator):
                 self.seqn_with_info(loop_invariant_stmts, "Assume loop invariants", res)
                 with ctx.break_scope():
                     with ctx.continue_scope():
-                        # Loop Body
-                        with ctx.new_local_scope():
-                            loop_body_stmts = []
-                            self.translate_stmts(node.body, loop_body_stmts, ctx)
-                            self.seqn_with_info(loop_body_stmts, "Loop body", res)
+                        with ExitStack() if not has_wrapped_information_in_array else \
+                                self.assignment_translator.assume_everything_has_wrapped_information():
+                            # Loop Body
+                            with ctx.new_local_scope():
+                                loop_body_stmts = []
+                                self.translate_stmts(node.body, loop_body_stmts, ctx)
+                                self.seqn_with_info(loop_body_stmts, "Loop body", res)
                         continue_info = self.to_info(["End of loop body"])
                         res.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
                         # After loop body
                         loop_idx_inc = self.viper_ast.Add(loop_idx_var, self.viper_ast.IntLit(1), pos)
-                        # TODO
                         res.append(self.viper_ast.LocalVarAssign(loop_idx_var, loop_idx_inc, pos))
                         loop_idx_eq_times = self.viper_ast.EqCmp(loop_idx_var, times_lit, pos)
                         goto_break = self.viper_ast.Goto(ctx.break_label, pos)
                         res.append(self.viper_ast.If(loop_idx_eq_times, [goto_break], [], pos))
                         array_at = self.viper_ast.SeqIndex(array, loop_idx_var, rpos)
-                        # TODO
+                        if has_wrapped_information_in_array:
+                            array_at = helpers.w_wrap(self.viper_ast, array_at, rpos)
                         res.append(self.viper_ast.LocalVarAssign(loop_var, array_at, lpos))
                         # Check loop invariants
                         with ctx.old_local_variables_scope(loop_used_var):
@@ -335,18 +353,20 @@ class StatementTranslator(NodeTranslator):
             else:
                 with ctx.break_scope():
                     loop_var = ctx.all_vars[loop_var_name].local_var(ctx)
-                    array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
 
                     for i in range(times):
                         with ctx.continue_scope():
                             loop_info = self.to_info(["Start of loop iteration."])
                             idx = self.viper_ast.IntLit(i, lpos)
                             array_at = self.viper_ast.SeqIndex(array, idx, rpos)
-                            # TODO
+                            if has_wrapped_information_in_array:
+                                array_at = helpers.w_wrap(self.viper_ast, array_at)
                             var_set = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos, loop_info)
                             res.append(var_set)
-                            with ctx.new_local_scope():
-                                self.translate_stmts(node.body, res, ctx)
+                            with ExitStack() if not has_wrapped_information_in_array else \
+                                    self.assignment_translator.assume_everything_has_wrapped_information():
+                                with ctx.new_local_scope():
+                                    self.translate_stmts(node.body, res, ctx)
                             continue_info = self.to_info(["End of loop iteration."])
                             res.append(self.viper_ast.Label(ctx.continue_label, pos, continue_info))
 
@@ -371,6 +391,14 @@ class AssignmentTranslator(NodeVisitor, CommonTranslator):
         super().__init__(viper_ast)
         self.expression_translator = ExpressionTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
+        self._always_wrap = False
+
+    @contextmanager
+    def assume_everything_has_wrapped_information(self):
+        always_wrap = self._always_wrap
+        self._always_wrap = True
+        yield
+        self._always_wrap = always_wrap
 
     @property
     def method_name(self) -> str:
@@ -395,6 +423,10 @@ class AssignmentTranslator(NodeVisitor, CommonTranslator):
                 and self.expression_translator.arithmetic_translator.is_wrapped(value)):
             add_new_var(self, node, ctx, False)
             lhs = self.expression_translator.translate(node, res, ctx)
+        elif types.is_numeric(node.type) and self._always_wrap:
+            add_new_var(self, node, ctx, False)
+            lhs = self.expression_translator.translate(node, res, ctx)
+            w_value = helpers.w_wrap(self.viper_ast, value)
         elif (not types.is_numeric(node.type)
                 and self.expression_translator.arithmetic_translator.is_wrapped(value)):
             w_value = helpers.w_unwrap(self.viper_ast, value)
