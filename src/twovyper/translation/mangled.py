@@ -84,7 +84,6 @@ WRAPPED_INT_UNWRAP = '$unwrap'
 WRAPPED_INT_MUL = '$w_mul'
 WRAPPED_INT_MOD = '$w_mod'
 WRAPPED_INT_DIV = '$w_div'
-WRAPPED_INT_DIV_ZERO = '$div_zero_number'
 
 ARRAY_DOMAIN = '$Array'
 ARRAY_INT_DOMAIN = '$ArrayInt'

@@ -1236,7 +1236,8 @@ class ExpressionTranslator(NodeTranslator):
                                                self.viper_ast, ret_pos, is_local=False)
                 ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, ret_pos))
 
-                if self.arithmetic_translator.is_unwrapped(return_value):
+                if (types.is_numeric(function.type.return_type)
+                        and self.arithmetic_translator.is_unwrapped(return_value)):
                     return_value = helpers.w_wrap(self.viper_ast, return_value)
                 body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ret_pos), return_value, ret_pos))
 

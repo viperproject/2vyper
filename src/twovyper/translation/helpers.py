@@ -204,7 +204,7 @@ def w_div(viper_ast: ViperAST, first, second, pos=None, info=None):
     domain = mangled.WRAPPED_INT_DOMAIN
     args = [first, second]
     func_app = viper_ast.DomainFuncApp(wi_div, args, wrapped_int_type(viper_ast), pos, info, domain)
-    is_div_zero = viper_ast.EqCmp(w_div_zero(viper_ast), func_app, pos, info)
+    is_div_zero = viper_ast.EqCmp(viper_ast.IntLit(0), w_unwrap(viper_ast, second, pos, info), pos, info)
     artificial_div_zero = w_wrap(viper_ast, viper_ast.Div(w_unwrap(viper_ast, first, pos, info),
                                                           w_unwrap(viper_ast, second, pos, info),
                                                           pos, info), pos, info)
@@ -218,8 +218,11 @@ def w_mod(viper_ast: ViperAST, first, second, pos=None, info=None):
     domain = mangled.WRAPPED_INT_DOMAIN
     args = [first, second]
     func_app = viper_ast.DomainFuncApp(wi_mod, args, wrapped_int_type(viper_ast), pos, info, domain)
-    is_div_zero = viper_ast.EqCmp(w_div_zero(viper_ast), func_app)
-    return viper_ast.CondExp(is_div_zero, viper_ast.Div(first, second, pos, info), func_app)
+    is_div_zero = viper_ast.EqCmp(viper_ast.IntLit(0), w_unwrap(viper_ast, second, pos, info), pos, info)
+    artificial_div_zero = w_wrap(viper_ast, viper_ast.Mod(w_unwrap(viper_ast, first, pos, info),
+                                                          w_unwrap(viper_ast, second, pos, info),
+                                                          pos, info), pos, info)
+    return viper_ast.CondExp(is_div_zero, artificial_div_zero, func_app, pos, info)
 
 
 def w_wrap(viper_ast: ViperAST, value, pos=None, info=None):
@@ -236,14 +239,6 @@ def w_unwrap(viper_ast: ViperAST, value, pos=None, info=None):
     wi_unwrap = mangled.WRAPPED_INT_UNWRAP
     domain = mangled.WRAPPED_INT_DOMAIN
     return viper_ast.DomainFuncApp(wi_unwrap, [value], viper_ast.Int, pos, info, domain)
-
-
-def w_div_zero(viper_ast: ViperAST, pos=None, info=None):
-    if isinstance(viper_ast, WrappedViperAST):
-        viper_ast = viper_ast.viper_ast
-    wi_div_zero = mangled.WRAPPED_INT_DIV_ZERO
-    domain = mangled.WRAPPED_INT_DOMAIN
-    return viper_ast.DomainFuncApp(wi_div_zero, [], wrapped_int_type(viper_ast), pos, info, domain)
 
 
 def div(viper_ast: ViperAST, dividend, divisor, pos=None, info=None):

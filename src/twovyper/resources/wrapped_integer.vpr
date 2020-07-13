@@ -6,16 +6,15 @@
 */
 
 domain $Int {
-  function $div_zero_number(): $Int
   function $wrap(x: Int): $Int
   function $unwrap(x: $Int): Int
 
   axiom $wrap_ax {
-    forall i: Int :: {$wrap(i)} $wrap(i) != $div_zero_number() && $unwrap($wrap(i)) == i
+    forall i: Int :: {$wrap(i)} $unwrap($wrap(i)) == i
   }
 
   axiom $unwrap_ax {
-    forall i: $Int :: {$wrap($unwrap(i))} i == $div_zero_number() || $wrap($unwrap(i)) == i
+    forall i: $Int :: {$wrap($unwrap(i))} $wrap($unwrap(i)) == i
   }
 
   // Operations on the wrapped integer
@@ -132,10 +131,6 @@ domain $Int {
     forall i: $Int, j: $Int  :: {$w_mod(i, j)} $w_mod(i, j) == $w_modL(i, j)
   }
 
-  axiom $w_mod_zero {
-    forall i: $Int, j: $Int :: {$w_mod(i, j)} j == $wrap(0) <==> $w_mod(i, j) == $div_zero_number()
-  }
-
   axiom $w_mod_identity {
     forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> (i == j || i == $wrap(0)) ==> $w_mod(i, j) == $wrap(0)
   }
@@ -150,6 +145,10 @@ domain $Int {
 
   axiom $w_mod_basic_3 {
     forall i: $Int, j: $Int :: {$w_mod(i, j)}  j != $wrap(0) ==> (0 <= $w_abs(i) &&  $w_abs(i) < $w_abs(j)) ==> $w_mod(i, j) == i
+  }
+
+  axiom $w_mod_basic_4 {
+    forall i: $Int, j: $Int :: {$w_mod(i, j)}  j != $wrap(0) ==> $w_abs($w_mod(i, j)) < $w_abs(j)
   }
 
   axiom $w_mod_sign_1 {
@@ -170,26 +169,13 @@ domain $Int {
 
   axiom $w_mod_add {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mod(i, j), $w_mod(k, j), $w_mod(l, j)} j != $wrap(0) ==> ($unwrap(i) == $unwrap(k) + $unwrap(l) ==> (
-      ($sign($unwrap(i)) == $sign(($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)))) ==> (
+      ((($unwrap(i) >= 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) >= 0) || ($unwrap(i) <= 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) <= 0)) ==> (
            ($w_abs(j)      <= ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <  2 * $w_abs(j) && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) - $w_abs(j)))
         || (-$w_abs(j)     <  ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <  $w_abs(j)     && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))))
         || (-2 * $w_abs(j) <  ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <= -$w_abs(j)    && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) + $w_abs(j)))
-      )) && ($sign($unwrap(i)) != $sign(($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)))) ==> (
+      )) && ((($unwrap(i) > 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) < 0) || ($unwrap(i) < 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) > 0)) ==> (
            (0              <  ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <  $w_abs(j)     && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) - $w_abs(j)))
         || (-$w_abs(j)     <  ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <  0             && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) + $w_abs(j)))
-      ))
-    ))
-  }
-
-  axiom $w_mod_sub {
-    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mod(i, j), $w_mod(k, j), $w_mod(l, j)} j != $wrap(0) ==> ($unwrap(i) == $unwrap(k) - $unwrap(l) ==> (
-      ($sign($unwrap(i)) == $sign(($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j)))) ==> (
-           ($w_abs(j)      <= ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) <  2 * $w_abs(j) && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j)) - $w_abs(j)))
-        || (-$w_abs(j)     <  ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) <  $w_abs(j)     && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))))
-        || (-2 * $w_abs(j) <  ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) <= -$w_abs(j)    && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j)) + $w_abs(j)))
-      )) && ($sign($unwrap(i)) != $sign(($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j)))) ==> (
-           (0              <  ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) <  $w_abs(j)     && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j)) - $w_abs(j)))
-        || (-$w_abs(j)     <  ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j))) <  0             && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) - $unwrap($w_modL(l, j)) + $w_abs(j)))
       ))
     ))
   }
@@ -208,10 +194,6 @@ domain $Int {
 
   axiom $w_mod_mul_vanish {
     forall i: $Int, j: $Int, k: $Int :: {$w_mod(i, j), $w_mulI(k, j)} j != $wrap(0) ==> $w_mod(i, j) == $w_modL($wrap($unwrap($w_mulL(k, j)) + $unwrap(i)), j)
-  }
-
-  axiom $w_div_zero {
-    forall i: $Int, j: $Int :: {$w_div(i, j)} $unwrap(j) == 0 <==> $w_div(i, j) == $div_zero_number()
   }
 
   axiom $w_div_div_down{
@@ -272,6 +254,11 @@ domain $Int {
 
   axiom $w_div_mul {
     forall i: $Int, j: $Int :: {$w_div($w_mulI(i, j), j)} $unwrap(j) != 0 ==> $w_div($w_mulI(i, j), j) == i
+  }
+
+
+  axiom $w_div_sign {
+    forall i: $Int, j: $Int :: { $w_div(i, j) } $sign($unwrap($w_div(i, j))) == $sign($unwrap(i)) * $sign($unwrap(j))
   }
 
   axiom $w_div_mod_mul {
