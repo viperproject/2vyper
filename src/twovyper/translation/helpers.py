@@ -347,7 +347,7 @@ def array_length(viper_ast: ViperAST, ref, pos=None, info=None):
     return viper_ast.SeqLength(ref, pos, info)
 
 
-@wrapped_integer_decorator([], True)
+@wrapped_integer_decorator(wrap_output=True)
 def array_get(viper_ast: ViperAST, ref, idx, element_type, pos=None, info=None):
     return viper_ast.SeqIndex(ref, idx, pos, info)
 
@@ -390,7 +390,7 @@ def map_eq(viper_ast: ViperAST, left, right, key_type, value_type, pos=None, inf
     return viper_ast.DomainFuncApp(eq, [left, right], viper_ast.Bool, pos, info, domain, type_vars)
 
 
-@wrapped_integer_decorator([], True)
+@wrapped_integer_decorator(wrap_output=True)
 def map_get(viper_ast: ViperAST, ref, idx, key_type, value_type, pos=None, info=None):
     type_vars = _map_type_var_map(viper_ast, key_type, value_type)
     get = mangled.MAP_GET
@@ -455,7 +455,7 @@ def _struct_type_var_map(viper_ast: ViperAST, member_type):
     return {member: member_type}
 
 
-@wrapped_integer_decorator([], True)
+@wrapped_integer_decorator(wrap_output=True)
 def struct_get(viper_ast: ViperAST, ref, member: str, member_type, struct_type: StructType, pos=None, info=None):
     domain = mangled.STRUCT_OPS_DOMAIN
     idx = viper_ast.IntLit(struct_type.member_indices[member])
@@ -473,7 +473,7 @@ def struct_pure_get_result(viper_ast: ViperAST, ref, viper_type,  pos=None):
     return struct_get_idx(viper_ast, ref, 1, viper_type, pos)
 
 
-@wrapped_integer_decorator([], True)
+@wrapped_integer_decorator(wrap_output=True)
 def struct_get_idx(viper_ast: ViperAST, ref, idx: int, viper_type, pos=None, info=None):
     domain = mangled.STRUCT_OPS_DOMAIN
     idx_lit = viper_ast.IntLit(idx)
@@ -505,14 +505,14 @@ def set_lock(viper_ast: ViperAST, name: str, val: bool, ctx: Context, pos=None, 
     return struct_set(viper_ast, self_var, value, lock_name, viper_ast.Bool, ctx.self_type, pos, info)
 
 
-@wrapped_integer_decorator([], True)
+@wrapped_integer_decorator(wrap_output=True)
 def convert_bytes32_to_signed_int(viper_ast: ViperAST, bytes, pos=None, info=None):
     domain = mangled.CONVERT_DOMAIN
     function = mangled.CONVERT_BYTES32_TO_SIGNED_INT
     return viper_ast.DomainFuncApp(function, [bytes], viper_ast.Int, pos, info, domain)
 
 
-@wrapped_integer_decorator([], True)
+@wrapped_integer_decorator(wrap_output=True)
 def convert_bytes32_to_unsigned_int(viper_ast: ViperAST, bytes, pos=None, info=None):
     domain = mangled.CONVERT_DOMAIN
     function = mangled.CONVERT_BYTES32_TO_UNSIGNED_INT

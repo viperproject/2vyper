@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import functools
 import inspect
-from typing import List, Optional, Union
+from typing import Optional, Union
 from collections.abc import Iterable
 
 from twovyper.translation import helpers
@@ -16,7 +16,7 @@ from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr
 
 
-def wrapped_integer_decorator(possible_wrapped_integer_inputs: List[str], wrap_output=False, store_unwrap_info=True):
+def wrapped_integer_decorator(*possible_wrapped_integer_inputs: str, wrap_output=False, store_unwrap_info=True):
     def _decorator(func):
         (arg_names, _, _, _, _, _, _) = inspect.getfullargspec(func)
 
@@ -124,104 +124,104 @@ class WrappedViperAST(ViperAST):
         self.viper_ast = viper_ast
         self.unwrapped_some_expressions = False
 
-    @wrapped_integer_decorator(["args"])
+    @wrapped_integer_decorator("args")
     def PredicateAccess(self, args, pred_name, position=None, info=None):
         return super().PredicateAccess(args, pred_name, position, info)
 
-    @wrapped_integer_decorator(["args"])
+    @wrapped_integer_decorator("args")
     def DomainFuncApp(self, func_name, args, type_passed, position, info, domain_name, type_var_map=None):
         if type_var_map is None:
             type_var_map = {}
         return super().DomainFuncApp(func_name, args, type_passed, position, info, domain_name, type_var_map)
 
-    @wrapped_integer_decorator(["expr"])
+    @wrapped_integer_decorator("expr")
     def Minus(self, expr, position=None, info=None):
         return super().Minus(expr, position, info)
 
-    @wrapped_integer_decorator(["then", "els"])
+    @wrapped_integer_decorator("then", "els")
     def CondExp(self, cond, then, els, position=None, info=None):
         return super().CondExp(cond, then, els, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def EqCmp(self, left, right, position=None, info=None):
         return super().EqCmp(left, right, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def NeCmp(self, left, right, position=None, info=None):
         return super().NeCmp(left, right, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def GtCmp(self, left, right, position=None, info=None):
         return super().GtCmp(left, right, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def GeCmp(self, left, right, position=None, info=None):
         return super().GeCmp(left, right, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def LtCmp(self, left, right, position=None, info=None):
         return super().LtCmp(left, right, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def LeCmp(self, left, right, position=None, info=None):
         return super().LeCmp(left, right, position, info)
 
-    @wrapped_integer_decorator(["args"], True)
+    @wrapped_integer_decorator("args", wrap_output=True)
     def FuncApp(self, name, args, position=None, info=None, vtype=None):
         return super().FuncApp(name, args, position, info, vtype)
 
-    @wrapped_integer_decorator(["elems"])
+    @wrapped_integer_decorator("elems")
     def ExplicitSeq(self, elems, position=None, info=None):
         return super().ExplicitSeq(elems, position, info)
 
-    @wrapped_integer_decorator(["elems"])
+    @wrapped_integer_decorator("elems")
     def ExplicitSet(self, elems, position=None, info=None):
         return super().ExplicitSet(elems, position, info)
 
-    @wrapped_integer_decorator(["elems"])
+    @wrapped_integer_decorator("elems")
     def ExplicitMultiset(self, elems, position=None, info=None):
         return super().ExplicitMultiset(elems, position, info)
 
-    @wrapped_integer_decorator(["right"])
+    @wrapped_integer_decorator("right")
     def SeqAppend(self, left, right, position=None, info=None):
         return super().SeqAppend(left, right, position, info)
 
-    @wrapped_integer_decorator(["elem"])
+    @wrapped_integer_decorator("elem")
     def SeqContains(self, elem, s, position=None, info=None):
         return super().SeqContains(elem, s, position, info)
 
-    @wrapped_integer_decorator(["ind"])
+    @wrapped_integer_decorator("ind")
     def SeqIndex(self, s, ind, position=None, info=None):
         return super().SeqIndex(s, ind, position, info)
 
-    @wrapped_integer_decorator(["end"])
+    @wrapped_integer_decorator("end")
     def SeqTake(self, s, end, position=None, info=None):
         return super().SeqTake(s, end, position, info)
 
-    @wrapped_integer_decorator(["end"])
+    @wrapped_integer_decorator("end")
     def SeqDrop(self, s, end, position=None, info=None):
         return super().SeqDrop(s, end, position, info)
 
-    @wrapped_integer_decorator(["ind", "elem"])
+    @wrapped_integer_decorator("ind", "elem")
     def SeqUpdate(self, s, ind, elem, position=None, info=None):
         return super().SeqUpdate(s, ind, elem, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def Add(self, left, right, position=None, info=None):
         return super().Add(left, right, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def Sub(self, left, right, position=None, info=None):
         return super().Sub(left, right, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def Mul(self, left, right, position=None, info=None):
         return super().Mul(left, right, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def Div(self, left, right, position=None, info=None):
         return super().Div(left, right, position, info)
 
-    @wrapped_integer_decorator(["left", "right"])
+    @wrapped_integer_decorator("left", "right")
     def Mod(self, left, right, position=None, info=None):
         return super().Mod(left, right, position, info)
