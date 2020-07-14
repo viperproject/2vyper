@@ -204,6 +204,7 @@ class StatementTranslator(NodeTranslator):
             overwritten_vars = set()
 
             has_wrapped_information_in_array = False
+            has_numeric_array = types.is_numeric(node.target.type)
             if isinstance(self.viper_ast, WrappedViperAST):
                 self.viper_ast.unwrapped_some_expressions = False
                 array = self.expression_translator.translate_top_level_expression(node.iter, stmts, ctx)
@@ -234,7 +235,7 @@ class StatementTranslator(NodeTranslator):
                 loop_idx_eq_zero = self.viper_ast.EqCmp(loop_idx_var, self.viper_ast.IntLit(0), rpos)
                 assume_base_case = self.viper_ast.Inhale(loop_idx_eq_zero, rpos)
                 array_at = self.viper_ast.SeqIndex(array, loop_idx_var, rpos)
-                if has_wrapped_information_in_array:
+                if has_wrapped_information_in_array and has_numeric_array:
                     array_at = helpers.w_wrap(self.viper_ast, array_at, rpos)
                 set_loop_var = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos)
                 self.seqn_with_info([assume_base_case, set_loop_var],
@@ -269,7 +270,7 @@ class StatementTranslator(NodeTranslator):
                 havoc_stmts.append(havoc_loop_idx)
                 havoc_loop_var_type = self.type_translator.translate(node.target.type, ctx)
                 havoc_var = helpers.havoc_var(self.viper_ast, havoc_loop_var_type, ctx)
-                if has_wrapped_information_in_array:
+                if has_wrapped_information_in_array and has_numeric_array:
                     havoc_var = helpers.w_wrap(self.viper_ast, havoc_var)
                 havoc_loop_var = self.viper_ast.LocalVarAssign(loop_var, havoc_var)
                 havoc_stmts.append(havoc_loop_var)
@@ -305,7 +306,7 @@ class StatementTranslator(NodeTranslator):
                 loop_idx_assumption = self.viper_ast.And(loop_idx_ge_zero, loop_idx_lt_array_size, rpos)
                 assume_step_case = self.viper_ast.Inhale(loop_idx_assumption, rpos)
                 array_at = self.viper_ast.SeqIndex(array, loop_idx_var, rpos)
-                if has_wrapped_information_in_array:
+                if has_wrapped_information_in_array and has_numeric_array:
                     array_at = helpers.w_wrap(self.viper_ast, array_at, rpos)
                 set_loop_var = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos)
                 self.seqn_with_info([assume_step_case, set_loop_var],
@@ -343,7 +344,7 @@ class StatementTranslator(NodeTranslator):
                         goto_break = self.viper_ast.Goto(ctx.break_label, pos)
                         stmts.append(self.viper_ast.If(loop_idx_eq_times, [goto_break], [], pos))
                         array_at = self.viper_ast.SeqIndex(array, loop_idx_var, rpos)
-                        if has_wrapped_information_in_array:
+                        if has_wrapped_information_in_array and has_numeric_array:
                             array_at = helpers.w_wrap(self.viper_ast, array_at, rpos)
                         stmts.append(self.viper_ast.LocalVarAssign(loop_var, array_at, lpos))
                         # Check loop invariants
@@ -374,7 +375,7 @@ class StatementTranslator(NodeTranslator):
                             loop_info = self.to_info(["Start of loop iteration."])
                             idx = self.viper_ast.IntLit(i, lpos)
                             array_at = self.viper_ast.SeqIndex(array, idx, rpos)
-                            if has_wrapped_information_in_array:
+                            if has_wrapped_information_in_array and has_numeric_array:
                                 array_at = helpers.w_wrap(self.viper_ast, array_at)
                             var_set = self.viper_ast.LocalVarAssign(loop_var, array_at, lpos, loop_info)
                             stmts.append(var_set)

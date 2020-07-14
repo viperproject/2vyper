@@ -174,6 +174,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         rpos = self.to_position(node.iter, ctx)
 
         if times > 0:
+            has_numeric_array = types.is_numeric(node.target.type)
             loop_invariants = ctx.function.loop_invariants.get(node)
             if loop_invariants:
                 # loop-array expression
@@ -207,7 +208,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                 res.append(loop_idx_assumption)
                 # Set loop variable to array[index]
                 array_at = self.viper_ast.SeqIndex(array_local_var, loop_idx_local_var, rpos)
-                if has_wrapped_information_in_array:
+                if has_wrapped_information_in_array and has_numeric_array:
                     array_at = helpers.w_wrap(self.viper_ast, array_at)
                 set_loop_var = self.viper_ast.EqCmp(loop_var.local_var(ctx), array_at, lpos)
                 res.append(set_loop_var)
@@ -265,7 +266,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                         with ctx.continue_scope():
                             idx = self.viper_ast.IntLit(i, lpos)
                             array_at = self.viper_ast.SeqIndex(array_local_var, idx, rpos)
-                            if has_wrapped_information_in_array:
+                            if has_wrapped_information_in_array and has_numeric_array:
                                 array_at = helpers.w_wrap(self.viper_ast, array_at)
                             loop_var.new_idx()
                             var_set = self.viper_ast.EqCmp(loop_var.local_var(ctx), array_at, lpos)
