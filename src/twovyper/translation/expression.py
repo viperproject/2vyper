@@ -67,7 +67,7 @@ class ExpressionTranslator(NodeTranslator):
             ast.ComparisonOperator.GT: self.viper_ast.GtCmp
         }
 
-    def translate_top_level_expression(self, node: ast.Node, res: List[Stmt], ctx: Context):
+    def translate_top_level_expression(self, node: ast.Expr, res: List[Stmt], ctx: Context):
         """
         A top level expression is an expression directly used in a statement.
 
@@ -80,7 +80,7 @@ class ExpressionTranslator(NodeTranslator):
             self.viper_ast.unwrapped_some_expressions = False
             result = self.translate(node, res, ctx)
             if self.viper_ast.unwrapped_some_expressions:
-                if self.arithmetic_translator.is_unwrapped(result):
+                if types.is_numeric(node.type) and self.arithmetic_translator.is_unwrapped(result):
                     result = helpers.w_wrap(self.viper_ast, result)
             return result
         else:

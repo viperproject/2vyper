@@ -429,7 +429,12 @@ class AssignmentTranslator(NodeVisitor, CommonTranslator):
         self._always_wrap = True
         yield
         self._always_wrap = always_wrap
-        self.overwritten_vars = overwritten_vars
+        if always_wrap:
+            # If we are inside another "assume_everything_has_wrapped_information" context,
+            # keep the overwritten_vars information.
+            self.overwritten_vars.extend(overwritten_vars)
+        else:
+            self.overwritten_vars = overwritten_vars
 
     @property
     def method_name(self) -> str:
