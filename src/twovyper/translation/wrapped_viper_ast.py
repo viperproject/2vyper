@@ -167,8 +167,8 @@ class WrappedViperAST(ViperAST):
         return super().LeCmp(left, right, position, info)
 
     @wrapped_integer_decorator("args", wrap_output=True)
-    def FuncApp(self, name, args, position=None, info=None, vtype=None):
-        return super().FuncApp(name, args, position, info, vtype)
+    def FuncApp(self, name, args, position=None, info=None, type=None):
+        return super().FuncApp(name, args, position, info, type)
 
     @wrapped_integer_decorator("elems")
     def ExplicitSeq(self, elems, position=None, info=None):
