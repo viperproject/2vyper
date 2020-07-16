@@ -1004,7 +1004,8 @@ class ExpressionTranslator(NodeTranslator):
         if modifying:
             self.state_translator.copy_state(ctx.current_state, old_state_for_postconditions, res, ctx)
             # Havoc state
-            self.state_translator.havoc_state(ctx.current_state, res, ctx)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx,
+                                              unless=lambda n: n != mangled.CONTRACTS)
 
             # Assume caller private and create new contract state
             assume_caller_private = []
@@ -1012,8 +1013,7 @@ class ExpressionTranslator(NodeTranslator):
             self.seqn_with_info(assume_caller_private, "Assume caller private", res)
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
                                              unless=lambda n: n != mangled.CONTRACTS)
-            self.state_translator.havoc_state(ctx.current_state, res, ctx,
-                                              unless=lambda n: n != mangled.CONTRACTS)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx)
 
             ############################################################################################################
             #                         We did not yet make any assumptions about the self state.                        #
@@ -1052,9 +1052,6 @@ class ExpressionTranslator(NodeTranslator):
             use_zero_reentrant_call_state = []
             self.state_translator.copy_state(ctx.current_old_state, ctx.current_state,
                                              use_zero_reentrant_call_state, ctx)
-            self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state,
-                                             use_zero_reentrant_call_state, ctx,
-                                             unless=lambda n: n != mangled.CONTRACTS)
             res.append(self.viper_ast.If(no_reentrant_cond, use_zero_reentrant_call_state, []))
 
             ############################################################################################################
@@ -1085,6 +1082,8 @@ class ExpressionTranslator(NodeTranslator):
             #   any other contract might got called which could change everything except caller private expressions.   #
             ############################################################################################################
 
+            self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state, res,
+                                             ctx, unless=lambda n: n != mangled.CONTRACTS)
             # Assert inter contract invariants during call
             assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
                                             rules.DURING_CALL_INVARIANT_FAIL)
@@ -1114,11 +1113,6 @@ class ExpressionTranslator(NodeTranslator):
         if known:
             self._assume_interface_specifications(node, interface, function, args, to, amount, success,
                                                   return_value, res, ctx)
-
-        if modifying:
-            assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
-                                            rules.AFTER_CALL_INVARIANT_FAIL)
-            self.seqn_with_info(assert_invs, "Assert inter contract invariants after call", res)
 
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 

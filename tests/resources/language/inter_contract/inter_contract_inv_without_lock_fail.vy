@@ -52,8 +52,8 @@ def increase() -> bool:
     result: bool = False
     if self.token_A.get() != MAX_UINT256 and self.token_B.get() != MAX_UINT256:
         self._lock = True
-        #:: ExpectedOutput(after.call.invariant:assertion.false, INV)
-        self.token_A.increase()
+        # It might be that token_A == token_B, then it should fails here
+        #:: ExpectedOutput(during.call.invariant:assertion.false, INV)
         self.token_B.increase()
         self._lock = False
         result = True

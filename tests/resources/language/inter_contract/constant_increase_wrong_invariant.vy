@@ -39,12 +39,13 @@ def __init__(token_A_address: address , token_B_address: address):
     self._init = True
 
 
+#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, INV)
 @public
 def increase() -> bool:
     assert self._init
     result: bool = False
     if self.token_A.get() != MAX_UINT256:
-        #:: ExpectedOutput(during.call.invariant:assertion.false, INV) | ExpectedOutput(carbon)(after.call.invariant:assertion.false, INV)
+        #:: ExpectedOutput(during.call.invariant:assertion.false, INV)
         self.token_A.increase()
         result = True
     return result
