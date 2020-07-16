@@ -468,7 +468,6 @@ def struct_pure_get_result(viper_ast: ViperAST, ref, viper_type,  pos=None):
     return struct_get_idx(viper_ast, ref, 1, viper_type, pos)
 
 
-@wrapped_integer_decorator(wrap_output=True)
 def struct_get_idx(viper_ast: ViperAST, ref, idx: int, viper_type, pos=None, info=None):
     domain = mangled.STRUCT_OPS_DOMAIN
     idx_lit = viper_ast.IntLit(idx)
