@@ -159,6 +159,10 @@ domain $Int {
     forall i: $Int, j: $Int, k: $Int :: {$w_mod(i, j), $w_mod(k, j)} j != $wrap(0) ==> $unwrap(i) == -$unwrap(k) ==> $w_mod(i, j) == $wrap(-$unwrap($w_modL(k, j)))
   }
 
+  axiom $w_mod_sign_3 {
+    forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> ($w_mod(i, j) == $w_mod(i, $wrap(-$unwrap(j))))
+  }
+
   axiom $w_mod_mod {
     forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> $w_mod(i, j) == $w_modL($w_modL(i, j), j)
   }
@@ -258,7 +262,7 @@ domain $Int {
 
 
   axiom $w_div_sign {
-    forall i: $Int, j: $Int :: { $w_div(i, j) } $sign($unwrap($w_div(i, j))) == $sign($unwrap(i)) * $sign($unwrap(j))
+    forall i: $Int, j: $Int :: { $w_div(i, j) } $sign($unwrap($w_div(i, j))) == $sign($unwrap(i)) * $sign($unwrap(j)) || $sign($unwrap($w_div(i, j))) == 0
   }
 
   axiom $w_div_mod_mul {

@@ -63,6 +63,7 @@ class ProgramBuilder(NodeVisitor):
 
         self.field_types = {}
         self.functions = {}
+        self.lemmas = {}
         self.function_counter = 0
         self.interfaces = {}
         self.structs = {}
@@ -150,6 +151,7 @@ class ProgramBuilder(NodeVisitor):
                                 self.general_postconditions,
                                 self.transitive_postconditions,
                                 self.general_checks,
+                                self.lemmas,
                                 self.implements,
                                 self.ghost_function_implementations)
 
@@ -429,10 +431,17 @@ class ProgramBuilder(NodeVisitor):
         function = VyperFunction(node.name, self.function_counter, args, defaults, vyper_type,
                                  self.postconditions, self.preconditions, self.checks,
                                  loop_invariant_transformer.loop_invariants, self.performs, decs, node)
-        for decorator in node.decorators:
-            if decorator.is_ghost_code and decorator.name != names.PURE:
-                raise InvalidProgramException(decorator, 'invalid.ghost.code')
-        self.functions[node.name] = function
+        if node.is_lemma:
+            if node.decorators:
+                raise InvalidProgramException(first(node.decorators), 'invalid.lemma')
+            if vyper_type.return_type is not None:
+                raise InvalidProgramException(node, 'invalid.lemma', 'A lemma cannot have a return type')
+            self.lemmas[node.name] = function
+        else:
+            for decorator in node.decorators:
+                if decorator.is_ghost_code and decorator.name != names.PURE:
+                    raise InvalidProgramException(decorator, 'invalid.ghost.code')
+            self.functions[node.name] = function
         self.function_counter += 1
         # Reset local specs
         self.postconditions = []

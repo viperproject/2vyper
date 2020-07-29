@@ -57,6 +57,7 @@ CHAIN_ID = 'id'
 TX = 'tx'
 TX_ORIGIN = 'origin'
 LOG = 'log'
+LEMMA = 'lemma'
 
 ENV_VARIABLES = [MSG, BLOCK, CHAIN, TX]
 

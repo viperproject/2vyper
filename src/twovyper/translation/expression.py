@@ -692,6 +692,21 @@ class ExpressionTranslator(NodeTranslator):
             event = ctx.program.events[name]
             self._log_event(event, args, res, ctx, pos)
             return None
+        elif node.receiver.id == names.LEMMA:
+            lemma = ctx.program.lemmas[node.name]
+            mangled_name = mangled.lemma_name(node.name)
+            call_pos = self.to_position(node, ctx)
+            via = Via('lemma call', call_pos)
+            pos = self.to_position(lemma.node, ctx, vias=[via])
+            args = [self.translate_top_level_expression(arg, res, ctx) for arg in node.args]
+            for idx, arg_var in enumerate(lemma.args.values()):
+                if types.is_numeric(arg_var.type):
+                    if self.arithmetic_translator.is_unwrapped(args[idx]):
+                        args[idx] = helpers.w_wrap(self.viper_ast, args[idx], pos)
+            viper_ast = self.viper_ast
+            if isinstance(viper_ast, WrappedViperAST):
+                viper_ast = viper_ast.viper_ast
+            return viper_ast.FuncApp(mangled_name, args, pos, type=self.viper_ast.Bool)
         else:
             assert False
 

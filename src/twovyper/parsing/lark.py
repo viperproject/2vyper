@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from functools import reduce
 from typing import Any, Dict, List
+import re
 
 from lark import Lark
 from lark.exceptions import ParseError, UnexpectedInput, VisitError
@@ -536,24 +537,45 @@ def parse(parser, text, file):
         raise e.orig_exc
 
 
-class GhostCodeVisitor(NodeVisitor):
+class CodeVisitor(NodeVisitor):
 
-    def find_ghost_code(self, text: str, node: ast.Node):
+    def find_lost_code_information(self, text: str, node: ast.Node):
         lines = text.splitlines()
         ghost = {}
         for idx, line in enumerate(lines):
             ghost[idx + 1] = line.strip().startswith('#@')
+        lemma_def = {}
+        pattern = re.compile(r'#@\s*lemma_def.*')
+        for idx, line in enumerate(lines):
+            match = pattern.match(line.strip())
+            lemma_def[idx + 1] = match is not None
+        lemma_assert = {}
+        pattern = re.compile(r'#@\s*lemma_assert.*')
+        for idx, line in enumerate(lines):
+            match = pattern.match(line.strip())
+            lemma_assert[idx + 1] = match is not None
 
-        self.visit(node, ghost)
+        self.visit(node, ghost, lemma_def, lemma_assert)
 
-    def generic_visit(self, node: ast.Node, ghost: Dict[int, bool]):
+    def generic_visit(self, node: ast.Node, *args):
+        ghost: Dict[int, bool] = args[0]
         node.is_ghost_code = ghost[node.lineno]
-        super().generic_visit(node, ghost)
+        super().generic_visit(node, *args)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef, *args):
+        lemma_def: Dict[int, bool] = args[1]
+        node.is_lemma = lemma_def[node.lineno]
+        self.generic_visit(node, *args)
+
+    def visit_Assert(self, node: ast.Assert, *args):
+        lemma_assert: Dict[int, bool] = args[2]
+        node.is_lemma = lemma_assert[node.lineno]
+        self.generic_visit(node, *args)
 
 
 def parse_module(text, original, file) -> ast.Module:
     node = parse(_vyper_module_parser, text + '\n', file)
-    GhostCodeVisitor().find_ghost_code(original, node)
+    CodeVisitor().find_lost_code_information(original, node)
     return node
 
 

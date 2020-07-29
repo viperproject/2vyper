@@ -129,12 +129,13 @@ class StatementTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         translator = self.specification_translator if node.is_ghost_code else self.expression_translator
-        expr = translator.translate(node.test, res, ctx)
+        with ctx.lemma_scope() if node.is_lemma else ExitStack():
+            expr = translator.translate(node.test, res, ctx)
 
         # If UNREACHABLE is used, we try to prove that the assertion holds by
         # translating it directly as an assert; else, revert if the condition
         # is false.
-        if isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE:
+        if node.is_lemma or (isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE):
             modelt = self.model_translator.save_variables(res, ctx, pos)
             mpos = self.to_position(node, ctx, modelt=modelt)
             res.append(self.viper_ast.Assert(expr, mpos))

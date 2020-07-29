@@ -10,6 +10,7 @@ from itertools import chain
 from typing import List, Optional
 
 from twovyper import resources
+from twovyper.translation.lemma import LemmaTranslator
 
 from twovyper.utils import flatten, seq_to_list
 
@@ -87,6 +88,7 @@ class ProgramTranslator(CommonTranslator):
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.function_translator = FunctionTranslator(viper_ast)
         self.pure_function_translator = PureFunctionTranslator(viper_ast)
+        self.lemma_translator = LemmaTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
         self.resource_translator = ResourceTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
@@ -190,6 +192,9 @@ class ProgramTranslator(CommonTranslator):
         # Pure functions
         pure_vyper_functions = filter(VyperFunction.is_pure,  vyper_program.functions.values())
         functions += [self.pure_function_translator.translate(function, ctx) for function in pure_vyper_functions]
+
+        # Lemmas
+        functions += [self.lemma_translator.translate(lemma, ctx) for lemma in vyper_program.lemmas.values()]
 
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]
