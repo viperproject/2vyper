@@ -131,6 +131,13 @@ INTERFACE_POSTCONDITION_FAIL = {
         ('postcondition.not.implemented', 'assertion.false')
 }
 
+LEMMA_FAIL = {
+    ('postcondition.violated', 'assertion.false'):
+        ('lemma.step.invalid', 'assertion.false'),
+    ('application.precondition', 'assertion.false'):
+        ('lemma.application.invalid', 'assertion.false')
+}
+
 CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('check.violated', 'assertion.false'),

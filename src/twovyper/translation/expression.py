@@ -695,9 +695,9 @@ class ExpressionTranslator(NodeTranslator):
         elif node.receiver.id == names.LEMMA:
             lemma = ctx.program.lemmas[node.name]
             mangled_name = mangled.lemma_name(node.name)
-            call_pos = self.to_position(node, ctx)
-            via = Via('lemma call', call_pos)
-            pos = self.to_position(lemma.node, ctx, vias=[via])
+            call_pos = self.to_position(lemma.node, ctx)
+            via = Via('lemma', call_pos)
+            pos = self.to_position(node, ctx, vias=[via], rules=rules.LEMMA_FAIL, values={'function': lemma})
             args = [self.translate_top_level_expression(arg, res, ctx) for arg in node.args]
             for idx, arg_var in enumerate(lemma.args.values()):
                 if types.is_numeric(arg_var.type):

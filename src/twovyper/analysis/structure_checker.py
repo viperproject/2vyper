@@ -274,6 +274,11 @@ class StructureChecker(NodeVisitor):
             _assert(node.id != names.BLOCK, node, 'invariant.block')
         elif ctx == _Context.TRANSITIVE_POSTCONDITION:
             _assert(node.id != names.MSG, node, 'postcondition.msg')
+        elif ctx == _Context.LEMMA:
+            _assert(node.id != names.SELF, node, 'invalid.lemma', 'Self cannot be used in lemmas')
+            _assert(node.id != names.MSG, node, 'invalid.lemma', 'Msg cannot be used in lemmas')
+            _assert(node.id != names.BLOCK, node, 'invalid.lemma', 'Block cannot be used in lemmas')
+            _assert(node.id != names.TX, node, 'invalid.lemma', 'Tx cannot be used in lemmas')
 
     def visit_FunctionCall(self, node: ast.FunctionCall, ctx: _Context,
                            program: VyperProgram, function: Optional[VyperFunction]):

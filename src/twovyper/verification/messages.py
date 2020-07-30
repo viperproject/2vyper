@@ -100,7 +100,11 @@ ERRORS = {
     'predicate.not.wellformed':
         lambda i: "Predicate might not be well-formed.",
     'function.failed':
-        lambda i: f"The function call {pprint(i.node)} might not succeed."
+        lambda i: f"The function call {pprint(i.node)} might not succeed.",
+    'lemma.step.invalid':
+        lambda i: f"A step in the lemma {i.function.name} might not hold.",
+    'lemma.application.invalid':
+        lambda i: f"Cannot apply lemma {i.function.name}."
 }
 
 REASONS = {
