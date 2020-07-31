@@ -436,6 +436,8 @@ class ProgramBuilder(NodeVisitor):
                 raise InvalidProgramException(first(node.decorators), 'invalid.lemma')
             if vyper_type.return_type is not None:
                 raise InvalidProgramException(node, 'invalid.lemma', 'A lemma cannot have a return type')
+            if node.name in self.lemmas:
+                raise InvalidProgramException(node, 'duplicate.lemma')
             self.lemmas[node.name] = function
         else:
             for decorator in node.decorators:

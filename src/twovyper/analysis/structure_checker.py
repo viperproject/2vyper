@@ -301,6 +301,9 @@ class StructureChecker(NodeVisitor):
             elif ctx == _Context.PRECONDITION:
                 _assert(function.is_private(), node, 'precondition.event')
 
+        if function and node.name in program.ghost_functions.keys():
+            _assert(ctx != _Context.LEMMA, node, 'invalid.lemma')
+
         if node.name == names.CALLER:
             self._visited_caller_spec = True
 
