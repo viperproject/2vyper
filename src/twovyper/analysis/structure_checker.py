@@ -67,7 +67,7 @@ class StructureChecker(NodeVisitor):
             _Context.GHOST_CODE: names.NOT_ALLOWED_IN_GHOST_CODE,
             _Context.GHOST_FUNCTION: names.NOT_ALLOWED_IN_GHOST_FUNCTION,
             _Context.GHOST_STATEMENT: names.NOT_ALLOWED_IN_GHOST_STATEMENT,
-            _Context.LEMMA: names.NOT_ALLOWED_IN_GHOST_FUNCTION
+            _Context.LEMMA: names.NOT_ALLOWED_IN_LEMMAS
         }
 
         self._inside_old = False
@@ -157,7 +157,7 @@ class StructureChecker(NodeVisitor):
                         'All steps of the lemma should be expressions')
 
             for precondition in lemma.preconditions:
-                self.visit(precondition, _Context.PRECONDITION, program, lemma)
+                self.visit(precondition, _Context.LEMMA, program, lemma)
 
         if program.inter_contract_invariants:
             _assert(not program.is_interface(), program.inter_contract_invariants[0],
@@ -265,6 +265,7 @@ class StructureChecker(NodeVisitor):
 
     @staticmethod
     def visit_Name(node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+        assert program
         if ctx == _Context.GHOST_FUNCTION and node.id in names.ENV_VARIABLES:
             _assert(False, node, 'invalid.ghost.function')
         elif ctx == _Context.CALLER_PRIVATE and node.id in names.ENV_VARIABLES:
@@ -275,6 +276,7 @@ class StructureChecker(NodeVisitor):
         elif ctx == _Context.TRANSITIVE_POSTCONDITION:
             _assert(node.id != names.MSG, node, 'postcondition.msg')
         elif ctx == _Context.LEMMA:
+            _assert(function.node.is_lemma, node, 'invalid.lemma')
             _assert(node.id != names.SELF, node, 'invalid.lemma', 'Self cannot be used in lemmas')
             _assert(node.id != names.MSG, node, 'invalid.lemma', 'Msg cannot be used in lemmas')
             _assert(node.id != names.BLOCK, node, 'invalid.lemma', 'Block cannot be used in lemmas')
@@ -288,14 +290,12 @@ class StructureChecker(NodeVisitor):
             _assert(node.name != names.OLD, node, 'postcondition.init.old')
 
         if function and node.name == names.PUBLIC_OLD:
-            _assert(not function.node.is_lemma, node, 'invalid.lemma')
             if ctx == _Context.POSTCONDITION:
                 _assert(function.is_private(), node, 'postcondition.public.old')
             elif ctx == _Context.PRECONDITION:
                 _assert(function.is_private(), node, 'precondition.public.old')
 
         if function and node.name == names.EVENT:
-            _assert(not function.node.is_lemma, node, 'invalid.lemma')
             if ctx == _Context.POSTCONDITION:
                 _assert(function.is_private(), node, 'postcondition.event')
             elif ctx == _Context.PRECONDITION:
@@ -308,8 +308,6 @@ class StructureChecker(NodeVisitor):
             self._visited_caller_spec = True
 
         if node.name == names.SENT or node.name == names.RECEIVED:
-            if function:
-                _assert(not function.node.is_lemma, node, 'invalid.lemma')
             _assert(not program.is_interface(), node, f'invalid.{node.name}',
                     f'"{node.name}" cannot be used in interfaces')
 
@@ -332,8 +330,6 @@ class StructureChecker(NodeVisitor):
 
         # Success is of the form success() or success(if_not=cond1 or cond2 or ...)
         elif node.name == names.SUCCESS:
-            if function:
-                _assert(not function.node.is_lemma, node, 'invalid.lemma')
 
             def check_success_args(arg: ast.Node):
                 if isinstance(arg, ast.Name):
@@ -367,8 +363,6 @@ class StructureChecker(NodeVisitor):
             return
         # Accessible is of the form accessible(to, amount, self.some_func(args...))
         elif node.name == names.ACCESSIBLE:
-            if function:
-                _assert(not function.node.is_lemma, node, 'invalid.lemma')
             _assert(not program.is_interface(), node, 'invalid.accessible', 'Accessible cannot be used in interfaces')
             _assert(not self._inside_old, node, 'spec.old.accessible')
             _assert(len(node.args) == 2 or len(node.args) == 3, node, 'spec.accessible')
@@ -413,15 +407,11 @@ class StructureChecker(NodeVisitor):
             self.visit(body, ctx, program, function)
             return
         elif node.name in [names.OLD, names.PUBLIC_OLD]:
-            if function:
-                _assert(not function.node.is_lemma, node, 'invalid.lemma')
             with self._inside_old_scope():
                 self.generic_visit(node, ctx, program, function)
 
             return
         elif node.name == names.RESULT or node.name == names.REVERT:
-            if function:
-                _assert(not function.node.is_lemma, node, 'invalid.lemma')
             if len(node.args) == 1:
                 argument = node.args[0]
                 _assert(isinstance(argument, ast.ReceiverCall), node, f"spec.{node.name}")
@@ -441,8 +431,6 @@ class StructureChecker(NodeVisitor):
                 _assert(False, node, f'{ctx.value}.call')
 
         elif node.name == names.INDEPENDENT:
-            if function:
-                _assert(not function.node.is_lemma, node, 'invalid.lemma')
             with self._inside_pure_scope('independent expressions'):
                 self.visit(node.args[0], ctx, program, function)
 
@@ -489,22 +477,16 @@ class StructureChecker(NodeVisitor):
                             '"const2" must be greater than "const1".')
 
         if node.name in names.ALLOCATION_FUNCTIONS:
-            if function:
-                _assert(not function.node.is_lemma, node, 'invalid.lemma')
             msg = "Allocation statements require allocation config option."
             _assert(program.config.has_option(names.CONFIG_ALLOCATION), node, 'alloc.not.alloc', msg)
 
         if node.name in names.GHOST_STATEMENTS:
-            if function:
-                _assert(not function.node.is_lemma, node, 'invalid.lemma')
             msg = "Allocation statements are not allowed in constant functions."
             _assert(not (function and function.is_constant()), node, 'alloc.in.constant', msg)
 
         arg_ctx = _Context.GHOST_STATEMENT if node.name in names.GHOST_STATEMENTS else ctx
 
         if node.resource:
-            if function:
-                _assert(not function.node.is_lemma, node, 'invalid.lemma')
             # Resources are only allowed in allocation functions. They can have the following structure:
             #   - a simple name: r
             #   - an exchange: r <-> s

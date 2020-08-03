@@ -16,7 +16,7 @@ NONREENTRANT = 'nonreentrant'
 PURE = 'pure'
 
 # Modifiers
-assert (CONSTANT == 'constant')  # CONSTANT = 'constant'
+assert CONSTANT == 'constant'  # CONSTANT = 'constant'
 MODIFYING = 'modifying'
 
 # Types
@@ -181,9 +181,9 @@ RECEIVED = 'received'
 ACCESSIBLE = 'accessible'
 INDEPENDENT = 'independent'
 REORDER_INDEPENDENT = 'reorder_independent'
-assert (EVENT == 'event')                # EVENT = 'event'
-assert (SELFDESTRUCT == 'selfdestruct')  # SELFDESTRUCT = 'selfdestruct'
-assert (IMPLEMENTS == 'implements')      # IMPLEMENTS = 'implements'
+assert EVENT == 'event'                # EVENT = 'event'
+assert SELFDESTRUCT == 'selfdestruct'  # SELFDESTRUCT = 'selfdestruct'
+assert IMPLEMENTS == 'implements'      # IMPLEMENTS = 'implements'
 LOCKED = 'locked'
 REVERT = 'revert'
 
@@ -275,6 +275,10 @@ NOT_ALLOWED_IN_GHOST_FUNCTION = [*NOT_ALLOWED_IN_SPEC, CALLER, SUCCESS, REVERT, 
 NOT_ALLOWED_IN_GHOST_STATEMENT = [*NOT_ALLOWED_IN_SPEC, CALLER, SUCCESS, REVERT, OVERFLOW, OUT_OF_GAS, FAILED, RESULT,
                                   ACCESSIBLE, INDEPENDENT, REORDER_INDEPENDENT, PUBLIC_OLD, SELFDESTRUCT,
                                   *NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS]
+NOT_ALLOWED_IN_LEMMAS = [*NOT_ALLOWED_IN_SPEC, RESULT, STORAGE, OLD, PUBLIC_OLD, ISSUED, SENT, RECEIVED, ACCESSIBLE,
+                         INDEPENDENT, REORDER_INDEPENDENT, EVENT, SELFDESTRUCT, IMPLEMENTS, LOCKED, REVERT,
+                         *NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS, OVERFLOW, OUT_OF_GAS, FAILED, CALLER, SUCCESS,
+                         *ALLOCATION_FUNCTIONS]
 
 # Heuristics
 WITHDRAW = 'withdraw'

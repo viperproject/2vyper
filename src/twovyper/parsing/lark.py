@@ -542,20 +542,15 @@ class CodeVisitor(NodeVisitor):
     def find_lost_code_information(self, text: str, node: ast.Node):
         lines = text.splitlines()
         ghost = {}
+        lemmas = {}
+        pattern = re.compile(r'#@\s*lemma_(def|assert).*')
         for idx, line in enumerate(lines):
-            ghost[idx + 1] = line.strip().startswith('#@')
-        lemma_def = {}
-        pattern = re.compile(r'#@\s*lemma_def.*')
-        for idx, line in enumerate(lines):
-            match = pattern.match(line.strip())
-            lemma_def[idx + 1] = match is not None
-        lemma_assert = {}
-        pattern = re.compile(r'#@\s*lemma_assert.*')
-        for idx, line in enumerate(lines):
-            match = pattern.match(line.strip())
-            lemma_assert[idx + 1] = match is not None
+            line_strip = line.strip()
+            ghost[idx + 1] = line_strip.startswith('#@')
+            match = pattern.match(line_strip)
+            lemmas[idx + 1] = match is not None
 
-        self.visit(node, ghost, lemma_def, lemma_assert)
+        self.visit(node, ghost, lemmas)
 
     def generic_visit(self, node: ast.Node, *args):
         ghost: Dict[int, bool] = args[0]
@@ -563,13 +558,13 @@ class CodeVisitor(NodeVisitor):
         super().generic_visit(node, *args)
 
     def visit_FunctionDef(self, node: ast.FunctionDef, *args):
-        lemma_def: Dict[int, bool] = args[1]
-        node.is_lemma = lemma_def[node.lineno]
+        lemmas: Dict[int, bool] = args[1]
+        node.is_lemma = lemmas[node.lineno]
         self.generic_visit(node, *args)
 
     def visit_Assert(self, node: ast.Assert, *args):
-        lemma_assert: Dict[int, bool] = args[2]
-        node.is_lemma = lemma_assert[node.lineno]
+        lemmas: Dict[int, bool] = args[1]
+        node.is_lemma = lemmas[node.lineno]
         self.generic_visit(node, *args)
 
 

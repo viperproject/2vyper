@@ -6,7 +6,7 @@
 #
 
 
-#:: ExpectedOutput(invalid.program:invalid.lemma)
+#:: ExpectedOutput(invalid.program:lemma.call)
 #@ requires: public_old(1) == 1
 #@ lemma_def bar():
     #@ 0 == 0
