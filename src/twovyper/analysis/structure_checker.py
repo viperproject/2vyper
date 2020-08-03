@@ -359,7 +359,8 @@ class StructureChecker(NodeVisitor):
                 self.generic_visit(argument, ctx, program, function)
             elif (ctx == _Context.INVARIANT
                   or ctx == _Context.TRANSITIVE_POSTCONDITION
-                  or ctx == _Context.LOOP_INVARIANT):
+                  or ctx == _Context.LOOP_INVARIANT
+                  or ctx == _Context.GHOST_CODE):
                 _assert(False, node, f'{ctx.value}.call')
 
             return
@@ -429,7 +430,8 @@ class StructureChecker(NodeVisitor):
             elif (ctx == _Context.CHECK
                   or ctx == _Context.INVARIANT
                   or ctx == _Context.TRANSITIVE_POSTCONDITION
-                  or ctx == _Context.LOOP_INVARIANT):
+                  or ctx == _Context.LOOP_INVARIANT
+                  or ctx == _Context.GHOST_CODE):
                 _assert(False, node, f'{ctx.value}.call')
 
         elif node.name == names.INDEPENDENT:
