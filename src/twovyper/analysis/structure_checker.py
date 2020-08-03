@@ -147,8 +147,10 @@ class StructureChecker(NodeVisitor):
         for lemma in program.lemmas.values():
             for default_val in lemma.defaults.values():
                 _assert(default_val is None, lemma.node, 'invalid.lemma')
-            _assert(not lemma.postconditions, first(lemma.postconditions), 'invalid.lemma')
-            _assert(not lemma.checks, first(lemma.checks), 'invalid.lemma')
+            _assert(not lemma.postconditions, first(lemma.postconditions), 'invalid.lemma',
+                    'No postconditions are allowed for lemmas.')
+            _assert(not lemma.checks, first(lemma.checks), 'invalid.lemma',
+                    'No checks are allowed for lemmas.')
             _assert(not lemma.performs, first(lemma.performs), 'invalid.lemma')
 
             self.visit(lemma.node, _Context.LEMMA, program, lemma)

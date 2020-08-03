@@ -185,6 +185,11 @@ class ProgramBuilder(NodeVisitor):
             return
         raise InvalidProgramException(node, 'invalid.ghost', f'{cond} only allowed after "#@ interface"')
 
+    def _check_no_lemmas(self):
+        if self.lemmas:
+            raise InvalidProgramException(first(self.lemmas.values()).node, 'invalid.lemma',
+                                          'Lemmas are not allowed in interfaces')
+
     def generic_visit(self, node: ast.Node, *args):
         raise InvalidProgramException(node, 'invalid.spec')
 
@@ -322,6 +327,7 @@ class ProgramBuilder(NodeVisitor):
             elif case(names.INTERFACE):
                 self._check_no_local_spec()
                 self._check_no_ghost_function()
+                self._check_no_lemmas()
                 self.is_interface = True
             elif case(names.INVARIANT):
                 # No local specifications allowed before invariants
@@ -438,6 +444,8 @@ class ProgramBuilder(NodeVisitor):
                 raise InvalidProgramException(node, 'invalid.lemma', 'A lemma cannot have a return type')
             if node.name in self.lemmas:
                 raise InvalidProgramException(node, 'duplicate.lemma')
+            if self.is_interface:
+                raise InvalidProgramException(node, 'invalid.lemma', 'Lemmas are not allowed in interfaces')
             self.lemmas[node.name] = function
         else:
             for decorator in node.decorators:

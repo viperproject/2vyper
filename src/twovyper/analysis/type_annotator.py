@@ -752,6 +752,17 @@ class TypeAnnotator(NodeVisitor):
                 raise UnsupportedException(node, "Unsupported function call")
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall):
+
+        # A lemma call
+        if isinstance(node.receiver, ast.Name) and node.receiver.id == names.LEMMA:
+            for arg in node.args:
+                self.annotate(arg)
+
+            for kw in node.keywords:
+                self.annotate(kw.value)
+
+            return [types.VYPER_BOOL], [node]
+
         def expected(t):
             is_self_call = isinstance(t, SelfType)
             is_external_call = isinstance(t, (ContractType, InterfaceType))
@@ -778,10 +789,8 @@ class TypeAnnotator(NodeVisitor):
             for kw in node.keywords:
                 self.annotate(kw.value)
 
-            # A logging or lemma call
+            # A logging call
             if not receiver_type:
-                if node.receiver.id == names.LEMMA:
-                    return [types.VYPER_BOOL], [node]
                 return [None], [node]
             # A contract call
             elif isinstance(receiver_type, ContractType):
