@@ -517,16 +517,18 @@ class StructureChecker(NodeVisitor):
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall, ctx: _Context,
                            program: VyperProgram, function: Optional[VyperFunction]):
-        if ctx == _Context.GHOST_CODE:
+        if ctx == _Context.CALLER_PRIVATE:
+            _assert(False, node, 'spec.call')
+        elif ctx.is_specification:
             receiver = node.receiver
             if isinstance(receiver, ast.Name) and receiver.id == names.LEMMA:
                 other_lemma = program.lemmas.get(node.name)
                 _assert(other_lemma is not None, node, 'invalid.lemma',
                         f'Unknown lemma to call: {node.name}')
-            else:
+            elif ctx == _Context.GHOST_CODE:
                 _assert(False, node, 'invalid.ghost.code')
-        elif ctx.is_specification:
-            _assert(False, node, 'spec.call')
+            else:
+                _assert(False, node, 'spec.call')
         elif ctx == _Context.GHOST_FUNCTION:
             _assert(False, node, 'invalid.ghost')
         elif ctx == _Context.LEMMA:
