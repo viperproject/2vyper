@@ -755,11 +755,15 @@ class TypeAnnotator(NodeVisitor):
 
         # A lemma call
         if isinstance(node.receiver, ast.Name) and node.receiver.id == names.LEMMA:
-            for arg in node.args:
-                self.annotate(arg)
+            self.annotate(node.receiver)
+            _check(not isinstance(node.receiver.type, (ContractType, InterfaceType)),
+                   node.receiver,  'invalid.lemma.receiver',
+                   'A receiver, with name "lemma" and with a contract- or interface-type, is not supported.')
 
-            for kw in node.keywords:
-                self.annotate(kw.value)
+            lemma = self.program.lemmas[node.name]
+            _check_number_of_arguments(node, len(lemma.args))
+            for arg, func_arg in zip(node.args, lemma.args.values()):
+                self.annotate_expected(arg, func_arg.type)
 
             return [types.VYPER_BOOL], [node]
 
