@@ -29,6 +29,7 @@ from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
+from twovyper.translation.wrapped_viper_ast import WrappedViperAST
 
 from twovyper.utils import switch, first_index
 
@@ -65,6 +66,25 @@ class ExpressionTranslator(NodeTranslator):
             ast.ComparisonOperator.GTE: self.viper_ast.GeCmp,
             ast.ComparisonOperator.GT: self.viper_ast.GtCmp
         }
+
+    def translate_top_level_expression(self, node: ast.Expr, res: List[Stmt], ctx: Context):
+        """
+        A top level expression is an expression directly used in a statement.
+
+        Generally, we do not need to $wrap inside of a top level expression. Therefore, we only keep the information if
+        some expressions got unwrapped inside this expression and if this expression could get wrapped. If both is true,
+        only then we wrap this expression again.
+        Doing this, prevents the $wrap($unwrap($wrap($unwrap(...))) chain during translation.
+        """
+        if isinstance(self.viper_ast, WrappedViperAST):
+            self.viper_ast.unwrapped_some_expressions = False
+            result = self.translate(node, res, ctx)
+            if self.viper_ast.unwrapped_some_expressions:
+                if types.is_numeric(node.type) and self.arithmetic_translator.is_unwrapped(result):
+                    result = helpers.w_wrap(self.viper_ast, result)
+            return result
+        else:
+            return self.translate(node, res, ctx)
 
     @property
     def no_reverts(self) -> bool:
@@ -117,8 +137,13 @@ class ExpressionTranslator(NodeTranslator):
     def translate_ArithmeticOp(self, node: ast.ArithmeticOp, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
-        left = self.translate(node.left, res, ctx)
-        right = self.translate(node.right, res, ctx)
+        if node.op in self.arithmetic_translator.non_linear_ops:
+            # Since we need the information if an expression was wrapped, we can treat this expressions as top-level.
+            left = self.translate_top_level_expression(node.left, res, ctx)
+            right = self.translate_top_level_expression(node.right, res, ctx)
+        else:
+            left = self.translate(node.left, res, ctx)
+            right = self.translate(node.right, res, ctx)
 
         return self.arithmetic_translator.arithmetic_op(left, node.op, right, node.type, res, ctx, pos)
 
@@ -404,9 +429,11 @@ class ExpressionTranslator(NodeTranslator):
                 elif case(types.VYPER_BOOL, types.VYPER_DECIMAL):
                     d_one = 1 * types.VYPER_DECIMAL.scaling_factor
                     d_one_lit = self.viper_ast.IntLit(d_one, pos)
-                    return self.viper_ast.CondExp(arg, d_one_lit, zero, pos)
+                    return helpers.w_wrap(self.viper_ast, self.viper_ast.CondExp(arg, d_one_lit, zero, pos))
                 elif case(types.VYPER_BOOL, types.VYPER_BYTES32):
                     return self.viper_ast.CondExp(arg, one_array, zero_array, pos)
+                elif case(types.VYPER_BOOL, _, where=types.is_numeric(to_type)):
+                    return helpers.w_wrap(self.viper_ast, self.viper_ast.CondExp(arg, one, zero, pos))
                 elif case(types.VYPER_BOOL, _):
                     return self.viper_ast.CondExp(arg, one, zero, pos)
                 # --------------------- ? -> bool ---------------------
@@ -665,6 +692,21 @@ class ExpressionTranslator(NodeTranslator):
             event = ctx.program.events[name]
             self._log_event(event, args, res, ctx, pos)
             return None
+        elif node.receiver.id == names.LEMMA:
+            lemma = ctx.program.lemmas[node.name]
+            mangled_name = mangled.lemma_name(node.name)
+            call_pos = self.to_position(lemma.node, ctx)
+            via = Via('lemma', call_pos)
+            pos = self.to_position(node, ctx, vias=[via], rules=rules.LEMMA_FAIL, values={'function': lemma})
+            args = [self.translate_top_level_expression(arg, res, ctx) for arg in node.args]
+            for idx, arg_var in enumerate(lemma.args.values()):
+                if types.is_numeric(arg_var.type):
+                    if self.arithmetic_translator.is_unwrapped(args[idx]):
+                        args[idx] = helpers.w_wrap(self.viper_ast, args[idx], pos)
+            viper_ast = self.viper_ast
+            if isinstance(viper_ast, WrappedViperAST):
+                viper_ast = viper_ast.viper_ast
+            return viper_ast.FuncApp(mangled_name, args, pos, type=self.viper_ast.Bool)
         else:
             assert False
 
@@ -721,6 +763,8 @@ class ExpressionTranslator(NodeTranslator):
                             ctx.locals[mangled.CALLER] = caller_var
                             ctx.new_local_vars.append(caller_var.var_decl(ctx, pos))
                             self_address = ctx.self_address or helpers.self_address(self.viper_ast, pos)
+                            if self.arithmetic_translator.is_wrapped(self_address):
+                                self_address = helpers.w_unwrap(self.viper_ast, self_address)
                             assign = self.viper_ast.LocalVarAssign(caller_var.local_var(ctx, pos), self_address, pos)
                             body.append(assign)
 
@@ -975,7 +1019,8 @@ class ExpressionTranslator(NodeTranslator):
         if modifying:
             self.state_translator.copy_state(ctx.current_state, old_state_for_postconditions, res, ctx)
             # Havoc state
-            self.state_translator.havoc_state(ctx.current_state, res, ctx)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx,
+                                              unless=lambda n: n != mangled.CONTRACTS)
 
             # Assume caller private and create new contract state
             assume_caller_private = []
@@ -983,8 +1028,7 @@ class ExpressionTranslator(NodeTranslator):
             self.seqn_with_info(assume_caller_private, "Assume caller private", res)
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
                                              unless=lambda n: n != mangled.CONTRACTS)
-            self.state_translator.havoc_state(ctx.current_state, res, ctx,
-                                              unless=lambda n: n != mangled.CONTRACTS)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx)
 
             ############################################################################################################
             #                         We did not yet make any assumptions about the self state.                        #
@@ -1023,9 +1067,6 @@ class ExpressionTranslator(NodeTranslator):
             use_zero_reentrant_call_state = []
             self.state_translator.copy_state(ctx.current_old_state, ctx.current_state,
                                              use_zero_reentrant_call_state, ctx)
-            self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state,
-                                             use_zero_reentrant_call_state, ctx,
-                                             unless=lambda n: n != mangled.CONTRACTS)
             res.append(self.viper_ast.If(no_reentrant_cond, use_zero_reentrant_call_state, []))
 
             ############################################################################################################
@@ -1056,6 +1097,8 @@ class ExpressionTranslator(NodeTranslator):
             #   any other contract might got called which could change everything except caller private expressions.   #
             ############################################################################################################
 
+            self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state, res,
+                                             ctx, unless=lambda n: n != mangled.CONTRACTS)
             # Assert inter contract invariants during call
             assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
                                             rules.DURING_CALL_INVARIANT_FAIL)
@@ -1085,11 +1128,6 @@ class ExpressionTranslator(NodeTranslator):
         if known:
             self._assume_interface_specifications(node, interface, function, args, to, amount, success,
                                                   return_value, res, ctx)
-
-        if modifying:
-            assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
-                                            rules.AFTER_CALL_INVARIANT_FAIL)
-            self.seqn_with_info(assert_invs, "Assert inter contract invariants after call", res)
 
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
@@ -1183,6 +1221,19 @@ class ExpressionTranslator(NodeTranslator):
                 apos = arg.pos()
                 arg_var = self._translate_var(var, ctx)
                 ctx.locals[name] = arg_var
+                lhs = arg_var.local_var(ctx)
+                if (types.is_numeric(arg_var.type)
+                        and self.arithmetic_translator.is_wrapped(arg)
+                        and self.arithmetic_translator.is_unwrapped(lhs)):
+                    arg_var.is_local = False
+                    lhs = arg_var.local_var(ctx)
+                elif (types.is_numeric(arg_var.type)
+                      and self.arithmetic_translator.is_unwrapped(arg)
+                      and self.arithmetic_translator.is_wrapped(lhs)):
+                    arg = helpers.w_wrap(self.viper_ast, arg)
+                elif (not types.is_numeric(arg_var.type)
+                      and self.arithmetic_translator.is_wrapped(arg)):
+                    arg = helpers.w_unwrap(self.viper_ast, arg)
                 ctx.new_local_vars.append(arg_var.var_decl(ctx))
                 body.append(self.viper_ast.LocalVarAssign(arg_var.local_var(ctx), arg, apos))
 
@@ -1191,8 +1242,12 @@ class ExpressionTranslator(NodeTranslator):
                 ret_name = ctx.inline_prefix + mangled.RESULT_VAR
                 ret_pos = return_value.pos()
                 ctx.result_var = TranslatedVar(names.RESULT, ret_name, function.type.return_type,
-                                               self.viper_ast, ret_pos)
+                                               self.viper_ast, ret_pos, is_local=False)
                 ctx.new_local_vars.append(ctx.result_var.var_decl(ctx, ret_pos))
+
+                if (types.is_numeric(function.type.return_type)
+                        and self.arithmetic_translator.is_unwrapped(return_value)):
+                    return_value = helpers.w_wrap(self.viper_ast, return_value)
                 body.append(self.viper_ast.LocalVarAssign(ctx.result_var.local_var(ret_pos), return_value, ret_pos))
 
             # Add success variable

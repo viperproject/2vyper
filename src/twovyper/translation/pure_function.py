@@ -36,7 +36,7 @@ class PureFunctionTranslator(PureTranslatorMixin, FunctionTranslator):
 
             ctx.function = function
 
-            args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
+            args = {name: self._translate_pure_non_local_var(var, ctx) for name, var in function.args.items()}
             state = {names.SELF: TranslatedVar(names.SELF, mangled.present_state_var_name(names.SELF),
                                                types.AnyStructType(), self.viper_ast, pos)}
             ctx.present_state = state
@@ -114,17 +114,31 @@ class PureFunctionTranslator(PureTranslatorMixin, FunctionTranslator):
             result_var = helpers.struct_pure_get_result(self.viper_ast, function_result, viper_type, pos)
             body.append(self.viper_ast.EqCmp(result_var, value))
 
-            args_list = [arg.var_decl(ctx) for arg in chain(state.values(), args.values())]
+            # Arguments have to be TranslatedVar. Therefore, transform the non-local TranslatedPureIndexedVar to
+            # local TranslatedVar.
+            arg_transform = []
+            new_args = {}
+            for arg_name, arg in args.items():
+                assert isinstance(arg, TranslatedPureIndexedVar)
+                if not arg.is_local:
+                    lhs = arg.local_var(ctx)
+                    new_arg = TranslatedVar(arg.name, arg.mangled_name, arg.type, arg.viper_ast,
+                                            arg.pos, arg.info, is_local=True)
+                    rhs = new_arg.local_var(ctx)
+                    arg_transform.append(self.viper_ast.EqCmp(lhs, rhs))
+                    new_args[arg_name] = new_arg
+            body = arg_transform + body
+            args_list = [arg.var_decl(ctx) for arg in chain(state.values(), new_args.values())]
 
             viper_name = mangled.pure_function_name(function.name)
             function = self.viper_ast.Function(viper_name, args_list, helpers.struct_type(self.viper_ast),
                                                [], body, None, pos)
             return function
 
-    def _translate_var(self, var: VyperVar, ctx: Context):
+    def _translate_pure_non_local_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)
         name = mangled.local_var_name(ctx.inline_prefix, var.name)
-        return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)
+        return TranslatedPureIndexedVar(var.name, name, var.type, self.viper_ast, pos, is_local=False)
 
     def inline(self, call: ast.ReceiverCall, args: List[Expr], res: List[Expr], ctx: Context) -> Expr:
         return self._call_pure(call, args, res, ctx)

@@ -58,7 +58,7 @@ class FunctionTranslator(CommonTranslator):
             ctx.function = function
             is_init = (function.name == names.INIT)
 
-            args = {name: self._translate_var(var, ctx) for name, var in function.args.items()}
+            args = {name: self._translate_var(var, ctx, False) for name, var in function.args.items()}
             # Local variables will be added when translating.
             local_vars = {
                 # The msg variable
@@ -846,23 +846,39 @@ class FunctionTranslator(CommonTranslator):
 
             self.fail_if(self.viper_ast.Not(success_var), [], res, ctx, call_pos)
 
+            if (types.is_numeric(function.type.return_type)
+                    and self.expression_translator.arithmetic_translator.is_unwrapped(ret_var)):
+                ret_var = helpers.w_wrap(self.viper_ast, ret_var)
             return ret_var
 
     def _generate_arguments_as_local_vars(self, function, args, res, pos, ctx):
         # Add arguments to local vars, assign passed args or default argument
         for (name, var), arg in zip_longest(function.args.items(), args):
             apos = self.to_position(var.node, ctx)
-            translated_arg = self._translate_var(var, ctx)
+            translated_arg = self._translate_var(var, ctx, True)
             ctx.args[name] = translated_arg
-            ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
             if not arg:
                 arg = self.expression_translator.translate(function.defaults[name], res, ctx)
-            res.append(self.viper_ast.LocalVarAssign(translated_arg.local_var(ctx), arg, apos))
+            lhs = translated_arg.local_var(ctx)
+            if (types.is_numeric(translated_arg.type)
+                    and self.expression_translator.arithmetic_translator.is_wrapped(arg)
+                    and self.expression_translator.arithmetic_translator.is_unwrapped(lhs)):
+                translated_arg.is_local = False
+                lhs = translated_arg.local_var(ctx)
+            elif (types.is_numeric(translated_arg.type)
+                    and self.expression_translator.arithmetic_translator.is_unwrapped(arg)
+                    and self.expression_translator.arithmetic_translator.is_wrapped(lhs)):
+                arg = helpers.w_wrap(self.viper_ast, arg)
+            elif (not types.is_numeric(translated_arg.type)
+                    and self.expression_translator.arithmetic_translator.is_wrapped(arg)):
+                arg = helpers.w_unwrap(self.viper_ast, arg)
+            ctx.new_local_vars.append(translated_arg.var_decl(ctx, pos))
+            res.append(self.viper_ast.LocalVarAssign(lhs, arg, apos))
 
-    def _translate_var(self, var: VyperVar, ctx: Context):
+    def _translate_var(self, var: VyperVar, ctx: Context, is_local: bool):
         pos = self.to_position(var.node, ctx)
         name = mangled.local_var_name(ctx.inline_prefix, var.name)
-        return TranslatedVar(var.name, name, var.type, self.viper_ast, pos)
+        return TranslatedVar(var.name, name, var.type, self.viper_ast, pos, is_local=is_local)
 
     def _assume_non_negative(self, var, res: List[Stmt]):
         zero = self.viper_ast.IntLit(0)

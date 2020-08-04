@@ -522,6 +522,8 @@ class SpecificationTranslator(ExpressionTranslator):
             assert False
 
     def translate_ReceiverCall(self, node: ast.ReceiverCall, res: List[Stmt], ctx: Context) -> Expr:
+        if node.receiver.id == names.LEMMA:
+            return super().translate_ReceiverCall(node, res, ctx)
         assert False
 
     def _low(self, expr, type: VyperType, ctx: Context, pos=None) -> Expr:

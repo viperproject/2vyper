@@ -85,7 +85,8 @@ class TypeAnnotator(NodeVisitor):
             names.TX: [types.TX_TYPE],
             names.MSG: [types.MSG_TYPE],
             names.SELF: [types.VYPER_ADDRESS, self_type],
-            names.LOG: [None]
+            names.LOG: [None],
+            names.LEMMA: [None]
         }
 
     @contextmanager
@@ -140,6 +141,19 @@ class TypeAnnotator(NodeVisitor):
 
                 for performs in function.performs:
                     self.annotate(performs)
+
+        for lemma in self.program.lemmas.values():
+            with self._function_scope(lemma):
+                for stmt in lemma.node.body:
+                    assert isinstance(stmt, ast.ExprStmt)
+                    self.annotate_expected(stmt.value, types.VYPER_BOOL)
+
+                for name, default in lemma.defaults.items():
+                    if default:
+                        self.annotate_expected(default, lemma.args[name].type)
+
+                for pre in lemma.preconditions:
+                    self.annotate_expected(pre, types.VYPER_BOOL)
 
         for ghost_function in self.program.ghost_function_implementations.values():
             assert isinstance(ghost_function, GhostFunction)
@@ -738,6 +752,21 @@ class TypeAnnotator(NodeVisitor):
                 raise UnsupportedException(node, "Unsupported function call")
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall):
+
+        # A lemma call
+        if isinstance(node.receiver, ast.Name) and node.receiver.id == names.LEMMA:
+            self.annotate(node.receiver)
+            _check(not isinstance(node.receiver.type, (ContractType, InterfaceType)),
+                   node.receiver,  'invalid.lemma.receiver',
+                   'A receiver, with name "lemma" and with a contract- or interface-type, is not supported.')
+
+            lemma = self.program.lemmas[node.name]
+            _check_number_of_arguments(node, len(lemma.args))
+            for arg, func_arg in zip(node.args, lemma.args.values()):
+                self.annotate_expected(arg, func_arg.type)
+
+            return [types.VYPER_BOOL], [node]
+
         def expected(t):
             is_self_call = isinstance(t, SelfType)
             is_external_call = isinstance(t, (ContractType, InterfaceType))

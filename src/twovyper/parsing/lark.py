@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from functools import reduce
 from typing import Any, Dict, List
+import re
 
 from lark import Lark
 from lark.exceptions import ParseError, UnexpectedInput, VisitError
@@ -536,24 +537,40 @@ def parse(parser, text, file):
         raise e.orig_exc
 
 
-class GhostCodeVisitor(NodeVisitor):
+class CodeVisitor(NodeVisitor):
 
-    def find_ghost_code(self, text: str, node: ast.Node):
+    def find_lost_code_information(self, text: str, node: ast.Node):
         lines = text.splitlines()
         ghost = {}
+        lemmas = {}
+        pattern = re.compile(r'#@\s*lemma_(def|assert).*')
         for idx, line in enumerate(lines):
-            ghost[idx + 1] = line.strip().startswith('#@')
+            line_strip = line.strip()
+            ghost[idx + 1] = line_strip.startswith('#@')
+            match = pattern.match(line_strip)
+            lemmas[idx + 1] = match is not None
 
-        self.visit(node, ghost)
+        self.visit(node, ghost, lemmas)
 
-    def generic_visit(self, node: ast.Node, ghost: Dict[int, bool]):
+    def generic_visit(self, node: ast.Node, *args):
+        ghost: Dict[int, bool] = args[0]
         node.is_ghost_code = ghost[node.lineno]
-        super().generic_visit(node, ghost)
+        super().generic_visit(node, *args)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef, *args):
+        lemmas: Dict[int, bool] = args[1]
+        node.is_lemma = lemmas[node.lineno]
+        self.generic_visit(node, *args)
+
+    def visit_Assert(self, node: ast.Assert, *args):
+        lemmas: Dict[int, bool] = args[1]
+        node.is_lemma = lemmas[node.lineno]
+        self.generic_visit(node, *args)
 
 
 def parse_module(text, original, file) -> ast.Module:
     node = parse(_vyper_module_parser, text + '\n', file)
-    GhostCodeVisitor().find_ghost_code(original, node)
+    CodeVisitor().find_lost_code_information(original, node)
     return node
 
 

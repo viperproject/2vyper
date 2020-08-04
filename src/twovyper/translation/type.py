@@ -25,6 +25,15 @@ class TypeTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
+        wrapped_int_type = helpers.wrapped_int_type(self.viper_ast)
+        self.wrapped_type_dict = {
+            types.VYPER_BOOL: viper_ast.Bool,
+            types.VYPER_INT128: wrapped_int_type,
+            types.VYPER_UINT256: wrapped_int_type,
+            types.VYPER_DECIMAL: wrapped_int_type,
+            types.VYPER_ADDRESS: viper_ast.Int,
+            types.VYPER_BYTE: viper_ast.Int
+        }
         self.type_dict = {
             types.VYPER_BOOL: viper_ast.Bool,
             types.VYPER_INT128: viper_ast.Int,
@@ -34,9 +43,12 @@ class TypeTranslator(CommonTranslator):
             types.VYPER_BYTE: viper_ast.Int
         }
 
-    def translate(self, type: VyperType, ctx: Context) -> Type:
+    def translate(self, type: VyperType, ctx: Context, is_local=True) -> Type:
         if isinstance(type, PrimitiveType):
-            return self.type_dict[type]
+            if is_local:
+                return self.type_dict[type]
+            else:
+                return self.wrapped_type_dict[type]
         elif isinstance(type, MapType):
             key_type = self.translate(type.key_type, ctx)
             value_type = self.translate(type.value_type, ctx)
@@ -51,12 +63,16 @@ class TypeTranslator(CommonTranslator):
         else:
             assert False
 
-    def default_value(self, node: Optional[ast.Node], type: VyperType, res: List[Stmt], ctx: Context) -> Expr:
+    def default_value(self, node: Optional[ast.Node], type: VyperType, res: List[Stmt],
+                      ctx: Context, is_local=True) -> Expr:
         pos = self.no_position() if node is None else self.to_position(node, ctx)
         if type is types.VYPER_BOOL:
             return self.viper_ast.FalseLit(pos)
         elif isinstance(type, PrimitiveType):
-            return self.viper_ast.IntLit(0, pos)
+            if is_local:
+                return self.viper_ast.IntLit(0, pos)
+            else:
+                return helpers.w_wrap(self.viper_ast, self.viper_ast.IntLit(0, pos), pos)
         elif isinstance(type, MapType):
             key_type = self.translate(type.key_type, ctx)
             value_type = self.translate(type.value_type, ctx)

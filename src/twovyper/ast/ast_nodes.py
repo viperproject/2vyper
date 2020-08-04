@@ -370,6 +370,7 @@ class FunctionDef(Stmt, AllowedInGhostCode):
         self.body = body
         self.decorators = decorators
         self.returns = returns
+        self.is_lemma = False
 
 
 class FunctionStub(Stmt, AllowedInGhostCode):
@@ -472,6 +473,7 @@ class Assert(Stmt, AllowedInGhostCode):
         super().__init__()
         self.test = test
         self.msg = msg
+        self.is_lemma = False
 
 
 class Alias(Node):

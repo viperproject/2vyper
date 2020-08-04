@@ -1,0 +1,271 @@
+/*
+  Copyright (c) 2020 ETH Zurich
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+domain $Int {
+  function $wrap(x: Int): $Int
+  function $unwrap(x: $Int): Int
+
+  axiom $wrap_ax {
+    forall i: Int :: {$wrap(i)} $unwrap($wrap(i)) == i
+  }
+
+  axiom $unwrap_ax {
+    forall i: $Int :: {$wrap($unwrap(i))} $wrap($unwrap(i)) == i
+  }
+
+  // Operations on the wrapped integer
+
+  function $w_mul(x: $Int, y: $Int): $Int
+
+  function $w_mulI(x: $Int, y: $Int): $Int // an intermediate (also limited) mul function
+
+  function $w_mulL(x: $Int, y: $Int): $Int // a limited mul function
+
+  function $w_abs(x: $Int): Int
+
+  function $w_mod($a: $Int, $b: $Int): $Int
+
+  function $w_modL($a: $Int, $b: $Int): $Int // a limited mod function
+
+  function $w_div($a: $Int, $b: $Int): $Int
+
+  function $w_div_down($a: $Int, $b: $Int): $Int
+
+  function $w_div_nat($a: $Int, $b: $Int): $Int
+
+  function $w_div_natL($a: $Int, $b: $Int): $Int // a limited div_nat function
+
+  axiom $w_abs_ax_1 {
+    forall i: $Int :: {$w_abs(i)} $unwrap(i) < 0 ==> $w_abs(i) == -$unwrap(i)
+  }
+
+  axiom $w_abs_ax_2 {
+    forall i: $Int :: {$w_abs(i)} $unwrap(i) >= 0 ==> $w_abs(i) == $unwrap(i)
+  }
+
+  axiom $w_mul_intermediate {
+    forall i: $Int, j: $Int :: {$w_mul(i, j)} $w_mul(i, j) == $w_mulI(i, j)
+  }
+
+  axiom $w_mul_limited {
+    forall i: $Int, j: $Int :: {$w_mul(i, j)} $w_mul(i, j) == $w_mulL(i, j)
+  }
+
+  axiom $w_mul_intermediate_to_limited {
+    forall i: $Int, j: $Int :: {$w_mulI(i, j)} $w_mulI(i, j) == $w_mulL(i, j)
+  }
+
+  axiom $w_mul_commutative_1 {
+    forall i: $Int, j: $Int :: {$w_mul(i, j)} $w_mul(i, j) == $w_mulI(j, i)
+  }
+
+  axiom $w_mul_commutative_2 {
+    forall i: $Int, j: $Int :: {$w_mulI(i, j)} $w_mulI(i, j) == $w_mulL(j, i)
+  }
+
+  axiom $w_mul_associative {
+    forall i: $Int, j: $Int, k: $Int :: {$w_mulI(i, $w_mulI(j, k))} $w_mulI(i, $w_mulI(j, k)) == $w_mulL($w_mulL(i, j), k)
+  }
+
+  axiom $w_mul_distributive {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, j), $w_mulI(i, k), $w_mulI(i, l)} $unwrap(j) == $unwrap(k) + $unwrap(l) ==> $w_mulI(i, j) == $wrap($unwrap($w_mulL(i, k)) + $unwrap($w_mulL(i, l)))
+  }
+
+  axiom $w_mul_basic_sign_1 {
+    forall i: $Int, j: $Int :: {$w_mulI(i, j)} $w_mulI(i, j) == $w_mulL($wrap(-$unwrap(i)), $wrap(-$unwrap(j)))
+  }
+
+  axiom $w_mul_basic_sign_2 {
+    forall i: $Int, j: $Int :: {$w_mulI(i, j)} $w_mulI(i, j) == $wrap(-$unwrap($w_mulL($wrap(-$unwrap(i)), j)))
+  }
+
+  axiom $w_mul_basic_zero_1 {
+    forall i: $Int, j: $Int :: {$w_mulI(i, j)} ($unwrap(i) == 0 || $unwrap(j) == 0) ==> $unwrap($w_mulI(i, j)) == 0
+  }
+
+  axiom $w_mul_basic_zero_2 {
+    forall i: $Int, j: $Int :: {$w_mulI(i, j)} (($unwrap(i) > 0 && $unwrap(j) > 0) || ($unwrap(i) < 0 && $unwrap(j) < 0)) ==> $unwrap($w_mulI(i, j)) > 0
+  }
+
+  axiom $w_mul_basic_neutral {
+    forall i: $Int, j: $Int :: {$w_mulI(i, j)} ($unwrap(i) == 1 || $unwrap(j) == 0) ==> $w_mulI(i, j) == j
+  }
+
+  axiom $w_mul_basic_proportional {
+    forall i: $Int, j: $Int :: {$w_mulI(i, j)} ($w_abs($w_mulI(i, j)) >= $w_abs(j)) <==> ($w_abs(i) >= 1 || $unwrap(j) == 0)
+  }
+
+  axiom $w_mul_order_1 {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, $w_mulI(j, l)), $w_mulI(k, l)} ($unwrap($w_mulI(i, j)) > $unwrap(k) && $unwrap(l) > 0) ==> $unwrap($w_mulL(i, $w_mulL(j, l))) > $unwrap($w_mulI(k, l))
+  }
+
+  axiom $w_mul_order_2 {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, $w_mulI(j, l)), $w_mulI(k, l)} ($unwrap($w_mulI(i, j)) >= $unwrap(k) && $unwrap(l) > 0) ==> $unwrap($w_mulL(i, $w_mulL(j, l))) >= $unwrap($w_mulI(k, l))
+  }
+
+  axiom $w_mul_order_3 {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, $w_mulI(j, l)), $w_mulI(k, l)} ($unwrap($w_mulI(i, j)) > $unwrap(k) && $unwrap(l) < 0) ==> $unwrap($w_mulI(k, l)) > $unwrap($w_mulL(i, $w_mulL(j, l)))
+  }
+
+  axiom $w_mul_order_4 {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, $w_mulI(j, l)), $w_mulI(k, l)} ($unwrap($w_mulI(i, j)) >= $unwrap(k) && $unwrap(l) < 0) ==> $unwrap($w_mulI(k, l)) >= $unwrap($w_mulL(i, $w_mulL(j, l)))
+  }
+
+  axiom $w_mul_monotonicity_1 {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, k), $w_mulI(j, l)} ($w_abs(i) <= $w_abs(j) && $w_abs(k) <= $w_abs(l)) ==> $w_abs($w_mulI(i, k)) <= $w_abs($w_mulI(j, l))
+  }
+
+  axiom $w_mul_monotonicity_2 {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, k), $w_mulI(j, l)} ($w_abs(i) < $w_abs(j) && $w_abs(k) <= $w_abs(l) && $unwrap(l) != 0) ==> $w_abs($w_mulI(i, k)) < $w_abs($w_mulI(j, l))
+  }
+
+  axiom $w_mul_monotonicity_3 {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, k), $w_mulI(j, l)} ($w_abs(i) <= $w_abs(j) && $w_abs(k) < $w_abs(l) && $unwrap(j) != 0) ==> $w_abs($w_mulI(i, k)) < $w_abs($w_mulI(j, l))
+  }
+
+  axiom $w_mod_limited {
+    forall i: $Int, j: $Int  :: {$w_mod(i, j)} $w_mod(i, j) == $w_modL(i, j)
+  }
+
+  axiom $w_mod_identity {
+    forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> (i == j || i == $wrap(0)) ==> $w_mod(i, j) == $wrap(0)
+  }
+
+  axiom $w_mod_basic_1 {
+    forall i: $Int, j: $Int, l: $Int :: {$w_mod(i, j), $w_mod(l, j)}  j != $wrap(0) ==> ($unwrap(i) == $unwrap(l) + $w_abs(j) && ($unwrap(l) >= 0 || $unwrap(i) < 0)) ==> $w_mod(i, j) == $w_modL(l, j)
+  }
+
+  axiom $w_mod_basic_2 {
+    forall i: $Int, j: $Int, l: $Int :: {$w_mod(i, j), $w_mod(l, j)}  j != $wrap(0) ==> ($unwrap(i) == $unwrap(l) - $w_abs(j) && ($unwrap(l) <= 0 || $unwrap(i) > 0)) ==> $w_mod(i, j) == $w_modL(l, j)
+  }
+
+  axiom $w_mod_basic_3 {
+    forall i: $Int, j: $Int :: {$w_mod(i, j)}  j != $wrap(0) ==> (0 <= $w_abs(i) &&  $w_abs(i) < $w_abs(j)) ==> $w_mod(i, j) == i
+  }
+
+  axiom $w_mod_basic_4 {
+    forall i: $Int, j: $Int :: {$w_mod(i, j)}  j != $wrap(0) ==> $w_abs($w_mod(i, j)) < $w_abs(j)
+  }
+
+  axiom $w_mod_sign_1 {
+    forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> ($sign($unwrap($w_mod(i, j))) == $sign($unwrap(i)) || $sign($unwrap($w_mod(i, j))) == 0)
+  }
+
+  axiom $w_mod_sign_2 {
+    forall i: $Int, j: $Int, k: $Int :: {$w_mod(i, j), $w_mod(k, j)} j != $wrap(0) ==> $unwrap(i) == -$unwrap(k) ==> $w_mod(i, j) == $wrap(-$unwrap($w_modL(k, j)))
+  }
+
+  axiom $w_mod_sign_3 {
+    forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> ($w_mod(i, j) == $w_mod(i, $wrap(-$unwrap(j))))
+  }
+
+  axiom $w_mod_mod {
+    forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> $w_mod(i, j) == $w_modL($w_modL(i, j), j)
+  }
+
+  axiom $w_mod_decrease {
+    forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> $w_abs($w_mod(i, j)) <= $w_abs(i)
+  }
+
+  axiom $w_mod_add {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mod(i, j), $w_mod(k, j), $w_mod(l, j)} j != $wrap(0) ==> ($unwrap(i) == $unwrap(k) + $unwrap(l) ==> (
+      ((($unwrap(i) >= 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) >= 0) || ($unwrap(i) <= 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) <= 0)) ==> (
+           ($w_abs(j)      <= ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <  2 * $w_abs(j) && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) - $w_abs(j)))
+        || (-$w_abs(j)     <  ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <  $w_abs(j)     && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))))
+        || (-2 * $w_abs(j) <  ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <= -$w_abs(j)    && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) + $w_abs(j)))
+      )) && ((($unwrap(i) > 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) < 0) || ($unwrap(i) < 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) > 0)) ==> (
+           (0              <  ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <  $w_abs(j)     && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) - $w_abs(j)))
+        || (-$w_abs(j)     <  ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) && ($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j))) <  0             && $w_mod(i, j) == $wrap($unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) + $w_abs(j)))
+      ))
+    ))
+  }
+
+  axiom $w_mod_mul_basic {
+    forall i: $Int, j: $Int :: {$w_mod($w_mul(i, j), j)} j != $wrap(0) ==> $w_mod($w_mul(i, j), j) == $wrap(0)
+  }
+
+  axiom $w_mod_mul_mod_noop {
+    forall i: $Int, j: $Int, k: $Int :: {$w_mod($w_mulI(i, k), j)} j != $wrap(0) ==> (
+         $w_mod($w_mulI(i, k), j) == $w_modL($w_mulL($w_modL(i, j), k), j)
+      && $w_mod($w_mulI(i, k), j) == $w_modL($w_mulL(i, $w_modL(k, j)), j)
+      && $w_mod($w_mulI(i, k), j) == $w_modL($w_mulL($w_modL(i, j), $w_modL(k, j)), j)
+    )
+  }
+
+  axiom $w_mod_mul_vanish {
+    forall i: $Int, j: $Int, k: $Int :: {$w_mod(i, j), $w_mulI(k, j)} j != $wrap(0) ==> $w_mod(i, j) == $w_modL($wrap($unwrap($w_mulL(k, j)) + $unwrap(i)), j)
+  }
+
+  axiom $w_div_div_down{
+    forall i: $Int, j: $Int :: {$w_div(i, j)} $unwrap(j) != 0 ==> $w_div(i, j) == ($unwrap(i) >= 0 ? $w_div_down(i, j) : $wrap(-$unwrap($w_div_down($wrap(-$unwrap(i)), j))))
+  }
+
+  axiom $w_div_down_div_nat{
+    forall i: $Int, j: $Int :: {$w_div_down(i, j)} $w_div_down(i, j) == ($unwrap(j) >= 0 ? $w_div_nat(i, j) : $wrap(-$unwrap($w_div_nat(i, $wrap(-$unwrap(j))))))
+  }
+
+  axiom $w_div_nat_limited {
+    forall i: $Int, j: $Int :: {$w_div_nat(i, j)} $w_div_nat(i, j) == $w_div_natL(i, j)
+  }
+
+  axiom $w_div_nat_neutral {
+    forall i: $Int, j: $Int :: {$w_div_nat(i, j)} ($unwrap(j) == 1 || $unwrap(i) == 0) ==> $w_div_nat(i, j) == i
+  }
+
+  axiom $w_div_nat_self {
+    forall i: $Int :: {$w_div_nat(i, i)} $unwrap(i) > 0 ==> $w_div_nat(i, i) == $wrap(1)
+  }
+
+  axiom $w_div_nat_small {
+    forall i: $Int, j: $Int :: {$w_div_nat(i, j)} $unwrap(i) >= 0 && $unwrap(j) > 0 ==> ($unwrap(i) < $unwrap(j) <==> $w_div_nat(i, j) == $wrap(0))
+  }
+
+  axiom $w_div_nat_dividend_add {
+    forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_div_nat(i, j), $w_div_nat(k, j), $w_div_nat(l, j)} ($unwrap(i) >= 0 && $unwrap(j) > 0 && $unwrap(k) >= 0 && $unwrap(l) >= 0) ==> (
+      $unwrap(i) == $unwrap(k) + $unwrap(l) ==> (
+           (0          <= $unwrap($w_mod(k, j)) + $unwrap($w_mod(l, j)) && $unwrap($w_mod(k, j)) + $unwrap($w_mod(l, j)) <     $unwrap(j) && $w_div_nat(i, j) == $wrap($unwrap($w_div_natL(k, j)) + $unwrap($w_div_natL(l, j))))
+        || ($unwrap(j) <= $unwrap($w_mod(k, j)) + $unwrap($w_mod(l, j)) && $unwrap($w_mod(k, j)) + $unwrap($w_mod(l, j)) < 2 * $unwrap(j) && $w_div_nat(i, j) == $wrap($unwrap($w_div_natL(k, j)) + $unwrap($w_div_natL(l, j)) + 1))
+    ))
+  }
+
+  axiom $w_div_nat_ordered_by_dividend {
+    forall i: $Int, j: $Int, k: $Int :: {$w_div_nat(i, j), $w_div_nat(k, j)} ($unwrap(i) >= 0 && $unwrap(j) > 0 && $unwrap(k) >= 0) ==> (
+      $unwrap(i) <= $unwrap(k) ==> $unwrap($w_div_nat(i, j)) <= $unwrap($w_div_natL(k, j))
+    )
+  }
+
+  axiom $w_div_nat_ordered_by_divisor {
+    forall i: $Int, j: $Int, k: $Int :: {$w_div_nat(i, j), $w_div_nat(i, k)} ($unwrap(i) >= 0 && $unwrap(j) > 0 && $unwrap(k) > 0) ==> (
+      $unwrap(j) <= $unwrap(k) ==> $unwrap($w_div_nat(i, j)) >= $unwrap($w_div_natL(i, k))
+    )
+  }
+
+  axiom $w_div_nat_decrease {
+    forall i: $Int, j: $Int :: {$w_div_nat(i, j)} ($unwrap(i) > 0 && $unwrap(j) > 1) ==> (
+      $unwrap($w_div_nat(i, j)) < $unwrap(i)
+    )
+  }
+
+  axiom $w_div_nat_nonincrease {
+    forall i: $Int, j: $Int :: {$w_div_nat(i, j)} ($unwrap(i) >= 0 && $unwrap(j) > 0) ==> (
+      $unwrap($w_div_nat(i, j)) <= $unwrap(i)
+    )
+  }
+
+  axiom $w_div_mul {
+    forall i: $Int, j: $Int :: {$w_div($w_mulI(i, j), j)} $unwrap(j) != 0 ==> $w_div($w_mulI(i, j), j) == i
+  }
+
+
+  axiom $w_div_sign {
+    forall i: $Int, j: $Int :: { $w_div(i, j) } $sign($unwrap($w_div(i, j))) == $sign($unwrap(i)) * $sign($unwrap(j)) || $sign($unwrap($w_div(i, j))) == 0
+  }
+
+  axiom $w_div_mod_mul {
+    forall i: $Int, j: $Int :: {$w_div(i, j), $w_mod(i, j)} $unwrap(j) != 0 ==> ($unwrap(i) == $unwrap($w_mulI(j, $w_div(i, j))) + $unwrap($w_mod(i, j)))
+  }
+}
