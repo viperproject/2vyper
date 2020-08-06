@@ -94,14 +94,14 @@ def wrapped_integer_decorator(*possible_wrapped_integer_inputs: str, wrap_output
                 info = next((kwargs[arg_name] for arg_name in info_names if arg_name in kwargs))
 
             def unwrap(a: Expr) -> Expr:
-                if False if not hasattr(a, 'isSubtype') else a.isSubtype(wrapped_int_type):
+                if hasattr(a, 'isSubtype') and a.isSubtype(wrapped_int_type):
                     nonlocal had_wrapped_integers
                     had_wrapped_integers = True
                     return helpers.w_unwrap(_self.viper_ast, a, pos, info)
                 return a
 
             def wrap(a: Expr) -> Expr:
-                if False if not hasattr(a, 'isSubtype') else a.isSubtype(_self.viper_ast.Int):
+                if hasattr(a, 'isSubtype') and a.isSubtype(_self.viper_ast.Int):
                     return helpers.w_wrap(_self.viper_ast, a, pos, info)
                 return a
 

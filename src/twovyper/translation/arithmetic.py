@@ -57,10 +57,10 @@ class ArithmeticTranslator(CommonTranslator):
         }
 
     def is_wrapped(self, val):
-        return False if not hasattr(val, 'isSubtype') else val.isSubtype(helpers.wrapped_int_type(self.viper_ast))
+        return hasattr(val, 'isSubtype') and val.isSubtype(helpers.wrapped_int_type(self.viper_ast))
 
     def is_unwrapped(self, val):
-        return False if not hasattr(val, 'isSubtype') else val.isSubtype(self.viper_ast.Int)
+        return hasattr(val, 'isSubtype') and val.isSubtype(self.viper_ast.Int)
 
     def unary_arithmetic_op(self, op: ast.UnaryArithmeticOperator, arg, otype: PrimitiveType, res: List[Stmt],
                             ctx: Context, pos=None) -> Expr:
