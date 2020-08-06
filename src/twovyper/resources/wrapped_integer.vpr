@@ -39,138 +39,196 @@ domain $Int {
 
   function $w_div_natL($a: $Int, $b: $Int): $Int // a limited div_nat function
 
+  // All axioms marked with "tested" were once automatically converted into a method with an assert and checked that
+  // the axioms hold on their own.
+  // Some axioms for the modulus (marked with "tested (only for natural numbers)") were only tested for natural numbers,
+  // since the Vyper modulus is a "remainder" operation but Viper uses the "true" mathematical modulus. Both moduli
+  // behave the same on natural numbers, but they diverge on negative inputs.
+
+  // The converted methods used "function f_abs(x: Int): Int {i < 0 ? -i : i}", the standard multiplication, modulus
+  // and division of Viper.
+  // For the conversion, all $unwrap and $wrap were removed, $w_abs got replaced with f_abs.
+  // $w_mul, $w_mulI, $w_mulL were replaced by the standard multiplication.
+  // $w_mod, $w_modL were replaced by the standard modulus.
+  // $w_div, $w_div_down, $w_div_nat, $w_div_natL were replaced by the standard division.
+
+  // tested
   axiom $w_abs_ax_1 {
     forall i: $Int :: {$w_abs(i)} $unwrap(i) < 0 ==> $w_abs(i) == -$unwrap(i)
   }
 
+  // tested
   axiom $w_abs_ax_2 {
     forall i: $Int :: {$w_abs(i)} $unwrap(i) >= 0 ==> $w_abs(i) == $unwrap(i)
   }
 
+  // tested
   axiom $w_mul_intermediate {
     forall i: $Int, j: $Int :: {$w_mul(i, j)} $w_mul(i, j) == $w_mulI(i, j)
   }
 
+  // tested
   axiom $w_mul_limited {
     forall i: $Int, j: $Int :: {$w_mul(i, j)} $w_mul(i, j) == $w_mulL(i, j)
   }
 
+  // tested
   axiom $w_mul_intermediate_to_limited {
     forall i: $Int, j: $Int :: {$w_mulI(i, j)} $w_mulI(i, j) == $w_mulL(i, j)
   }
 
+  // tested
   axiom $w_mul_commutative_1 {
     forall i: $Int, j: $Int :: {$w_mul(i, j)} $w_mul(i, j) == $w_mulI(j, i)
   }
 
+  // tested
   axiom $w_mul_commutative_2 {
     forall i: $Int, j: $Int :: {$w_mulI(i, j)} $w_mulI(i, j) == $w_mulL(j, i)
   }
 
+  // tested
   axiom $w_mul_associative {
     forall i: $Int, j: $Int, k: $Int :: {$w_mulI(i, $w_mulI(j, k))} $w_mulI(i, $w_mulI(j, k)) == $w_mulL($w_mulL(i, j), k)
   }
 
+  // tested
   axiom $w_mul_distributive {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, j), $w_mulI(i, k), $w_mulI(i, l)} $unwrap(j) == $unwrap(k) + $unwrap(l) ==> $w_mulI(i, j) == $wrap($unwrap($w_mulL(i, k)) + $unwrap($w_mulL(i, l)))
   }
 
+  // tested
   axiom $w_mul_basic_sign_1 {
     forall i: $Int, j: $Int :: {$w_mulI(i, j)} $w_mulI(i, j) == $w_mulL($wrap(-$unwrap(i)), $wrap(-$unwrap(j)))
   }
 
+  // tested
   axiom $w_mul_basic_sign_2 {
     forall i: $Int, j: $Int :: {$w_mulI(i, j)} $w_mulI(i, j) == $wrap(-$unwrap($w_mulL($wrap(-$unwrap(i)), j)))
   }
 
+  // tested
   axiom $w_mul_basic_zero_1 {
     forall i: $Int, j: $Int :: {$w_mulI(i, j)} ($unwrap(i) == 0 || $unwrap(j) == 0) ==> $unwrap($w_mulI(i, j)) == 0
   }
 
+  // tested
   axiom $w_mul_basic_zero_2 {
     forall i: $Int, j: $Int :: {$w_mulI(i, j)} (($unwrap(i) > 0 && $unwrap(j) > 0) || ($unwrap(i) < 0 && $unwrap(j) < 0)) ==> $unwrap($w_mulI(i, j)) > 0
   }
 
+  // tested
   axiom $w_mul_basic_neutral {
     forall i: $Int, j: $Int :: {$w_mulI(i, j)} ($unwrap(i) == 1 || $unwrap(j) == 0) ==> $w_mulI(i, j) == j
   }
 
+  // tested
   axiom $w_mul_basic_proportional {
     forall i: $Int, j: $Int :: {$w_mulI(i, j)} ($w_abs($w_mulI(i, j)) >= $w_abs(j)) <==> ($w_abs(i) >= 1 || $unwrap(j) == 0)
   }
 
+  // tested
   axiom $w_mul_order_1 {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, $w_mulI(j, l)), $w_mulI(k, l)} ($unwrap($w_mulI(i, j)) > $unwrap(k) && $unwrap(l) > 0) ==> $unwrap($w_mulL(i, $w_mulL(j, l))) > $unwrap($w_mulI(k, l))
   }
 
+  // tested
   axiom $w_mul_order_2 {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, $w_mulI(j, l)), $w_mulI(k, l)} ($unwrap($w_mulI(i, j)) >= $unwrap(k) && $unwrap(l) > 0) ==> $unwrap($w_mulL(i, $w_mulL(j, l))) >= $unwrap($w_mulI(k, l))
   }
 
+  // tested
   axiom $w_mul_order_3 {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, $w_mulI(j, l)), $w_mulI(k, l)} ($unwrap($w_mulI(i, j)) > $unwrap(k) && $unwrap(l) < 0) ==> $unwrap($w_mulI(k, l)) > $unwrap($w_mulL(i, $w_mulL(j, l)))
   }
 
+  // tested
   axiom $w_mul_order_4 {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, $w_mulI(j, l)), $w_mulI(k, l)} ($unwrap($w_mulI(i, j)) >= $unwrap(k) && $unwrap(l) < 0) ==> $unwrap($w_mulI(k, l)) >= $unwrap($w_mulL(i, $w_mulL(j, l)))
   }
 
+  // tested
   axiom $w_mul_monotonicity_1 {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, k), $w_mulI(j, l)} ($w_abs(i) <= $w_abs(j) && $w_abs(k) <= $w_abs(l)) ==> $w_abs($w_mulI(i, k)) <= $w_abs($w_mulI(j, l))
   }
 
+  // tested
   axiom $w_mul_monotonicity_2 {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, k), $w_mulI(j, l)} ($w_abs(i) < $w_abs(j) && $w_abs(k) <= $w_abs(l) && $unwrap(l) != 0) ==> $w_abs($w_mulI(i, k)) < $w_abs($w_mulI(j, l))
   }
 
+  // tested
   axiom $w_mul_monotonicity_3 {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mulI(i, k), $w_mulI(j, l)} ($w_abs(i) <= $w_abs(j) && $w_abs(k) < $w_abs(l) && $unwrap(j) != 0) ==> $w_abs($w_mulI(i, k)) < $w_abs($w_mulI(j, l))
   }
 
+  // tested
   axiom $w_mod_limited {
     forall i: $Int, j: $Int  :: {$w_mod(i, j)} $w_mod(i, j) == $w_modL(i, j)
   }
 
+  // tested
   axiom $w_mod_identity {
     forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> (i == j || i == $wrap(0)) ==> $w_mod(i, j) == $wrap(0)
   }
 
+  // tested (only for natural numbers)
   axiom $w_mod_basic_1 {
     forall i: $Int, j: $Int, l: $Int :: {$w_mod(i, j), $w_mod(l, j)}  j != $wrap(0) ==> ($unwrap(i) == $unwrap(l) + $w_abs(j) && ($unwrap(l) >= 0 || $unwrap(i) < 0)) ==> $w_mod(i, j) == $w_modL(l, j)
   }
 
+  // tested (only for natural numbers)
   axiom $w_mod_basic_2 {
     forall i: $Int, j: $Int, l: $Int :: {$w_mod(i, j), $w_mod(l, j)}  j != $wrap(0) ==> ($unwrap(i) == $unwrap(l) - $w_abs(j) && ($unwrap(l) <= 0 || $unwrap(i) > 0)) ==> $w_mod(i, j) == $w_modL(l, j)
   }
 
+  // tested (only for natural numbers)
   axiom $w_mod_basic_3 {
     forall i: $Int, j: $Int :: {$w_mod(i, j)}  j != $wrap(0) ==> (0 <= $w_abs(i) &&  $w_abs(i) < $w_abs(j)) ==> $w_mod(i, j) == i
   }
 
+  // tested
   axiom $w_mod_basic_4 {
     forall i: $Int, j: $Int :: {$w_mod(i, j)}  j != $wrap(0) ==> $w_abs($w_mod(i, j)) < $w_abs(j)
   }
 
+  // tested (only for natural numbers)
   axiom $w_mod_sign_1 {
     forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> ($sign($unwrap($w_mod(i, j))) == $sign($unwrap(i)) || $sign($unwrap($w_mod(i, j))) == 0)
   }
 
+  // This is only true for a remainder modulus and could not be tested.
   axiom $w_mod_sign_2 {
     forall i: $Int, j: $Int, k: $Int :: {$w_mod(i, j), $w_mod(k, j)} j != $wrap(0) ==> $unwrap(i) == -$unwrap(k) ==> $w_mod(i, j) == $wrap(-$unwrap($w_modL(k, j)))
   }
 
+  // This is only true for a remainder modulus and could not be tested.
   axiom $w_mod_sign_3 {
     forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> ($w_mod(i, j) == $w_mod(i, $wrap(-$unwrap(j))))
   }
 
+  // tested
   axiom $w_mod_mod {
     forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> $w_mod(i, j) == $w_modL($w_modL(i, j), j)
   }
 
+  // tested (only for natural numbers)
   axiom $w_mod_decrease {
     forall i: $Int, j: $Int :: {$w_mod(i, j)} j != $wrap(0) ==> $w_abs($w_mod(i, j)) <= $w_abs(i)
   }
 
+  // This axiom is useful if we have a sum in a modulo operation (e.g. ((k + l) % j)) and we want to split the
+  // modulus into multiple terms (e.g. (k % j) and (l % j)).
+  // There is a case distinction first, if (k + l) and ((k % j) + (l % j)) is >= 0 or both <= 0 then we have to check:
+  // - if ((k % j) + (l % j)) is >= |j| then we have to subtract |j| meaning ((k + l) % j) == (k % j) + (l % j) - |j|
+  // - if ((k % j) + (l % j)) is <= -|j| then we have to add |j| meaning     ((k + l) % j) == (k % j) + (l % j) + |j|
+  // - else ((k + l) % j) == (k % j) + (l % j)
+  // If one of (k + l) and ((k % j) + (l % j)) is negative and the other positive we have to check:
+  // - if ((k % j) + (l % j)) > 0 then we have to subtract |j| meaning ((k + l) % j) == (k % j) + (l % j) - |j|
+  //   since the original addition (k + l) was negative and the result must be therefore negative.
+  // - if ((k % j) + (l % j)) < 0 then we have to subtract |j| meaning ((k + l) % j) == (k % j) + (l % j) + |j|
+  //   since the original addition (k + l) was positive and the result must be therefore positive.
+  // This is only true for a remainder modulus and could not be tested.
   axiom $w_mod_add {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_mod(i, j), $w_mod(k, j), $w_mod(l, j)} j != $wrap(0) ==> ($unwrap(i) == $unwrap(k) + $unwrap(l) ==> (
       ((($unwrap(i) >= 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) >= 0) || ($unwrap(i) <= 0 && $unwrap($w_modL(k, j)) + $unwrap($w_modL(l, j)) <= 0)) ==> (
@@ -184,10 +242,16 @@ domain $Int {
     ))
   }
 
+ // This could only be tested for an "i" in [-512, 529]. For an "i" smaller than -512, the verification took more than
+ // 2 minutes on an Intel Core i9 9900K. For an "i" greater than 529, Viper could not verify the expression.
   axiom $w_mod_mul_basic {
     forall i: $Int, j: $Int :: {$w_mod($w_mul(i, j), j)} j != $wrap(0) ==> $w_mod($w_mul(i, j), j) == $wrap(0)
   }
 
+  // If we have a modulus (i % j) multiplied by some k and take the modulus of this by j (e.g. ((i % j) * k) % j) then
+  // we can simplify the term to (i * k) % j.
+  // This axiom is an adapted version of the lemma "lemma_mul_mod_noop_general" from IronClad.
+  // (https://github.com/microsoft/Ironclad/blob/master/ironfleet/src/Dafny/Libraries/Math/div.i.dfy)
   axiom $w_mod_mul_mod_noop {
     forall i: $Int, j: $Int, k: $Int :: {$w_mod($w_mulI(i, k), j)} j != $wrap(0) ==> (
          $w_mod($w_mulI(i, k), j) == $w_modL($w_mulL($w_modL(i, j), k), j)
@@ -196,34 +260,42 @@ domain $Int {
     )
   }
 
+  // tested (only for natural numbers)
   axiom $w_mod_mul_vanish {
     forall i: $Int, j: $Int, k: $Int :: {$w_mod(i, j), $w_mulI(k, j)} j != $wrap(0) ==> $w_mod(i, j) == $w_modL($wrap($unwrap($w_mulL(k, j)) + $unwrap(i)), j)
   }
 
+  // tested
   axiom $w_div_div_down{
     forall i: $Int, j: $Int :: {$w_div(i, j)} $unwrap(j) != 0 ==> $w_div(i, j) == ($unwrap(i) >= 0 ? $w_div_down(i, j) : $wrap(-$unwrap($w_div_down($wrap(-$unwrap(i)), j))))
   }
 
+  // This is only true for a division with rounding towards zero and could not be tested.
   axiom $w_div_down_div_nat{
     forall i: $Int, j: $Int :: {$w_div_down(i, j)} $w_div_down(i, j) == ($unwrap(j) >= 0 ? $w_div_nat(i, j) : $wrap(-$unwrap($w_div_nat(i, $wrap(-$unwrap(j))))))
   }
 
+  // tested
   axiom $w_div_nat_limited {
     forall i: $Int, j: $Int :: {$w_div_nat(i, j)} $w_div_nat(i, j) == $w_div_natL(i, j)
   }
 
+  // tested
   axiom $w_div_nat_neutral {
     forall i: $Int, j: $Int :: {$w_div_nat(i, j)} ($unwrap(j) == 1 || $unwrap(i) == 0) ==> $w_div_nat(i, j) == i
   }
 
+  // tested
   axiom $w_div_nat_self {
     forall i: $Int :: {$w_div_nat(i, i)} $unwrap(i) > 0 ==> $w_div_nat(i, i) == $wrap(1)
   }
 
+  // tested
   axiom $w_div_nat_small {
     forall i: $Int, j: $Int :: {$w_div_nat(i, j)} $unwrap(i) >= 0 && $unwrap(j) > 0 ==> ($unwrap(i) < $unwrap(j) <==> $w_div_nat(i, j) == $wrap(0))
   }
 
+  // The verification ran into a timeout.
   axiom $w_div_nat_dividend_add {
     forall i: $Int, j: $Int, k: $Int, l: $Int :: {$w_div_nat(i, j), $w_div_nat(k, j), $w_div_nat(l, j)} ($unwrap(i) >= 0 && $unwrap(j) > 0 && $unwrap(k) >= 0 && $unwrap(l) >= 0) ==> (
       $unwrap(i) == $unwrap(k) + $unwrap(l) ==> (
@@ -232,39 +304,48 @@ domain $Int {
     ))
   }
 
+  // tested
   axiom $w_div_nat_ordered_by_dividend {
     forall i: $Int, j: $Int, k: $Int :: {$w_div_nat(i, j), $w_div_nat(k, j)} ($unwrap(i) >= 0 && $unwrap(j) > 0 && $unwrap(k) >= 0) ==> (
       $unwrap(i) <= $unwrap(k) ==> $unwrap($w_div_nat(i, j)) <= $unwrap($w_div_natL(k, j))
     )
   }
 
+  // tested
   axiom $w_div_nat_ordered_by_divisor {
     forall i: $Int, j: $Int, k: $Int :: {$w_div_nat(i, j), $w_div_nat(i, k)} ($unwrap(i) >= 0 && $unwrap(j) > 0 && $unwrap(k) > 0) ==> (
       $unwrap(j) <= $unwrap(k) ==> $unwrap($w_div_nat(i, j)) >= $unwrap($w_div_natL(i, k))
     )
   }
 
+  // This can only be verified if we give an upper bound for "i".
+  // tested (with i < 2 ** 256)
   axiom $w_div_nat_decrease {
     forall i: $Int, j: $Int :: {$w_div_nat(i, j)} ($unwrap(i) > 0 && $unwrap(j) > 1) ==> (
       $unwrap($w_div_nat(i, j)) < $unwrap(i)
     )
   }
 
+  // This can only be verified if we give an upper bound for "i".
+  // tested (with i < 2 ** 256)
   axiom $w_div_nat_nonincrease {
     forall i: $Int, j: $Int :: {$w_div_nat(i, j)} ($unwrap(i) >= 0 && $unwrap(j) > 0) ==> (
       $unwrap($w_div_nat(i, j)) <= $unwrap(i)
     )
   }
 
+  // tested
   axiom $w_div_mul {
     forall i: $Int, j: $Int :: {$w_div($w_mulI(i, j), j)} $unwrap(j) != 0 ==> $w_div($w_mulI(i, j), j) == i
   }
 
 
+  // tested
   axiom $w_div_sign {
-    forall i: $Int, j: $Int :: { $w_div(i, j) } $sign($unwrap($w_div(i, j))) == $sign($unwrap(i)) * $sign($unwrap(j)) || $sign($unwrap($w_div(i, j))) == 0
+    forall i: $Int, j: $Int :: { $w_div(i, j) } $unwrap(j) != 0 ==> $sign($unwrap($w_div(i, j))) == $sign($unwrap(i)) * $sign($unwrap(j)) || $sign($unwrap($w_div(i, j))) == 0
   }
 
+  // tested
   axiom $w_div_mod_mul {
     forall i: $Int, j: $Int :: {$w_div(i, j), $w_mod(i, j)} $unwrap(j) != 0 ==> ($unwrap(i) == $unwrap($w_mulI(j, $w_div(i, j))) + $unwrap($w_mod(i, j)))
   }
