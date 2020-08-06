@@ -17,6 +17,22 @@ from twovyper.viper.typedefs import Expr
 
 
 def wrapped_integer_decorator(*possible_wrapped_integer_inputs: str, wrap_output=False, store_unwrap_info=True):
+    """
+    This decorator can be used to automatically unwrap $Int to Int. All functions, predicates, axioms and operators
+    on Int are only available to Int and not $Int. With this decorator, all these functions, predicates, axioms and
+    operators on Int can also be used for $Int.
+
+    This decorator also stores the information if it unwrapped an expression
+    or it wraps a resulting Int again to a $Int.
+
+    :param possible_wrapped_integer_inputs: The names of arguments that may contain $Int typed expressions
+
+    :param wrap_output: A flag if the output should always be considered to be a $Int (Not only if an input was a $Int)
+
+    :param store_unwrap_info: A boolean Flag, if false then the output gets wrapped if the output is considered as
+                              a $Int. If true then only the :attr:`WrappedViperAST.unwrapped_some_expressions` flag
+                              gets set.
+    """
     def _decorator(func):
         (arg_names, _, _, _, _, _, _) = inspect.getfullargspec(func)
 
