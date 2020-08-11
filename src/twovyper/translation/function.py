@@ -164,6 +164,16 @@ class FunctionTranslator(CommonTranslator):
             msg_info_msg = "Assume type assumptions for msg"
             self.seqn_with_info(msg_assumes, msg_info_msg, body)
 
+            # Interface references we have knowledge about and therefore can e.g. assume their invariants
+            known_interface_ref = []
+            self_type = ctx.program.fields.type
+            for member_name, member_type in self_type.member_types.items():
+                viper_type = self.type_translator.translate(member_type, ctx)
+                if isinstance(member_type, types.InterfaceType):
+                    get = helpers.struct_get(self.viper_ast, ctx.self_var.local_var(ctx), member_name,
+                                             viper_type, self_type)
+                    known_interface_ref.append((member_type.name, get))
+
             # Assume unchecked and user-specified invariants
             inv_pres_issued = []
             inv_pres_self = []
@@ -222,6 +232,8 @@ class FunctionTranslator(CommonTranslator):
                         for inv in ctx.unchecked_invariants():
                             inv_pres_self.append(self.viper_ast.Inhale(inv))
 
+                self.expression_translator.assume_contract_state(known_interface_ref, inv_pres_self, ctx,
+                                                                 skip_caller_private=True)
             iv_info_msg = "Assume invariants for issued self"
             self.seqn_with_info(inv_pres_issued, iv_info_msg, body)
             iv_info_msg = "Assume invariants for self"
@@ -379,6 +391,8 @@ class FunctionTranslator(CommonTranslator):
             # we don't update the flag
             if is_init:
                 self.state_translator.check_first_public_state(body, ctx, False)
+                self.expression_translator.assume_contract_state(known_interface_ref, body, ctx,
+                                                                 skip_caller_private=True)
 
             post_stmts = []
 
@@ -520,15 +534,6 @@ class FunctionTranslator(CommonTranslator):
 
                 invariant_stmts.extend(assert_collected_invariants(invariant_conditions))
                 self.seqn_with_info(invariant_stmts, "Assert Local State Invariants", body)
-
-                known_interface_ref = []
-                self_type = ctx.program.fields.type
-                for member_name, member_type in self_type.member_types.items():
-                    viper_type = self.type_translator.translate(member_type, ctx)
-                    if isinstance(member_type, types.InterfaceType):
-                        get = helpers.struct_get(self.viper_ast, ctx.self_var.local_var(ctx), member_name,
-                                                 viper_type, self_type)
-                        known_interface_ref.append((member_type.name, get))
 
                 self.expression_translator.assume_contract_state(known_interface_ref, body, ctx)
 
