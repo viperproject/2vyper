@@ -131,6 +131,13 @@ INTERFACE_POSTCONDITION_FAIL = {
         ('postcondition.not.implemented', 'assertion.false')
 }
 
+LEMMA_FAIL = {
+    ('postcondition.violated', 'assertion.false'):
+        ('lemma.step.invalid', 'assertion.false'),
+    ('application.precondition', 'assertion.false'):
+        ('lemma.application.invalid', 'assertion.false')
+}
+
 CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('check.violated', 'assertion.false'),
@@ -145,11 +152,6 @@ CHECK_FAIL = {
 CALL_INVARIANT_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('call.invariant', 'assertion.false')
-}
-
-AFTER_CALL_INVARIANT_FAIL = {
-    ('assert.failed', 'assertion.false'):
-        ('after.call.invariant', 'assertion.false')
 }
 
 DURING_CALL_INVARIANT_FAIL = {

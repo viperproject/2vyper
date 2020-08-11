@@ -40,11 +40,12 @@ class _Context(Enum):
     CALLER_PRIVATE = 'caller.private'
     GHOST_CODE = 'ghost.code'
     GHOST_FUNCTION = 'ghost.function'
+    LEMMA = 'lemma'
     GHOST_STATEMENT = 'ghost.statement'
 
     @property
     def is_specification(self):
-        return self not in [_Context.CODE, _Context.GHOST_FUNCTION]
+        return self not in [_Context.CODE, _Context.GHOST_FUNCTION, _Context.LEMMA]
 
     @property
     def is_postcondition(self):
@@ -65,7 +66,8 @@ class StructureChecker(NodeVisitor):
             _Context.CALLER_PRIVATE: names.NOT_ALLOWED_IN_CALLER_PRIVATE,
             _Context.GHOST_CODE: names.NOT_ALLOWED_IN_GHOST_CODE,
             _Context.GHOST_FUNCTION: names.NOT_ALLOWED_IN_GHOST_FUNCTION,
-            _Context.GHOST_STATEMENT: names.NOT_ALLOWED_IN_GHOST_STATEMENT
+            _Context.GHOST_STATEMENT: names.NOT_ALLOWED_IN_GHOST_STATEMENT,
+            _Context.LEMMA: names.NOT_ALLOWED_IN_LEMMAS
         }
 
         self._inside_old = False
@@ -141,6 +143,23 @@ class StructureChecker(NodeVisitor):
                         'invalid.performs', 'No performs are allowed in interfaces.')
             for performs in function.performs:
                 self._visit_performs(performs, program, function)
+
+        for lemma in program.lemmas.values():
+            for default_val in lemma.defaults.values():
+                _assert(default_val is None, lemma.node, 'invalid.lemma')
+            _assert(not lemma.postconditions, first(lemma.postconditions), 'invalid.lemma',
+                    'No postconditions are allowed for lemmas.')
+            _assert(not lemma.checks, first(lemma.checks), 'invalid.lemma',
+                    'No checks are allowed for lemmas.')
+            _assert(not lemma.performs, first(lemma.performs), 'invalid.lemma')
+
+            self.visit(lemma.node, _Context.LEMMA, program, lemma)
+            for stmt in lemma.node.body:
+                _assert(isinstance(stmt, ast.ExprStmt), stmt, 'invalid.lemma',
+                        'All steps of the lemma should be expressions')
+
+            for precondition in lemma.preconditions:
+                self.visit(precondition, _Context.LEMMA, program, lemma)
 
         if program.inter_contract_invariants:
             _assert(not program.is_interface(), program.inter_contract_invariants[0],
@@ -237,7 +256,7 @@ class StructureChecker(NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef, ctx: _Context,
                           program: VyperProgram, function: Optional[VyperFunction]):
         for stmt in node.body:
-            if ctx == _Context.GHOST_FUNCTION:
+            if ctx == _Context.GHOST_FUNCTION or ctx == _Context.LEMMA:
                 new_ctx = ctx
             elif ctx == _Context.CODE:
                 new_ctx = _Context.GHOST_CODE if stmt.is_ghost_code else ctx
@@ -248,6 +267,7 @@ class StructureChecker(NodeVisitor):
 
     @staticmethod
     def visit_Name(node: ast.Name, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
+        assert program
         if ctx == _Context.GHOST_FUNCTION and node.id in names.ENV_VARIABLES:
             _assert(False, node, 'invalid.ghost.function')
         elif ctx == _Context.CALLER_PRIVATE and node.id in names.ENV_VARIABLES:
@@ -257,6 +277,12 @@ class StructureChecker(NodeVisitor):
             _assert(node.id != names.BLOCK, node, 'invariant.block')
         elif ctx == _Context.TRANSITIVE_POSTCONDITION:
             _assert(node.id != names.MSG, node, 'postcondition.msg')
+        elif ctx == _Context.LEMMA:
+            _assert(function.node.is_lemma, node, 'invalid.lemma')
+            _assert(node.id != names.SELF, node, 'invalid.lemma', 'Self cannot be used in lemmas')
+            _assert(node.id != names.MSG, node, 'invalid.lemma', 'Msg cannot be used in lemmas')
+            _assert(node.id != names.BLOCK, node, 'invalid.lemma', 'Block cannot be used in lemmas')
+            _assert(node.id != names.TX, node, 'invalid.lemma', 'Tx cannot be used in lemmas')
 
     def visit_FunctionCall(self, node: ast.FunctionCall, ctx: _Context,
                            program: VyperProgram, function: Optional[VyperFunction]):
@@ -276,6 +302,9 @@ class StructureChecker(NodeVisitor):
                 _assert(function.is_private(), node, 'postcondition.event')
             elif ctx == _Context.PRECONDITION:
                 _assert(function.is_private(), node, 'precondition.event')
+
+        if function and node.name in program.ghost_functions.keys():
+            _assert(ctx != _Context.LEMMA, node, 'invalid.lemma')
 
         if node.name == names.CALLER:
             self._visited_caller_spec = True
@@ -330,7 +359,8 @@ class StructureChecker(NodeVisitor):
                 self.generic_visit(argument, ctx, program, function)
             elif (ctx == _Context.INVARIANT
                   or ctx == _Context.TRANSITIVE_POSTCONDITION
-                  or ctx == _Context.LOOP_INVARIANT):
+                  or ctx == _Context.LOOP_INVARIANT
+                  or ctx == _Context.GHOST_CODE):
                 _assert(False, node, f'{ctx.value}.call')
 
             return
@@ -400,7 +430,8 @@ class StructureChecker(NodeVisitor):
             elif (ctx == _Context.CHECK
                   or ctx == _Context.INVARIANT
                   or ctx == _Context.TRANSITIVE_POSTCONDITION
-                  or ctx == _Context.LOOP_INVARIANT):
+                  or ctx == _Context.LOOP_INVARIANT
+                  or ctx == _Context.GHOST_CODE):
                 _assert(False, node, f'{ctx.value}.call')
 
         elif node.name == names.INDEPENDENT:
@@ -488,12 +519,32 @@ class StructureChecker(NodeVisitor):
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall, ctx: _Context,
                            program: VyperProgram, function: Optional[VyperFunction]):
-        if ctx == _Context.GHOST_CODE:
-            _assert(False, node, 'invalid.ghost.code')
-        elif ctx.is_specification:
+        if ctx == _Context.CALLER_PRIVATE:
             _assert(False, node, 'spec.call')
+        elif ctx.is_specification:
+            receiver = node.receiver
+            if isinstance(receiver, ast.Name) and receiver.id == names.LEMMA:
+                other_lemma = program.lemmas.get(node.name)
+                _assert(other_lemma is not None, node, 'invalid.lemma',
+                        f'Unknown lemma to call: {node.name}')
+            elif ctx == _Context.GHOST_CODE:
+                _assert(False, node, 'invalid.ghost.code')
+            else:
+                _assert(False, node, 'spec.call')
         elif ctx == _Context.GHOST_FUNCTION:
             _assert(False, node, 'invalid.ghost')
+        elif ctx == _Context.LEMMA:
+            receiver = node.receiver
+            _assert(isinstance(receiver, ast.Name), node, 'invalid.lemma',
+                    'Only calls to other lemmas are allowed in lemmas.')
+            assert isinstance(receiver, ast.Name)
+            _assert(receiver.id == names.LEMMA, node, 'invalid.lemma'
+                    'Only calls to other lemmas are allowed in lemmas.')
+            other_lemma = program.lemmas.get(node.name)
+            _assert(other_lemma is not None, node, 'invalid.lemma',
+                    f'Unknown lemma to call: {node.name}')
+            _assert(other_lemma.index < function.index, node, 'invalid.lemma',
+                    'Can only use lemmas previously defined (No recursion is allowed).')
 
         self.generic_visit(node, ctx, program, function)
 
@@ -506,6 +557,8 @@ class StructureChecker(NodeVisitor):
     @staticmethod
     def _visit_assertion(node: Union[ast.Assert, ast.Raise], ctx: _Context):
         if ctx == _Context.GHOST_CODE:
+            if isinstance(node, ast.Assert) and node.is_lemma:
+                return
             _assert(node.msg and isinstance(node.msg, ast.Name), node, 'invalid.ghost.code')
             _assert(node.msg.id == names.UNREACHABLE, node, 'invalid.ghost.code')
 

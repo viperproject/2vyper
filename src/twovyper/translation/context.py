@@ -66,6 +66,8 @@ class Context:
         self.inside_trigger = False
         self.inside_inline_analysis = False
 
+        self.inside_lemma = False
+
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
 
@@ -501,3 +503,12 @@ class Context:
         yield
 
         self.event_vars = event_vars
+
+    @contextmanager
+    def lemma_scope(self):
+        inside_lemma = self.inside_lemma
+        self.inside_lemma = True
+
+        yield
+
+        self.inside_lemma = inside_lemma

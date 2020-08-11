@@ -63,6 +63,7 @@ class ProgramBuilder(NodeVisitor):
 
         self.field_types = {}
         self.functions = {}
+        self.lemmas = {}
         self.function_counter = 0
         self.interfaces = {}
         self.structs = {}
@@ -150,6 +151,7 @@ class ProgramBuilder(NodeVisitor):
                                 self.general_postconditions,
                                 self.transitive_postconditions,
                                 self.general_checks,
+                                self.lemmas,
                                 self.implements,
                                 self.ghost_function_implementations)
 
@@ -182,6 +184,11 @@ class ProgramBuilder(NodeVisitor):
         else:
             return
         raise InvalidProgramException(node, 'invalid.ghost', f'{cond} only allowed after "#@ interface"')
+
+    def _check_no_lemmas(self):
+        if self.lemmas:
+            raise InvalidProgramException(first(self.lemmas.values()).node, 'invalid.lemma',
+                                          'Lemmas are not allowed in interfaces')
 
     def generic_visit(self, node: ast.Node, *args):
         raise InvalidProgramException(node, 'invalid.spec')
@@ -320,6 +327,7 @@ class ProgramBuilder(NodeVisitor):
             elif case(names.INTERFACE):
                 self._check_no_local_spec()
                 self._check_no_ghost_function()
+                self._check_no_lemmas()
                 self.is_interface = True
             elif case(names.INVARIANT):
                 # No local specifications allowed before invariants
@@ -429,10 +437,21 @@ class ProgramBuilder(NodeVisitor):
         function = VyperFunction(node.name, self.function_counter, args, defaults, vyper_type,
                                  self.postconditions, self.preconditions, self.checks,
                                  loop_invariant_transformer.loop_invariants, self.performs, decs, node)
-        for decorator in node.decorators:
-            if decorator.is_ghost_code and decorator.name != names.PURE:
-                raise InvalidProgramException(decorator, 'invalid.ghost.code')
-        self.functions[node.name] = function
+        if node.is_lemma:
+            if node.decorators:
+                raise InvalidProgramException(first(node.decorators), 'invalid.lemma')
+            if vyper_type.return_type is not None:
+                raise InvalidProgramException(node, 'invalid.lemma', 'A lemma cannot have a return type')
+            if node.name in self.lemmas:
+                raise InvalidProgramException(node, 'duplicate.lemma')
+            if self.is_interface:
+                raise InvalidProgramException(node, 'invalid.lemma', 'Lemmas are not allowed in interfaces')
+            self.lemmas[node.name] = function
+        else:
+            for decorator in node.decorators:
+                if decorator.is_ghost_code and decorator.name != names.PURE:
+                    raise InvalidProgramException(decorator, 'invalid.ghost.code')
+            self.functions[node.name] = function
         self.function_counter += 1
         # Reset local specs
         self.postconditions = []

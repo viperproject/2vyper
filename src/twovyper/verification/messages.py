@@ -19,8 +19,6 @@ ERRORS = {
         lambda i: f"Function {i.function.name} might not be well-formed.",
     'call.invariant':
         lambda i: f"An invariant might not hold before the call {pprint(i.node)}.",
-    'after.call.invariant':
-        lambda i: f"An invariant might not hold after the call {pprint(i.node)}.",
     'during.call.invariant':
         lambda i: f"An invariant might not hold during the call {pprint(i.node)}.",
     'call.check':
@@ -102,7 +100,11 @@ ERRORS = {
     'predicate.not.wellformed':
         lambda i: "Predicate might not be well-formed.",
     'function.failed':
-        lambda i: f"The function call {pprint(i.node)} might not succeed."
+        lambda i: f"The function call {pprint(i.node)} might not succeed.",
+    'lemma.step.invalid':
+        lambda i: f"A step in the lemma {i.function.name} might not hold.",
+    'lemma.application.invalid':
+        lambda i: f"Cannot apply lemma {i.function.name}."
 }
 
 REASONS = {

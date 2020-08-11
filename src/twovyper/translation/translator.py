@@ -7,9 +7,10 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from functools import reduce
 from itertools import chain
-from typing import List
+from typing import List, Optional
 
 from twovyper import resources
+from twovyper.translation.lemma import LemmaTranslator
 
 from twovyper.utils import flatten, seq_to_list
 
@@ -32,6 +33,7 @@ from twovyper.translation.specification import SpecificationTranslator
 from twovyper.translation.state import StateTranslator
 from twovyper.translation.type import TypeTranslator
 from twovyper.translation.variable import TranslatedVar
+from twovyper.translation.wrapped_viper_ast import WrappedViperAST
 
 from twovyper.verification import rules
 
@@ -48,6 +50,9 @@ class TranslationOptions:
         self.create_model = create_model
 
 
+builtins: Optional[Program] = None
+
+
 def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM) -> Program:
     viper_ast = ViperAST(jvm)
     if not viper_ast.is_available():
@@ -58,8 +63,10 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
     if vyper_program.is_interface():
         return viper_ast.Program([], [], [], [], [])
 
-    viper_parser = ViperParser(jvm)
-    builtins = viper_parser.parse(*resources.viper_all())
+    global builtins
+    if builtins is None:
+        viper_parser = ViperParser(jvm)
+        builtins = viper_parser.parse(*resources.viper_all())
     translator = ProgramTranslator(viper_ast, builtins)
 
     viper_program = translator.translate(vyper_program, options)
@@ -75,11 +82,13 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
 class ProgramTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST, builtins: Program):
+        viper_ast = WrappedViperAST(viper_ast)
         super().__init__(viper_ast)
         self.builtins = builtins
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.function_translator = FunctionTranslator(viper_ast)
         self.pure_function_translator = PureFunctionTranslator(viper_ast)
+        self.lemma_translator = LemmaTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
         self.resource_translator = ResourceTranslator(viper_ast)
         self.specification_translator = SpecificationTranslator(viper_ast)
@@ -183,6 +192,9 @@ class ProgramTranslator(CommonTranslator):
         # Pure functions
         pure_vyper_functions = filter(VyperFunction.is_pure,  vyper_program.functions.values())
         functions += [self.pure_function_translator.translate(function, ctx) for function in pure_vyper_functions]
+
+        # Lemmas
+        functions += [self.lemma_translator.translate(lemma, ctx) for lemma in vyper_program.lemmas.values()]
 
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]

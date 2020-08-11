@@ -154,6 +154,7 @@ class VyperProgram:
                  general_postconditions: List[ast.Expr],
                  transitive_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr],
+                 lemmas: Dict[str, VyperFunction],
                  implements: List[InterfaceType],
                  ghost_function_implementations: Dict[str, GhostFunction]):
         self.node = node
@@ -171,6 +172,7 @@ class VyperProgram:
         self.general_postconditions = general_postconditions
         self.transitive_postconditions = transitive_postconditions
         self.general_checks = general_checks
+        self.lemmas = lemmas
         self.implements = implements
         self.ghost_functions = dict(self._ghost_functions())
         self.ghost_function_implementations = ghost_function_implementations
@@ -228,7 +230,7 @@ class VyperInterface(VyperProgram):
                          general_postconditions,
                          transitive_postconditions,
                          general_checks,
-                         [], {})
+                         {}, [], {})
         self.name = name
         self.ghost_functions = ghost_functions
         self.type = type

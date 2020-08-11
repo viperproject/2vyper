@@ -49,6 +49,8 @@ class ModelTranslator(CommonTranslator):
             ctx.new_local_vars.append(new_var)
             transform[new_var_name] = name
             type_map[new_var_name] = var_type
+            if hasattr(rhs, 'isSubtype') and rhs.isSubtype(helpers.wrapped_int_type(self.viper_ast)):
+                rhs = helpers.w_unwrap(self.viper_ast, rhs)
             res.append(self.viper_ast.LocalVarAssign(new_var.localVar(), rhs, pos))
 
         def add_struct_members(struct, struct_type, components, wrapped=None):

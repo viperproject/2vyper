@@ -55,7 +55,7 @@ def __init__(token_A_address: address , token_B_address: address):
 #@ ensures: revert()
 @private
 def fail():
-    #:: ExpectedOutput(during.call.invariant:assertion.false, INV) | ExpectedOutput(carbon)(after.call.invariant:assertion.false, INV)
+    #:: ExpectedOutput(during.call.invariant:assertion.false, INV)
     raw_call(self.token_A, method_id('increase()->bool', bytes[4]), outsize=32, gas=msg.gas)
-    #:: ExpectedOutput(carbon)(during.call.invariant:assertion.false, INV) | ExpectedOutput(carbon)(after.call.invariant:assertion.false, INV)
+    #:: ExpectedOutput(carbon)(call.invariant:assertion.false, INV) | ExpectedOutput(carbon)(during.call.invariant:assertion.false, INV)
     raw_call(self.token_B, method_id('increase()->bool', bytes[4]), outsize=32, gas=msg.gas)

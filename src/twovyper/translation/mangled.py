@@ -78,6 +78,13 @@ MATH_BITWISE_AND = '$bitwise_and'
 MATH_BITWISE_OR = '$bitwise_or'
 MATH_BITWISE_XOR = '$bitwise_xor'
 
+WRAPPED_INT_DOMAIN = '$Int'
+WRAPPED_INT_WRAP = '$wrap'
+WRAPPED_INT_UNWRAP = '$unwrap'
+WRAPPED_INT_MUL = '$w_mul'
+WRAPPED_INT_MOD = '$w_mod'
+WRAPPED_INT_DIV = '$w_div'
+
 ARRAY_DOMAIN = '$Array'
 ARRAY_INT_DOMAIN = '$ArrayInt'
 ARRAY_ELEMENT_VAR = '$E'
@@ -165,6 +172,10 @@ def ghost_function_name(vyper_name: str) -> str:
 
 def pure_function_name(vyper_name: str) -> str:
     return f'p${vyper_name}'
+
+
+def lemma_name(vyper_name: str) -> str:
+    return f'lemma${vyper_name}'
 
 
 def axiom_name(viper_name: str) -> str:
