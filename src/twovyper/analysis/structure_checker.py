@@ -161,9 +161,6 @@ class StructureChecker(NodeVisitor):
             for precondition in lemma.preconditions:
                 self.visit(precondition, _Context.LEMMA, program, lemma)
 
-        if program.inter_contract_invariants:
-            _assert(not program.is_interface(), program.inter_contract_invariants[0],
-                    'invalid.inter.contract.invariant', 'No inter contract invariants are allowed in interfaces.')
         for invariant in program.invariants:
             self.visit(invariant, _Context.INVARIANT, program, None)
 

@@ -7,7 +7,6 @@
 
 #@ interface
 
-#:: ExpectedOutput(invalid.program:invalid.inter.contract.invariant)
 #@ inter contract invariant: True
 
 @public
