@@ -31,12 +31,12 @@
 #@ invariant: not refund_state(self) ==> sum(deposits(self)) >= old(sum(deposits(self)))
 
 # Escrow does not modify the state of the caller
-#@ always ensures: msg.sender != self ==> storage(msg.sender) == old(storage(msg.sender))
+# always ensures: msg.sender != self ==> open_state(self) ==> storage(msg.sender) == old(storage(msg.sender))
 
 # The simulated enum is only modifiable by owner
-#@ caller private: owner(self) == caller() ==> success_state(self)
-#@ caller private: owner(self) == caller() ==> refund_state(self)
-#@ caller private: owner(self) == caller() ==> open_state(self)
+#@ caller private: conditional(owner(self) == caller(), success_state(self))
+#@ caller private: conditional(owner(self) == caller(), refund_state(self))
+#@ caller private: conditional(owner(self) == caller(), open_state(self))
 
 #@ ensures: success() ==> result() == owner(self)
 @public
@@ -74,13 +74,13 @@ def deposit(p: address):
     raise "Not implemented"
 
 
-#@ ensures: old(success_state(self))
+#@ ensures: success() ==> old(success_state(self))
 @public
 def withdraw():
     raise "Not implemented"
 
 
-#@ ensures: old(refund_state(self))
+#@ ensures: success() ==> old(refund_state(self))
 @public
 def claimRefund(p: address):
     raise "Not implemented"

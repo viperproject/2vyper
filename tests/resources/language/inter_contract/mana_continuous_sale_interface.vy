@@ -5,25 +5,40 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+from . import mana_token_interface
+
 #@ interface
 
 #@ ghost:
     #@ def started() -> bool: ...
     #@ def owner() -> address: ...
+    #@ def token() -> address: ...
 
 # The owner stays the same
 #@ invariant: owner(self) == old(owner(self))
+# The token stays the same
+#@ invariant: token(self) == old(token(self))
 # Once started, it stays started
 #@ invariant: old(started(self)) ==> started(self)
 
+# If this contract owns a token, it will not change the ownership anymore
+#@ inter contract invariant: implements(token(self), mana_token_interface) and old(token_owner(token(self))) == self ==> token_owner(token(self)) == old(token_owner(token(self)))
+
 # started flag is only modifiable by owner
-#@ caller private: owner(self) == caller() ==> started(self)
+#@ caller private: conditional(owner(self) == caller(), started(self))
 
 
 #@ ensures: success() ==> result() == owner(self)
 @public
 @constant
 def get_owner() -> address:
+    raise "Not implemented"
+
+
+#@ ensures: success() ==> result() == token(self)
+@public
+@constant
+def get_token() -> address:
     raise "Not implemented"
 
 

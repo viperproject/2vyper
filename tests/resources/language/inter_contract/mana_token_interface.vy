@@ -5,19 +5,21 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+from . import mana_continuous_sale_interface
+
 #@ interface
 
 #@ ghost:
     #@ def token_owner() -> address: ...
+
+#@ caller private: conditional(token_owner(self) == caller(), token_owner(self))
+
 
 #@ ensures: success() ==> result() == token_owner(self)
 @public
 @constant
 def get_owner() -> address:
     raise "Not implemented"
-
-
-# caller private: conditional(owner(self) == caller(), owner(self))
 
 
 #@ ensures: msg.sender != old(token_owner(self)) ==> revert()
