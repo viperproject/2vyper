@@ -192,7 +192,7 @@ class VyperProgram:
 
     def _ghost_functions(self) -> Iterable[Tuple[str, GhostFunction]]:
         for interface in self.interfaces.values():
-            for name, func in interface.ghost_functions.items():
+            for name, func in interface.own_ghost_functions.items():
                 yield name, func
 
     @property
@@ -208,6 +208,7 @@ class VyperInterface(VyperProgram):
                  name: Optional[str],
                  config: Config,
                  functions: Dict[str, VyperFunction],
+                 interfaces: Dict[str, 'VyperInterface'],
                  local_state_invariants: List[ast.Expr],
                  inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
@@ -224,7 +225,8 @@ class VyperInterface(VyperProgram):
                          config,
                          empty_struct,
                          functions,
-                         {}, {}, {}, {}, {},
+                         interfaces,
+                         {}, {}, {}, {},
                          local_state_invariants,
                          inter_contract_invariants,
                          general_postconditions,
@@ -232,7 +234,10 @@ class VyperInterface(VyperProgram):
                          general_checks,
                          {}, [], {})
         self.name = name
-        self.ghost_functions = ghost_functions
+        self.imported_ghost_functions = dict(self._ghost_functions())
+        self.own_ghost_functions = ghost_functions
+        self.ghost_functions = self.imported_ghost_functions
+        self.ghost_functions.update(ghost_functions)
         self.type = type
         self.caller_private = caller_private
 

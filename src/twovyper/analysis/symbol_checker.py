@@ -16,8 +16,15 @@ def check_symbols(program: VyperProgram):
 
 
 def _check_unique_ghost_functions(program: VyperProgram):
-    if not isinstance(program, VyperInterface):
-        ghosts = sum(len(interface.ghost_functions) for interface in program.interfaces.values())
+    if isinstance(program, VyperInterface):
+        if (program.ghost_functions
+                and all((ghost_function not in program.imported_ghost_functions
+                         for ghost_function in program.ghost_functions))):
+            raise InvalidProgramException(program.node, 'duplicate.ghost',
+                                          'An imported ghost function has the same name '
+                                          'as a ghost function declared here')
+    else:
+        ghosts = sum(len(interface.own_ghost_functions) for interface in program.interfaces.values())
         if ghosts != len(program.ghost_functions):
             raise InvalidProgramException(program.node, 'duplicate.ghost')
 
@@ -30,7 +37,7 @@ def _check_ghost_implements(program: VyperProgram):
 
     for itype in program.implements:
         interface = program.interfaces[itype.name]
-        for ghost in interface.ghost_functions.values():
+        for ghost in interface.own_ghost_functions.values():
             implementation = program.ghost_function_implementations.get(ghost.name)
             check(implementation, program.node)
             check(implementation.name == ghost.name, implementation.node)
