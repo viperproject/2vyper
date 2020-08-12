@@ -488,6 +488,8 @@ class SpecificationTranslator(ExpressionTranslator):
             addr = self.translate(node.args[0], res, ctx)
             return helpers.check_call_failed(self.viper_ast, addr, pos)
         elif name == names.IMPLEMENTS:
+            if ctx.program.config.has_option(names.CONFIG_TRUST_CASTS):
+                return self.viper_ast.TrueLit(pos)
             address = self.translate(node.args[0], res, ctx)
             interface = node.args[1].id
             return helpers.implements(self.viper_ast, address, interface, ctx, pos)
