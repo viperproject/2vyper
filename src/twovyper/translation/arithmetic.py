@@ -108,7 +108,14 @@ class ArithmeticTranslator(CommonTranslator):
         ast_op = ast.ArithmeticOperator
         left_is_wrapped = self.is_wrapped(lhs)
         right_is_wrapped = self.is_wrapped(rhs)
-        if ctx.inside_lemma:
+        if ctx.inside_interpreted:
+            if left_is_wrapped:
+                left_is_wrapped = False
+                lhs = helpers.w_unwrap(self.viper_ast, lhs, pos)
+            if right_is_wrapped:
+                right_is_wrapped = False
+                rhs = helpers.w_unwrap(self.viper_ast, rhs, pos)
+        elif ctx.inside_lemma:
             if not left_is_wrapped:
                 left_is_wrapped = True
                 lhs = helpers.w_wrap(self.viper_ast, lhs, pos)

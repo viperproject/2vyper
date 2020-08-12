@@ -38,6 +38,7 @@ class SpecificationTranslator(ExpressionTranslator):
         self.resource_translator = ResourceTranslator(viper_ast)
         self._assume_events = False
         self._translating_check = False
+        self._caller_private_condition = None
 
     @property
     def no_reverts(self):
@@ -90,8 +91,10 @@ class SpecificationTranslator(ExpressionTranslator):
         with self._ignore_accessible_scope(ignore_accessible):
             return self.translate(inv, res, ctx)
 
-    def translate_caller_private(self, expr: ast.Expr, ctx: Context) -> Expr:
-        return self._translate_spec(expr, ctx)
+    def translate_caller_private(self, expr: ast.Expr, ctx: Context) -> (Expr, Expr):
+        self._caller_private_condition = self.viper_ast.TrueLit()
+        caller_private_expr = self._translate_spec(expr, ctx)
+        return self._caller_private_condition, caller_private_expr
 
     def _translate_spec(self, node: ast.Node, ctx: Context) -> Expr:
         stmts = []
@@ -346,6 +349,16 @@ class SpecificationTranslator(ExpressionTranslator):
                 return self.balance_translator.get_sent(self_var, arg, ctx, pos)
             else:
                 return self.balance_translator.sent(self_var, ctx, pos)
+        elif name == names.INTERPRETED:
+            with ctx.interpreted_scope():
+                interpreted_arg = self.translate(node.args[0], res, ctx)
+                res.append(self.viper_ast.Assert(interpreted_arg, pos))
+            uninterpreted_arg = self.translate(node.args[0], res, ctx)
+            res.append(self.viper_ast.Inhale(uninterpreted_arg, pos))
+            return self.viper_ast.TrueLit(pos)
+        elif name == names.CONDITIONAL:
+            self._caller_private_condition = self.translate(node.args[0], res, ctx)
+            return self.translate(node.args[1], res, ctx)
         elif name == names.ALLOCATED:
             resource = self.resource_translator.translate(node.resource, res, ctx)
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)

@@ -75,6 +75,7 @@ class StructureChecker(NodeVisitor):
         self._non_pure_parent_description: Union[str, None] = None
         self._visited_an_event = False
         self._visited_caller_spec = False
+        self._num_visited_conditional = 0
         self._only_one_event_allowed = False
         self._function_pure_checker = _FunctionPureChecker()
 
@@ -185,9 +186,12 @@ class StructureChecker(NodeVisitor):
         if isinstance(program, VyperInterface):
             for caller_private in program.caller_private:
                 self._visited_caller_spec = False
+                self._num_visited_conditional = 0
                 self.visit(caller_private, _Context.CALLER_PRIVATE, program, None)
                 _assert(self._visited_caller_spec, caller_private, 'invalid.caller.private',
                         'A caller private expression must contain "caller()"')
+                _assert(self._num_visited_conditional <= 1, caller_private, 'invalid.caller.private',
+                        'A caller private expression can only contain at most one "conditional(...)"')
 
     def visit(self, node: ast.Node, *args):
         assert len(args) == 3
@@ -305,6 +309,9 @@ class StructureChecker(NodeVisitor):
 
         if node.name == names.CALLER:
             self._visited_caller_spec = True
+
+        elif node.name == names.CONDITIONAL:
+            self._num_visited_conditional += 1
 
         if node.name == names.SENT or node.name == names.RECEIVED:
             _assert(not program.is_interface(), node, f'invalid.{node.name}',

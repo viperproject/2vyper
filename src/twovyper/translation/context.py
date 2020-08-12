@@ -67,6 +67,7 @@ class Context:
         self.inside_inline_analysis = False
 
         self.inside_lemma = False
+        self.inside_interpreted = False
 
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
@@ -512,3 +513,12 @@ class Context:
         yield
 
         self.inside_lemma = inside_lemma
+
+    @contextmanager
+    def interpreted_scope(self):
+        inside_interpreted = self.inside_interpreted
+        self.inside_interpreted = True
+
+        yield
+
+        self.inside_interpreted = inside_interpreted
