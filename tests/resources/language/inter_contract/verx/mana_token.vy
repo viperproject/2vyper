@@ -6,6 +6,7 @@
 #
 
 from . import mana_token_interface
+from . import mana_continuous_sale_interface
 
 implements: mana_token_interface
 
