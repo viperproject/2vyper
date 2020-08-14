@@ -17,9 +17,14 @@
 
 #@ lemma_def times_400(i: uint256):
     #@ lemma.distributive(i,   2,   1,   1)
+    #@ lemma.distributive(i,   4,   2,   2)
     #@ lemma.distributive(i,   8,   4,   4)
+    #@ lemma.distributive(i,  16,   8,   8)
+    #@ lemma.distributive(i,  10,   2,   8)
     #@ lemma.distributive(i,  32,  16,  16)
+    #@ lemma.distributive(i,  40,   8,  32)
     #@ lemma.distributive(i,  50,  40,  10)
+    #@ lemma.distributive(i, 100,  50,  50)
     #@ lemma.distributive(i, 200, 100, 100)
 
 
