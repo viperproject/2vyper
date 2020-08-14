@@ -433,7 +433,7 @@ class ProgramBuilder(NodeVisitor):
             if name in ghost_functions:
                 raise InvalidProgramException(func, 'duplicate.ghost')
 
-            ghost_functions[name] = GhostFunction(name, args, vyper_type, func)
+            ghost_functions[name] = GhostFunction(name, args, vyper_type, func, os.path.abspath(self.path))
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         args = {arg.name: self._arg(arg) for arg in node.args}

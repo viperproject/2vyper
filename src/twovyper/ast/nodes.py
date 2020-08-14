@@ -94,11 +94,13 @@ class GhostFunction:
                  name: str,
                  args: Dict[str, VyperVar],
                  type: FunctionType,
-                 node: ast.FunctionDef):
+                 node: ast.FunctionDef,
+                 file: str):
         self.name = name
         self.args = args
         self.type = type
         self.node = node
+        self.file = file
 
 
 class VyperStruct:
@@ -236,7 +238,7 @@ class VyperInterface(VyperProgram):
         self.name = name
         self.imported_ghost_functions = dict(self._ghost_functions())
         self.own_ghost_functions = ghost_functions
-        self.ghost_functions = self.imported_ghost_functions
+        self.ghost_functions = dict(self.imported_ghost_functions)
         self.ghost_functions.update(ghost_functions)
         self.type = type
         self.caller_private = caller_private
