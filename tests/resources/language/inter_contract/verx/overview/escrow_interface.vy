@@ -30,9 +30,6 @@
 # If we do not refund, the deposit can not get withdrawn
 #@ invariant: not refund_state(self) ==> sum(deposits(self)) >= old(sum(deposits(self)))
 
-# Escrow does not modify the state of the caller
-# always ensures: msg.sender != self ==> open_state(self) ==> storage(msg.sender) == old(storage(msg.sender))
-
 # The simulated enum is only modifiable by owner
 #@ caller private: conditional(owner(self) == caller(), success_state(self))
 #@ caller private: conditional(owner(self) == caller(), refund_state(self))
