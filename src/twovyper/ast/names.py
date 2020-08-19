@@ -14,6 +14,7 @@ PAYABLE = 'payable'
 CONSTANT = 'constant'
 NONREENTRANT = 'nonreentrant'
 PURE = 'pure'
+INTERPRETED_DECORATOR = 'interpreted'
 
 # Modifiers
 assert CONSTANT == 'constant'  # CONSTANT = 'constant'

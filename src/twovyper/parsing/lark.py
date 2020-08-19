@@ -559,7 +559,7 @@ class CodeVisitor(NodeVisitor):
 
     def visit_FunctionDef(self, node: ast.FunctionDef, *args):
         lemmas: Dict[int, bool] = args[1]
-        node.is_lemma = lemmas[node.lineno]
+        node.is_lemma = lemmas[node.lineno] or lemmas[node.lineno + len(node.decorators)]
         self.generic_visit(node, *args)
 
     def visit_Assert(self, node: ast.Assert, *args):

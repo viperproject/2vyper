@@ -5,7 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from twovyper.ast import ast_nodes as ast, names, types
+from typing import List
+
+from twovyper.ast import ast_nodes as ast
 from twovyper.ast.nodes import VyperFunction, VyperVar
 
 from twovyper.translation import mangled
@@ -28,7 +30,7 @@ class LemmaTranslator(CommonTranslator):
         self.specification_translator = SpecificationTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
 
-    def translate(self, function: VyperFunction, ctx: Context) -> Function:
+    def translate(self, function: VyperFunction, ctx: Context) -> List[Function]:
         with ctx.function_scope():
             with ctx.lemma_scope():
                 pos = self.to_position(function.node, ctx)
@@ -66,8 +68,16 @@ class LemmaTranslator(CommonTranslator):
                                          .translate_pre_or_postcondition(precondition, stmts, ctx))
                     assert not stmts
 
+                # If we assume uninterpreted function and assert the interpreted ones, the lemma has no body
+                body = None if function.is_interpreted() else self.viper_ast.TrueLit()
+
                 postconditions = []
-                for stmt in function.node.body:
+                interpreted_postconditions = []
+                if function.is_interpreted():
+                    # Without a body, we must ensure that "result == true"
+                    viper_result = self.viper_ast.Result(self.viper_ast.Bool, pos)
+                    postconditions.append(self.viper_ast.EqCmp(viper_result, self.viper_ast.TrueLit(), pos))
+                for idx, stmt in enumerate(function.node.body):
                     assert isinstance(stmt, ast.ExprStmt)
                     expr = stmt.value
                     stmts = []
@@ -75,13 +85,26 @@ class LemmaTranslator(CommonTranslator):
                     post_pos = self.to_position(stmt, ctx, rules=rules.LEMMA_FAIL)
                     viper_result = self.viper_ast.Result(self.viper_ast.Bool, post_pos)
                     postconditions.append(self.viper_ast.EqCmp(viper_result, post, post_pos))
+                    if function.is_interpreted():
+                        # If the function is interpreted, generate also an interpreted version of the lemma step
+                        with ctx.interpreted_scope():
+                            interpreted_post = self.specification_translator.translate(expr, stmts, ctx)
+                            interpreted_postconditions.append(
+                                self.viper_ast.EqCmp(viper_result, interpreted_post, post_pos))
                     assert not stmts
 
                 args_list = [arg.var_decl(ctx) for arg in args.values()]
                 viper_name = mangled.lemma_name(function.name)
-                function = self.viper_ast.Function(viper_name, args_list, self.viper_ast.Bool,
-                                                   preconditions, postconditions, self.viper_ast.TrueLit(), pos)
-        return function
+                viper_functions = [self.viper_ast.Function(viper_name, args_list, self.viper_ast.Bool,
+                                                           preconditions, postconditions, body, pos)]
+                if function.is_interpreted():
+                    # If we have interpreted postconditions, generate a second function.
+                    # This second function has always a body, the same arguments and the same preconditions, but uses
+                    # interpreted mul, div and mod instead of the uninterpreted $Int-functions in the postconditions.
+                    viper_functions.append(self.viper_ast.Function(
+                        "interpreted$" + viper_name, args_list, self.viper_ast.Bool, preconditions,
+                        interpreted_postconditions, self.viper_ast.TrueLit(), pos))
+        return viper_functions
 
     def _translate_non_local_var(self, var: VyperVar, ctx: Context):
         pos = self.to_position(var.node, ctx)

@@ -82,6 +82,9 @@ class VyperFunction:
     def is_pure(self) -> bool:
         return names.PURE in self._decorator_names
 
+    def is_interpreted(self) -> bool:
+        return names.INTERPRETED_DECORATOR in self._decorator_names
+
     def nonreentrant_keys(self) -> Iterable[str]:
         for dec in self.decorators:
             if dec.name == names.NONREENTRANT:

@@ -449,7 +449,13 @@ class ProgramBuilder(NodeVisitor):
                                  loop_invariant_transformer.loop_invariants, self.performs, decs, node)
         if node.is_lemma:
             if node.decorators:
-                raise InvalidProgramException(first(node.decorators), 'invalid.lemma')
+                decorator = node.decorators[0]
+                if len(node.decorators) > 1 or decorator.name != names.INTERPRETED_DECORATOR:
+                    raise InvalidProgramException(decorator, 'invalid.lemma',
+                                                  f'A lemma can have only one decorator: {names.INTERPRETED_DECORATOR}')
+                if not decorator.is_ghost_code:
+                    raise InvalidProgramException(decorator, 'invalid.lemma',
+                                                  'The decorator of a lemma must be ghost code')
             if vyper_type.return_type is not None:
                 raise InvalidProgramException(node, 'invalid.lemma', 'A lemma cannot have a return type')
             if node.name in self.lemmas:
