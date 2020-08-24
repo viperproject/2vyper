@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
-from typing import Union, Dict, TYPE_CHECKING, List, Any, Optional, Tuple, Callable
+from typing import Dict, TYPE_CHECKING, List, Any, Optional, Tuple, Callable
 
 from twovyper.ast import names
 from twovyper.ast.ast_nodes import Expr
@@ -34,7 +34,8 @@ class Context:
         # Transitive postconditions that are known to be true and therefore don't need to be checked
         self.unchecked_transitive_postconditions: Optional[Callable[[], List[Expr]]] = None
 
-        self.function: Union[VyperFunction, None] = None
+        self.function: Optional[VyperFunction] = None
+        self.inline_function: Optional[VyperFunction] = None
 
         self.args = {}
         self.locals: Dict[str, TranslatedVar] = {}
@@ -65,6 +66,7 @@ class Context:
 
         self.inside_trigger = False
         self.inside_inline_analysis = False
+        self.inline_function = None
 
         self.inside_lemma = False
         self.inside_interpreted = False
@@ -101,6 +103,10 @@ class Context:
         self._inline_counter = -1
         self._current_inline = -1
         self.inline_vias = []
+
+    @property
+    def current_function(self) -> Optional[VyperFunction]:
+        return self.function if not self.inside_inline_analysis else self.inline_function
 
     @property
     def all_vars(self) -> ChainMap:
@@ -222,6 +228,7 @@ class Context:
 
         inside_trigger = self.inside_trigger
         inside_inline_analysis = self.inside_inline_analysis
+        inline_function = self.inline_function
 
         local_var_counter = self._local_var_counter
         new_local_vars = self.new_local_vars
@@ -269,6 +276,7 @@ class Context:
 
         self.inside_trigger = False
         self.inside_inline_analysis = False
+        self.inline_function = None
 
         self._local_var_counter = defaultdict(lambda: -1)
         self.new_local_vars = []
@@ -319,6 +327,7 @@ class Context:
 
         self.inside_trigger = inside_trigger
         self.inside_inline_analysis = inside_inline_analysis
+        self.inline_function = inline_function
 
         self._local_var_counter = local_var_counter
         self.new_local_vars = new_local_vars
@@ -361,7 +370,7 @@ class Context:
         self.inside_trigger = inside_trigger
 
     @contextmanager
-    def inline_scope(self, via):
+    def inline_scope(self, via, function: Optional[VyperFunction] = None):
         success_var = self.success_var
         result_var = self.result_var
         self.result_var = None
@@ -382,6 +391,8 @@ class Context:
 
         inside_inline_analysis = self.inside_inline_analysis
         self.inside_inline_analysis = True
+        inline_function = self.inline_function
+        self.inline_function = function
 
         yield
 
@@ -396,6 +407,7 @@ class Context:
         self.inline_vias = inline_vias
 
         self.inside_inline_analysis = inside_inline_analysis
+        self.inline_function = inline_function
 
     @contextmanager
     def interface_call_scope(self):

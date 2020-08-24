@@ -641,7 +641,7 @@ class FunctionTranslator(CommonTranslator):
         function = ctx.program.functions[call.name]
         call_pos = self.to_position(call, ctx)
         via = Via('inline', call_pos)
-        with ctx.inline_scope(via):
+        with ctx.inline_scope(via, function):
             assert function.node
             # Only private self-calls are allowed in Vyper
             assert function.is_private()
