@@ -739,16 +739,18 @@ class FunctionTranslator(CommonTranslator):
         #    - Define return variable
         #    - Define new_success variable
         #    - Check precondition
+        #    - Forget about all events
         #    - The next steps are only necessary if the function is not constant:
-        #       - Forget about all events
         #       - Create new state which corresponds to the pre_state of the private function call
         #       - Havoc self and contracts
         #       - Havoc old_self and old_contracts
         #       - Assume type assumptions for self and old_self
         #       - Assume invariants (where old and present refers to the havoced old state)
+        #    - Check that private function has stronger "check"s
         #    - Assume postconditions (where old refers to present state, if the function is constant or
         #      else to the newly create pre_state)
         #    - Fail if not new_success
+        #    - Wrap integers to $Int if the function has a numeric return type
         function = ctx.program.functions[call.name]
         call_pos = self.to_position(call, ctx)
         via = Via('private function call', call_pos)
