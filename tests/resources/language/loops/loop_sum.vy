@@ -5,10 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-# Verification took   8.22 seconds. [benchmark=10] (With loop invariants)
-# Verification took  22.31 seconds. [benchmark=10] (With loop unrolling)
-
-l: constant(int128) = 100
+l: constant(int128) = 18446744073709551615
 
 #@ ensures: res == sum(range(l)) + l
 @public

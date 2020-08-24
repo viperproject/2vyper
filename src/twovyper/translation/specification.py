@@ -301,6 +301,25 @@ class SpecificationTranslator(ExpressionTranslator):
 
                 return helpers.map_sum(self.viper_ast, expr, key_type, pos)
             elif isinstance(arg.type, types.ArrayType):
+                if isinstance(arg, ast.FunctionCall):
+                    if (arg.name == names.RANGE
+                            and hasattr(expr, "getArgs")):
+                        range_args = expr.getArgs()
+                        func_app = self.viper_ast.FuncApp(mangled.RANGE_SUM, [], pos, type=self.viper_ast.Int)
+                        return func_app.withArgs(range_args)
+                    elif arg.name == names.PREVIOUS:
+                        loop_var = arg.args[0]
+                        loop_array = ctx.loop_arrays.get(loop_var.id)
+                        if (hasattr(loop_array, "funcname")
+                                and hasattr(loop_array, "getArgs")
+                                and loop_array.funcname() == mangled.RANGE_RANGE):
+                            lower_arg = loop_array.getArgs().head()
+                            loop_idx = ctx.loop_indices[loop_var.id].local_var(ctx)
+                            upper_arg = self.viper_ast.SeqIndex(loop_array, loop_idx, pos)
+                            range_args = self.viper_ast.to_seq([lower_arg, upper_arg])
+                            func_app = self.viper_ast.FuncApp(mangled.RANGE_SUM, [], pos, type=self.viper_ast.Int)
+                            return func_app.withArgs(range_args)
+
                 int_lit_zero = self.viper_ast.IntLit(0, pos)
                 sum_value = int_lit_zero
                 for i in range(arg.type.size):
