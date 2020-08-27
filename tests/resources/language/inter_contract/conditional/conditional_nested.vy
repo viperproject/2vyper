@@ -7,8 +7,9 @@
 
 #@ interface
 
-#@ inter contract invariant: True
+#:: ExpectedOutput(invalid.program:invalid.caller.private)
+#@ caller private: conditional(conditional(caller() == caller(), True), True)
 
 @public
-def foo():
-    pass
+def foo() -> address:
+    raise "Not implemented"

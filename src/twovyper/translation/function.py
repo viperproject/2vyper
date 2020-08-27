@@ -164,6 +164,16 @@ class FunctionTranslator(CommonTranslator):
             msg_info_msg = "Assume type assumptions for msg"
             self.seqn_with_info(msg_assumes, msg_info_msg, body)
 
+            # Interface references we have knowledge about and therefore can e.g. assume their invariants
+            known_interface_ref = []
+            self_type = ctx.program.fields.type
+            for member_name, member_type in self_type.member_types.items():
+                viper_type = self.type_translator.translate(member_type, ctx)
+                if isinstance(member_type, types.InterfaceType):
+                    get = helpers.struct_get(self.viper_ast, ctx.self_var.local_var(ctx), member_name,
+                                             viper_type, self_type)
+                    known_interface_ref.append((member_type.name, get))
+
             # Assume unchecked and user-specified invariants
             inv_pres_issued = []
             inv_pres_self = []
@@ -222,6 +232,8 @@ class FunctionTranslator(CommonTranslator):
                         for inv in ctx.unchecked_invariants():
                             inv_pres_self.append(self.viper_ast.Inhale(inv))
 
+                self.expression_translator.assume_contract_state(known_interface_ref, inv_pres_self, ctx,
+                                                                 skip_caller_private=True)
             iv_info_msg = "Assume invariants for issued self"
             self.seqn_with_info(inv_pres_issued, iv_info_msg, body)
             iv_info_msg = "Assume invariants for self"
@@ -379,6 +391,8 @@ class FunctionTranslator(CommonTranslator):
             # we don't update the flag
             if is_init:
                 self.state_translator.check_first_public_state(body, ctx, False)
+                self.expression_translator.assume_contract_state(known_interface_ref, body, ctx,
+                                                                 skip_caller_private=True)
 
             post_stmts = []
 
@@ -521,15 +535,6 @@ class FunctionTranslator(CommonTranslator):
                 invariant_stmts.extend(assert_collected_invariants(invariant_conditions))
                 self.seqn_with_info(invariant_stmts, "Assert Local State Invariants", body)
 
-                known_interface_ref = []
-                self_type = ctx.program.fields.type
-                for member_name, member_type in self_type.member_types.items():
-                    viper_type = self.type_translator.translate(member_type, ctx)
-                    if isinstance(member_type, types.InterfaceType):
-                        get = helpers.struct_get(self.viper_ast, ctx.self_var.local_var(ctx), member_name,
-                                                 viper_type, self_type)
-                        known_interface_ref.append((member_type.name, get))
-
                 self.expression_translator.assume_contract_state(known_interface_ref, body, ctx)
 
                 # Collect all inter contract invariants
@@ -636,7 +641,7 @@ class FunctionTranslator(CommonTranslator):
         function = ctx.program.functions[call.name]
         call_pos = self.to_position(call, ctx)
         via = Via('inline', call_pos)
-        with ctx.inline_scope(via):
+        with ctx.inline_scope(via, function):
             assert function.node
             # Only private self-calls are allowed in Vyper
             assert function.is_private()
@@ -734,16 +739,18 @@ class FunctionTranslator(CommonTranslator):
         #    - Define return variable
         #    - Define new_success variable
         #    - Check precondition
+        #    - Forget about all events
         #    - The next steps are only necessary if the function is not constant:
-        #       - Forget about all events
         #       - Create new state which corresponds to the pre_state of the private function call
         #       - Havoc self and contracts
         #       - Havoc old_self and old_contracts
         #       - Assume type assumptions for self and old_self
         #       - Assume invariants (where old and present refers to the havoced old state)
+        #    - Check that private function has stronger "check"s
         #    - Assume postconditions (where old refers to present state, if the function is constant or
         #      else to the newly create pre_state)
         #    - Fail if not new_success
+        #    - Wrap integers to $Int if the function has a numeric return type
         function = ctx.program.functions[call.name]
         call_pos = self.to_position(call, ctx)
         via = Via('private function call', call_pos)

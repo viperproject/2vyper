@@ -5,10 +5,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ interface
-
-#@ inter contract invariant: True
+#:: ExpectedOutput(invalid.program:invalid.lemma)
+#@ pure
+#@ lemma_def foo():
+    #@ True
 
 @public
-def foo():
+def test(x: int128):
     pass

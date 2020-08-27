@@ -32,14 +32,14 @@ from twovyper.ast.types import (
 from twovyper.exceptions import InvalidProgramException
 
 
-def parse(path: str, root: Optional[str], as_interface=False, name=None) -> VyperProgram:
+def parse(path: str, root: Optional[str], as_interface=False, name=None, parse_further_interfaces=True) -> VyperProgram:
     with open(path, 'r') as file:
         contract = file.read()
 
     preprocessed_contract = preprocess(contract)
     contract_ast = lark.parse_module(preprocessed_contract, contract, path)
     contract_ast = transform(contract_ast)
-    program_builder = ProgramBuilder(path, root, as_interface, name)
+    program_builder = ProgramBuilder(path, root, as_interface, name, parse_further_interfaces)
     return program_builder.build(contract_ast)
 
 
@@ -53,11 +53,12 @@ class ProgramBuilder(NodeVisitor):
     # top-level statements we gather pre and postconditions until we reach a function
     # definition.
 
-    def __init__(self, path: str, root: Optional[str], is_interface: bool, name: str):
+    def __init__(self, path: str, root: Optional[str], is_interface: bool, name: str, parse_further_interfaces: bool):
         self.path = path
         self.root = root
         self.is_interface = is_interface
         self.name = name
+        self.parse_further_interfaces = parse_further_interfaces
 
         self.config = None
 
@@ -108,19 +109,28 @@ class ProgramBuilder(NodeVisitor):
 
         if self.is_interface:
             interface_type = InterfaceType(self.name)
-            return VyperInterface(node,
-                                  self.path,
-                                  self.name,
-                                  self.config,
-                                  self.functions,
-                                  self.local_state_invariants,
-                                  self.inter_contract_invariants,
-                                  self.general_postconditions,
-                                  self.transitive_postconditions,
-                                  self.general_checks,
-                                  self.caller_private,
-                                  self.ghost_functions,
-                                  interface_type)
+            if self.parse_further_interfaces:
+                return VyperInterface(node,
+                                      self.path,
+                                      self.name,
+                                      self.config,
+                                      self.functions,
+                                      self.interfaces,
+                                      self.local_state_invariants,
+                                      self.inter_contract_invariants,
+                                      self.general_postconditions,
+                                      self.transitive_postconditions,
+                                      self.general_checks,
+                                      self.caller_private,
+                                      self.ghost_functions,
+                                      interface_type)
+            else:
+                return VyperInterface(node,
+                                      self.path,
+                                      self.name,
+                                      Config([]), {}, {}, [], [], [], [], [], [],
+                                      self.ghost_functions,
+                                      interface_type)
         else:
             if self.caller_private:
                 node = first(self.caller_private)
@@ -209,7 +219,7 @@ class ProgramBuilder(NodeVisitor):
             files[path] = alias.asname
 
         for file, name in files.items():
-            interface = parse(file, self.root, True, name)
+            interface = parse(file, self.root, True, name, not self.is_interface)
             self.interfaces[name] = interface
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
@@ -219,7 +229,7 @@ class ProgramBuilder(NodeVisitor):
         module = node.module or ''
         components = module.split('.')
 
-        if self.is_interface:
+        if not self.parse_further_interfaces:
             return
 
         if components == interfaces.VYPER_INTERFACES:
@@ -250,7 +260,7 @@ class ProgramBuilder(NodeVisitor):
             files[interface_path] = name
 
         for file, name in files.items():
-            interface = parse(file, self.root, True, name)
+            interface = parse(file, self.root, True, name, not self.is_interface)
             self.interfaces[name] = interface
 
     def visit_StructDef(self, node: ast.StructDef):
@@ -423,7 +433,7 @@ class ProgramBuilder(NodeVisitor):
             if name in ghost_functions:
                 raise InvalidProgramException(func, 'duplicate.ghost')
 
-            ghost_functions[name] = GhostFunction(name, args, vyper_type, func)
+            ghost_functions[name] = GhostFunction(name, args, vyper_type, func, os.path.abspath(self.path))
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         args = {arg.name: self._arg(arg) for arg in node.args}
@@ -439,7 +449,13 @@ class ProgramBuilder(NodeVisitor):
                                  loop_invariant_transformer.loop_invariants, self.performs, decs, node)
         if node.is_lemma:
             if node.decorators:
-                raise InvalidProgramException(first(node.decorators), 'invalid.lemma')
+                decorator = node.decorators[0]
+                if len(node.decorators) > 1 or decorator.name != names.INTERPRETED_DECORATOR:
+                    raise InvalidProgramException(decorator, 'invalid.lemma',
+                                                  f'A lemma can have only one decorator: {names.INTERPRETED_DECORATOR}')
+                if not decorator.is_ghost_code:
+                    raise InvalidProgramException(decorator, 'invalid.lemma',
+                                                  'The decorator of a lemma must be ghost code')
             if vyper_type.return_type is not None:
                 raise InvalidProgramException(node, 'invalid.lemma', 'A lemma cannot have a return type')
             if node.name in self.lemmas:

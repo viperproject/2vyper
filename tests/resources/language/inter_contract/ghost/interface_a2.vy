@@ -7,8 +7,9 @@
 
 #@ interface
 
-#@ inter contract invariant: True
+#@ ghost:
+    #@ def a() -> int128: ...
 
 @public
 def foo():
-    pass
+    raise "Not implemented"

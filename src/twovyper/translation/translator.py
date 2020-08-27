@@ -194,7 +194,8 @@ class ProgramTranslator(CommonTranslator):
         functions += [self.pure_function_translator.translate(function, ctx) for function in pure_vyper_functions]
 
         # Lemmas
-        functions += [self.lemma_translator.translate(lemma, ctx) for lemma in vyper_program.lemmas.values()]
+        functions += [function for lemma in vyper_program.lemmas.values()
+                      for function in self.lemma_translator.translate(lemma, ctx)]
 
         # Events
         events = [self._translate_event(event, ctx) for event in vyper_program.events.values()]

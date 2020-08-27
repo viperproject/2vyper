@@ -217,7 +217,7 @@ class StatementTranslator(NodeTranslator):
             add_new_var(self, node.target, ctx, not has_wrapped_information_in_array)
             loop_var_name = node.target.id
 
-            loop_invariants = ctx.function.loop_invariants.get(node)
+            loop_invariants = ctx.current_function.loop_invariants.get(node)
             if loop_invariants:
                 ctx.loop_arrays[loop_var_name] = array
                 # New variable loop-idx

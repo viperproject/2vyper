@@ -20,3 +20,15 @@ domain $Range {
     }
 
 }
+
+function $range_sum($x:Int, $y:Int): Int
+    requires $x <= $y
+{
+    let $x_ge_0 == ($x >= 0) in
+    let $y_ge_0 == ($y >= 0) in
+    let $x_exclusive == ($x_ge_0 ? (($x - 1) * $x) \ 2 :  (((-$x) - 1) * (-$x)) \ 2) in
+    let $y_exclusive == ($y_ge_0 ? (($y - 1) * $y) \ 2 :  (((-$y) - 1) * (-$y)) \ 2) in
+    (($x_ge_0 && $y_ge_0) ? ($y_exclusive - $x_exclusive) :
+    ((!$x_ge_0 && $y_ge_0) ? ($y_exclusive - $x_exclusive + $x) :
+    ($y_exclusive - $y - $x_exclusive + $x)))
+}

@@ -633,6 +633,14 @@ class TypeAnnotator(NodeVisitor):
                 _check(is_interface, node, 'invalid.interface')
                 self.annotate_expected(address, types.VYPER_ADDRESS)
                 return [types.VYPER_BOOL], [node]
+            elif case(names.INTERPRETED):
+                _check_number_of_arguments(node, 1)
+                self.annotate_expected(node.args[0], types.VYPER_BOOL)
+                return [types.VYPER_BOOL], [node]
+            elif case(names.CONDITIONAL):
+                _check_number_of_arguments(node, 2)
+                self.annotate_expected(node.args[0], types.VYPER_BOOL)
+                return self.pass_through(node.args[1], node)
             elif case(names.REALLOCATE):
                 keywords = [names.REALLOCATE_TO, names.REALLOCATE_ACTING_FOR]
                 required = [names.REALLOCATE_TO]

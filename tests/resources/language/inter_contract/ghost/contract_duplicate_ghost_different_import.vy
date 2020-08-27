@@ -5,9 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ interface
-
-#@ inter contract invariant: True
+#:: ExpectedOutput(invalid.program:duplicate.ghost)
+import tests.resources.language.inter_contract.ghost.subdir.interface_a2 as a2
+from . import interface_b
 
 @public
 def foo():

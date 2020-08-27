@@ -5,10 +5,17 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+from .subdir import interface_a2
+
 #@ interface
 
-#@ inter contract invariant: True
+#@ ghost:
+    #@ def c() -> int128: ...
+    #@ def owner() -> address: ...
+
+
+#@ inter contract invariant: a(owner(self)) == 42
 
 @public
 def foo():
-    pass
+    raise "Not implemented"

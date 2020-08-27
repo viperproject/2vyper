@@ -5,10 +5,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ interface
-
-#@ inter contract invariant: True
+#@ interpreted
+#@ lemma_def foo(x: int128):
+    #@ x * 20 == x * 10 + x * 10
+    #:: ExpectedOutput(lemma.step.invalid:assertion.false)
+    #@ 20 * 20 == 401
 
 @public
-def foo():
+def test(x: int128):
     pass

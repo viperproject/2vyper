@@ -115,6 +115,7 @@ STRUCT_INIT_DOMAIN = '$StructInit'
 
 RANGE_DOMAIN = '$Range'
 RANGE_RANGE = '$range'
+RANGE_SUM = '$range_sum'
 
 CONVERT_DOMAIN = '$Convert'
 CONVERT_BYTES32_TO_SIGNED_INT = '$bytes32_to_signed_int'

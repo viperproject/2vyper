@@ -75,8 +75,10 @@ class ExpressionTranslator(NodeTranslator):
         some expressions got unwrapped inside this expression and if this expression could get wrapped. If both is true,
         only then we wrap this expression again.
         Doing this, prevents the $wrap($unwrap($wrap($unwrap(...))) chain during translation.
+
+        If we are inside an interpreted scope, we do not wrap the result again.
         """
-        if isinstance(self.viper_ast, WrappedViperAST):
+        if isinstance(self.viper_ast, WrappedViperAST) and not ctx.inside_interpreted:
             self.viper_ast.unwrapped_some_expressions = False
             result = self.translate(node, res, ctx)
             if self.viper_ast.unwrapped_some_expressions:
@@ -725,9 +727,11 @@ class ExpressionTranslator(NodeTranslator):
                         # $caller != msg.sender ==> Expr == old(Expr)
                         msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
                         ignore_cond = self.viper_ast.NeCmp(msg_sender, q_var.local_var(ctx, pos), pos)
-                        curr_caller_private = self.spec_translator.translate_caller_private(caller_private, ctx)
+                        _, curr_caller_private = self.spec_translator.translate_caller_private(caller_private, ctx)
                         with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
-                            old_caller_private = self.spec_translator.translate_caller_private(caller_private, ctx)
+                            cond, old_caller_private = self.spec_translator\
+                                .translate_caller_private(caller_private, ctx)
+                        ignore_cond = self.viper_ast.And(ignore_cond, cond, pos)
                         caller_private_cond = self.viper_ast.EqCmp(curr_caller_private, old_caller_private, pos)
                         expr = self.viper_ast.Implies(ignore_cond, caller_private_cond, pos)
 
@@ -736,13 +740,8 @@ class ExpressionTranslator(NodeTranslator):
                         type_assumptions = reduce(self.viper_ast.And, type_assumptions, self.viper_ast.TrueLit())
                         expr = self.viper_ast.Implies(type_assumptions, expr, pos)
 
-                        # Trigger
-                        with ctx.inside_trigger_scope():
-                            caller_private_trigger = self.spec_translator.translate_caller_private(caller_private, ctx)
-                            trigger = self.viper_ast.Trigger([caller_private_trigger], pos)
-
                         # Assertion
-                        forall = self.viper_ast.Forall([q_var.var_decl(ctx)], [trigger], expr, pos)
+                        forall = self.viper_ast.Forall([q_var.var_decl(ctx)], [], expr, pos)
                         res.append(self.viper_ast.Assert(forall, pos))
 
     def assume_contract_state(self, known_interface_refs: List[Tuple[str, Expr]], res: List[Stmt], ctx: Context,
@@ -770,11 +769,13 @@ class ExpressionTranslator(NodeTranslator):
 
                             # Caller private assumption
                             with ctx.self_address_scope(interface_ref):
-                                curr_caller_private = self.spec_translator.translate_caller_private(caller_private, ctx)
+                                _, curr_caller_private = self.spec_translator\
+                                    .translate_caller_private(caller_private, ctx)
                                 with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
-                                    old_caller_private = self.spec_translator\
+                                    cond, old_caller_private = self.spec_translator\
                                         .translate_caller_private(caller_private, ctx)
                                 caller_private_cond = self.viper_ast.EqCmp(curr_caller_private, old_caller_private, pos)
+                                caller_private_cond = self.viper_ast.Implies(cond, caller_private_cond, pos)
                                 body.append(self.viper_ast.Inhale(caller_private_cond, pos))
 
             if receiver and body:

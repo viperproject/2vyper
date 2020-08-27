@@ -5,10 +5,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+from . import interface_a1
+
 #@ interface
 
-#@ inter contract invariant: True
+#@ ghost:
+    #:: ExpectedOutput(invalid.program:duplicate.ghost)
+    #@ def a() -> int128: ...
 
 @public
 def foo():
-    pass
+    raise "Not implemented"

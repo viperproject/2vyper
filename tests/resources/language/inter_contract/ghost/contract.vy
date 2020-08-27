@@ -5,9 +5,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ interface
-
-#@ inter contract invariant: True
+from . import interface_a2
+from . import interface_b
 
 @public
 def foo():

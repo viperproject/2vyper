@@ -38,6 +38,7 @@ class SpecificationTranslator(ExpressionTranslator):
         self.resource_translator = ResourceTranslator(viper_ast)
         self._assume_events = False
         self._translating_check = False
+        self._caller_private_condition = None
 
     @property
     def no_reverts(self):
@@ -90,8 +91,10 @@ class SpecificationTranslator(ExpressionTranslator):
         with self._ignore_accessible_scope(ignore_accessible):
             return self.translate(inv, res, ctx)
 
-    def translate_caller_private(self, expr: ast.Expr, ctx: Context) -> Expr:
-        return self._translate_spec(expr, ctx)
+    def translate_caller_private(self, expr: ast.Expr, ctx: Context) -> (Expr, Expr):
+        self._caller_private_condition = self.viper_ast.TrueLit()
+        caller_private_expr = self._translate_spec(expr, ctx)
+        return self._caller_private_condition, caller_private_expr
 
     def _translate_spec(self, node: ast.Node, ctx: Context) -> Expr:
         stmts = []
@@ -298,6 +301,25 @@ class SpecificationTranslator(ExpressionTranslator):
 
                 return helpers.map_sum(self.viper_ast, expr, key_type, pos)
             elif isinstance(arg.type, types.ArrayType):
+                if isinstance(arg, ast.FunctionCall):
+                    if (arg.name == names.RANGE
+                            and hasattr(expr, "getArgs")):
+                        range_args = expr.getArgs()
+                        func_app = self.viper_ast.FuncApp(mangled.RANGE_SUM, [], pos, type=self.viper_ast.Int)
+                        return func_app.withArgs(range_args)
+                    elif arg.name == names.PREVIOUS:
+                        loop_var = arg.args[0]
+                        loop_array = ctx.loop_arrays.get(loop_var.id)
+                        if (hasattr(loop_array, "funcname")
+                                and hasattr(loop_array, "getArgs")
+                                and loop_array.funcname() == mangled.RANGE_RANGE):
+                            lower_arg = loop_array.getArgs().head()
+                            loop_idx = ctx.loop_indices[loop_var.id].local_var(ctx)
+                            upper_arg = self.viper_ast.SeqIndex(loop_array, loop_idx, pos)
+                            range_args = self.viper_ast.to_seq([lower_arg, upper_arg])
+                            func_app = self.viper_ast.FuncApp(mangled.RANGE_SUM, [], pos, type=self.viper_ast.Int)
+                            return func_app.withArgs(range_args)
+
                 int_lit_zero = self.viper_ast.IntLit(0, pos)
                 sum_value = int_lit_zero
                 for i in range(arg.type.size):
@@ -346,6 +368,16 @@ class SpecificationTranslator(ExpressionTranslator):
                 return self.balance_translator.get_sent(self_var, arg, ctx, pos)
             else:
                 return self.balance_translator.sent(self_var, ctx, pos)
+        elif name == names.INTERPRETED:
+            with ctx.interpreted_scope():
+                interpreted_arg = self.translate(node.args[0], res, ctx)
+                res.append(self.viper_ast.Assert(interpreted_arg, pos))
+            uninterpreted_arg = self.translate(node.args[0], res, ctx)
+            res.append(self.viper_ast.Inhale(uninterpreted_arg, pos))
+            return self.viper_ast.TrueLit(pos)
+        elif name == names.CONDITIONAL:
+            self._caller_private_condition = self.translate(node.args[0], res, ctx)
+            return self.translate(node.args[1], res, ctx)
         elif name == names.ALLOCATED:
             resource = self.resource_translator.translate(node.resource, res, ctx)
             allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
@@ -488,6 +520,8 @@ class SpecificationTranslator(ExpressionTranslator):
             addr = self.translate(node.args[0], res, ctx)
             return helpers.check_call_failed(self.viper_ast, addr, pos)
         elif name == names.IMPLEMENTS:
+            if ctx.program.config.has_option(names.CONFIG_TRUST_CASTS):
+                return self.viper_ast.TrueLit(pos)
             address = self.translate(node.args[0], res, ctx)
             interface = node.args[1].id
             return helpers.implements(self.viper_ast, address, interface, ctx, pos)
