@@ -209,7 +209,8 @@ class StatementTranslator(NodeTranslator):
             if isinstance(self.viper_ast, WrappedViperAST):
                 self.viper_ast.unwrapped_some_expressions = False
                 array = self.expression_translator.translate_top_level_expression(node.iter, stmts, ctx)
-                if self.viper_ast.unwrapped_some_expressions:
+                is_range = hasattr(array, "funcname") and array.funcname() == mangled.RANGE_RANGE
+                if self.viper_ast.unwrapped_some_expressions or not is_range:
                     has_wrapped_information_in_array = True
             else:
                 array = self.expression_translator.translate_top_level_expression(node.iter, stmts, ctx)
@@ -279,7 +280,7 @@ class StatementTranslator(NodeTranslator):
                 self.state_translator.havoc_old_and_current_state(self.specification_translator, havoc_stmts, ctx, pos)
                 # Havoc used variables
                 loop_used_var = {}
-                for var_name in ctx.function.analysis.loop_used_names.get(loop_var_name, []):
+                for var_name in ctx.current_function.analysis.loop_used_names.get(loop_var_name, []):
                     if var_name == loop_var_name:
                         continue
                     var = ctx.locals.get(var_name)
@@ -293,6 +294,10 @@ class StatementTranslator(NodeTranslator):
                         ctx.new_local_vars.append(new_var.var_decl(ctx))
                         ctx.locals[var.name] = new_var
                         loop_used_var[var.name] = var
+                        var_type_assumption = self.type_translator\
+                            .type_assumptions(new_var.local_var(ctx), new_var.type, ctx)
+                        var_type_assumption = [self.viper_ast.Inhale(expr) for expr in var_type_assumption]
+                        self.seqn_with_info(var_type_assumption, f"Type assumption for {var_name}", havoc_stmts)
                 self.seqn_with_info(havoc_stmts, "Havoc state", stmts)
                 # Havoc events
                 event_handling = []
