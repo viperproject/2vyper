@@ -37,7 +37,6 @@ def get_D(xp: uint256[N_COINS]) -> uint256:
         S += _x
     if S == 0:
         return 0
-
     #@ lemma_assert interpreted(forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> S == N_COINS * xp[0])
 
     Dprev: uint256 = 0
@@ -52,13 +51,11 @@ def get_D(xp: uint256[N_COINS]) -> uint256:
             #@ invariant: S == old(S) and D == old(D)
             #@ invariant: forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> D_P == D
 
-            #@ lemma_assert forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> _x == xp[0]
-            #@ lemma_assert forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> S == (_x * N_COINS)
             #@ lemma_assert forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> D_P * D / (_x * N_COINS) == D_P * D / S
             #@ lemma_assert forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> lemma.mul_div_same(D_P, D)
             #@ lemma_assert forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> D_P * D / (_x * N_COINS) == D_P
             D_P = D_P * D / (_x * N_COINS)
-        #@ lemma_assert forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> D_P == D and D_P == S
+
         #@ lemma_assert forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> (Ann * S + D_P * N_COINS)  == ((Ann - 1) * D + (N_COINS + 1) * D_P)
         #@ lemma_assert forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> lemma.mul_div_same(D, (Ann * S + D_P * N_COINS))
         #@ lemma_assert forall({i: uint256}, i < N_COINS ==> xp[0] == xp[i]) ==> (Ann * S + D_P * N_COINS) * D / ((Ann - 1) * D + (N_COINS + 1) * D_P) == D
