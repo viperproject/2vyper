@@ -56,7 +56,7 @@ class StructureChecker(NodeVisitor):
 
     def __init__(self):
         self.not_allowed = {
-            _Context.CODE: [],
+            _Context.CODE: names.NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS,
             _Context.INVARIANT: names.NOT_ALLOWED_IN_INVARIANT,
             _Context.LOOP_INVARIANT: names.NOT_ALLOWED_IN_LOOP_INVARIANT,
             _Context.CHECK: names.NOT_ALLOWED_IN_CHECK,
