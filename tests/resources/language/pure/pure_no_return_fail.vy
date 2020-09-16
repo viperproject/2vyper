@@ -11,8 +11,8 @@
 def check_arg(i: int128):
     assert i > 0
 
-#:: ExpectedOutput(invalid.program:wrong.type)
-#@ ensures: result(self.check_arg(i))
+#:: ExpectedOutput(invalid.program:spec.result)
+#@ ensures: success(self.check_arg(i)) ==> result(self.check_arg(i)) == result(self.check_arg(i))
 @public
-def foo(i: int128):
+def foo():
     pass

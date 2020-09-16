@@ -430,8 +430,8 @@ class StructureChecker(NodeVisitor):
                         'Only pure functions can be called from the specification.')
                 self.generic_visit(argument, ctx, program, function)
 
-                if node.name == names.RESULT and function:
-                    _assert(function.type.return_type is not None, argument, f"spec.{node.name}",
+                if node.name == names.RESULT:
+                    _assert(func.type.return_type is not None, argument, f"spec.{node.name}",
                             'Only functions with a return type can be used in a result-expression.')
 
                 return
