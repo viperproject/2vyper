@@ -78,13 +78,8 @@ domain $Int {
   }
 
   // tested
-  axiom $w_mul_commutative_1 {
+  axiom $w_mul_commutative {
     forall i: $Int, j: $Int :: {$w_mul(i, j)} $w_mul(i, j) == $w_mulI(j, i)
-  }
-
-  // tested
-  axiom $w_mul_commutative_2 {
-    forall i: $Int, j: $Int :: {$w_mulI(i, j)} $w_mulI(i, j) == $w_mulL(j, i)
   }
 
   // tested
