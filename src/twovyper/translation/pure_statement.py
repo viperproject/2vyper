@@ -13,7 +13,7 @@ from twovyper.ast.types import StructType, VYPER_BOOL, VYPER_UINT256
 
 from twovyper.exceptions import UnsupportedException
 
-from twovyper.translation import helpers, LocalVarSnapshot
+from twovyper.translation import helpers, LocalVarSnapshot, mangled
 from twovyper.translation.context import Context
 from twovyper.translation.pure_translators import PureTranslatorMixin, PureExpressionTranslator, \
     PureArithmeticTranslator, PureSpecificationTranslator, PureTypeTranslator
@@ -105,14 +105,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         pre_conds = ctx.pure_conds
 
         pos = self.to_position(node, ctx)
-        has_wrapped_information_in_cond = False
-        if isinstance(self.viper_ast, WrappedViperAST):
-            self.viper_ast.unwrapped_some_expressions = False
-            cond = self.expression_translator.translate(node.test, res, ctx)
-            if self.viper_ast.unwrapped_some_expressions:
-                has_wrapped_information_in_cond = True
-        else:
-            cond = self.expression_translator.translate(node.test, res, ctx)
+        cond = self.expression_translator.translate(node.test, res, ctx)
 
         cond_var = TranslatedPureIndexedVar('cond', 'cond', VYPER_BOOL, self.viper_ast, pos)
         assign = self.viper_ast.EqCmp(cond_var.local_var(ctx), cond, pos)
@@ -124,8 +117,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         with ctx.new_local_scope():
             # Update condition
             ctx.pure_conds = self.viper_ast.And(pre_conds, cond_local_var, pos) if pre_conds else cond_local_var
-            with ExitStack() if not has_wrapped_information_in_cond else \
-                    self.assignment_translator.assume_everything_has_wrapped_information():
+            with self.assignment_translator.assume_everything_has_wrapped_information():
                 self.translate_stmts(node.body, res, ctx)
             # Get current state of local variable state after "then"-branch
             then_locals = self._local_variable_snapshot(ctx)
@@ -136,8 +128,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
             # Update condition
             negated_local_var = self.viper_ast.Not(cond_local_var, pos)
             ctx.pure_conds = self.viper_ast.And(pre_conds, negated_local_var, pos) if pre_conds else negated_local_var
-            with ExitStack() if not has_wrapped_information_in_cond else \
-                    self.assignment_translator.assume_everything_has_wrapped_information():
+            with self.assignment_translator.assume_everything_has_wrapped_information():
                 self.translate_stmts(node.orelse, res, ctx)
             # Get current state of local variable state after "else"-branch
             else_locals = self._local_variable_snapshot(ctx)
@@ -159,7 +150,8 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         if isinstance(self.viper_ast, WrappedViperAST):
             self.viper_ast.unwrapped_some_expressions = False
             array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
-            if self.viper_ast.unwrapped_some_expressions:
+            is_range = hasattr(array, "funcname") and array.funcname() == mangled.RANGE_RANGE
+            if self.viper_ast.unwrapped_some_expressions or not is_range:
                 has_wrapped_information_in_array = True
                 loop_var.is_local = False
         else:

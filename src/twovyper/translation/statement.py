@@ -161,20 +161,11 @@ class StatementTranslator(NodeTranslator):
         pos = self.to_position(node, ctx)
 
         translator = self.specification_translator if node.is_ghost_code else self.expression_translator
-        has_wrapped_information_in_cond = False
-
-        if isinstance(self.viper_ast, WrappedViperAST):
-            self.viper_ast.unwrapped_some_expressions = False
-            cond = translator.translate(node.test, res, ctx)
-            if self.viper_ast.unwrapped_some_expressions:
-                has_wrapped_information_in_cond = True
-        else:
-            cond = translator.translate(node.test, res, ctx)
+        cond = translator.translate(node.test, res, ctx)
 
         old_locals = dict(ctx.locals)
 
-        with ExitStack() if not has_wrapped_information_in_cond else \
-                self.assignment_translator.assume_everything_has_wrapped_information():
+        with self.assignment_translator.assume_everything_has_wrapped_information():
             then_body = []
             with ctx.new_local_scope():
                 self.translate_stmts(node.body, then_body, ctx)
