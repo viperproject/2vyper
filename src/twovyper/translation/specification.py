@@ -374,6 +374,10 @@ class SpecificationTranslator(ExpressionTranslator):
                 res.append(self.viper_ast.Assert(interpreted_arg, pos))
             uninterpreted_arg = self.translate(node.args[0], res, ctx)
             res.append(self.viper_ast.Inhale(uninterpreted_arg, pos))
+            with ctx.lemma_scope(is_inside=False):
+                with ctx.interpreted_scope(is_inside=False):
+                    uninterpreted_arg = self.translate(node.args[0], res, ctx)
+            res.append(self.viper_ast.Inhale(uninterpreted_arg, pos))
             return self.viper_ast.TrueLit(pos)
         elif name == names.CONDITIONAL:
             self._caller_private_condition = self.translate(node.args[0], res, ctx)

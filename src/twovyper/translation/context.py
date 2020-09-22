@@ -518,18 +518,18 @@ class Context:
         self.event_vars = event_vars
 
     @contextmanager
-    def lemma_scope(self):
+    def lemma_scope(self, is_inside=True):
         inside_lemma = self.inside_lemma
-        self.inside_lemma = True
+        self.inside_lemma = is_inside
 
         yield
 
         self.inside_lemma = inside_lemma
 
     @contextmanager
-    def interpreted_scope(self):
+    def interpreted_scope(self, is_inside=True):
         inside_interpreted = self.inside_interpreted
-        self.inside_interpreted = True
+        self.inside_interpreted = is_inside
 
         yield
 
