@@ -60,9 +60,12 @@ def test() -> uint256:
     Ann: uint256 = A * N_COINS
     for _i in range(2):
         D_P: uint256 = D
+        #@ lemma_assert interpreted(D_P * D / (five * N_COINS + 1) == 11)
         D_P = D_P * D / (five * N_COINS + 1)  # +1 is to prevent /0
+        #@ lemma_assert interpreted(D_P * D / (six * N_COINS + 1) == 9)
         D_P = D_P * D / (six * N_COINS + 1)  # +1 is to prevent /0
         Dprev = D
+        #@ lemma_assert interpreted((Ann * S + D_P * N_COINS) * D / ((Ann - 1) * D + (N_COINS + 1) * D_P) == 11)
         D = (Ann * S + D_P * N_COINS) * D / ((Ann - 1) * D + (N_COINS + 1) * D_P)
         #@ lemma_assert D == 11
         # Equality with the precision of 1

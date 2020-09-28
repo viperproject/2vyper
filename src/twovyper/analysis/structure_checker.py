@@ -56,7 +56,7 @@ class StructureChecker(NodeVisitor):
 
     def __init__(self):
         self.not_allowed = {
-            _Context.CODE: [],
+            _Context.CODE: names.NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS,
             _Context.INVARIANT: names.NOT_ALLOWED_IN_INVARIANT,
             _Context.LOOP_INVARIANT: names.NOT_ALLOWED_IN_LOOP_INVARIANT,
             _Context.CHECK: names.NOT_ALLOWED_IN_CHECK,
@@ -430,6 +430,10 @@ class StructureChecker(NodeVisitor):
                         'Only pure functions can be called from the specification.')
                 self.generic_visit(argument, ctx, program, function)
 
+                if node.name == names.RESULT:
+                    _assert(func.type.return_type is not None, argument, f"spec.{node.name}",
+                            'Only functions with a return type can be used in a result-expression.')
+
                 return
             elif (ctx == _Context.CHECK
                   or ctx == _Context.INVARIANT
@@ -598,8 +602,6 @@ class _FunctionPureChecker(NodeVisitor):
         # A function must be constant, private and non-payable to be valid
         if not (function.is_constant() and function.is_private() and (not function.is_payable())):
             _assert(False, function.node, 'invalid.pure', 'A pure function must be constant, private and non-payable')
-        elif not function.type.return_type:
-            _assert(False, function.node, 'invalid.pure', 'A pure function must have a return type')
         else:
             self.max_allowed_function_index = function.index - 1
             # Check checks

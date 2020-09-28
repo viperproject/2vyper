@@ -13,7 +13,7 @@ from twovyper.ast.types import StructType, VYPER_BOOL, VYPER_UINT256
 
 from twovyper.exceptions import UnsupportedException
 
-from twovyper.translation import helpers, LocalVarSnapshot
+from twovyper.translation import helpers, LocalVarSnapshot, mangled
 from twovyper.translation.context import Context
 from twovyper.translation.pure_translators import PureTranslatorMixin, PureExpressionTranslator, \
     PureArithmeticTranslator, PureSpecificationTranslator, PureTypeTranslator
@@ -105,14 +105,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         pre_conds = ctx.pure_conds
 
         pos = self.to_position(node, ctx)
-        has_wrapped_information_in_cond = False
-        if isinstance(self.viper_ast, WrappedViperAST):
-            self.viper_ast.unwrapped_some_expressions = False
-            cond = self.expression_translator.translate(node.test, res, ctx)
-            if self.viper_ast.unwrapped_some_expressions:
-                has_wrapped_information_in_cond = True
-        else:
-            cond = self.expression_translator.translate(node.test, res, ctx)
+        cond = self.expression_translator.translate(node.test, res, ctx)
 
         cond_var = TranslatedPureIndexedVar('cond', 'cond', VYPER_BOOL, self.viper_ast, pos)
         assign = self.viper_ast.EqCmp(cond_var.local_var(ctx), cond, pos)
@@ -124,8 +117,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         with ctx.new_local_scope():
             # Update condition
             ctx.pure_conds = self.viper_ast.And(pre_conds, cond_local_var, pos) if pre_conds else cond_local_var
-            with ExitStack() if not has_wrapped_information_in_cond else \
-                    self.assignment_translator.assume_everything_has_wrapped_information():
+            with self.assignment_translator.assume_everything_has_wrapped_information():
                 self.translate_stmts(node.body, res, ctx)
             # Get current state of local variable state after "then"-branch
             then_locals = self._local_variable_snapshot(ctx)
@@ -136,8 +128,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
             # Update condition
             negated_local_var = self.viper_ast.Not(cond_local_var, pos)
             ctx.pure_conds = self.viper_ast.And(pre_conds, negated_local_var, pos) if pre_conds else negated_local_var
-            with ExitStack() if not has_wrapped_information_in_cond else \
-                    self.assignment_translator.assume_everything_has_wrapped_information():
+            with self.assignment_translator.assume_everything_has_wrapped_information():
                 self.translate_stmts(node.orelse, res, ctx)
             # Get current state of local variable state after "else"-branch
             else_locals = self._local_variable_snapshot(ctx)
@@ -155,17 +146,9 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         loop_var_name = node.target.id
         loop_var = ctx.locals[loop_var_name]
         assert isinstance(loop_var, TranslatedPureIndexedVar)
-        has_wrapped_information_in_array = False
-        if isinstance(self.viper_ast, WrappedViperAST):
-            self.viper_ast.unwrapped_some_expressions = False
-            array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
-            if self.viper_ast.unwrapped_some_expressions:
-                has_wrapped_information_in_array = True
-                loop_var.is_local = False
-        else:
-            array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
-        array_var = TranslatedPureIndexedVar('array', 'array', node.iter.type, self.viper_ast, pos,
-                                             is_local=not has_wrapped_information_in_array)
+        array = self.expression_translator.translate_top_level_expression(node.iter, res, ctx)
+        loop_var.is_local = False
+        array_var = TranslatedPureIndexedVar('array', 'array', node.iter.type, self.viper_ast, pos, is_local=False)
         res.append(self.viper_ast.EqCmp(array_var.local_var(ctx), array, pos))
         array_local_var = array_var.local_var(ctx)
 
@@ -208,7 +191,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                 res.append(loop_idx_assumption)
                 # Set loop variable to array[index]
                 array_at = self.viper_ast.SeqIndex(array_local_var, loop_idx_local_var, rpos)
-                if has_wrapped_information_in_array and has_numeric_array:
+                if has_numeric_array:
                     array_at = helpers.w_wrap(self.viper_ast, array_at)
                 set_loop_var = self.viper_ast.EqCmp(loop_var.local_var(ctx), array_at, lpos)
                 res.append(set_loop_var)
@@ -230,8 +213,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                 # Loop Body
                 with ctx.break_scope():
                     with ctx.continue_scope():
-                        with ExitStack() if not has_wrapped_information_in_array else \
-                                self.assignment_translator.assume_everything_has_wrapped_information():
+                        with self.assignment_translator.assume_everything_has_wrapped_information():
                             with ctx.new_local_scope():
                                 self.translate_stmts(node.body, res, ctx)
                         ctx.pure_conds = pre_loop_iteration_conds
@@ -266,15 +248,14 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                         with ctx.continue_scope():
                             idx = self.viper_ast.IntLit(i, lpos)
                             array_at = self.viper_ast.SeqIndex(array_local_var, idx, rpos)
-                            if has_wrapped_information_in_array and has_numeric_array:
+                            if has_numeric_array:
                                 array_at = helpers.w_wrap(self.viper_ast, array_at)
                             loop_var.new_idx()
                             var_set = self.viper_ast.EqCmp(loop_var.local_var(ctx), array_at, lpos)
                             res.append(var_set)
 
                             pre_it_locals = self._local_variable_snapshot(ctx)
-                            with ExitStack() if not has_wrapped_information_in_array else \
-                                    self.assignment_translator.assume_everything_has_wrapped_information():
+                            with self.assignment_translator.assume_everything_has_wrapped_information():
                                 with ctx.new_local_scope():
                                     self.translate_stmts(node.body, res, ctx)
 

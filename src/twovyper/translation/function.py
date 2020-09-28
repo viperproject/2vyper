@@ -721,7 +721,9 @@ class FunctionTranslator(CommonTranslator):
             if not arg:
                 function_args.append(self.expression_translator.translate(function.defaults[name], res, ctx))
         function = ctx.program.functions[call.name]
-        return_type = self.type_translator.translate(function.type.return_type, ctx)
+        return_type = self.viper_ast.Bool
+        if function.type.return_type:
+            return_type = self.type_translator.translate(function.type.return_type, ctx)
         mangled_name = mangled.pure_function_name(call.name)
         call_pos = self.to_position(call, ctx)
         via = Via('pure function call', call_pos)

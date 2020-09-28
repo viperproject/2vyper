@@ -106,10 +106,13 @@ class PureFunctionTranslator(PureTranslatorMixin, FunctionTranslator):
             body.append(self.viper_ast.EqCmp(success_var, success_cond_expr))
 
             # Generate result variable
-            viper_type = self.type_translator.translate(function.type.return_type, ctx)
+            viper_type = self.viper_ast.Bool
+            default_value = self.viper_ast.TrueLit()
+            if function.type.return_type:
+                viper_type = self.type_translator.translate(function.type.return_type, ctx)
+                default_value = self.type_translator.default_value(function.node, function.type.return_type, body, ctx)
             unfinished_cond_expressions = list(map(partial_unfinished_cond_expression, ctx.pure_returns))
-            value = reduce(lambda expr, func: func(expr), reversed(unfinished_cond_expressions),
-                           self.type_translator.default_value(function.node, function.type.return_type, body, ctx))
+            value = reduce(lambda expr, func: func(expr), reversed(unfinished_cond_expressions), default_value)
             # Set result variable at slot 1
             result_var = helpers.struct_pure_get_result(self.viper_ast, function_result, viper_type, pos)
             body.append(self.viper_ast.EqCmp(result_var, value))
