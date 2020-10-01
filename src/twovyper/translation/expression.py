@@ -994,6 +994,16 @@ class ExpressionTranslator(NodeTranslator):
             def inlined_pre_state(name: str) -> str:
                 return ctx.inline_prefix + mangled.pre_state_var_name(name)
             old_state_for_postconditions = self.state_translator.state(inlined_pre_state, ctx)
+
+        with ctx.inline_scope(None):
+            # Create needed states to verify inter contract invariants
+            def inlined_pre_state(name: str) -> str:
+                return ctx.inline_prefix + mangled.pre_state_var_name(name)
+            old_state_for_inter_contract_invariant = self.state_translator.state(inlined_pre_state, ctx)
+
+            def inlined_old_state(name: str) -> str:
+                return ctx.inline_prefix + mangled.old_state_var_name(name)
+            curr_state_for_inter_contract_invariant = self.state_translator.state(inlined_old_state, ctx)
         known_interface_ref = []
         if modifying:
             # Collect known interface references
@@ -1013,20 +1023,31 @@ class ExpressionTranslator(NodeTranslator):
             # Undo havocing of contract state
             self.state_translator.copy_state(ctx.current_old_state, ctx.current_state, res, ctx,
                                              unless=lambda n: n != mangled.CONTRACTS)
-            for val in old_state_for_postconditions.values():
+            for val in chain(old_state_for_postconditions.values(),
+                             old_state_for_inter_contract_invariant.values(),
+                             curr_state_for_inter_contract_invariant.values()):
                 ctx.new_local_vars.append(val.var_decl(ctx, pos))
         # Copy state
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
         if modifying:
+            # Prepare old state for the postconditions of the external call
             self.state_translator.copy_state(ctx.current_state, old_state_for_postconditions, res, ctx)
             # Havoc state
             self.state_translator.havoc_state(ctx.current_state, res, ctx,
                                               unless=lambda n: n != mangled.CONTRACTS)
 
+            # Prepare old state for inter contract invariants
+            assume_caller_private_without_receiver = []
+            self.assume_contract_state(known_interface_ref, assume_caller_private_without_receiver, ctx, to)
+            self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private for old state", res)
+            self.state_translator.copy_state(ctx.current_state, old_state_for_inter_contract_invariant, res, ctx)
+
             # Assume caller private and create new contract state
-            assume_caller_private = []
-            self.assume_contract_state(known_interface_ref, assume_caller_private, ctx, to)
-            self.seqn_with_info(assume_caller_private, "Assume caller private", res)
+            self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
+                                             unless=lambda n: n != mangled.CONTRACTS)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx,
+                                              unless=lambda n: n != mangled.CONTRACTS)
+            self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
                                              unless=lambda n: n != mangled.CONTRACTS)
             self.state_translator.havoc_state(ctx.current_state, res, ctx)
@@ -1098,7 +1119,7 @@ class ExpressionTranslator(NodeTranslator):
             #   any other contract might got called which could change everything except caller private expressions.   #
             ############################################################################################################
 
-            self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state, res,
+            self.state_translator.copy_state(old_state_for_inter_contract_invariant, ctx.current_old_state, res,
                                              ctx, unless=lambda n: n != mangled.CONTRACTS)
             # Assert inter contract invariants during call
             assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
@@ -1109,9 +1130,7 @@ class ExpressionTranslator(NodeTranslator):
                                              unless=lambda n: n != mangled.CONTRACTS)
             self.state_translator.havoc_state(ctx.current_state, res, ctx,
                                               unless=lambda n: n != mangled.CONTRACTS)
-            assume_caller_private = []
-            self.assume_contract_state(known_interface_ref, assume_caller_private, ctx, to)
-            self.seqn_with_info(assume_caller_private, "Assume caller private", res)
+            self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
 
             ############################################################################################################
             # The contract state is at the point where the external call returns. Since the last modeled public state, #
@@ -1120,15 +1139,41 @@ class ExpressionTranslator(NodeTranslator):
             #                                       expressions stayed constant.                                       #
             ############################################################################################################
 
+            # Store the states to assert the inter contract invariants after the call
+            self.state_translator.copy_state(ctx.current_state, curr_state_for_inter_contract_invariant, res, ctx)
+            self.state_translator.copy_state(ctx.current_old_state, old_state_for_inter_contract_invariant, res, ctx)
+
+            # Assume caller private in a new contract state
+            self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
+                                             unless=lambda n: n != mangled.CONTRACTS)
+            self.state_translator.havoc_state(ctx.current_state, res, ctx,
+                                              unless=lambda n: n != mangled.CONTRACTS)
+            self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
+
+            ############################################################################################################
+            #  The contract is at the end of the external call, only changes to the caller private expressions of the  #
+            #                            receiver of the external call could have happened.                            #
+            #  This state models the same state as the previous. But, we must not assert the inter contract invariants #
+            #                             in the state where we assumed the postcondition.                             #
+            ############################################################################################################
+
             # Restore old state for postcondition
             self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state, res,
                                              ctx, unless=lambda n: n != mangled.CONTRACTS)
 
         success = self.viper_ast.Not(fail_cond, pos)
         amount = amount or self.viper_ast.IntLit(0)
+        # Assume postcondition of the external call
         if known:
             self._assume_interface_specifications(node, interface, function, args, to, amount, success,
                                                   return_value, res, ctx)
+
+        # Assert inter contract invariants after call
+        if modifying:
+            with ctx.state_scope(curr_state_for_inter_contract_invariant, old_state_for_inter_contract_invariant):
+                assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
+                                                rules.DURING_CALL_INVARIANT_FAIL)
+            self.seqn_with_info(assert_invs, "Assert inter contract invariants after call", res)
 
         self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx)
 
