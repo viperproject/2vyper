@@ -5,7 +5,6 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from contextlib import ExitStack
 from typing import List, Optional
 
 from twovyper.ast import ast_nodes as ast, types
@@ -13,13 +12,12 @@ from twovyper.ast.types import StructType, VYPER_BOOL, VYPER_UINT256
 
 from twovyper.exceptions import UnsupportedException
 
-from twovyper.translation import helpers, LocalVarSnapshot, mangled
+from twovyper.translation import helpers, LocalVarSnapshot
 from twovyper.translation.context import Context
 from twovyper.translation.pure_translators import PureTranslatorMixin, PureExpressionTranslator, \
     PureArithmeticTranslator, PureSpecificationTranslator, PureTypeTranslator
 from twovyper.translation.statement import AssignmentTranslator, StatementTranslator
 from twovyper.translation.variable import TranslatedPureIndexedVar
-from twovyper.translation.wrapped_viper_ast import WrappedViperAST
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr
@@ -232,7 +230,7 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                         ctx.pure_breaks.append((break_cond, self._local_variable_snapshot(ctx)))
 
                     # Assume that only one of the breaks happened
-                    only_one_break_cond = self._xor_conds([x[0] for x in ctx.pure_breaks])
+                    only_one_break_cond = self._xor_conds([x for x, _ in ctx.pure_breaks])
                     assert only_one_break_cond is not None
                     if pre_conds is None:
                         res.append(only_one_break_cond)
