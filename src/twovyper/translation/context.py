@@ -290,7 +290,7 @@ class Context:
 
         self.event_vars = {}
 
-        self.pure_conds = []
+        self.pure_conds = None
         self.pure_returns = []
         self.pure_success = []
         self._pure_var_index_counter = 1

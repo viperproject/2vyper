@@ -234,7 +234,10 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
                     # Assume that only one of the breaks happened
                     only_one_break_cond = self._xor_conds([x[0] for x in ctx.pure_breaks])
                     assert only_one_break_cond is not None
-                    res.append(only_one_break_cond)
+                    if pre_conds is None:
+                        res.append(only_one_break_cond)
+                    else:
+                        res.append(self.viper_ast.Implies(pre_conds, only_one_break_cond))
                     # Merge snapshots
                     prev_snapshot = pre_locals
                     for cond, snapshot in reversed(ctx.pure_breaks):
@@ -309,16 +312,16 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
 
     @staticmethod
     def _local_variable_snapshot(ctx) -> LocalVarSnapshot:
-        return dict(((name, (var.evaluate_idx(ctx), var.local_var(ctx)))
-                     for name, var in
-                     filter(lambda x: isinstance(x[1], TranslatedPureIndexedVar), ctx.locals.items())))
+        return dict(((name, (var.evaluate_idx(ctx), var.local_var(ctx), var.is_local))
+                     for name, var in ctx.locals.items()
+                     if isinstance(var, TranslatedPureIndexedVar)))
 
     @staticmethod
     def _reset_variable_to_snapshot(snapshot: LocalVarSnapshot, ctx):
         for name in snapshot.keys():
             var = ctx.locals[name]
             assert isinstance(var, TranslatedPureIndexedVar)
-            var.idx, _ = snapshot[name]
+            var.idx, _, var.is_local = snapshot[name]
 
     def _merge_snapshots(self, merge_cond: Optional[Expr], first_snapshot: LocalVarSnapshot,
                          second_snapshot: LocalVarSnapshot, res: List[Expr], ctx: Context) -> LocalVarSnapshot:
@@ -328,17 +331,18 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
             first_idx_and_var = first_snapshot.get(name)
             second_idx_and_var = second_snapshot.get(name)
             if first_idx_and_var and second_idx_and_var:
-                then_idx, then_var = first_idx_and_var
-                else_idx, else_var = second_idx_and_var
+                then_idx, then_var, then_is_local = first_idx_and_var
+                else_idx, else_var, else_is_local = second_idx_and_var
                 var = ctx.locals[name]
                 assert isinstance(var, TranslatedPureIndexedVar)
                 if else_idx != then_idx:
                     var.new_idx()
+                    var.is_local = then_is_local and else_is_local
                     cond = merge_cond or self.viper_ast.TrueLit()
                     expr = self.viper_ast.CondExp(cond, then_var, else_var)
                     assign = self.viper_ast.EqCmp(var.local_var(ctx), expr)
                     res.append(assign)
-                res_snapshot[name] = (var.evaluate_idx(ctx), var.local_var(ctx))
+                res_snapshot[name] = (var.evaluate_idx(ctx), var.local_var(ctx), var.is_local)
             else:
                 res_snapshot[name] = first_idx_and_var or second_idx_and_var
         return res_snapshot

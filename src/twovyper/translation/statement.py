@@ -274,12 +274,16 @@ class StatementTranslator(NodeTranslator):
                         new_var = TranslatedVar(var.name, mangled_name, var.type, var.viper_ast,
                                                 var.pos, var.info, is_local=False)
                         ctx.new_local_vars.append(new_var.var_decl(ctx))
-                        ctx.locals[var.name] = new_var
-                        loop_used_var[var.name] = var
-                        var_type_assumption = self.type_translator\
-                            .type_assumptions(new_var.local_var(ctx), new_var.type, ctx)
+                        ctx.locals[var_name] = new_var
+                        loop_used_var[var_name] = var
+                        new_var_local = new_var.local_var(ctx)
+                        havoc_var = helpers.havoc_var(self.viper_ast, new_var_local.typ(), ctx)
+                        havoc_stmts.append(self.viper_ast.LocalVarAssign(new_var_local, havoc_var))
+                        var_type_assumption = self.type_translator.type_assumptions(new_var_local, new_var.type, ctx)
                         var_type_assumption = [self.viper_ast.Inhale(expr) for expr in var_type_assumption]
                         self.seqn_with_info(var_type_assumption, f"Type assumption for {var_name}", havoc_stmts)
+                        # Mark that this variable got overwritten
+                        self.assignment_translator.overwritten_vars.append(var_name)
                 self.seqn_with_info(havoc_stmts, "Havoc state", stmts)
                 # Havoc events
                 event_handling = []
