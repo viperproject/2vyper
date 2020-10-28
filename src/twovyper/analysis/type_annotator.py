@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from contextlib import contextmanager
-from typing import List, Optional, Union, Dict
+from typing import Optional, Union, Dict, Iterable
 
 from twovyper.utils import first_index, switch
 
@@ -28,7 +28,7 @@ def _check(condition: bool, node: ast.Node, reason_code: str, msg: Optional[str]
 
 
 def _check_number_of_arguments(node: Union[ast.FunctionCall, ast.ReceiverCall], *expected: int,
-                               allowed_keywords: List[str] = [], required_keywords: List[str] = [],
+                               allowed_keywords: Iterable[str] = (), required_keywords: Iterable[str] = (),
                                resources: int = 0):
     _check(len(node.args) in expected, node, 'invalid.no.args')
     for kw in node.keywords:
@@ -158,7 +158,9 @@ class TypeAnnotator(NodeVisitor):
         for ghost_function in self.program.ghost_function_implementations.values():
             assert isinstance(ghost_function, GhostFunction)
             with self._function_scope(ghost_function):
-                self.annotate_expected(ghost_function.node.body[0].value, ghost_function.type.return_type)
+                expression_stmt = ghost_function.node.body[0]
+                assert isinstance(expression_stmt, ast.ExprStmt)
+                self.annotate_expected(expression_stmt.value, ghost_function.type.return_type)
 
         for inv in self.program.invariants:
             self.annotate_expected(inv, types.VYPER_BOOL)
@@ -180,10 +182,10 @@ class TypeAnnotator(NodeVisitor):
         assert False
 
     def pass_through(self, node1, node=None):
-        types, nodes = self.visit(node1)
+        vyper_types, nodes = self.visit(node1)
         if node is not None:
             nodes.append(node)
-        return types, nodes
+        return vyper_types, nodes
 
     def combine(self, node1, node2, node=None, allowed=lambda t: True):
         types1, nodes1 = self.visit(node1)
@@ -506,7 +508,9 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate(kwarg.value)
 
                 idx = first_index(lambda n: n.name == names.RAW_CALL_OUTSIZE, node.keywords)
-                size = node.keywords[idx].value.n
+                outsize_arg = node.keywords[idx].value
+                assert isinstance(outsize_arg, ast.Num)
+                size = outsize_arg.n
                 return [ArrayType(types.VYPER_BYTE, size, False)], [node]
             elif case(names.RAW_LOG):
                 _check_number_of_arguments(node, 2)
@@ -523,15 +527,17 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 2)
                 self.annotate_expected(node.args[0], types.is_integer)
                 unit = node.args[1]
-                unit_exists = lambda u: next((v for k, v in names.ETHER_UNITS.items() if u in k), False)
-                _check(isinstance(unit, ast.Str) and unit_exists(unit.s), node, 'invalid.unit')
+                _check(isinstance(unit, ast.Str) and
+                       # Check that the unit exists
+                       next((v for k, v in names.ETHER_UNITS.items() if unit.s in k), False),
+                       node, 'invalid.unit')
                 return [types.VYPER_WEI_VALUE], [node]
             elif case(names.AS_UNITLESS_NUMBER):
                 _check_number_of_arguments(node, 1)
                 # We ignore units completely, therefore the type stays the same
                 return self.pass_through(node.args[0], node)
             elif case(names.CONCAT):
-                _check(node.args, node, 'invalid.no.args')
+                _check(bool(node.args), node, 'invalid.no.args')
 
                 for arg in node.args:
                     self.annotate_expected(arg, types.is_bytes_array)
@@ -552,9 +558,9 @@ class TypeAnnotator(NodeVisitor):
 
                 self.annotate_expected(node.args[0], lambda t: isinstance(t, StringType))
                 ntype = self.type_builder.build(node.args[1])
-                is_bytes32 = lambda t: t == types.VYPER_BYTES32
-                is_bytes4 = lambda t: isinstance(ntype, ArrayType) and ntype.element_type == types.VYPER_BYTE and ntype.size == 4
-                _check(is_bytes32(ntype) or is_bytes4(ntype), node.args[1], 'invalid.method_id')
+                is_bytes32 = ntype == types.VYPER_BYTES32
+                is_bytes4 = isinstance(ntype, ArrayType) and ntype.element_type == types.VYPER_BYTE and ntype.size == 4
+                _check(is_bytes32 or is_bytes4, node.args[1], 'invalid.method_id')
                 return [ntype], [node]
             elif case(names.ECRECOVER):
                 _check_number_of_arguments(node, 4)
@@ -659,7 +665,8 @@ class TypeAnnotator(NodeVisitor):
                     names.OFFER_TIMES: types.VYPER_UINT256
                 }
                 required = [names.OFFER_TO, names.OFFER_TIMES]
-                _check_number_of_arguments(node, 2, allowed_keywords=keywords.keys(), required_keywords=required, resources=2)
+                _check_number_of_arguments(node, 2, allowed_keywords=keywords.keys(),
+                                           required_keywords=required, resources=2)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
                 for kw in node.keywords:
@@ -671,7 +678,8 @@ class TypeAnnotator(NodeVisitor):
                     names.REVOKE_ACTING_FOR: types.VYPER_ADDRESS
                 }
                 required = [names.REVOKE_TO]
-                _check_number_of_arguments(node, 2, allowed_keywords=keywords.keys(), required_keywords=required, resources=2)
+                _check_number_of_arguments(node, 2, allowed_keywords=keywords.keys(),
+                                           required_keywords=required, resources=2)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
                 for kw in node.keywords:
@@ -865,7 +873,9 @@ class TypeAnnotator(NodeVisitor):
         with self._quantified_vars_scope():
             # Add the quantified variables {<x1>: <t1>, <x2>: <t2>, ...} to the
             # variable map
-            self._add_quantified_vars(node.args[0])
+            first_arg = node.args[0]
+            assert isinstance(first_arg, ast.Dict)
+            self._add_quantified_vars(first_arg)
 
             # Annotate the body
             self.annotate(node.args[1])

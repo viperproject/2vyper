@@ -29,7 +29,7 @@ from twovyper.viper.typedefs import Expr, Stmt, Trigger
 class AllocationTranslator(CommonTranslator):
 
     def __init__(self, viper_ast: ViperAST):
-        self.viper_ast = viper_ast
+        super().__init__(viper_ast)
 
         self.arithmetic_translator = ArithmeticTranslator(viper_ast)
         self.model_translator = ModelTranslator(viper_ast)
@@ -159,7 +159,7 @@ class AllocationTranslator(CommonTranslator):
                     address: Expr, by_address: Expr,
                     ctx: Context, pos=None) -> Expr:
         """
-        Returns the offered map for a pair of resources.
+        Returns the trusted map for a pair of addresses.
         """
         trusted_type = helpers.trusted_type()
 
