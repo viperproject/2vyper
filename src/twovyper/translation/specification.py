@@ -821,8 +821,9 @@ class SpecificationTranslator(ExpressionTranslator):
                 quants, _ = self._translate_quantified_vars(dict_arg, ctx)
                 for var in quants:
                     ctx.quantified_vars[var.name] = var
-
-                return self.translate_ghost_statement(node.args[1], res, ctx, is_performs)
+                body = node.args[-1]
+                assert isinstance(body, ast.FunctionCall)
+                return self.translate_ghost_statement(body, res, ctx, is_performs)
         else:
             assert False
 
@@ -844,5 +845,5 @@ class _ResourceArgumentExtractor(NodeVisitor):
         else:
             return node.args
 
-    def generic_visit(self, node: ast.Node) -> List[ast.Expr]:
+    def generic_visit(self, node, *args):
         assert False
