@@ -292,11 +292,11 @@ class StructureChecker(NodeVisitor):
         if ctx == _Context.POSTCONDITION and function and function.name == names.INIT:
             _assert(node.name != names.OLD, node, 'postcondition.init.old')
 
-        if function and node.name == names.PUBLIC_OLD:
+        if node.name == names.PUBLIC_OLD:
             if ctx == _Context.POSTCONDITION:
-                _assert(function.is_private(), node, 'postcondition.public.old')
+                _assert(function and function.is_private(), node, 'postcondition.public.old')
             elif ctx == _Context.PRECONDITION:
-                _assert(function.is_private(), node, 'precondition.public.old')
+                _assert(function and function.is_private(), node, 'precondition.public.old')
 
         if function and node.name == names.EVENT:
             if ctx == _Context.POSTCONDITION:
