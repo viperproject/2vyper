@@ -188,28 +188,29 @@ class SpecificationTranslator(ExpressionTranslator):
             else:
                 return ctx.result_var.local_var(ctx, pos)
         elif name == names.SUCCESS:
-            # The syntax for success is either
+            # The syntax for success is one of the following
             #   - success()
-            # or
             #   - success(if_not=expr)
+            #   - success(pure_function_call)
             # where expr can be a disjunction of conditions
-            success = ctx.success_var.local_var(ctx, pos)
-
-            conds = set()
-
-            def collect_conds(node):
-                if isinstance(node, ast.Name):
-                    conds.add(node.id)
-                elif isinstance(node, ast.BoolOp):
-                    collect_conds(node.left)
-                    collect_conds(node.right)
+            success = None if node.args else ctx.success_var.local_var(ctx, pos)
 
             if node.keywords:
+                conds = set()
+
+                def collect_conds(n: ast.Node):
+                    if isinstance(n, ast.Name):
+                        conds.add(n.id)
+                    elif isinstance(n, ast.BoolOp):
+                        collect_conds(n.left)
+                        collect_conds(n.right)
+
                 args = node.keywords[0].value
                 collect_conds(args)
 
-                def translate_condition(cond):
-                    with switch(cond) as case:
+                # noinspection PyShadowingNames
+                def translate_condition(success_condition):
+                    with switch(success_condition) as case:
                         if case(names.SUCCESS_OVERFLOW):
                             var = helpers.overflow_var(self.viper_ast, pos)
                         elif case(names.SUCCESS_OUT_OF_GAS):
