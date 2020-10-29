@@ -355,6 +355,11 @@ TRUST_FAIL = {
         ('trust.failed', 'not.trusted')
 }
 
+ALLOCATE_UNTRACKED_WEI_FAIL = {
+    ('$operation.failed', 'no.performs'):
+        ('allocate.untracked.wei.failed', 'no.performs')
+}
+
 ALLOCATION_LEAK_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('leakcheck.failed', 'allocation.leaked')

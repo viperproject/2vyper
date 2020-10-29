@@ -814,6 +814,15 @@ class SpecificationTranslator(ExpressionTranslator):
                 self.allocation_translator.trust(node, address, frm, val, msg_sender, res, ctx, pos)
 
             return None
+        elif name == names.ALLOCATE_UNTRACKED_WEI:
+            address = self.translate(node.args[0], res, ctx)
+            balance = self.balance_translator.get_balance(ctx.self_var.local_var(ctx), ctx, pos)
+
+            if is_performs:
+                self.allocation_translator.performs(node, [address], res, ctx, pos)
+            else:
+                self.allocation_translator.allocate_untracked_wei(node, address, balance, res, ctx, pos)
+            return None
         elif name == names.FOREACH:
             assert len(node.args) > 0
             dict_arg = node.args[0]

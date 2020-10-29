@@ -115,6 +115,12 @@ Sending and receiving Ether using send or calls is handled. Also, if `selfdestru
     - Check that the address has enogh resources allocated.
     - Decrease allocated amount of the resource for the address.
   - The [wei resource](#wei_resource) cannot get destroyed.
+  
+- **allocate untracked wei**:
+  - Signature: allocate_untracked_wei\(_address_\)
+  - There might be a difference in the sum of the tracked [wei resource](#wei_resource) and the balance of the contract.
+  This is due to e.g. coinbase transactions where a contract forcefully gets some Ether without executing any code.
+  Using this function, this difference can be allocated to an address.
 
 - **foreach**:
   - Signature: foreach\(_dict_, \*_trigger_, _body_\)

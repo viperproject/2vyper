@@ -829,6 +829,22 @@ class AllocationTranslator(CommonTranslator):
 
         self.seqn_with_info(stmts, "Trust", res)
 
+    def allocate_untracked_wei(self, node: ast.Node, address: Expr, balance: Expr,
+                               res: List[Stmt], ctx: Context, pos=None):
+        stmts = []
+        self._exhale_performs(node, names.ALLOCATE_UNTRACKED_WEI, [address],
+                              rules.ALLOCATE_UNTRACKED_WEI_FAIL, stmts, ctx, pos)
+
+        resource = self.resource_translator.translate(None, stmts, ctx)
+        allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+        allocated_map = self.get_allocated_map(allocated, resource, ctx, pos)
+        key_type = self.type_translator.translate(helpers.allocated_type().value_type.key_type, ctx)
+        allocated_sum = helpers.map_sum(self.viper_ast, allocated_map, key_type, pos)
+        difference = self.viper_ast.Sub(balance, allocated_sum, pos)
+        self.allocate(resource, address, difference, stmts, ctx, pos)
+
+        self.seqn_with_info(stmts, "Allocate untracked wei", res)
+
     def performs(self, node: ast.FunctionCall, args: List[Expr], res: List[Stmt], ctx: Context, pos=None):
         pred = self._performs_acc_predicate(node.name, args, ctx, pos)
         # TODO: rule

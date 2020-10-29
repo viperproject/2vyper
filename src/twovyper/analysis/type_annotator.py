@@ -725,6 +725,10 @@ class TypeAnnotator(NodeVisitor):
                 for kw in node.keywords:
                     self.annotate_expected(kw.value, types.VYPER_ADDRESS)
                 return [None], [node]
+            elif case(names.ALLOCATE_UNTRACKED_WEI):
+                _check_number_of_arguments(node, 1)
+                self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                return [None], [node]
             elif case(names.OFFERED):
                 _check_number_of_arguments(node, 4, resources=2)
                 self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
