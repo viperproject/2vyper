@@ -24,12 +24,12 @@ Three maps are used to model the allocation of resources.
 
 - <a name="wei_resource"></a>**Wei**:
   - The resource for Ether / Wei is implicitly given and must not be declared.
-  - It is the default resource if no other recource is provided.
+  - It is the default resource if no other resource is provided.
 
 - <a name="creator_resource"></a>**Creator**:
   - Type: _Resource{$resource: Resource}_
   - Only the initializer function (init) is allowed to create other resources unchecked.
-  - If a resource is created outside of init, a creater resource is needed.
+  - If a resource is created outside of init, a creator resource is needed.
   - For [create](#create_fun) and [destroy](#destroy_fun), it gets checked that an address has the creator resource of the wanted resource.
 
 ## Further information
@@ -37,7 +37,7 @@ Three maps are used to model the allocation of resources.
 Sending and receiving Ether using send or calls is handled. Also, if `selfdestruct` gets called a check is made that the receiver of the remaining Ether has access to the whole balance and cannot not _steal_ Ether of other addresses.
 
 
-## Recource functions
+## Resource functions
 
 - <a name="trust_fun"></a>**trust**:
   - Signature: trust\(_target\_address_, _do\_trust_, acting_for=_source\_address_\)
@@ -69,8 +69,8 @@ Sending and receiving Ether using send or calls is handled. Also, if `selfdestru
     - Check that the first provider either does not need to provide anything or else has made such an offering.
     - Check that the second provider either does not need to provide anything or else has made such an offering.
     - If any offers are needed remove them.
-    - Check that the first provider has enogh resources allocated.
-    - Check that the second provider has enogh resources allocated.
+    - Check that the first provider has enough resources allocated.
+    - Check that the second provider has enough resources allocated.
     - Decrease allocated amount of the first resource for the first provider.
     - Increase allocated amount of the second resource for the first provider.
     - Decrease allocated amount of the second resource for the second provider.
@@ -112,7 +112,7 @@ Sending and receiving Ether using send or calls is handled. Also, if `selfdestru
     - The `acting_for` keyword argument can be omitted. It will default to the `msg.sender`.
   - Destroys a specified resource a certain amount of times.
     - Check that the address is trusted.
-    - Check that the address has enogh resources allocated.
+    - Check that the address has enough resources allocated.
     - Decrease allocated amount of the resource for the address.
   - The [wei resource](#wei_resource) cannot get destroyed.
   
@@ -151,7 +151,7 @@ Sending and receiving Ether using send or calls is handled. Also, if `selfdestru
 
 - **trusted**:
   - Signature: trusted\(_target\_address_, by=_source\_address_\)
-  - Returns wheter the source address trusts the target address.
+  - Returns whether the source address trusts the target address.
 
 
 
