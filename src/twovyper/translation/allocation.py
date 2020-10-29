@@ -31,7 +31,6 @@ class AllocationTranslator(CommonTranslator):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
 
-        self.arithmetic_translator = ArithmeticTranslator(viper_ast)
         self.model_translator = ModelTranslator(viper_ast)
         self.resource_translator = ResourceTranslator(viper_ast)
         self.type_translator = TypeTranslator(viper_ast)
@@ -60,8 +59,6 @@ class AllocationTranslator(CommonTranslator):
         key_type = self.type_translator.translate(allocated_type.key_type, ctx)
         value_type = self.type_translator.translate(allocated_type.value_type, ctx)
         map_get = helpers.map_get(self.viper_ast, allocated, resource, key_type, value_type, pos)
-        if self.arithmetic_translator.is_wrapped(map_get):
-            map_get = helpers.w_unwrap(self.viper_ast, map_get)
         return map_get
 
     def set_allocated_map(self, allocated: Expr, resource: Expr, new_value: Expr, ctx: Context, pos=None) -> Expr:
@@ -79,8 +76,6 @@ class AllocationTranslator(CommonTranslator):
         value_type = self.type_translator.translate(allocated_type.value_type.value_type, ctx)
         allocated_map = self.get_allocated_map(allocated, resource, ctx, pos)
         map_get = helpers.map_get(self.viper_ast, allocated_map, address, key_type, value_type, pos)
-        if self.arithmetic_translator.is_wrapped(map_get):
-            map_get = helpers.w_unwrap(self.viper_ast, map_get)
         return map_get
 
     def get_offered_map(self,
@@ -95,14 +90,10 @@ class AllocationTranslator(CommonTranslator):
         key1_type = self.type_translator.translate(offered_type.key_type, ctx)
         value1_type = self.type_translator.translate(offered_type.value_type, ctx)
         offered1 = helpers.map_get(self.viper_ast, offered, from_resource, key1_type, value1_type, pos)
-        if self.arithmetic_translator.is_wrapped(offered1):
-            offered1 = helpers.w_unwrap(self.viper_ast, offered1)
 
         key2_type = self.type_translator.translate(offered_type.value_type.key_type, ctx)
         value2_type = self.type_translator.translate(offered_type.value_type.value_type, ctx)
         map_get = helpers.map_get(self.viper_ast, offered1, to_resource, key2_type, value2_type, pos)
-        if self.arithmetic_translator.is_wrapped(map_get):
-            map_get = helpers.w_unwrap(self.viper_ast, map_get)
         return map_get
 
     def set_offered_map(self,
@@ -118,8 +109,6 @@ class AllocationTranslator(CommonTranslator):
         inner_value_type = self.type_translator.translate(offered_type.value_type.value_type, ctx)
 
         inner_map = helpers.map_get(self.viper_ast, offered, from_resource, outer_key_type, outer_value_type, pos)
-        if self.arithmetic_translator.is_wrapped(inner_map):
-            inner_map = helpers.w_unwrap(self.viper_ast, inner_map)
         new_inner = helpers.map_set(self.viper_ast, inner_map, to_resource, new_value, inner_key_type, inner_value_type, pos)
         return helpers.map_set(self.viper_ast, offered, from_resource, new_inner, outer_key_type, outer_value_type, pos)
 
@@ -135,8 +124,6 @@ class AllocationTranslator(CommonTranslator):
         key_type = self.type_translator.translate(offered_type.value_type.value_type.key_type, ctx)
         value_type = self.type_translator.translate(offered_type.value_type.value_type.value_type, ctx)
         map_get = helpers.map_get(self.viper_ast, offered_map, offer, key_type, value_type, pos)
-        if self.arithmetic_translator.is_wrapped(map_get):
-            map_get = helpers.w_unwrap(self.viper_ast, map_get)
         return map_get
 
     def set_offered(self,
@@ -166,14 +153,10 @@ class AllocationTranslator(CommonTranslator):
         key1_type = self.type_translator.translate(trusted_type.key_type, ctx)
         value1_type = self.type_translator.translate(trusted_type.value_type, ctx)
         trusted1 = helpers.map_get(self.viper_ast, trusted, address, key1_type, value1_type, pos)
-        if self.arithmetic_translator.is_wrapped(trusted1):
-            trusted1 = helpers.w_unwrap(self.viper_ast, trusted1)
 
         key2_type = self.type_translator.translate(trusted_type.value_type.key_type, ctx)
         value2_type = self.type_translator.translate(trusted_type.value_type.value_type, ctx)
         map_get = helpers.map_get(self.viper_ast, trusted1, by_address, key2_type, value2_type, pos)
-        if self.arithmetic_translator.is_wrapped(map_get):
-            map_get = helpers.w_unwrap(self.viper_ast, map_get)
         return map_get
 
     def set_trusted(self,
@@ -189,8 +172,6 @@ class AllocationTranslator(CommonTranslator):
         inner_value_type = self.type_translator.translate(trusted_type.value_type.value_type, ctx)
 
         inner_map = helpers.map_get(self.viper_ast, trusted, address, outer_key_type, outer_value_type, pos)
-        if self.arithmetic_translator.is_wrapped(inner_map):
-            inner_map = helpers.w_unwrap(self.viper_ast, inner_map)
         new_inner = helpers.map_set(self.viper_ast, inner_map, by_address, new_value, inner_key_type, inner_value_type, pos)
         return helpers.map_set(self.viper_ast, trusted, address, new_inner, outer_key_type, outer_value_type, pos)
 
