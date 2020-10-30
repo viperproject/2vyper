@@ -9,6 +9,13 @@ uint256_list: uint256[1]
 address_list: address[1]
 bytes32_list: bytes32[1]
 
+N_COINS: constant(int128) = 3
+PRECISION: constant(uint256) = 10 ** 18
+PRECISION_MUL: constant(uint256[N_COINS]) = [
+    PRECISION / convert(10 ** 18, uint256),  # DAI
+    PRECISION / convert(10 ** 6, uint256),   # USDC
+    PRECISION / convert(10 ** 6, uint256)]   # USDT
+
 @public
 def foo():
     self.uint256_list = [1]

@@ -188,6 +188,9 @@ class ConstantInterpreter(NodeVisitor):
     def visit_Name(self, node: ast.Name):
         return self.constants.get(node.id)
 
+    def visit_List(self, node: ast.List):
+        return [self.visit(element) for element in node.elements]
+
 
 class ConstantCollector(NodeTransformer):
     """
