@@ -89,6 +89,9 @@ class TypeAnnotator(NodeVisitor):
             names.LEMMA: [None]
         }
 
+        self.undecided_nodes = False
+        self.type_resolver = TypeResolver()
+
     @contextmanager
     def _function_scope(self, func: Union[VyperFunction, GhostFunction]):
         old_func = self.current_func
@@ -125,58 +128,68 @@ class TypeAnnotator(NodeVisitor):
         for function in self.program.functions.values():
             with self._function_scope(function):
                 self.visit(function.node)
+                self.resolve_type(function.node)
 
                 for name, default in function.defaults.items():
                     if default:
-                        self.annotate_expected(default, function.args[name].type)
+                        self.annotate_expected(default, function.args[name].type, resolve=True)
 
                 for post in function.postconditions:
-                    self.annotate_expected(post, types.VYPER_BOOL)
+                    self.annotate_expected(post, types.VYPER_BOOL, resolve=True)
 
                 for pre in function.preconditions:
-                    self.annotate_expected(pre, types.VYPER_BOOL)
+                    self.annotate_expected(pre, types.VYPER_BOOL, resolve=True)
 
                 for check in function.checks:
-                    self.annotate_expected(check, types.VYPER_BOOL)
+                    self.annotate_expected(check, types.VYPER_BOOL, resolve=True)
 
                 for performs in function.performs:
-                    self.annotate(performs)
+                    self.annotate(performs, resolve=True)
+
+                for loop_invariants in function.loop_invariants.values():
+                    for loop_invariant in loop_invariants:
+                        self.annotate_expected(loop_invariant, types.VYPER_BOOL, resolve=True)
 
         for lemma in self.program.lemmas.values():
             with self._function_scope(lemma):
                 for stmt in lemma.node.body:
                     assert isinstance(stmt, ast.ExprStmt)
-                    self.annotate_expected(stmt.value, types.VYPER_BOOL)
+                    self.annotate_expected(stmt.value, types.VYPER_BOOL, resolve=True)
 
                 for name, default in lemma.defaults.items():
                     if default:
-                        self.annotate_expected(default, lemma.args[name].type)
+                        self.annotate_expected(default, lemma.args[name].type, resolve=True)
 
                 for pre in lemma.preconditions:
-                    self.annotate_expected(pre, types.VYPER_BOOL)
+                    self.annotate_expected(pre, types.VYPER_BOOL, resolve=True)
 
         for ghost_function in self.program.ghost_function_implementations.values():
             assert isinstance(ghost_function, GhostFunction)
             with self._function_scope(ghost_function):
                 expression_stmt = ghost_function.node.body[0]
                 assert isinstance(expression_stmt, ast.ExprStmt)
-                self.annotate_expected(expression_stmt.value, ghost_function.type.return_type)
+                self.annotate_expected(expression_stmt.value, ghost_function.type.return_type, resolve=True)
 
         for inv in self.program.invariants:
-            self.annotate_expected(inv, types.VYPER_BOOL)
+            self.annotate_expected(inv, types.VYPER_BOOL, resolve=True)
 
         for post in self.program.general_postconditions:
-            self.annotate_expected(post, types.VYPER_BOOL)
+            self.annotate_expected(post, types.VYPER_BOOL, resolve=True)
 
         for post in self.program.transitive_postconditions:
-            self.annotate_expected(post, types.VYPER_BOOL)
+            self.annotate_expected(post, types.VYPER_BOOL, resolve=True)
 
         for check in self.program.general_checks:
-            self.annotate_expected(check, types.VYPER_BOOL)
+            self.annotate_expected(check, types.VYPER_BOOL, resolve=True)
 
         if isinstance(self.program, VyperInterface):
             for caller_private in self.program.caller_private:
-                self.annotate(caller_private)
+                self.annotate(caller_private, resolve=True)
+
+    def resolve_type(self, node: ast.Node):
+        if self.undecided_nodes:
+            self.type_resolver.resolve_type(node)
+            self.undecided_nodes = False
 
     def generic_visit(self, node: ast.Node, *args):
         assert False
@@ -221,15 +234,23 @@ class TypeAnnotator(NodeVisitor):
             else:
                 return intersection, [*nodes1, *nodes2]
 
-    def annotate(self, node1, node2=None, allowed=lambda t: True):
+    def annotate(self, node1, node2=None, allowed=lambda t: True, resolve=False):
         if node2 is None:
             combined, nodes = self.visit(node1)
         else:
             combined, nodes = self.combine(node1, node2, allowed=allowed)
         for node in nodes:
-            node.type = combined[0]
+            if len(combined) > 1:
+                self.undecided_nodes = True
+                node.type = combined
+            else:
+                node.type = combined[0]
+        if resolve:
+            self.resolve_type(node1)
+            if node2 is not None:
+                self.resolve_type(node2)
 
-    def annotate_expected(self, node, expected, orelse=None):
+    def annotate_expected(self, node, expected, orelse=None, resolve=False):
         """
         Checks that node has type `expected` (or matches the predicate `expected`) or, if that isn't the case,
         that is has type `orelse` (or matches the predicate `orelse`).
@@ -240,6 +261,8 @@ class TypeAnnotator(NodeVisitor):
             node.type = t
             for n in nodes:
                 n.type = t
+            if resolve:
+                self.resolve_type(node)
 
         if isinstance(expected, VyperType):
             if any(types.matches(t, expected) for t in tps):
@@ -281,11 +304,10 @@ class TypeAnnotator(NodeVisitor):
         variable_name = node.target.id
         variable_type = self.type_builder.build(node.annotation)
         self.variables[variable_name] = [variable_type]
+        self.annotate_expected(node.target, variable_type)
 
         if node.value:
-            self.annotate(node.target, node.value)
-        else:
-            self.annotate(node.target)
+            self.annotate_expected(node.value, variable_type)
 
     def visit_For(self, node: ast.For):
         self.annotate_expected(node.iter, lambda t: isinstance(t, ArrayType))
@@ -357,7 +379,9 @@ class TypeAnnotator(NodeVisitor):
 
     def visit_Containment(self, node: ast.Containment):
         self.annotate_expected(node.list, lambda t: isinstance(t, ArrayType))
-        self.annotate_expected(node.value, node.list.type.element_type)
+        array_type = node.list.type
+        assert isinstance(array_type, ArrayType)
+        self.annotate_expected(node.value, array_type.element_type)
         return [types.VYPER_BOOL], [node]
 
     def visit_Equality(self, node: ast.Equality):
@@ -412,7 +436,9 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 1)
                 self.annotate(node.args[0])
                 loop = self._retrieve_loop(node, names.LOOP_ARRAY)
-                return [loop.iter.type], [node]
+                loop_array_type = loop.iter.type
+                assert isinstance(loop_array_type, ArrayType)
+                return [loop_array_type], [node]
             elif case(names.LOOP_ITERATION):
                 _check_number_of_arguments(node, 1)
                 self.annotate(node.args[0])
@@ -473,7 +499,8 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 1)
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                 # We know that storage(self) has the self-type
-                if isinstance(node.args[0], ast.Name) and node.args[0].id == names.SELF:
+                first_arg = node.args[0]
+                if isinstance(first_arg, ast.Name) and first_arg.id == names.SELF:
                     return [self.program.type, AnyStructType()], [node]
                 # Otherwise it is just some struct, which we don't know anything about
                 else:
@@ -612,8 +639,8 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 0, 1, resources=1 if case(names.ALLOCATED) else 0)
 
                 if not node.args:
-                    type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
-                    return [type], [node]
+                    map_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+                    return [map_type], [node]
                 else:
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     return [types.VYPER_WEI_VALUE], [node]
@@ -764,8 +791,8 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, len(function.args) + 1)
 
                 arg_types = [types.VYPER_ADDRESS, *[arg.type for arg in function.args.values()]]
-                for type, arg in zip(arg_types, node.args):
-                    self.annotate_expected(arg, type)
+                for arg_type, arg in zip(arg_types, node.args):
+                    self.annotate_expected(arg, arg_type)
 
                 return [function.type.return_type], [node]
             else:
@@ -848,21 +875,23 @@ class TypeAnnotator(NodeVisitor):
 
         node.type = resource.type
 
-        for type, arg in zip(resource.type.member_types.values(), args):
-            self.annotate_expected(arg, type)
+        for arg_type, arg in zip(resource.type.member_types.values(), args):
+            self.annotate_expected(arg, arg_type)
 
     def _add_quantified_vars(self, var_decls: ast.Dict):
         vars_types = zip(var_decls.keys, var_decls.values)
         for name, type_annotation in vars_types:
-            type = self.type_builder.build(type_annotation)
-            self.variables[name.id] = [type]
-            name.type = type
+            var_type = self.type_builder.build(type_annotation)
+            self.variables[name.id] = [var_type]
+            name.type = var_type
 
     def _visit_forall(self, node: ast.FunctionCall):
         with self._quantified_vars_scope():
             # Add the quantified variables {<x1>: <t1>, <x2>: <t2>, ...} to the
             # variable map
-            self._add_quantified_vars(node.args[0])
+            first_arg = node.args[0]
+            assert isinstance(first_arg, ast.Dict)
+            self._add_quantified_vars(first_arg)
 
             # Triggers can have any type
             for arg in node.args[1:len(node.args) - 1]:
@@ -891,18 +920,22 @@ class TypeAnnotator(NodeVisitor):
         self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
 
         if len(node.args) == 3:
-            function = self.program.functions[node.args[2].name]
-            for arg, type in zip(node.args[2].args, function.type.arg_types):
-                self.annotate_expected(arg, type)
+            function_call = node.args[2]
+            assert isinstance(function_call, ast.ReceiverCall)
+            function = self.program.functions[function_call.name]
+            for arg, arg_type in zip(function_call.args, function.type.arg_types):
+                self.annotate_expected(arg, arg_type)
 
         return [types.VYPER_BOOL], [node]
 
     def _visit_event(self, node: ast.FunctionCall):
-        event_name = node.args[0].name
+        event = node.args[0]
+        assert isinstance(event, ast.FunctionCall)
+        event_name = event.name
         event_type = self.program.events[event_name].type
 
-        for arg, type in zip(node.args[0].args, event_type.arg_types):
-            self.annotate_expected(arg, type)
+        for arg, arg_type in zip(event.args, event_type.arg_types):
+            self.annotate_expected(arg, arg_type)
 
         if len(node.args) == 2:
             self.annotate_expected(node.args[1], types.VYPER_UINT256)
@@ -912,9 +945,12 @@ class TypeAnnotator(NodeVisitor):
     def _visit_struct_init(self, node: ast.FunctionCall):
         ntype = self.program.structs[node.name].type
 
-        for key, value in zip(node.args[0].keys, node.args[0].values):
-            type = ntype.member_types[key.id]
-            self.annotate_expected(value, type)
+        struct_dict = node.args[0]
+        assert isinstance(struct_dict, ast.Dict)
+
+        for key, value in zip(struct_dict.keys, struct_dict.values):
+            value_type = ntype.member_types[key.id]
+            self.annotate_expected(value, value_type)
 
         return [ntype], [node]
 
@@ -952,7 +988,8 @@ class TypeAnnotator(NodeVisitor):
         _check(loop is not None, node, f"invalid.{name}")
         return loop
 
-    def visit_Bytes(self, node: ast.Bytes):
+    @staticmethod
+    def visit_Bytes(node: ast.Bytes):
         # Bytes could either be non-strict or (if it has length 32) strict
         non_strict = types.ArrayType(types.VYPER_BYTE, len(node.s), False)
         if len(node.s) == 32:
@@ -960,7 +997,8 @@ class TypeAnnotator(NodeVisitor):
         else:
             return [non_strict], [node]
 
-    def visit_Str(self, node: ast.Str):
+    @staticmethod
+    def visit_Str(node: ast.Str):
         string_bytes = bytes(node.s, 'utf-8')
         ntype = StringType(len(string_bytes))
         return [ntype], [node]
@@ -972,12 +1010,22 @@ class TypeAnnotator(NodeVisitor):
             self.annotate(elem)
         return [None], [node]
 
-    def visit_Num(self, node: ast.Num):
+    @staticmethod
+    def visit_Num(node: ast.Num):
         if isinstance(node.n, int):
-            if node.n >= 0:
+            max_int128 = 2 ** 127 - 1
+            max_address = 2 ** 160 - 1
+            if 0 <= node.n <= max_int128:
                 tps = [types.VYPER_INT128,
                        types.VYPER_UINT256,
                        types.VYPER_ADDRESS,
+                       types.VYPER_BYTES32]
+            elif max_int128 < node.n <= max_address:
+                tps = [types.VYPER_UINT256,
+                       types.VYPER_ADDRESS,
+                       types.VYPER_BYTES32]
+            elif max_address < node.n:
+                tps = [types.VYPER_UINT256,
                        types.VYPER_BYTES32]
             else:
                 tps = [types.VYPER_INT128]
@@ -988,7 +1036,8 @@ class TypeAnnotator(NodeVisitor):
         else:
             assert False
 
-    def visit_Bool(self, node: ast.Bool):
+    @staticmethod
+    def visit_Bool(node: ast.Bool):
         return [types.VYPER_BOOL], [node]
 
     def visit_Attribute(self, node: ast.Attribute):
@@ -1023,8 +1072,57 @@ class TypeAnnotator(NodeVisitor):
         for e in node.elements:
             self.annotate(e)
         element_types = [e.type for e in node.elements]
+        possible_types = []
         for element_type in element_types:
-            if element_type != types.VYPER_INT128:
-                return [types.ArrayType(element_type, size)], [node]
-        else:
-            return [types.ArrayType(types.VYPER_INT128, size)], [node]
+            if isinstance(element_type, list):
+                if possible_types:
+                    possible_types = [t for t in possible_types if t in element_type]
+                else:
+                    possible_types = element_type
+            else:
+                _check(not possible_types or element_type in possible_types, node, 'invalid.element.types')
+                possible_types = [element_type]
+                break
+
+        return [types.ArrayType(element_type, size) for element_type in possible_types], [node]
+
+
+class TypeResolver(NodeVisitor):
+
+    def resolve_type(self, node: ast.Node):
+        self.visit(node, None)
+
+    def visit(self, node, *args):
+        assert len(args) == 1
+        if hasattr(node, "type"):
+            if isinstance(node.type, list):
+                node.type = args[0] or node.type[0]
+        return super().visit(node, *args)
+
+    def visit_Assign(self, node: ast.Assign, _: Optional[VyperType]):
+        self.visit(node.target, None)
+        return self.visit(node.value, node.target.type)
+
+    def visit_AugAssign(self, node: ast.AugAssign, _: Optional[VyperType]):
+        self.visit(node.target, None)
+        return self.visit(node.value, node.target.type)
+
+    def visit_Comparison(self, node: ast.Comparison, _: Optional[VyperType]):
+        self.visit(node.left, None)
+        return self.visit(node.right, node.left.type)
+
+    def visit_Equality(self, node: ast.Equality, _: Optional[VyperType]):
+        self.visit(node.left, None)
+        return self.visit(node.right, node.left.type)
+
+    def visit_FunctionCall(self, node: ast.FunctionCall, _: Optional[VyperType]):
+        self.generic_visit(node, None)
+
+    def visit_ReceiverCall(self, node: ast.ReceiverCall, _: Optional[VyperType]):
+        return self.generic_visit(node, None)
+
+    def visit_Set(self, node: ast.Set, _: Optional[VyperType]):
+        return self.generic_visit(node, None)
+
+    def visit_List(self, node: ast.List, _: Optional[VyperType]):
+        return self.generic_visit(node, node.type.element_type)

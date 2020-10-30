@@ -9,7 +9,7 @@
 self_address: address
 
 
-#@ invariant: 0 <= self and self < 1461501637330902918203684832716283019655932542976
+#@ invariant: 0 <= self and self <= 1461501637330902918203684832716283019655932542975
 #@ invariant: self.self_address == self
 
 

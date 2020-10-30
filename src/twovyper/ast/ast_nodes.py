@@ -168,16 +168,6 @@ class IfExpr(Expr):
         self.orelse = orelse
 
 
-class Dict(Expr):
-
-    _children = ['keys', 'values']
-
-    def __init__(self, keys: ListT[Expr], values: ListT[Expr]):
-        super().__init__()
-        self.keys = keys
-        self.values = values
-
-
 class Set(Expr):
 
     _children = ['elements']
@@ -288,6 +278,16 @@ class Name(Expr):
     def __init__(self, id_str: str):
         super().__init__()
         self.id = id_str
+
+
+class Dict(Expr):
+
+    _children = ['keys', 'values']
+
+    def __init__(self, keys: ListT[Name], values: ListT[Expr]):
+        super().__init__()
+        self.keys = keys
+        self.values = values
 
 
 class List(Expr):
