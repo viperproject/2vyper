@@ -1099,20 +1099,30 @@ class TypeResolver(NodeVisitor):
                 node.type = args[0] or node.type[0]
         return super().visit(node, *args)
 
+    @staticmethod
+    def first_intersect(left, right):
+        if not isinstance(left, list):
+            left = [left]
+        if not isinstance(right, list):
+            right = [right]
+        for t in left:
+            if t in right:
+                return t
+
     def visit_Assign(self, node: ast.Assign, _: Optional[VyperType]):
-        self.visit(node.target, None)
+        self.visit(node.target, self.first_intersect(node.target.type, node.value.type))
         return self.visit(node.value, node.target.type)
 
     def visit_AugAssign(self, node: ast.AugAssign, _: Optional[VyperType]):
-        self.visit(node.target, None)
+        self.visit(node.target, self.first_intersect(node.target.type, node.value.type))
         return self.visit(node.value, node.target.type)
 
     def visit_Comparison(self, node: ast.Comparison, _: Optional[VyperType]):
-        self.visit(node.left, None)
+        self.visit(node.left, self.first_intersect(node.left.type, node.right.type))
         return self.visit(node.right, node.left.type)
 
     def visit_Equality(self, node: ast.Equality, _: Optional[VyperType]):
-        self.visit(node.left, None)
+        self.visit(node.left, self.first_intersect(node.left.type, node.right.type))
         return self.visit(node.right, node.left.type)
 
     def visit_FunctionCall(self, node: ast.FunctionCall, _: Optional[VyperType]):
