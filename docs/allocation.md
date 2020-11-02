@@ -1,5 +1,7 @@
 # Allocation
 
+The resource handling per default disabled. It can be enabled using the `allocation` configuration.
+
 ## Model
 
 Three maps are used to model the allocation of resources.
@@ -30,7 +32,7 @@ Three maps are used to model the allocation of resources.
   - Type: _Resource{$resource: Resource}_
   - Only the initializer function (init) is allowed to create other resources unchecked.
   - If a resource is created outside of init, a creator resource is needed.
-  - For [create](#create_fun) and [destroy](#destroy_fun), it gets checked that an address has the creator resource of the wanted resource.
+  - For [create](#create_fun), it gets checked that an address has the creator resource of the wanted resource.
 
 ## Further information
 
@@ -38,6 +40,19 @@ Sending and receiving Ether using send or calls is handled. Also, if `selfdestru
 
 
 ## Resource functions
+
+Each of the following functions (except [exchange](#exchange_fun)) are only allowed if the operation was declared in the the specification of the function.
+E.g. the trust performed in the function foo is only allowed if it was also declared outside of the function.
+```
+#@ performs: trust(a, True)
+@public
+def foo(a: address):
+    # [Some code of foo]
+    #@ trust(a, True)
+    # [Some further code of foo]
+```
+
+These checks can be disabled using the `no_performs` configuration.
 
 - <a name="trust_fun"></a>**trust**:
   - Signature: trust\(_target\_address_, _do\_trust_, acting_for=_source\_address_\)
