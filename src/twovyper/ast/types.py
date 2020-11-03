@@ -60,6 +60,14 @@ class ArrayType(VyperType):
         super().__init__(id)
 
 
+class TupleType(VyperType):
+
+    def __init__(self, element_types: List[VyperType]):
+        self.element_types = element_types
+        id = f'({element_types})'
+        super().__init__(id)
+
+
 class StructType(VyperType):
 
     def __init__(self, name: str, member_types: Dict[str, VyperType]):
@@ -343,3 +351,7 @@ class TypeBuilder(NodeVisitor):
         # (which has already been replaced by an int)
         size = node.index.n
         return ArrayType(element_type, size, has_strict_array_size(element_type))
+
+    def _visit_Tuple(self, node: ast.Tuple) -> VyperType:
+        element_types = [self.visit(n) for n in node.elements]
+        return TupleType(element_types)

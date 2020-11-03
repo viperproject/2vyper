@@ -5,6 +5,8 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from typing import Union
+
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.types import FunctionType, MapType, StructType, AnyStructType, ResourceType
 from twovyper.ast.nodes import VyperFunction, Resource
@@ -18,6 +20,8 @@ from twovyper.translation.context import Context
 from twovyper.translation.wrapped_viper_ast import WrappedViperAST, wrapped_integer_decorator
 
 from twovyper.utils import first_index
+
+from twovyper.viper.typedefs import Expr
 
 
 # Helper functions
@@ -468,9 +472,9 @@ def struct_pure_get_result(viper_ast: ViperAST, ref, viper_type,  pos=None):
     return struct_get_idx(viper_ast, ref, 1, viper_type, pos)
 
 
-def struct_get_idx(viper_ast: ViperAST, ref, idx: int, viper_type, pos=None, info=None):
+def struct_get_idx(viper_ast: ViperAST, ref, idx: Union[int, Expr], viper_type, pos=None, info=None):
     domain = mangled.STRUCT_OPS_DOMAIN
-    idx_lit = viper_ast.IntLit(idx)
+    idx_lit = viper_ast.IntLit(idx) if isinstance(idx, int) else idx
     field = struct_loc(viper_ast, ref, idx_lit, pos, info)
     getter = mangled.STRUCT_GET
     type_map = _struct_type_var_map(viper_ast, viper_type)
@@ -482,6 +486,15 @@ def struct_set(viper_ast: ViperAST, ref, val, member: str, member_type, type: St
     s_type = struct_type(viper_ast)
     domain = mangled.STRUCT_OPS_DOMAIN
     idx = viper_ast.IntLit(type.member_indices[member])
+    type_map = _struct_type_var_map(viper_ast, member_type)
+    return viper_ast.DomainFuncApp(setter, [ref, idx, val], s_type, pos, info, domain, type_map)
+
+
+def struct_set_idx(viper_ast: ViperAST, ref, val, idx: int, member_type, pos=None, info=None):
+    setter = mangled.STRUCT_SET
+    s_type = struct_type(viper_ast)
+    domain = mangled.STRUCT_OPS_DOMAIN
+    idx = viper_ast.IntLit(idx)
     type_map = _struct_type_var_map(viper_ast, member_type)
     return viper_ast.DomainFuncApp(setter, [ref, idx, val], s_type, pos, info, domain, type_map)
 
@@ -548,7 +561,12 @@ def ghost_function(viper_ast: ViperAST, name, address, struct, args, return_type
 
 
 def havoc_var(viper_ast: ViperAST, viper_type, ctx: Context):
-    havoc_name = ctx.new_local_var_name('havoc')
-    havoc = viper_ast.LocalVarDecl(havoc_name, viper_type)
-    ctx.new_local_vars.append(havoc)
-    return havoc.localVar()
+    if ctx.is_pure_function:
+        pure_idx = ctx.next_pure_var_index()
+        function_result = viper_ast.Result(struct_type(viper_ast))
+        return struct_get_idx(viper_ast, function_result, pure_idx, viper_type)
+    else:
+        havoc_name = ctx.new_local_var_name('havoc')
+        havoc = viper_ast.LocalVarDecl(havoc_name, viper_type)
+        ctx.new_local_vars.append(havoc)
+        return havoc.localVar()

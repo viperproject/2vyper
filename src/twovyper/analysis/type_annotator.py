@@ -14,7 +14,7 @@ from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.types import (
     TypeBuilder, VyperType, MapType, ArrayType, StringType, StructType, AnyStructType,
-    SelfType, ContractType, InterfaceType
+    SelfType, ContractType, InterfaceType, TupleType
 )
 from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction, VyperInterface
 from twovyper.ast.visitors import NodeVisitor
@@ -635,6 +635,8 @@ class TypeAnnotator(NodeVisitor):
                 else:
                     assert False
                 return [vyper_type], [node]
+            elif case(names.TUPLE):
+                return self._visit_tuple(node.args), [node]
             elif case(names.SENT) or case(names.RECEIVED) or case(names.ALLOCATED):
                 _check_number_of_arguments(node, 0, 1, resources=1 if case(names.ALLOCATED) else 0)
 
@@ -770,7 +772,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.keywords[0].value, types.VYPER_ADDRESS)
                 return [types.VYPER_BOOL], [node]
             elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
-                # This is a struct inizializer
+                # This is a struct initializer
                 _check_number_of_arguments(node, 1)
 
                 return self._visit_struct_init(node)
@@ -894,11 +896,11 @@ class TypeAnnotator(NodeVisitor):
             self._add_quantified_vars(first_arg)
 
             # Triggers can have any type
-            for arg in node.args[1:len(node.args) - 1]:
+            for arg in node.args[1:-1]:
                 self.annotate(arg)
 
             # The quantified expression is always a Boolean
-            self.annotate_expected(node.args[len(node.args) - 1], types.VYPER_BOOL)
+            self.annotate_expected(node.args[-1], types.VYPER_BOOL)
 
         return [types.VYPER_BOOL], [node]
 
@@ -910,8 +912,12 @@ class TypeAnnotator(NodeVisitor):
             assert isinstance(first_arg, ast.Dict)
             self._add_quantified_vars(first_arg)
 
+            # Triggers can have any type
+            for arg in node.args[1:-1]:
+                self.annotate(arg)
+
             # Annotate the body
-            self.annotate(node.args[1])
+            self.annotate(node.args[-1])
 
         return [None], [node]
 
@@ -1085,6 +1091,28 @@ class TypeAnnotator(NodeVisitor):
                 break
 
         return [types.ArrayType(element_type, size) for element_type in possible_types], [node]
+
+    def visit_Tuple(self, node: ast.Tuple):
+        return self._visit_tuple(node.elements), [node]
+
+    def _visit_tuple(self, elements):
+        length = len(elements)
+        for e in elements:
+            self.annotate(e)
+        element_types = [e.type if isinstance(e.type, list) else [e.type] for e in elements]
+        sizes = [len(element_type) for element_type in element_types]
+        index = [0] * length
+        possible_types = []
+        while True:
+            possible_type = TupleType([element_types[i][index[i]] for i in range(length)])
+            possible_types.append(possible_type)
+            for i in range(length):
+                index[i] = (index[i] + 1) % sizes[i]
+                if index[i]:
+                    break
+            else:
+                break
+        return possible_types
 
 
 class TypeResolver(NodeVisitor):

@@ -115,11 +115,13 @@ class _PythonTransformer(Transformer):
                 return ast.FunctionDef(name, args, body, decorators, None)
             else:
                 # This is a function stub with a return value
-                ret = children[3]
+                ret = children[3].children
+                ret = ret[0] if len(ret) == 1 else self._tuple(ret, meta)
                 return ast.FunctionStub(name, args, ret)
         elif len(children) == 5:
             # This is a function definition with a return value
-            ret = children[3]
+            ret = children[3].children
+            ret = ret[0] if len(ret) == 1 else self._tuple(ret, meta)
             body = children[4]
             return ast.FunctionDef(name, args, body, decorators, ret)
 
@@ -201,7 +203,9 @@ class _PythonTransformer(Transformer):
 
     @copy_pos
     def return_stmt(self, children, meta):
-        value = children[0] if children else None
+        if not children:
+            return ast.Return(None)
+        value = children[0][0] if len(children[0]) == 1 else self._tuple(children[0], meta)
         return ast.Return(value)
 
     @copy_pos
