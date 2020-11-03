@@ -86,9 +86,18 @@ class StatementTranslator(NodeTranslator):
         res.append(self.viper_ast.LocalVarAssign(lhs, rhs, pos))
 
     def translate_Assign(self, node: ast.Assign, res: List[Stmt], ctx: Context):
-        # We only support single assignments for now
+        pos = self.to_position(node, ctx)
+
+        target = node.target
         rhs = self.expression_translator.translate_top_level_expression(node.value, res, ctx)
-        self.assignment_translator.assign_to(node.target, rhs, res, ctx)
+
+        if isinstance(target, ast.Tuple):
+            for idx, element in enumerate(target.elements):
+                element_type = self.type_translator.translate(element.type, ctx)
+                rhs_element = helpers.struct_get_idx(self.viper_ast, rhs, idx, element_type, pos)
+                self.assignment_translator.assign_to(element, rhs_element, res, ctx)
+        else:
+            self.assignment_translator.assign_to(target, rhs, res, ctx)
 
     def translate_AugAssign(self, node: ast.AugAssign, res: List[Stmt], ctx: Context):
         pos = self.to_position(node, ctx)

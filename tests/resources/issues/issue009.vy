@@ -21,11 +21,20 @@ def pure_foo() -> (uint256, bool):
 def bar() -> (uint256, int128):
    return self.foo()
 
+#@pure
+@private
+@constant
+def pure_baz() -> (uint256, bool):
+   u: uint256 = 1
+   b: bool = True
+   u, b = self.pure_foo()
+   return u, b
 
-# #@ ensures: success() ==> result() == result(self.pure_foo())
-# @public
-# def baz() -> (uint256, bool):
-#    u: uint256 = 1
-#    b: bool = True
-#    u, b = self.pure_foo()
-#    return u, b
+#@ ensures: success() ==> result() == result(self.pure_foo())
+#@ ensures: success() ==> result() == result(self.pure_baz())
+@public
+def baz() -> (uint256, bool):
+   u: uint256 = 1
+   b: bool = True
+   u, b = self.pure_foo()
+   return u, b

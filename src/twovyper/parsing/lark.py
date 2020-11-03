@@ -155,6 +155,8 @@ class _PythonTransformer(Transformer):
     @copy_pos
     def expr_stmt(self, children, meta):
         target = children[0]
+        if isinstance(target, list):
+            target = self._tuple(target, meta)
         if len(children) == 2:
             assign_builder = children[1]
             return assign_builder(target)

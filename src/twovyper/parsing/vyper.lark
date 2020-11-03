@@ -37,7 +37,7 @@ parameter: NAME ":" test ["=" test]
 ?stmt: simple_stmt | compound_stmt
 ?simple_stmt: small_stmt _NEWLINE
 ?small_stmt: expr_stmt | pass_stmt | flow_stmt | import_stmt | assert_stmt
-expr_stmt: test [annassign | augassign | assign]
+expr_stmt: test [annassign | augassign | assign] | testlist assign
 assign: "=" testlist
 annassign: ":" test ["=" test]
 augassign: aug_op test
