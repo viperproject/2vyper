@@ -14,7 +14,7 @@ owner: address
 
 #@ ghost:
     #@ @implements
-    #@ def token_owner() -> address: self.owner
+    #@ def owner() -> address: self.owner
 
 
 @public

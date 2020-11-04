@@ -10,20 +10,20 @@ from . import mana_continuous_sale_interface
 #@ interface
 
 #@ ghost:
-    #@ def token_owner() -> address: ...
+    #@ def owner() -> address: ...
 
-#@ caller private: conditional(token_owner(self) == caller(), token_owner(self))
+#@ caller private: conditional(owner(self) == caller(), owner(self))
 
 
-#@ ensures: success() ==> result() == token_owner(self)
+#@ ensures: success() ==> result() == owner(self)
 @public
 @constant
 def get_owner() -> address:
     raise "Not implemented"
 
 
-#@ ensures: msg.sender != old(token_owner(self)) ==> revert()
-#@ ensures: success() ==> token_owner(self) == newOwner
+#@ ensures: msg.sender != old(owner(self)) ==> revert()
+#@ ensures: success() ==> owner(self) == newOwner
 @public
 def transferOwnership(newOwner: address):
     raise "Not implemented"

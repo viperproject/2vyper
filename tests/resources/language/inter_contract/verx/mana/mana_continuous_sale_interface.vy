@@ -22,7 +22,9 @@ from . import mana_token_interface
 #@ invariant: old(started(self)) ==> started(self)
 
 # If this contract owns a token, it will not change the ownership anymore
-#@ inter contract invariant: implements(token(self), mana_token_interface) and old(token_owner(token(self))) == self ==> token_owner(token(self)) == old(token_owner(token(self)))
+#@ inter contract invariant: implements(token(self), mana_token_interface) \
+    #@ and old(mana_token_interface.owner(token(self))) == self ==> \
+        #@ mana_token_interface.owner(token(self)) == old(mana_token_interface.owner(token(self)))
 
 # started flag is only modifiable by owner
 #@ caller private: conditional(owner(self) == caller(), started(self))

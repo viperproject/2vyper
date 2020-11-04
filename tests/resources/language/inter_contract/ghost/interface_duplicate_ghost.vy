@@ -10,9 +10,9 @@ from . import interface_a1
 #@ interface
 
 #@ ghost:
-    #:: ExpectedOutput(invalid.program:duplicate.ghost)
     #@ def a() -> int128: ...
 
+#@ ensures: a(self) == 42
 @public
 def foo():
     raise "Not implemented"

@@ -6,7 +6,9 @@
 #
 
 #:: ExpectedOutput(invalid.program:duplicate.ghost)
+from . import interface_a1
 from .subdir import interface_a2
+import tests.resources.language.inter_contract.ghost.interface_a2 as a3
 from . import interface_b
 
 @public

@@ -304,8 +304,15 @@ class StructureChecker(NodeVisitor):
             elif ctx == _Context.PRECONDITION:
                 _assert(function.is_private(), node, 'precondition.event')
 
-        if function and node.name in program.ghost_functions.keys():
+        if node.name in program.ghost_functions:
             _assert(ctx != _Context.LEMMA, node, 'invalid.lemma')
+            if len(program.ghost_functions[node.name]) > 1:
+                if isinstance(program, VyperInterface):
+                    cond = node.name in program.own_ghost_functions
+                else:
+                    cond = node.name in program.ghost_function_implementations
+                _assert(cond, node, 'duplicate.ghost',
+                        f'Multiple interfaces declare the ghost function "{node.name}".')
 
         if node.name == names.CALLER:
             self._visited_caller_spec = True
@@ -531,10 +538,17 @@ class StructureChecker(NodeVisitor):
             _assert(False, node, 'spec.call')
         elif ctx.is_specification:
             receiver = node.receiver
-            if isinstance(receiver, ast.Name) and receiver.id == names.LEMMA:
-                other_lemma = program.lemmas.get(node.name)
-                _assert(other_lemma is not None, node, 'invalid.lemma',
-                        f'Unknown lemma to call: {node.name}')
+            if isinstance(receiver, ast.Name):
+                if receiver.id == names.LEMMA:
+                    other_lemma = program.lemmas.get(node.name)
+                    _assert(other_lemma is not None, node, 'invalid.lemma',
+                            f'Unknown lemma to call: {node.name}')
+                elif receiver.id in program.interfaces:
+                    interface = program.interfaces[receiver.id]
+                    _assert(node.name in interface.own_ghost_functions, node, 'spec.call',
+                            f'Unknown ghost function to call "{node.name}" in the interface "{receiver.id}"')
+                else:
+                    _assert(False, node, 'spec.call')
             elif ctx == _Context.GHOST_CODE:
                 _assert(False, node, 'invalid.ghost.code')
             else:

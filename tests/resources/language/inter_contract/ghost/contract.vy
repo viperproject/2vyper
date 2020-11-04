@@ -5,9 +5,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+#@ config: trust_casts
+
+from . import interface_a1
 from . import interface_a2
 from . import interface_b
 
+i: interface_b
+
 @public
 def foo():
-    pass
+    send(msg.sender, 0)

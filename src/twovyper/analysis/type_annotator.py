@@ -89,6 +89,8 @@ class TypeAnnotator(NodeVisitor):
             names.LEMMA: [None]
         }
 
+        self.variables.update({interface: [None] for interface in program.interfaces.keys()})
+
         self.undecided_nodes = False
         self.type_resolver = TypeResolver()
 
@@ -787,7 +789,15 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                 return [self.program.interfaces[name].type], [node]
             elif name in self.program.ghost_functions:
-                function = self.program.ghost_functions[name]
+                possible_functions = self.program.ghost_functions[name]
+                if len(possible_functions) != 1:
+                    if isinstance(self.program, VyperInterface):
+                        function = [fun for fun in possible_functions if fun.file == self.program.file][0]
+                    else:
+                        implemented_interfaces = [self.program.interfaces[i.name].file for i in self.program.implements]
+                        function = [fun for fun in possible_functions if fun.file in implemented_interfaces][0]
+                else:
+                    function = possible_functions[0]
                 _check_number_of_arguments(node, len(function.args) + 1)
 
                 arg_types = [types.VYPER_ADDRESS, *[arg.type for arg in function.args.values()]]
@@ -799,20 +809,33 @@ class TypeAnnotator(NodeVisitor):
                 raise UnsupportedException(node, "Unsupported function call")
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall):
+        receiver = node.receiver
 
-        # A lemma call
-        if isinstance(node.receiver, ast.Name) and node.receiver.id == names.LEMMA:
-            self.annotate(node.receiver)
-            _check(not isinstance(node.receiver.type, (ContractType, InterfaceType)),
-                   node.receiver,  'invalid.lemma.receiver',
-                   'A receiver, with name "lemma" and with a contract- or interface-type, is not supported.')
+        if isinstance(receiver, ast.Name):
+            # A lemma call
+            if receiver.id == names.LEMMA:
+                self.annotate(receiver)
+                _check(not isinstance(receiver.type, (ContractType, InterfaceType)),
+                       receiver,  'invalid.lemma.receiver',
+                       'A receiver, with name "lemma" and with a contract- or interface-type, is not supported.')
 
-            lemma = self.program.lemmas[node.name]
-            _check_number_of_arguments(node, len(lemma.args))
-            for arg, func_arg in zip(node.args, lemma.args.values()):
-                self.annotate_expected(arg, func_arg.type)
+                lemma = self.program.lemmas[node.name]
+                _check_number_of_arguments(node, len(lemma.args))
+                for arg, func_arg in zip(node.args, lemma.args.values()):
+                    self.annotate_expected(arg, func_arg.type)
 
-            return [types.VYPER_BOOL], [node]
+                return [types.VYPER_BOOL], [node]
+            # A receiver ghost function call
+            elif receiver.id in self.program.interfaces.keys():
+                self.annotate(receiver)
+                function = self.program.interfaces[receiver.id].own_ghost_functions[node.name]
+                _check_number_of_arguments(node, len(function.args) + 1)
+
+                arg_types = [types.VYPER_ADDRESS, *[arg.type for arg in function.args.values()]]
+                for arg_type, arg in zip(arg_types, node.args):
+                    self.annotate_expected(arg, arg_type)
+
+                return [function.type.return_type], [node]
 
         def expected(t):
             is_self_call = isinstance(t, SelfType)
@@ -820,8 +843,8 @@ class TypeAnnotator(NodeVisitor):
             is_log = t is None
             return is_self_call or is_external_call or is_log
 
-        self.annotate_expected(node.receiver, expected)
-        receiver_type = node.receiver.type
+        self.annotate_expected(receiver, expected)
+        receiver_type = receiver.type
 
         # A self call
         if isinstance(receiver_type, SelfType):

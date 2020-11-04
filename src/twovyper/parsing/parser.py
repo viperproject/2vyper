@@ -29,7 +29,7 @@ from twovyper.ast.types import (
     StructType, ContractType
 )
 
-from twovyper.exceptions import InvalidProgramException
+from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
 
 def parse(path: str, root: Optional[str], as_interface=False, name=None, parse_further_interfaces=True) -> VyperProgram:
@@ -54,7 +54,7 @@ class ProgramBuilder(NodeVisitor):
     # definition.
 
     def __init__(self, path: str, root: Optional[str], is_interface: bool, name: str, parse_further_interfaces: bool):
-        self.path = path
+        self.path = os.path.abspath(path)
         self.root = root
         self.is_interface = is_interface
         self.name = name
@@ -216,9 +216,11 @@ class ProgramBuilder(NodeVisitor):
             components = alias.name.split('.')
             components[-1] = f'{components[-1]}.vy'
             path = os.path.join(self.root or '', *components)
-            files[path] = alias.asname
+            files[path] = alias.asname.value if hasattr(alias.asname, 'value') else alias.asname
 
         for file, name in files.items():
+            if name in [names.SELF, names.LOG, names.LEMMA, *names.ENV_VARIABLES]:
+                raise UnsupportedException(node, 'Invalid file name.')
             interface = parse(file, self.root, True, name, not self.is_interface)
             self.interfaces[name] = interface
 
@@ -260,6 +262,8 @@ class ProgramBuilder(NodeVisitor):
             files[interface_path] = name
 
         for file, name in files.items():
+            if name in [names.SELF, names.LOG, names.LEMMA, *names.ENV_VARIABLES]:
+                raise UnsupportedException(node, 'Invalid file name.')
             interface = parse(file, self.root, True, name, not self.is_interface)
             self.interfaces[name] = interface
 
@@ -433,7 +437,7 @@ class ProgramBuilder(NodeVisitor):
             if name in ghost_functions:
                 raise InvalidProgramException(func, 'duplicate.ghost')
 
-            ghost_functions[name] = GhostFunction(name, args, vyper_type, func, os.path.abspath(self.path))
+            ghost_functions[name] = GhostFunction(name, args, vyper_type, func, self.path)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         args = {arg.name: self._arg(arg) for arg in node.args}

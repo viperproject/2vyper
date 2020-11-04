@@ -4,6 +4,8 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
+import os
+from collections import defaultdict
 from itertools import chain
 from typing import Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
@@ -105,6 +107,10 @@ class GhostFunction:
         self.node = node
         self.file = file
 
+    @property
+    def interface(self):
+        return os.path.split(self.file)[1].split('.')[0]
+
 
 class VyperStruct:
 
@@ -179,7 +185,9 @@ class VyperProgram:
         self.general_checks = general_checks
         self.lemmas = lemmas
         self.implements = implements
-        self.ghost_functions = dict(self._ghost_functions())
+        self.ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list)
+        for key, value in self._ghost_functions():
+            self.ghost_functions[key].append(value)
         self.ghost_function_implementations = ghost_function_implementations
         self.type = fields.type
         # Is set in the analyzer
@@ -239,10 +247,13 @@ class VyperInterface(VyperProgram):
                          general_checks,
                          {}, [], {})
         self.name = name
-        self.imported_ghost_functions = dict(self._ghost_functions())
+        self.imported_ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list)
+        for key, value in self._ghost_functions():
+            self.imported_ghost_functions[key].append(value)
         self.own_ghost_functions = ghost_functions
-        self.ghost_functions = dict(self.imported_ghost_functions)
-        self.ghost_functions.update(ghost_functions)
+        self.ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list, **self.imported_ghost_functions)
+        for key, value in ghost_functions.items():
+            self.ghost_functions[key].append(value)
         self.type = type
         self.caller_private = caller_private
 

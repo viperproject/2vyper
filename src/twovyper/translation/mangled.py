@@ -167,8 +167,8 @@ def interface_function_name(vyper_iname: str, vyper_fname: str) -> str:
     return f'{interface_name(vyper_iname)}${vyper_fname}'
 
 
-def ghost_function_name(vyper_name: str) -> str:
-    return f'g${vyper_name}'
+def ghost_function_name(vyper_iname: str, vyper_fname: str) -> str:
+    return f'g${interface_name(vyper_iname)}${vyper_fname}'
 
 
 def pure_function_name(vyper_name: str) -> str:
@@ -181,10 +181,6 @@ def lemma_name(vyper_name: str) -> str:
 
 def axiom_name(viper_name: str) -> str:
     return f'{viper_name}$ax'
-
-
-def ghost_axiom_name(vyper_name: str, idx: int):
-    return axiom_name(f'{ghost_function_name(vyper_name)}${idx}')
 
 
 def event_name(vyper_name: str) -> str:

@@ -7,6 +7,8 @@
 
 #:: ExpectedOutput(invalid.program:duplicate.ghost)
 import tests.resources.language.inter_contract.ghost.subdir.interface_a2 as a2
+import tests.resources.language.inter_contract.ghost.interface_a2 as a3
+import tests.resources.language.inter_contract.ghost.interface_a1 as a4
 from . import interface_b
 
 @public

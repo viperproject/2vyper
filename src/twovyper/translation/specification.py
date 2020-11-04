@@ -11,6 +11,7 @@ from itertools import chain, starmap, zip_longest
 from typing import List, Optional
 
 from twovyper.ast import ast_nodes as ast, names, types
+from twovyper.ast.nodes import VyperInterface
 from twovyper.ast.types import VyperType
 from twovyper.ast.visitors import NodeVisitor
 
@@ -21,7 +22,7 @@ from twovyper.translation.expression import ExpressionTranslator
 from twovyper.translation.resource import ResourceTranslator
 from twovyper.translation.variable import TranslatedVar
 
-from twovyper.utils import switch
+from twovyper.utils import switch, first
 
 from twovyper.verification import rules
 
@@ -531,28 +532,7 @@ class SpecificationTranslator(ExpressionTranslator):
             interface = node.args[1].id
             return helpers.implements(self.viper_ast, address, interface, ctx, pos)
         elif name in ctx.program.ghost_functions:
-            function = ctx.program.ghost_functions[name]
-            args = [self.translate(arg, res, ctx) for arg in node.args]
-            address = args[0]
-
-            contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
-            key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
-            value_type = helpers.struct_type(self.viper_ast)
-            struct = helpers.map_get(self.viper_ast, contracts, address, key_type, value_type)
-
-            # If we are not inside a trigger and the ghost function in question has an
-            # implementation, we pass the self struct to it if the argument is the self address,
-            # as the verifier does not know that $contracts[self] is equal to the self struct.
-            if not ctx.inside_trigger and name in ctx.program.ghost_function_implementations:
-                self_address = helpers.self_address(self.viper_ast, pos)
-                eq = self.viper_ast.EqCmp(args[0], self_address)
-                self_var = ctx.self_var.local_var(ctx, pos)
-                struct = self.viper_ast.CondExp(eq, self_var, struct, pos)
-
-            return_type = self.type_translator.translate(function.type.return_type, ctx)
-
-            rpos = self.to_position(node, ctx, rules.PRECONDITION_IMPLEMENTS_INTERFACE)
-            return helpers.ghost_function(self.viper_ast, name, address, struct, args[1:], return_type, rpos)
+            return self._ghost_function(node, name, None, res, ctx)
         elif name == names.CALLER:
             return ctx.all_vars[mangled.CALLER].local_var(ctx)
         elif name not in names.NOT_ALLOWED_IN_SPEC:
@@ -561,9 +541,43 @@ class SpecificationTranslator(ExpressionTranslator):
             assert False
 
     def translate_ReceiverCall(self, node: ast.ReceiverCall, res: List[Stmt], ctx: Context) -> Expr:
-        if node.receiver.id == names.LEMMA:
-            return super().translate_ReceiverCall(node, res, ctx)
+        receiver = node.receiver
+        if isinstance(receiver, ast.Name):
+            if receiver.id == names.LEMMA:
+                return super().translate_ReceiverCall(node, res, ctx)
+            elif receiver.id in ctx.current_program.interfaces:
+                interface_file = ctx.current_program.interfaces[receiver.id].file
+                return self._ghost_function(node, node.name, interface_file, res, ctx)
         assert False
+
+    def _ghost_function(self, node, ghost_function: str, interface_file: Optional[str], res: List[Stmt], ctx: Context):
+        pos = self.to_position(node, ctx)
+        functions = ctx.program.ghost_functions[ghost_function]
+        if interface_file:
+            function = first(func for func in functions if func.file == interface_file)
+        else:
+            if isinstance(ctx.current_program, VyperInterface):
+                function = ctx.current_program.own_ghost_functions[ghost_function]
+            else:
+                assert len(functions) == 1
+                function = functions[0]
+        args = [self.translate(arg, res, ctx) for arg in node.args]
+        address = args[0]
+        contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
+        key_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
+        value_type = helpers.struct_type(self.viper_ast)
+        struct = helpers.map_get(self.viper_ast, contracts, address, key_type, value_type)
+        # If we are not inside a trigger and the ghost function in question has an
+        # implementation, we pass the self struct to it if the argument is the self address,
+        # as the verifier does not know that $contracts[self] is equal to the self struct.
+        if not ctx.inside_trigger and ghost_function in ctx.program.ghost_function_implementations:
+            self_address = helpers.self_address(self.viper_ast, pos)
+            eq = self.viper_ast.EqCmp(args[0], self_address)
+            self_var = ctx.self_var.local_var(ctx, pos)
+            struct = self.viper_ast.CondExp(eq, self_var, struct, pos)
+        return_type = self.type_translator.translate(function.type.return_type, ctx)
+        rpos = self.to_position(node, ctx, rules.PRECONDITION_IMPLEMENTS_INTERFACE)
+        return helpers.ghost_function(self.viper_ast, function, address, struct, args[1:], return_type, rpos)
 
     def _low(self, expr, type: VyperType, ctx: Context, pos=None) -> Expr:
         comp = self.type_translator.comparator(type, ctx)

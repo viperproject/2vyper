@@ -23,10 +23,12 @@ _init: bool
 #@ invariant: self.token == self.token_address
 #@ invariant: old(self._init) ==> self._init
 
-#@ inter contract invariant: self._init ==> owner(self.continuousSale) == self
+#@ inter contract invariant: self._init ==> mana_continuous_sale_interface.owner(self.continuousSale) == self
 #@ inter contract invariant: self._init ==> token(self.continuousSale) == self.token
-#@ inter contract invariant: not locked("lock") and self._init ==> not started(self.continuousSale) ==> token_owner(self.token) == self
-#@ inter contract invariant: not locked("lock") and self._init ==> started(self.continuousSale) ==> token_owner(self.token) == self.continuousSale
+#@ inter contract invariant: not locked("lock") and self._init ==> not started(self.continuousSale) ==> \
+    #@ mana_token_interface.owner(self.token) == self
+#@ inter contract invariant: not locked("lock") and self._init ==> started(self.continuousSale) ==> \
+    #@ mana_token_interface.owner(self.token) == self.continuousSale
 
 @public
 def __init__(a: address, b: address):

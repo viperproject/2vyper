@@ -186,7 +186,8 @@ class ProgramTranslator(CommonTranslator):
         domains.append(self._translate_resource(helpers.creator_resource(), ctx))
 
         # Ghost functions
-        functions.extend(self._translate_ghost_function(func, ctx) for func in vyper_program.ghost_functions.values())
+        functions.extend(self._translate_ghost_function(func, ctx)
+                         for func_list in vyper_program.ghost_functions.values() for func in func_list)
         domains.append(self._translate_implements(vyper_program, ctx))
 
         # Pure functions
@@ -298,7 +299,7 @@ class ProgramTranslator(CommonTranslator):
 
         pos = self.to_position(function.node, ctx)
 
-        fname = mangled.ghost_function_name(function.name)
+        fname = mangled.ghost_function_name(function.interface, function.name)
         addr_var = TranslatedVar(names.ADDRESS, '$addr', types.VYPER_ADDRESS, self.viper_ast, pos)
         self_var = TranslatedVar(names.SELF, '$self', AnyStructType(), self.viper_ast, pos)
         self_address = helpers.self_address(self.viper_ast, pos)
