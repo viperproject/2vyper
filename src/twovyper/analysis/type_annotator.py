@@ -878,18 +878,36 @@ class TypeAnnotator(NodeVisitor):
 
     def _visit_resource(self, node: ast.Node):
         if isinstance(node, ast.Name):
-            resource = self.program.resources.get(node.id)
+            resources = self.program.resources.get(node.id)
+            if len(resources) == 1:
+                resource = resources[0]
+            else:
+                resource = self.program.own_resources.get(node.id)
             args = []
         elif isinstance(node, ast.FunctionCall) and node.name == names.CREATOR:
             self._visit_resource(node.args[0])
             return
         elif isinstance(node, ast.FunctionCall):
-            resource = self.program.resources.get(node.name)
+            resources = self.program.resources.get(node.name)
+            if len(resources) == 1:
+                resource = resources[0]
+            else:
+                resource = self.program.own_resources.get(node.name)
             args = node.args
         elif isinstance(node, ast.Exchange):
             self._visit_resource(node.left)
             self._visit_resource(node.right)
             return
+        elif isinstance(node, ast.Attribute):
+            assert isinstance(node.value, ast.Name)
+            interface = self.program.interfaces[node.value.id]
+            resource = interface.own_resources.get(node.attr)
+            args = []
+        elif isinstance(node, ast.ReceiverCall):
+            assert isinstance(node.receiver, ast.Name)
+            interface = self.program.interfaces[node.receiver.id]
+            resource = interface.own_resources.get(node.name)
+            args = node.args
         else:
             assert False
 

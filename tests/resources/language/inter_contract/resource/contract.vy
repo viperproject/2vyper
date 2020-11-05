@@ -1,0 +1,26 @@
+#
+# Copyright (c) 2020 ETH Zurich
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+
+#@ config: allocation
+
+from . import interface_a1
+from . import interface_a2
+from . import interface_b
+
+i: interface_b
+
+#@ resource: a()
+
+#@ invariant: forall({a: address}, allocated(a) == 0)
+#@ invariant: forall({a: address}, allocated[a](a) == 0)
+#@ invariant: forall({a: address}, allocated[interface_b.b](a) == 0)
+#@ invariant: forall({a: address}, allocated[interface_a1.a](a) == 0)
+#@ invariant: forall({a: address}, allocated[interface_a2.a](a) == 0)
+
+@public
+def foo():
+    send(msg.sender, 0)

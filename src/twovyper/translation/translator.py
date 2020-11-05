@@ -181,8 +181,8 @@ class ProgramTranslator(CommonTranslator):
         domains.extend(self._translate_struct(struct, ctx) for struct in structs)
 
         # Resources
-        resources = vyper_program.resources.values()
-        domains.extend(self._translate_resource(resource, ctx) for resource in resources)
+        all_resources = flatten(vyper_program.resources.values())
+        domains.extend(self._translate_resource(resource, ctx) for resource in all_resources)
         domains.append(self._translate_resource(helpers.creator_resource(), ctx))
 
         # Ghost functions
@@ -233,9 +233,9 @@ class ProgramTranslator(CommonTranslator):
         struct_type = self.type_translator.translate(struct.type, ctx)
 
         members = [None] * len(struct.type.member_types)
-        for name, type in struct.type.member_types.items():
+        for name, vyper_type in struct.type.member_types.items():
             idx = struct.type.member_indices[name]
-            member_type = self.type_translator.translate(type, ctx)
+            member_type = self.type_translator.translate(vyper_type, ctx)
             var_decl = self.viper_ast.LocalVarDecl(f'$arg_{idx}', member_type)
             members[idx] = (name, var_decl)
 

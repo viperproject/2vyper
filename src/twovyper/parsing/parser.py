@@ -116,6 +116,7 @@ class ProgramBuilder(NodeVisitor):
                                       self.config,
                                       self.functions,
                                       self.interfaces,
+                                      self.resources,
                                       self.local_state_invariants,
                                       self.inter_contract_invariants,
                                       self.general_postconditions,
@@ -128,7 +129,9 @@ class ProgramBuilder(NodeVisitor):
                 return VyperInterface(node,
                                       self.path,
                                       self.name,
-                                      Config([]), {}, {}, [], [], [], [], [], [],
+                                      Config([]), {}, {},
+                                      self.resources,
+                                      [], [], [], [], [], [],
                                       self.ghost_functions,
                                       interface_type)
         else:
@@ -143,7 +146,7 @@ class ProgramBuilder(NodeVisitor):
             # Add wei resource
             if self.config.has_option(names.CONFIG_ALLOCATION):
                 wei_type = ResourceType(names.WEI, {})
-                wei_resource = Resource(names.WEI, wei_type, None)
+                wei_resource = Resource(wei_type, None, None)
                 self.resources[names.WEI] = wei_resource
 
             return VyperProgram(node,
@@ -282,7 +285,7 @@ class ProgramBuilder(NodeVisitor):
 
         vyper_type = self.type_builder.build(node)
         assert isinstance(vyper_type, ResourceType)
-        resource = Resource(node.name, vyper_type, node)
+        resource = Resource(vyper_type, node, self.path)
         self.resources[node.name] = resource
 
     def visit_ContractDef(self, node: ast.ContractDef):
@@ -337,6 +340,8 @@ class ProgramBuilder(NodeVisitor):
                         msg = f"Option {option} is invalid."
                         raise InvalidProgramException(node, 'invalid.config.option', msg)
 
+                if self.config is not None:
+                    raise InvalidProgramException(node, 'invalid.config', 'The "config" is specified multiple times.')
                 self.config = Config(options)
             elif case(names.INTERFACE):
                 self._check_no_local_spec()

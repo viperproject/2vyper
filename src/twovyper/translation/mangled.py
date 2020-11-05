@@ -142,10 +142,6 @@ def struct_name(vyper_struct_name: str, kind: str) -> str:
     return f's${kind}${vyper_struct_name}'
 
 
-def resource_name(vyper_resource_name: str) -> str:
-    return f'r${vyper_resource_name}'
-
-
 def struct_type_tag(vyper_struct_name: str, kind: str) -> int:
     name = struct_name(vyper_struct_name, kind)
     return int.from_bytes(name.encode('utf-8'), 'big')

@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+import os
 from typing import Optional, List, Dict
 
 from twovyper.ast import ast_nodes as ast, names
@@ -300,7 +301,9 @@ class TypeBuilder(NodeVisitor):
 
     def _visit_FunctionStub(self, node: ast.FunctionStub) -> VyperType:
         members = {n.name: self.visit(n.annotation) for n in node.args}
-        return ResourceType(node.name, members)
+        contract_name = os.path.split(os.path.abspath(node.file))[1].split('.')[0]
+        resource_name = f'{contract_name}${node.name}'
+        return ResourceType(resource_name, members)
 
     def _visit_ContractDef(self, node: ast.ContractDef) -> VyperType:
         functions = {}

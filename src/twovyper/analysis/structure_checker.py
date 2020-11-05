@@ -115,9 +115,8 @@ class StructureChecker(NodeVisitor):
 
     def check(self, program: VyperProgram):
         if program.resources and not program.config.has_option(names.CONFIG_ALLOCATION):
-            resource = first(program.resources.values())
             msg = "Resources require allocation config option."
-            raise InvalidProgramException(resource.node, 'alloc.not.alloc', msg)
+            raise InvalidProgramException(first(program.node.stmts) or program.node, 'alloc.not.alloc', msg)
 
         for function in program.functions.values():
             self.visit(function.node, _Context.CODE, program, function)
@@ -389,6 +388,7 @@ class StructureChecker(NodeVisitor):
                 _assert(isinstance(call, ast.ReceiverCall), node, 'spec.accessible')
                 assert isinstance(call, ast.ReceiverCall)
                 _assert(isinstance(call.receiver, ast.Name), node, 'spec.accessible')
+                assert isinstance(call.receiver, ast.Name)
                 _assert(call.receiver.id == names.SELF, node, 'spec.accessible')
                 _assert(call.name in program.functions, node, 'spec.accessible')
                 _assert(program.functions[call.name].is_public(), node, 'spec.accessible',
@@ -525,6 +525,21 @@ class StructureChecker(NodeVisitor):
                         check_resource(resource.args[0], False)
                     else:
                         self.generic_visit(resource, arg_ctx, program, function)
+                elif isinstance(resource, ast.Attribute):
+                    _assert(isinstance(resource.value, ast.Name), resource, 'invalid.resource')
+                    assert isinstance(resource.value, ast.Name)
+                    interface_name = resource.value.id
+                    interface = program.interfaces.get(interface_name)
+                    _assert(interface is not None, resource, 'invalid.resource')
+                    _assert(resource.attr in interface.own_resources, resource, 'invalid.resource')
+                elif isinstance(resource, ast.ReceiverCall):
+                    _assert(isinstance(resource.receiver, ast.Name), resource, 'invalid.resource')
+                    assert isinstance(resource.receiver, ast.Name)
+                    interface_name = resource.receiver.id
+                    interface = program.interfaces.get(interface_name)
+                    _assert(interface is not None, resource, 'invalid.resource')
+                    _assert(resource.name in interface.own_resources, resource, 'invalid.resource')
+                    self.generic_visit(resource, arg_ctx, program, function)
                 else:
                     _assert(False, resource, 'invalid.resource')
 
@@ -582,6 +597,7 @@ class StructureChecker(NodeVisitor):
             if isinstance(node, ast.Assert) and node.is_lemma:
                 return
             _assert(node.msg and isinstance(node.msg, ast.Name), node, 'invalid.ghost.code')
+            assert isinstance(node.msg, ast.Name)
             _assert(node.msg.id == names.UNREACHABLE, node, 'invalid.ghost.code')
 
     def visit_Assert(self, node: ast.Assert, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
@@ -700,6 +716,8 @@ class _FunctionPureChecker(NodeVisitor):
         self.generic_visit(node, program)
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall, program: VyperProgram):
+        if not isinstance(node.receiver, ast.Name):
+            _assert(False, node, 'invalid.receiver')
         with switch(node.receiver.id) as case:
             if case(names.SELF):
                 self.generic_visit(node, program)

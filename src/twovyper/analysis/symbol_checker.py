@@ -13,11 +13,42 @@ from twovyper.utils import first
 
 
 def check_symbols(program: VyperProgram):
-    _check_unique_ghost_functions(program)
+    _check_ghost_functions(program)
     _check_ghost_implements(program)
+    _check_resources(program)
 
 
-def _check_unique_ghost_functions(program: VyperProgram):
+def _check_resources(program: VyperProgram):
+    if not isinstance(program, VyperInterface):
+        node = first(program.node.stmts) or program.node
+        for interface in program.interfaces.values():
+            for resource_name, resources_list in interface.resources.items():
+                for resource in resources_list:
+                    imported_resources = [r for r in program.resources.get(resource_name, [])
+                                          if r.file == resource.file]
+                    if not imported_resources:
+                        prefix_length = len(os.path.commonprefix([resource.file, program.file]))
+                        raise InvalidProgramException(node, 'missing.resource',
+                                                      f'The interface "{interface.name}" '
+                                                      f'needs a resource "{resource_name}" from '
+                                                      f'".{os.path.sep}{resource.file[prefix_length:]}" but it '
+                                                      f'was not imported for this contract.')
+                    imported_resources = [r for r in program.resources.get(resource_name)
+                                          if r.interface == resource.interface]
+                    for imported_resource in imported_resources:
+                        if resource.file != imported_resource.file:
+                            prefix_length = len(os.path.commonprefix([resource.file, imported_resource.file]))
+                            resource_file = resource.file[prefix_length:]
+                            imported_resource_file = imported_resource.file[prefix_length:]
+                            raise InvalidProgramException(node, 'duplicate.resource',
+                                                          f'There are two versions of the resource '
+                                                          f'"{resource_name}" defined in an interface '
+                                                          f'"{imported_resource.interface}" one from '
+                                                          f'[...]"{imported_resource_file}" the other from '
+                                                          f'[...]"{resource_file}".')
+
+
+def _check_ghost_functions(program: VyperProgram):
     if not isinstance(program, VyperInterface):
         node = first(program.node.stmts) or program.node
         for interface in program.interfaces.values():
@@ -45,9 +76,9 @@ def _check_unique_ghost_functions(program: VyperProgram):
                             raise InvalidProgramException(node, 'duplicate.ghost',
                                                           f'There are two versions of the ghost function '
                                                           f'"{ghost_function.name}" defined in an interface '
-                                                          f'"{ghost_function.interface}" one from'
-                                                          f'"{imported_ghost_function_file}" the other from '
-                                                          f'"{ghost_function_file}".')
+                                                          f'"{ghost_function.interface}" one from '
+                                                          f'[...]"{imported_ghost_function_file}" the other from '
+                                                          f'[...]"{ghost_function_file}".')
 
 
 def _check_ghost_implements(program: VyperProgram):

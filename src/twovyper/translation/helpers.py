@@ -121,7 +121,7 @@ def performs_predicate(viper_ast: ViperAST, function: str, args, pos=None):
 def creator_resource() -> Resource:
     creator_name = mangled.CREATOR
     creator_type = ResourceType(creator_name, {mangled.CREATOR_RESOURCE: AnyStructType()})
-    return Resource(creator_name, creator_type, None)
+    return Resource(creator_type, None, None)
 
 
 def blockhash(viper_ast: ViperAST, no, ctx: Context, pos=None, info=None):

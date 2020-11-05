@@ -20,7 +20,7 @@ from twovyper.viper.typedefs import Expr, Stmt
 class ResourceTranslator(NodeTranslator):
 
     def __init__(self, viper_ast: ViperAST):
-        self.viper_ast = viper_ast
+        super().__init__(viper_ast)
 
     @property
     def specification_translator(self):
@@ -28,10 +28,10 @@ class ResourceTranslator(NodeTranslator):
         return SpecificationTranslator(self.viper_ast)
 
     def resource(self, name: str, args: List[Expr], ctx: Context, pos=None) -> Expr:
-        resource_type = ctx.program.resources[name].type
+        resource_type = ctx.current_program.own_resources.get(name, ctx.program.resources[name][0]).type
         return helpers.struct_init(self.viper_ast, args, resource_type, pos)
 
-    def creator_resource(self, resource: Expr, ctx: Context, pos=None) -> Expr:
+    def creator_resource(self, resource: Expr, _: Context, pos=None) -> Expr:
         creator_resource_type = helpers.creator_resource().type
         return helpers.struct_init(self.viper_ast, [resource], creator_resource_type, pos)
 
@@ -50,7 +50,7 @@ class ResourceTranslator(NodeTranslator):
         right = self.translate(exchange.right, res, ctx)
         return left, right
 
-    def translate_Name(self, node: ast.Name, res: List[Stmt], ctx: Context) -> Expr:
+    def translate_Name(self, node: ast.Name, _: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
         return self.resource(node.id, [], ctx, pos)
 
@@ -60,5 +60,20 @@ class ResourceTranslator(NodeTranslator):
             resource = self.translate(node.args[0], res, ctx)
             return self.creator_resource(resource, ctx, pos)
         else:
+            args = [self.specification_translator.translate(arg, res, ctx) for arg in node.args]
+            return self.resource(node.name, args, ctx, pos)
+
+    def translate_Attribute(self, node: ast.Attribute, _: List[Stmt], ctx: Context) -> Expr:
+        pos = self.to_position(node, ctx)
+        assert isinstance(node.value, ast.Name)
+        interface = ctx.current_program.interfaces[node.value.id]
+        with ctx.program_scope(interface):
+            return self.resource(node.attr, [], ctx, pos)
+
+    def translate_ReceiverCall(self, node: ast.ReceiverCall, res: List[Stmt], ctx: Context) -> Expr:
+        pos = self.to_position(node, ctx)
+        assert isinstance(node.receiver, ast.Name)
+        interface = ctx.current_program.interfaces[node.receiver.id]
+        with ctx.program_scope(interface):
             args = [self.specification_translator.translate(arg, res, ctx) for arg in node.args]
             return self.resource(node.name, args, ctx, pos)
