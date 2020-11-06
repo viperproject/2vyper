@@ -8,7 +8,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from contextlib import contextmanager
 from typing import Optional, Union, Dict, Iterable
 
-from twovyper.utils import first_index, switch
+from twovyper.utils import first_index, switch, first
 
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.arithmetic import Decimal
@@ -394,7 +394,7 @@ class TypeAnnotator(NodeVisitor):
         name = node.name
 
         if node.resource:
-            self._visit_resource(node.resource)
+            self._visit_resource(node.resource, True)
 
         with switch(name) as case:
             if case(names.CONVERT):
@@ -876,11 +876,53 @@ class TypeAnnotator(NodeVisitor):
             else:
                 assert False
 
-    def _visit_resource(self, node: ast.Node):
+    def _visit_resource_address(self, node: ast.Node, resource_name: str, interface: Optional[VyperInterface] = None):
+        ref_interface = None
+        if isinstance(node, ast.Name):
+            ref_interface = self.program
+        elif isinstance(node, ast.Attribute):
+            for field, field_type in self.program.fields.type.member_types.items():
+                if node.attr == field:
+                    _check(isinstance(field_type, types.InterfaceType), node, 'invalid.resource.address')
+                    assert isinstance(field_type, types.InterfaceType)
+                    ref_interface = self.program.interfaces[field_type.name]
+                    _check(resource_name in ref_interface.own_resources, node, 'invalid.resource.address')
+                    break
+            else:
+                _check(False, node, 'invalid.resource.address')
+        elif isinstance(node, ast.FunctionCall):
+            if isinstance(self.program, VyperInterface):
+                function = self.program.own_ghost_functions[node.name]
+            else:
+                function = self.program.ghost_function_implementations[node.name]
+            _check(isinstance(function.type.return_type, types.InterfaceType), node, 'invalid.resource.address')
+            assert isinstance(function.type.return_type, types.InterfaceType)
+            ref_interface = self.program.interfaces[function.type.return_type.name]
+            _check(resource_name in ref_interface.own_resources, node, 'invalid.resource.address')
+        else:
+            assert False
+        if interface is not None and ref_interface is not None:
+            if isinstance(ref_interface, VyperInterface):
+                _check(ref_interface.file == interface.file, node, 'invalid.resource.address')
+            else:
+                interface_names = [t.name for t in ref_interface.implements]
+                interfaces = [ref_interface.interfaces[name] for name in interface_names]
+                files = [ref_interface.file] + [i.file for i in interfaces]
+                _check(interface.file in files, node, 'invalid.resource.address')
+        elif isinstance(ref_interface, VyperInterface):
+            self_is_interface = isinstance(self.program, VyperInterface)
+            self_does_not_have_resource = resource_name not in self.program.own_resources
+            _check(self_is_interface or self_does_not_have_resource, node, 'invalid.resource.address')
+
+    def _visit_resource(self, node: ast.Node, top: bool = False):
         if isinstance(node, ast.Name):
             resources = self.program.resources.get(node.id)
             if len(resources) == 1:
                 resource = resources[0]
+                if top and self.program.file != resource.file:
+                    interface = first(i for i in self.program.interfaces.values() if i.file == resource.file)
+                    _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
+                    _check(node.id in interface.own_resources, node, 'invalid.resource')
             else:
                 resource = self.program.own_resources.get(node.id)
             args = []
@@ -891,23 +933,58 @@ class TypeAnnotator(NodeVisitor):
             resources = self.program.resources.get(node.name)
             if len(resources) == 1:
                 resource = resources[0]
+                if node.resource is not None:
+                    self._visit_resource_address(node.resource, node.name)
+                elif top and self.program.file != resource.file:
+                    interface = first(i for i in self.program.interfaces.values() if i.file == resource.file)
+                    _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
+                    _check(node.name in interface.own_resources, node, 'invalid.resource')
             else:
                 resource = self.program.own_resources.get(node.name)
             args = node.args
         elif isinstance(node, ast.Exchange):
-            self._visit_resource(node.left)
-            self._visit_resource(node.right)
+            self._visit_resource(node.left, True)
+            self._visit_resource(node.right, True)
             return
         elif isinstance(node, ast.Attribute):
             assert isinstance(node.value, ast.Name)
             interface = self.program.interfaces[node.value.id]
+            if top:
+                _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
+                _check(node.attr in interface.own_resources, node, 'invalid.resource')
             resource = interface.own_resources.get(node.attr)
             args = []
         elif isinstance(node, ast.ReceiverCall):
-            assert isinstance(node.receiver, ast.Name)
-            interface = self.program.interfaces[node.receiver.id]
+            if isinstance(node.receiver, ast.Name):
+                interface = self.program.interfaces[node.receiver.id]
+                if top:
+                    _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
+                    _check(node.name in interface.own_resources, node, 'invalid.resource')
+            elif isinstance(node.receiver, ast.Subscript):
+                assert isinstance(node.receiver.value, ast.Attribute)
+                assert isinstance(node.receiver.value.value, ast.Name)
+                interface_name = node.receiver.value.value.id
+                interface = self.program.interfaces[interface_name]
+                address = node.receiver.index
+                self._visit_resource_address(address, node.name, interface)
+            else:
+                assert False
             resource = interface.own_resources.get(node.name)
             args = node.args
+        elif isinstance(node, ast.Subscript):
+            address = node.index
+            self._visit_resource(node.value)
+            interface = None
+            if isinstance(node.value, ast.Name):
+                resource_name = node.value.id
+            elif isinstance(node.value, ast.Attribute):
+                assert isinstance(node.value.value, ast.Name)
+                interface = self.program.interfaces[node.value.value.id]
+                resource_name = node.value.attr
+            else:
+                assert False
+            self._visit_resource_address(address, resource_name, interface)
+            return
         else:
             assert False
 

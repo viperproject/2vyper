@@ -107,6 +107,12 @@ class ProgramBuilder(NodeVisitor):
 
         self.config = self.config or Config([])
 
+        # Add wei resource
+        if self.config.has_option(names.CONFIG_ALLOCATION):
+            wei_type = ResourceType(names.WEI, {})
+            wei_resource = Resource(wei_type, None, None)
+            self.resources[names.WEI] = wei_resource
+
         if self.is_interface:
             interface_type = InterfaceType(self.name)
             if self.parse_further_interfaces:
@@ -142,12 +148,6 @@ class ProgramBuilder(NodeVisitor):
             # Create the self-type
             self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
-
-            # Add wei resource
-            if self.config.has_option(names.CONFIG_ALLOCATION):
-                wei_type = ResourceType(names.WEI, {})
-                wei_resource = Resource(wei_type, None, None)
-                self.resources[names.WEI] = wei_resource
 
             return VyperProgram(node,
                                 self.path,

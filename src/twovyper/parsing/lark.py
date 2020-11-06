@@ -406,6 +406,8 @@ class _PythonTransformer(Transformer):
             return ast.FunctionCall(func.value.id, args, kwargs, func.index)
         elif isinstance(func, ast.Attribute):
             return ast.ReceiverCall(func.attr, func.value, args, kwargs)
+        elif isinstance(func, ast.Subscript) and isinstance(func.value, ast.Attribute):
+            return ast.ReceiverCall(func.value.attr, func, args, kwargs)
         else:
             raise InvalidProgramException(func, 'invalid.receiver')
 

@@ -7,6 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
 
+from twovyper.ast import names
 from twovyper.ast.nodes import VyperProgram, VyperInterface
 from twovyper.exceptions import InvalidProgramException
 from twovyper.utils import first
@@ -46,6 +47,17 @@ def _check_resources(program: VyperProgram):
                                                           f'"{imported_resource.interface}" one from '
                                                           f'[...]"{imported_resource_file}" the other from '
                                                           f'[...]"{resource_file}".')
+
+        for interface_type in program.implements:
+            interface = program.interfaces[interface_type.name]
+            for resource_name, resource in program.own_resources.items():
+                if resource_name == names.WEI:
+                    continue
+                if resource_name in interface.own_resources:
+                    raise InvalidProgramException(resource.node, 'duplicate.resource',
+                                                  f'A contract cannot redeclare a resource it already imports. '
+                                                  f'The resource "{resource_name}" got already declared in the '
+                                                  f'interface {interface.name}.')
 
 
 def _check_ghost_functions(program: VyperProgram):

@@ -7,18 +7,20 @@ The resource handling per default disabled. It can be enabled using the `allocat
 Three maps are used to model the allocation of resources.
 
 - <a name="offer_map"></a>**Offered Map**:
-  - Type: _Map[Resource, Map[Resource, Map[Offer, Int]]]_
+  - Type: _Map[Resource[Address], Map[Resource[Address], Map[Offer, Int]]]_
   - Offered map tracks for each resource trade (resource from / to) all current offers.
   - An offer is a four-tuple of integers. (amount of first resource, amount of second resource, address of provider of first resource, address of provider of second resource)
+  - A resource is associated with an address and has potentially further arguments.
   - The last integer is the number of such offers.
 
 - <a name="trust_map"></a>**Trusted Map**:
-  - Type: _Map[Address, Map[Address, Bool]]_
-  - This maps stores which other addresses an address trusts (besides itself).
+  - Type: _Map[Address, Map[Address, Map[Address, Bool]]]_
+  - Location (Address) -> Contract (Address) -> Trustee (Address) -> Bool
+  - This maps stores where, which other addresses an address trusts (besides itself).
   - Meaning: The first address trusts the second address if the value is `True`.
 
 - <a name="allocated_map"></a>**Allocated Map**:
-  - Type: _Map[Resource, Map[Address, Int]]_
+  - Type: _Map[Resource[Address], Map[Address, Int]]_
   - The given address has that many times such a resource.
   - E.g. Payable functions change this allocated map. It allocates the sent Ether to the `msg.sender`. 
 
@@ -29,7 +31,7 @@ Three maps are used to model the allocation of resources.
   - It is the default resource if no other resource is provided.
 
 - <a name="creator_resource"></a>**Creator**:
-  - Type: _Resource{$resource: Resource}_
+  - Type: _Resource[Address]{$resource: Resource[Address]}_
   - Only the initializer function (init) is allowed to create other resources unchecked.
   - If a resource is created outside of init, a creator resource is needed.
   - For [create](#create_fun), it gets checked that an address has the creator resource of the wanted resource.
@@ -165,7 +167,8 @@ These checks can be disabled using the `no_performs` configuration.
 
 
 - **trusted**:
-  - Signature: trusted\(_target\_address_, by=_source\_address_\)
+  - Signature: trusted\(_target\_address_, by=_source\_address_, where=_location\_address_\)
+    - The `where` keyword argument can be omitted. It will default to the `self` address.
   - Returns whether the source address trusts the target address.
 
 
