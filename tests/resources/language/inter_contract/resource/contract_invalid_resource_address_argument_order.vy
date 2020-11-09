@@ -1,3 +1,5 @@
+#:: IgnoreFile(0)
+
 #
 # Copyright (c) 2020 ETH Zurich
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -7,18 +9,11 @@
 
 #@ config: allocation
 
-from .subdir import interface_a2
+#@ resource: a()
 
-#@ interface
-
-#@ resource: c()
-
-#@ ghost:
-    #@ def a() -> interface_a2: ...
-
-
-#@ invariant: sum(allocated[a[a(self)]]()) == 0
+#:: ExpectedOutput(invalid.program:invalid.resource)
+#@ invariant: forall({a: address}, allocated[a()[self]](a) == 0)
 
 @public
 def foo():
-    raise "Not implemented"
+    pass

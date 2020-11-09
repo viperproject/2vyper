@@ -7,18 +7,13 @@
 
 #@ config: allocation
 
-from .subdir import interface_a2
+from . import interface_a1
 
-#@ interface
+implements: interface_a1
 
-#@ resource: c()
-
-#@ ghost:
-    #@ def a() -> interface_a2: ...
-
-
-#@ invariant: sum(allocated[a[a(self)]]()) == 0
+#@ invariant: forall({a: address}, allocated(a) == 0)
+#@ invariant: forall({a: address}, allocated[a](a) == 0)
 
 @public
 def foo():
-    raise "Not implemented"
+    send(msg.sender, 0)

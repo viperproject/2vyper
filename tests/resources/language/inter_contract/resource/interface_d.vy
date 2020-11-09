@@ -7,17 +7,9 @@
 
 #@ config: allocation
 
-from .subdir import interface_a2
-
 #@ interface
 
-#@ resource: c()
-
-#@ ghost:
-    #@ def a() -> interface_a2: ...
-
-
-#@ invariant: sum(allocated[a[a(self)]]()) == 0
+#@ resource: d()
 
 @public
 def foo():

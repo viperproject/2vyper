@@ -5,19 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ config: allocation
+#:: ExpectedOutput(invalid.program:alloc.not.alloc)
+from . import interface_a1
 
-from .subdir import interface_a2
-
-#@ interface
-
-#@ resource: c()
-
-#@ ghost:
-    #@ def a() -> interface_a2: ...
-
-
-#@ invariant: sum(allocated[a[a(self)]]()) == 0
+implements: interface_a1
 
 @public
 def foo():

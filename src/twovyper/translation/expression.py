@@ -537,7 +537,7 @@ class ExpressionTranslator(NodeTranslator):
             balance = self.balance_translator.get_balance(self_var, ctx, pos)
 
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-                resource = self.resource_translator.resource(names.WEI, [], ctx)
+                resource = self.resource_translator.translate(None, res, ctx)  # Wei resource
                 self.allocation_translator.deallocate(node, resource, to, balance, res, ctx, pos)
 
             val = self.viper_ast.TrueLit(pos)
@@ -876,7 +876,7 @@ class ExpressionTranslator(NodeTranslator):
             self.balance_translator.increase_sent(to, amount, res, ctx, pos)
 
             if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-                resource = self.resource_translator.resource(names.WEI, [], ctx, pos)
+                resource = self.resource_translator.translate(None, res, ctx)  # Wei resource
                 self.allocation_translator.deallocate(node, resource, to, amount, res, ctx, pos)
 
             self.balance_translator.decrease_balance(amount, res, ctx, pos)

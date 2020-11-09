@@ -7,17 +7,14 @@
 
 #@ config: allocation
 
-from .subdir import interface_a2
+from . import interface_a1
+from . import interface_a2
 
-#@ interface
+implements: interface_a1
+implements: interface_a2
 
-#@ resource: c()
-
-#@ ghost:
-    #@ def a() -> interface_a2: ...
-
-
-#@ invariant: sum(allocated[a[a(self)]]()) == 0
+#:: ExpectedOutput(invalid.program:duplicate.resource)
+#@ resource: a()
 
 @public
 def foo():

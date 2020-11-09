@@ -638,33 +638,38 @@ class AllocationTranslator(CommonTranslator):
         address_var = address.localVar()
         address_assumptions = self.type_translator.type_assumptions(address_var, types.VYPER_ADDRESS, ctx)
 
-        for name, resources in ctx.program.resources.items():
-            for resource in resources:
-                type_assumptions = address_assumptions.copy()
-                args = []
-                for idx, arg_type in enumerate(resource.type.member_types.values()):
-                    type = self.type_translator.translate(arg_type, ctx)
-                    arg = self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos)
-                    args.append(arg)
-                    arg_var = arg.localVar()
-                    type_assumptions.extend(self.type_translator.type_assumptions(arg_var, arg_type, ctx))
+        interface_names = [t.name for t in ctx.program.implements]
+        interfaces = [ctx.program.interfaces[name] for name in interface_names]
+        own_resources = list(ctx.program.own_resources.items())
+        for i in interfaces:
+            own_resources.extend(i.own_resources.items())
 
-                cond = reduce(lambda l, r: self.viper_ast.And(l, r, pos), type_assumptions)
+        for name, resource in own_resources:
+            type_assumptions = address_assumptions.copy()
+            args = []
+            for idx, arg_type in enumerate(resource.type.member_types.values()):
+                type = self.type_translator.translate(arg_type, ctx)
+                arg = self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos)
+                args.append(arg)
+                arg_var = arg.localVar()
+                type_assumptions.extend(self.type_translator.type_assumptions(arg_var, arg_type, ctx))
 
-                t_resource = self.resource_translator.resource(name, [arg.localVar() for arg in args], ctx)
-                allocated_get = self.get_allocated(allocated.local_var(ctx, pos), t_resource, address_var, ctx, pos)
-                fresh_allocated_get = self.get_allocated(fresh_allocated_var, t_resource, address_var, ctx, pos)
-                allocated_eq = self.viper_ast.EqCmp(allocated_get, fresh_allocated_get, pos)
-                trigger = self.viper_ast.Trigger([allocated_get, fresh_allocated_get], pos)
-                assertion = self.viper_ast.Forall([address, *args], [trigger],
-                                                  self.viper_ast.Implies(cond, allocated_eq, pos), pos)
-                if ctx.function.name == names.INIT:
-                    # Leak check only has to hold if __init__ succeeds
-                    succ = ctx.success_var.local_var(ctx, pos)
-                    assertion = self.viper_ast.Implies(succ, assertion, pos)
+            cond = reduce(lambda l, r: self.viper_ast.And(l, r, pos), type_assumptions)
 
-                apos = self.to_position(node, ctx, rule, modelt=modelt, values={'resource': resource})
-                res.append(self.viper_ast.Assert(assertion, apos))
+            t_resource = self.resource_translator.resource(name, [arg.localVar() for arg in args], ctx)
+            allocated_get = self.get_allocated(allocated.local_var(ctx, pos), t_resource, address_var, ctx, pos)
+            fresh_allocated_get = self.get_allocated(fresh_allocated_var, t_resource, address_var, ctx, pos)
+            allocated_eq = self.viper_ast.EqCmp(allocated_get, fresh_allocated_get, pos)
+            trigger = self.viper_ast.Trigger([allocated_get, fresh_allocated_get], pos)
+            assertion = self.viper_ast.Forall([address, *args], [trigger],
+                                              self.viper_ast.Implies(cond, allocated_eq, pos), pos)
+            if ctx.function.name == names.INIT:
+                # Leak check only has to hold if __init__ succeeds
+                succ = ctx.success_var.local_var(ctx, pos)
+                assertion = self.viper_ast.Implies(succ, assertion, pos)
+
+            apos = self.to_position(node, ctx, rule, modelt=modelt, values={'resource': resource})
+            res.append(self.viper_ast.Assert(assertion, apos))
 
     def _performs_leak_check(self, node: ast.Node, res: List[Stmt], ctx: Context, pos=None):
         if not ctx.program.config.has_option(names.CONFIG_NO_PERFORMS):
