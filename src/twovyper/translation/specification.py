@@ -337,6 +337,13 @@ class SpecificationTranslator(ExpressionTranslator):
                 return sum_value
             else:
                 assert False
+        elif name == names.TUPLE:
+            tuple_var = helpers.havoc_var(self.viper_ast, helpers.struct_type(self.viper_ast), ctx)
+            for idx, element in enumerate(node.args):
+                viper_type = self.type_translator.translate(element.type, ctx)
+                value = self.translate(element, res, ctx)
+                tuple_var = helpers.struct_set_idx(self.viper_ast, tuple_var, value, idx, viper_type, pos)
+            return tuple_var
         elif name == names.LOCKED:
             lock_name = node.args[0].s
             return helpers.get_lock(self.viper_ast, lock_name, ctx, pos)

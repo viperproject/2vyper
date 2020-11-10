@@ -35,6 +35,7 @@ class PureFunctionTranslator(PureTranslatorMixin, FunctionTranslator):
             pos = self.to_position(function.node, ctx)
 
             ctx.function = function
+            ctx.is_pure_function = True
 
             args = {name: self._translate_pure_non_local_var(var, ctx) for name, var in function.args.items()}
             state = {names.SELF: TranslatedVar(names.SELF, mangled.present_state_var_name(names.SELF),

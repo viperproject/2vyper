@@ -9,7 +9,7 @@ from typing import Optional, List
 
 from twovyper.ast import ast_nodes as ast, names, types
 from twovyper.ast.types import (
-    VyperType, PrimitiveType, MapType, ArrayType, AnyStructType, StructType, ContractType, InterfaceType
+    VyperType, PrimitiveType, MapType, ArrayType, TupleType, AnyStructType, StructType, ContractType, InterfaceType
 )
 
 from twovyper.viper.ast import ViperAST
@@ -60,6 +60,8 @@ class TypeTranslator(CommonTranslator):
             return helpers.struct_type(self.viper_ast)
         elif isinstance(type, (ContractType, InterfaceType)):
             return self.translate(types.VYPER_ADDRESS, ctx)
+        elif isinstance(type, TupleType):
+            return helpers.struct_type(self.viper_ast)
         else:
             assert False
 
@@ -96,6 +98,8 @@ class TypeTranslator(CommonTranslator):
             return helpers.struct_init(self.viper_ast, args, type, pos)
         elif isinstance(type, (ContractType, InterfaceType)):
             return self.default_value(node, types.VYPER_ADDRESS, res, ctx)
+        elif isinstance(type, TupleType):
+            return helpers.havoc_var(self.viper_ast, helpers.struct_type(self.viper_ast), ctx)
         else:
             assert False
 
@@ -225,6 +229,15 @@ class TypeTranslator(CommonTranslator):
             key_type = self.translate(type.key_type, ctx)
             value_type = self.translate(type.value_type, ctx)
             return helpers.map_eq(self.viper_ast, left, right, key_type, value_type, pos)
+        elif isinstance(type, TupleType):
+            cond = None
+            for idx, element_type in enumerate(type.element_types):
+                viper_type = self.translate(element_type, ctx)
+                left_element = helpers.struct_get_idx(self.viper_ast, left, idx, viper_type, pos)
+                right_element = helpers.struct_get_idx(self.viper_ast, right, idx, viper_type, pos)
+                element_cond = self.viper_ast.EqCmp(left_element, right_element, pos)
+                cond = self.viper_ast.And(cond, element_cond, pos) if cond else element_cond
+            return cond
         else:
             return self.viper_ast.EqCmp(left, right, pos)
 
@@ -236,5 +249,14 @@ class TypeTranslator(CommonTranslator):
             value_type = self.translate(type.value_type, ctx)
             map_eq = helpers.map_eq(self.viper_ast, left, right, key_type, value_type, pos)
             return self.viper_ast.Not(map_eq, pos)
+        elif isinstance(type, TupleType):
+            cond = None
+            for idx, element_type in enumerate(type.element_types):
+                viper_type = self.translate(element_type, ctx)
+                left_element = helpers.struct_get_idx(self.viper_ast, left, idx, viper_type, pos)
+                right_element = helpers.struct_get_idx(self.viper_ast, right, idx, viper_type, pos)
+                element_cond = self.viper_ast.NeCmp(left_element, right_element, pos)
+                cond = self.viper_ast.Or(cond, element_cond, pos) if cond else element_cond
+            return cond
         else:
             return self.viper_ast.NeCmp(left, right, pos)

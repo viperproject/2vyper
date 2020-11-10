@@ -295,6 +295,15 @@ class ExpressionTranslator(NodeTranslator):
             elems = [self.viper_ast.IntLit(e, pos) for e in node.s]
             return self.viper_ast.ExplicitSeq(elems, pos)
 
+    def translate_Tuple(self, node: ast.Tuple, res: List[Stmt], ctx: Context) -> Expr:
+        pos = self.to_position(node, ctx)
+        new_ret = helpers.havoc_var(self.viper_ast, helpers.struct_type(self.viper_ast), ctx)
+        for idx, element in enumerate(node.elements):
+            viper_type = self.type_translator.translate(element.type, ctx)
+            value = self.translate(element, res, ctx)
+            new_ret = helpers.struct_set_idx(self.viper_ast, new_ret, value, idx, viper_type, pos)
+        return new_ret
+
     def translate_FunctionCall(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
 
