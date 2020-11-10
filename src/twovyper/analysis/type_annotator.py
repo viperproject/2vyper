@@ -129,6 +129,12 @@ class TypeAnnotator(NodeVisitor):
     def annotate_program(self):
         for function in self.program.functions.values():
             with self._function_scope(function):
+                for pre in function.preconditions:
+                    self.annotate_expected(pre, types.VYPER_BOOL, resolve=True)
+
+                for performs in function.performs:
+                    self.annotate(performs, resolve=True)
+
                 self.visit(function.node)
                 self.resolve_type(function.node)
 
@@ -139,14 +145,8 @@ class TypeAnnotator(NodeVisitor):
                 for post in function.postconditions:
                     self.annotate_expected(post, types.VYPER_BOOL, resolve=True)
 
-                for pre in function.preconditions:
-                    self.annotate_expected(pre, types.VYPER_BOOL, resolve=True)
-
                 for check in function.checks:
                     self.annotate_expected(check, types.VYPER_BOOL, resolve=True)
-
-                for performs in function.performs:
-                    self.annotate(performs, resolve=True)
 
                 for loop_invariants in function.loop_invariants.values():
                     for loop_invariant in loop_invariants:
