@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ config: allocation, no_performs
+#@ config: allocation
 
 #@ resource: good()
 
