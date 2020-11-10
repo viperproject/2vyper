@@ -672,7 +672,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     assert False
 
             if is_performs:
-                self.allocation_translator.performs(node, [resource, frm, to, amount], res, ctx, pos)
+                self.allocation_translator.performs(node, [resource, frm, to, amount], [amount], res, ctx, pos)
             else:
                 self.allocation_translator.reallocate(node, resource, frm, to, amount, msg_sender, res, ctx, pos)
 
@@ -687,6 +687,9 @@ class SpecificationTranslator(ExpressionTranslator):
 
             all_args = node.args.copy()
             frm = msg_sender
+            to = None
+            times = None
+            times_arg = None
             for kw in node.keywords:
                 kw_val = self.translate(kw.value, res, ctx)
                 if kw.name == names.OFFER_TO:
@@ -699,15 +702,20 @@ class SpecificationTranslator(ExpressionTranslator):
                     times_arg = kw.value
                 else:
                     assert False
+            assert to is not None
+            assert times is not None
+            assert times_arg is not None
 
             if ctx.quantified_vars:
-                rule = rules.OFFER_FAIL
-                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg, rule, res, ctx)
+                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg,
+                                        rules.OFFER_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to, times], res, ctx, pos)
+                self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to, times],
+                                                    [left, times], res, ctx, pos)
             else:
-                self.allocation_translator.offer(node, from_resource, to_resource, left, right, frm, to, times, msg_sender, res, ctx, pos)
+                self.allocation_translator.offer(node, from_resource, to_resource, left, right, frm, to, times,
+                                                 msg_sender, res, ctx, pos)
 
             return None
         elif name == names.REVOKE:
@@ -731,13 +739,15 @@ class SpecificationTranslator(ExpressionTranslator):
                     assert False
 
             if ctx.quantified_vars:
-                rule = rules.REVOKE_FAIL
-                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None, rule, res, ctx)
+                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None,
+                                        rules.REVOKE_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to], res, ctx, pos)
+                self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to], [left],
+                                                    res, ctx, pos)
             else:
-                self.allocation_translator.revoke(node, from_resource, to_resource, left, right, frm, to, msg_sender, res, ctx, pos)
+                self.allocation_translator.revoke(node, from_resource, to_resource, left, right, frm, to, msg_sender,
+                                                  res, ctx, pos)
 
             return None
         elif name == names.EXCHANGE:
@@ -752,7 +762,8 @@ class SpecificationTranslator(ExpressionTranslator):
 
             times = self.translate(node.keywords[0].value, res, ctx)
 
-            self.allocation_translator.exchange(node, resource1, resource2, left, right, left_owner, right_owner, times, res, ctx, pos)
+            self.allocation_translator.exchange(node, resource1, resource2, left, right, left_owner, right_owner,
+                                                times, res, ctx, pos)
 
             return None
         elif name == names.CREATE:
@@ -776,11 +787,11 @@ class SpecificationTranslator(ExpressionTranslator):
                     assert False
 
             if ctx.quantified_vars:
-                rule = rules.CREATE_FAIL
-                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0], rule, res, ctx)
+                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, args, node.args[0],
+                                        rules.CREATE_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [resource, frm, to, amount], res, ctx, pos)
+                self.allocation_translator.performs(node, [resource, frm, to, amount], [amount], res, ctx, pos)
             else:
                 is_init = ctx.function.name == names.INIT
                 self.allocation_translator.create(node, resource, frm, to, amount, msg_sender, is_init, res, ctx, pos)
@@ -798,11 +809,11 @@ class SpecificationTranslator(ExpressionTranslator):
                     frm = kw_val
 
             if ctx.quantified_vars:
-                rule = rules.DESTROY_FAIL
-                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0], rule, res, ctx)
+                self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, [], node.args[0],
+                                        rules.DESTROY_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [resource, frm, amount], res, ctx, pos)
+                self.allocation_translator.performs(node, [resource, frm, amount], [amount], res, ctx, pos)
             else:
                 self.allocation_translator.destroy(node, resource, frm, amount, msg_sender, res, ctx, pos)
 
@@ -823,7 +834,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0]], None, rule, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [address, frm, val], res, ctx, pos)
+                self.allocation_translator.performs(node, [address, frm, val], [], res, ctx, pos)
             else:
                 self.allocation_translator.trust(node, address, frm, val, msg_sender, res, ctx, pos)
 
@@ -833,7 +844,7 @@ class SpecificationTranslator(ExpressionTranslator):
             balance = self.balance_translator.get_balance(ctx.self_var.local_var(ctx), ctx, pos)
 
             if is_performs:
-                self.allocation_translator.performs(node, [address], res, ctx, pos)
+                self.allocation_translator.performs(node, [address], [], res, ctx, pos)
             else:
                 self.allocation_translator.allocate_untracked_wei(node, address, balance, res, ctx, pos)
             return None
@@ -857,7 +868,8 @@ class _ResourceArgumentExtractor(NodeVisitor):
     def extract_args(self, node: ast.Expr) -> List[ast.Expr]:
         return self.visit(node)
 
-    def visit_Name(self, node: ast.Name) -> List[ast.Expr]:
+    @staticmethod
+    def visit_Name(_: ast.Name) -> List[ast.Expr]:
         return []
 
     def visit_Exchange(self, node: ast.Exchange) -> List[ast.Expr]:

@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 from functools import reduce
-from typing import Callable, List
+from typing import Callable, List, Union
 
 from twovyper.ast import ast_nodes as ast, names, types
 
@@ -395,6 +395,30 @@ class AllocationTranslator(CommonTranslator):
         # TODO: rule
         res.append(self.viper_ast.Exhale(quant, pos))
 
+    def _if_non_zero_values(self, fun: Callable[[List[Stmt]], None], amounts: Union[List[Expr], Expr], res: List[Stmt],
+                            ctx: Context, pos=None):
+        """
+        Only check trusted if all values are non-zero.
+        """
+        then = []
+        fun(then)
+        zero = self.viper_ast.IntLit(0, pos)
+        if isinstance(amounts, list):
+            amount_checks = [self.viper_ast.NeCmp(amount, zero, pos) for amount in amounts]
+            is_not_zero = reduce(self.viper_ast.And, amount_checks) if amount_checks else self.viper_ast.TrueLit()
+        else:
+            is_not_zero = self.viper_ast.NeCmp(amounts, zero, pos)
+        if ctx.quantified_vars:
+            quantified_vars = [q_var.var_decl(ctx) for q_var in ctx.quantified_vars.values()]
+            is_not_zero = self.viper_ast.Forall(quantified_vars, [], is_not_zero)
+        res.append(self.viper_ast.If(is_not_zero, then, [], pos))
+
+    def _check_trusted_if_non_zero_amount(self, node: ast.Node, address: Expr, by_address: Expr,
+                                          amounts: Union[List[Expr], Expr], rule: rules.Rule, res: List[Stmt],
+                                          ctx: Context, pos=None):
+        self._if_non_zero_values(lambda l: self._check_trusted(node, address, by_address, rule, l, ctx, pos),
+                                 amounts, res, ctx, pos)
+
     def _check_trusted(self, node: ast.Node,
                        address: Expr, by_address: Expr,
                        rule: rules.Rule, res: List[Stmt], ctx: Context, pos=None):
@@ -490,7 +514,14 @@ class AllocationTranslator(CommonTranslator):
 
         return cond
 
-    def _exhale_performs(self, node: ast.Node, function: str, args: List[Expr], rule: Rule, res: List[Stmt], ctx: Context, pos=None):
+    def _exhale_performs_if_non_zero_amount(self, node: ast.Node, function: str, args: List[Expr],
+                                            amounts: Union[List[Expr], Expr], rule: Rule, res: List[Stmt],
+                                            ctx: Context, pos=None):
+        self._if_non_zero_values(lambda l: self._exhale_performs(node, function, args, rule, l, ctx, pos),
+                                 amounts, res, ctx, pos)
+
+    def _exhale_performs(self, node: ast.Node, function: str, args: List[Expr], rule: Rule, res: List[Stmt],
+                         ctx: Context, pos=None):
         if not ctx.program.config.has_option(names.CONFIG_NO_PERFORMS):
             pred = self._performs_acc_predicate(function, args, ctx, pos)
             modelt = self.model_translator.save_variables(res, ctx, pos)
@@ -513,8 +544,9 @@ class AllocationTranslator(CommonTranslator):
         Checks that `from` has sufficient allocation and then moves `amount` allocation from `frm` to `to`.
         """
         stmts = []
-        self._exhale_performs(node, names.REALLOCATE, [resource, frm, to, amount], rules.REALLOCATE_FAIL, stmts, ctx, pos)
-        self._check_trusted(node, actor, frm, rules.REALLOCATE_FAIL, stmts, ctx, pos)
+        self._exhale_performs_if_non_zero_amount(node, names.REALLOCATE, [resource, frm, to, amount], amount,
+                                                 rules.REALLOCATE_FAIL, stmts, ctx, pos)
+        self._check_trusted_if_non_zero_amount(node, actor, frm, amount, rules.REALLOCATE_FAIL, stmts, ctx, pos)
         self._check_allocation(node, resource, frm, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
         self._change_allocation(resource, frm, amount, False, stmts, ctx, pos)
         self._change_allocation(resource, to, amount, True, stmts, ctx, pos)
@@ -539,13 +571,16 @@ class AllocationTranslator(CommonTranslator):
                res: List[Stmt], ctx: Context, pos=None):
         stmts = []
 
-        self._exhale_performs(node, names.CREATE, [resource, frm, to, amount], rules.CREATE_FAIL, stmts, ctx, pos)
+        self._exhale_performs_if_non_zero_amount(node, names.CREATE, [resource, frm, to, amount], amount,
+                                                 rules.CREATE_FAIL, stmts, ctx, pos)
 
+        # The initializer is allowed to create all resources unchecked.
         if not is_init:
-            # The initializer is allowed to create all resources unchecked.
-            self._check_trusted(node, actor, frm, rules.CREATE_FAIL, stmts, ctx, pos)
-            creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
-            self._check_creator(node, creator_resource, frm, amount, stmts, ctx, pos)
+            def check(then):
+                self._check_trusted(node, actor, frm, rules.CREATE_FAIL, then, ctx, pos)
+                creator_resource = self.resource_translator.creator_resource(resource, ctx, pos)
+                self._check_creator(node, creator_resource, frm, amount, then, ctx, pos)
+            self._if_non_zero_values(check, amount, res, ctx, pos)
 
         if ctx.quantified_vars:
 
@@ -569,8 +604,9 @@ class AllocationTranslator(CommonTranslator):
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
         stmts = []
-        self._exhale_performs(node, names.DESTROY, [resource, address, amount], rules.DESTROY_FAIL, stmts, ctx, pos)
-        self._check_trusted(node, actor, address, rules.DESTROY_FAIL, stmts, ctx, pos)
+        self._exhale_performs_if_non_zero_amount(node, names.DESTROY, [resource, address, amount], amount,
+                                                 rules.DESTROY_FAIL, stmts, ctx, pos)
+        self._check_trusted_if_non_zero_amount(node, actor, address, amount, rules.DESTROY_FAIL, stmts, ctx, pos)
         self._check_allocation(node, resource, address, amount, rules.DESTROY_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
 
         if ctx.quantified_vars:
@@ -717,9 +753,11 @@ class AllocationTranslator(CommonTranslator):
               res: List[Stmt], ctx: Context, pos=None):
         stmts = []
 
-        prule = rules.OFFER_FAIL
-        self._exhale_performs(node, names.OFFER, [from_resource, to_resource, from_value, to_value, from_owner, to_owner, times], prule, stmts, ctx, pos)
-        self._check_trusted(node, actor, from_owner, rules.OFFER_FAIL, stmts, ctx, pos)
+        self._exhale_performs_if_non_zero_amount(node, names.OFFER, [from_resource, to_resource, from_value,
+                                                                     to_value, from_owner, to_owner, times],
+                                                 [from_value, times], rules.OFFER_FAIL, stmts, ctx, pos)
+        self._check_trusted_if_non_zero_amount(node, actor, from_owner, [from_value, times],
+                                               rules.OFFER_FAIL, stmts, ctx, pos)
 
         if ctx.quantified_vars:
             # We are translating a
@@ -751,9 +789,10 @@ class AllocationTranslator(CommonTranslator):
                actor: Expr,
                res: List[Stmt], ctx: Context, pos=None):
         stmts = []
-        prule = rules.REVOKE_FAIL
-        self._exhale_performs(node, names.REVOKE, [from_resource, to_resource, from_value, to_value, from_owner, to_owner], prule, stmts, ctx, pos)
-        self._check_trusted(node, actor, from_owner, rules.REVOKE_FAIL, stmts, ctx, pos)
+        self._exhale_performs_if_non_zero_amount(node, names.REVOKE, [from_resource, to_resource, from_value,
+                                                                      to_value, from_owner, to_owner],
+                                                 from_value, rules.REVOKE_FAIL, stmts, ctx, pos)
+        self._check_trusted_if_non_zero_amount(node, actor, from_owner, from_value, rules.REVOKE_FAIL, stmts, ctx, pos)
         if ctx.quantified_vars:
             # We are translating a
             #   foreach({x1: t1, x2: t2, ...}, revoke(e1(x1, x2, ...), e2(x1, x2, ...), to=e3(x1, x2, ...)))
@@ -785,21 +824,18 @@ class AllocationTranslator(CommonTranslator):
                  res: List[Stmt], ctx: Context, pos=None):
         stmts = []
 
-        zero = self.viper_ast.IntLit(0, pos)
-        # If value1 == 0, owner1 will definitely agree, else we check that they offered the exchange, and decrease
-        # the offer map by the amount of exchanges we do
-        then1 = []
-        self._check_from_agrees(node, resource1, resource2, value1, value2, owner1, owner2, times, then1, ctx, pos)
-        self._change_offered(resource1, resource2, value1, value2, owner1, owner2, times, False, then1, ctx, pos)
-        is_not_zero1 = self.viper_ast.NeCmp(value1, zero)
-        stmts.append(self.viper_ast.If(is_not_zero1, then1, [], pos))
+        def check_owner_1(then):
+            # If value1 == 0, owner1 will definitely agree, else we check that they offered the exchange, and
+            # decreases the offer map by the amount of exchanges we do
+            self._check_from_agrees(node, resource1, resource2, value1, value2, owner1, owner2, times, then, ctx, pos)
+            self._change_offered(resource1, resource2, value1, value2, owner1, owner2, times, False, then, ctx, pos)
+        self._if_non_zero_values(check_owner_1, [value1, times], stmts, ctx, pos)
 
-        # We do the same for owner2
-        then2 = []
-        self._check_from_agrees(node, resource2, resource1, value2, value1, owner2, owner1, times, then2, ctx, pos)
-        self._change_offered(resource2, resource1, value2, value1, owner2, owner1, times, False, then2, ctx, pos)
-        is_not_zero2 = self.viper_ast.NeCmp(value2, zero)
-        stmts.append(self.viper_ast.If(is_not_zero2, then2, [], pos))
+        def check_owner_2(then):
+            # We do the same for owner2
+            self._check_from_agrees(node, resource2, resource1, value2, value1, owner2, owner1, times, then, ctx, pos)
+            self._change_offered(resource2, resource1, value2, value1, owner2, owner1, times, False, then, ctx, pos)
+        self._if_non_zero_values(check_owner_2, [value2, times], stmts, ctx, pos)
 
         amount1 = self.viper_ast.Mul(times, value1)
         self._check_allocation(node, resource1, owner1, amount1, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
@@ -851,7 +887,8 @@ class AllocationTranslator(CommonTranslator):
 
         self.seqn_with_info(stmts, "Allocate untracked wei", res)
 
-    def performs(self, node: ast.FunctionCall, args: List[Expr], res: List[Stmt], ctx: Context, pos=None):
+    def performs(self, node: ast.FunctionCall, args: List[Expr], amount_args: List[Expr], res: List[Stmt],
+                 ctx: Context, pos=None):
         pred = self._performs_acc_predicate(node.name, args, ctx, pos)
         # TODO: rule
-        res.append(self.viper_ast.Inhale(pred, pos))
+        self._if_non_zero_values(lambda l: l.append(self.viper_ast.Inhale(pred, pos)), amount_args, res, ctx, pos)

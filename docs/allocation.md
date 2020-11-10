@@ -68,7 +68,7 @@ These checks can be disabled using the `no_performs` configuration.
     - The square bracket with the resources can be omitted. It will then default to an exchange between [wei resources](#wei_resource).
     - The `acting_for` keyword argument can be omitted. It will default to the `msg.sender`.
   - Enable a possible exchange between resources.
-    - Check that the source address is trusted.
+    - Check that the source address is trusted if the offered amount and times are non-zero.
     - Add number of such an offer in the [offer map](#offer_map) with the provided number of times.
 
 - <a name="revoke_fun"></a>**revoke**:
@@ -76,7 +76,7 @@ These checks can be disabled using the `no_performs` configuration.
     - The square bracket with the resources can be omitted. It will then default to an exchange between [wei resources](#wei_resource).
     - The `acting_for` keyword argument can be omitted. It will default to the `msg.sender`.
   - Revoke all such offerings.
-    - Check that the source address is trusted.
+    - Check that the source address is trusted if the offered amount is non-zero.
     - Change number of such an offer in the [offer map](#offer_map) to zero.
 
 - <a name="exchange_fun"></a>**exchange**:
@@ -98,7 +98,7 @@ These checks can be disabled using the `no_performs` configuration.
     - The square bracket with the resource can be omitted. It will then default to the [wei resource](#wei_resource).
     - The `acting_for` keyword argument can be omitted. It will default to the `msg.sender`.
   - A given amount of a resource will be handed over to another address.
-    - Check that the source address is trusted.
+    - Check that the source address is trusted if the amount is non-zero.
     - Check that the source address has enough resources allocated.
     - Decrease allocated amount of the resource for the source address.
     - Increase allocated amount of the resource for the target address.
@@ -114,12 +114,12 @@ These checks can be disabled using the `no_performs` configuration.
     ```
 
 - <a name="create_fun"></a>**create**:
-  - Signature: exchange\[_resource_\]\(_amount_, to=_target\_address_, acting_for=_source\_address_\)
+  - Signature: create\[_resource_\]\(_amount_, to=_target\_address_, acting_for=_source\_address_\)
     - The `to` keyword argument can be omitted. It will default to the `msg.sender`.
     - The `acting_for` keyword argument can be omitted. It will default to the `msg.sender`.
   - Creates a specified resource a certain amount of times and allocates it to the target address.
     - The init function is allowed to create any resource.
-    - If it is not the init function, check that the source address is trusted.
+    - If it is not the init function, check that the source address is trusted if the amount is non-zero.
     - If it is not the init function, check that the source address has a [creator resource](#creator_resource) for this resource.
     - Increase allocated amount of the resource for the target address.
   - The [wei resource](#wei_resource) cannot get created.
@@ -128,7 +128,7 @@ These checks can be disabled using the `no_performs` configuration.
   - Signature: destroy\[_resource_\]\(_amount_, acting_for=_address_\)
     - The `acting_for` keyword argument can be omitted. It will default to the `msg.sender`.
   - Destroys a specified resource a certain amount of times.
-    - Check that the address is trusted.
+    - Check that the address is trusted if the amount is non-zero.
     - Check that the address has enough resources allocated.
     - Decrease allocated amount of the resource for the address.
   - The [wei resource](#wei_resource) cannot get destroyed.
