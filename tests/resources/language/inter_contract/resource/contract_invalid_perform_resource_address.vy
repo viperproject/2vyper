@@ -1,5 +1,3 @@
-#:: IgnoreFile(0)
-
 #
 # Copyright (c) 2020 ETH Zurich
 # This Source Code Form is subject to the terms of the Mozilla Public

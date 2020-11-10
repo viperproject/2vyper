@@ -1,4 +1,5 @@
 #:: IgnoreFile(0)
+# Does not terminate with Silicon
 
 #
 # Copyright (c) 2020 ETH Zurich
