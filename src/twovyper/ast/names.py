@@ -118,6 +118,8 @@ BITWISE_XOR = 'bitwise_xor'
 AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 CONVERT = 'convert'
+EXTRACT32 = 'extract32'
+EXTRACT32_TYPE = 'type'
 
 RANGE = 'range'
 LEN = 'len'

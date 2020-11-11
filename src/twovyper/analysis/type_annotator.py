@@ -565,6 +565,12 @@ class TypeAnnotator(NodeVisitor):
                 _check_number_of_arguments(node, 1)
                 # We ignore units completely, therefore the type stays the same
                 return self.pass_through(node.args[0], node)
+            elif case(names.EXTRACT32):
+                _check_number_of_arguments(node, 2, allowed_keywords=[names.EXTRACT32_TYPE])
+                self.annotate_expected(node.args[0], types.is_bytes_array)
+                self.annotate_expected(node.args[1], types.VYPER_INT128)
+                return_type = self.type_builder.build(node.keywords[0].value) if node.keywords else types.VYPER_BYTES32
+                return [return_type], [node]
             elif case(names.CONCAT):
                 _check(bool(node.args), node, 'invalid.no.args')
 

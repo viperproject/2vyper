@@ -406,6 +406,37 @@ class ExpressionTranslator(NodeTranslator):
                     return self.viper_ast.SeqAppend(argument, concat(tail), pos)
 
             return concat(concats)
+        elif name == names.EXTRACT32:
+            b = self.translate(node.args[0], res, ctx)
+            b_len = helpers.array_length(self.viper_ast, b, pos)
+            zero = self.viper_ast.IntLit(0, pos)
+            start = self.translate(node.args[1], res, ctx)
+            lit_32 = self.viper_ast.IntLit(32, pos)
+            end = self.viper_ast.Add(lit_32, start, pos)
+
+            # General revert conditions
+            start_is_negative = self.viper_ast.LtCmp(start, zero, pos)
+            seq_too_small = self.viper_ast.LtCmp(b_len, end, pos)
+            cond = self.viper_ast.Or(start_is_negative, seq_too_small)
+            self.fail_if(cond, [], res, ctx, pos)
+
+            # Convert byte list to desired type
+            b_sliced = self.viper_ast.SeqTake(b, end, pos)
+            b_sliced = self.viper_ast.SeqDrop(b_sliced, start, pos)
+            b_bytes32 = helpers.pad32(self.viper_ast, b_sliced, pos)
+
+            with switch(node.type) as case:
+                if case(types.VYPER_BYTES32):
+                    i = b_bytes32
+                elif case(types.VYPER_INT128):
+                    i = helpers.convert_bytes32_to_signed_int(self.viper_ast, b_bytes32, pos)
+                    self.arithmetic_translator.check_under_overflow(i, types.VYPER_INT128, res, ctx, pos)
+                elif case(types.VYPER_ADDRESS):
+                    i = helpers.convert_bytes32_to_unsigned_int(self.viper_ast, b_bytes32, pos)
+                    self.arithmetic_translator.check_under_overflow(i, types.VYPER_ADDRESS, res, ctx, pos)
+                else:
+                    assert False
+            return i
         elif name == names.CONVERT:
             from_type = node.args[0].type
             to_type = node.type
@@ -699,27 +730,29 @@ class ExpressionTranslator(NodeTranslator):
                 succ, call_result = self._translate_external_call(node, to, amount, const, res, ctx, known)
 
             return call_result
-        elif node.receiver.id == names.LOG:
-            event = ctx.program.events[name]
-            self._log_event(event, args, res, ctx, pos)
-            return None
-        elif node.receiver.id == names.LEMMA:
-            lemma = ctx.program.lemmas[node.name]
-            mangled_name = mangled.lemma_name(node.name)
-            call_pos = self.to_position(lemma.node, ctx)
-            via = Via('lemma', call_pos)
-            pos = self.to_position(node, ctx, vias=[via], rules=rules.LEMMA_FAIL, values={'function': lemma})
-            args = [self.translate_top_level_expression(arg, res, ctx) for arg in node.args]
-            for idx, arg_var in enumerate(lemma.args.values()):
-                if types.is_numeric(arg_var.type):
-                    if self.arithmetic_translator.is_unwrapped(args[idx]):
-                        args[idx] = helpers.w_wrap(self.viper_ast, args[idx], pos)
-            viper_ast = self.viper_ast
-            if isinstance(viper_ast, WrappedViperAST):
-                viper_ast = viper_ast.viper_ast
-            return viper_ast.FuncApp(mangled_name, args, pos, type=self.viper_ast.Bool)
         else:
-            assert False
+            assert isinstance(node.receiver, ast.Name)
+            if node.receiver.id == names.LOG:
+                event = ctx.program.events[name]
+                self._log_event(event, args, res, ctx, pos)
+                return None
+            elif node.receiver.id == names.LEMMA:
+                lemma = ctx.program.lemmas[node.name]
+                mangled_name = mangled.lemma_name(node.name)
+                call_pos = self.to_position(lemma.node, ctx)
+                via = Via('lemma', call_pos)
+                pos = self.to_position(node, ctx, vias=[via], rules=rules.LEMMA_FAIL, values={'function': lemma})
+                args = [self.translate_top_level_expression(arg, res, ctx) for arg in node.args]
+                for idx, arg_var in enumerate(lemma.args.values()):
+                    if types.is_numeric(arg_var.type):
+                        if self.arithmetic_translator.is_unwrapped(args[idx]):
+                            args[idx] = helpers.w_wrap(self.viper_ast, args[idx], pos)
+                viper_ast = self.viper_ast
+                if isinstance(viper_ast, WrappedViperAST):
+                    viper_ast = viper_ast.viper_ast
+                return viper_ast.FuncApp(mangled_name, args, pos, type=self.viper_ast.Bool)
+            else:
+                assert False
 
     def assert_caller_private(self, modelt: ModelTransformation, res: List[Stmt], ctx: Context, vias: List[Via] = None):
         for interface_type in ctx.program.implements:
