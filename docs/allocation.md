@@ -57,8 +57,7 @@ def foo(a: address):
 These checks can be disabled using the `no_performs` configuration.
 
 - <a name="trust_fun"></a>**trust**:
-  - Signature: trust\(_target\_address_, _do\_trust_, acting_for=_source\_address_\)
-    - The `acting_for` keyword argument can be omitted. It will default to the `msg.sender`.
+  - Signature: trust\(_target\_address_, _do\_trust_\)
   - Update the [trust map](#trust_map).
     - Check that the source address is trusted.
     - Change the trusted flag according to `do_trust` for the given target and source address.

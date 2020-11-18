@@ -20,6 +20,7 @@ trusted: map(address, bool)
 #@ invariant: sum(allocated[wei]()) == 0
 #@ invariant: allocated[token]() == self.balance_of
 #@ invariant: allocated[creator(token)](self.minter) == 1
+#:: Label(INV)
 #@ invariant: forall({a: address}, {trusted(a, by=self.minter)}, trusted(a, by=self.minter) == self.trusted[a])
 
 
@@ -39,17 +40,17 @@ def trust(a: address):
 
 @public
 def untrust(a: address):
-    assert msg.sender == self.minter or self.trusted[msg.sender]
+    assert msg.sender == self.minter
 
     self.trusted[a] = False
-    #@ trust(a, False, acting_for=self.minter)
+    #@ trust(a, False)
 
 
+#:: ExpectedOutput(invariant.violated:assertion.false, INV)
 @public
 def untrust_fail(a: address):
     self.trusted[a] = False
-    #:: ExpectedOutput(trust.failed:not.trusted)
-    #@ trust(a, False, acting_for=self.minter)
+    #@ trust(a, False)
 
 
 @public

@@ -857,12 +857,11 @@ class AllocationTranslator(CommonTranslator):
 
     def trust(self, node: ast.Node,
               address: Expr, from_address: Expr,
-              new_value: Expr, actor: Expr,
-              res: List[Stmt], ctx: Context, pos=None):
+              new_value: Expr, res: List[Stmt],
+              ctx: Context, pos=None):
         stmts = []
 
         self._exhale_performs(node, names.TRUST, [address, from_address, new_value], rules.TRUST_FAIL, stmts, ctx, pos)
-        self._check_trusted(node, actor, from_address, rules.TRUST_FAIL, stmts, ctx, pos)
 
         if ctx.quantified_vars:
             self._foreach_change_trusted(address, from_address, new_value, stmts, ctx, pos)
