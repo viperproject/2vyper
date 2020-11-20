@@ -26,9 +26,9 @@ def analyze(program: VyperProgram):
     Checks the program for structural errors, adds type information to all program expressions
     and creates an analysis for each function.
     """
+    check_symbols(program)
     check_structure(program)
     TypeAnnotator(program).annotate_program()
-    check_symbols(program)
 
     function_analyzer = _FunctionAnalyzer()
     program_analyzer = _ProgramAnalyzer()

@@ -5,14 +5,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-from . import ghost_interface
-
-implements: ghost_interface
 
 #@ ghost:
+    #:: ExpectedOutput(invalid.program:missing.ghost)
     #@ @implements
-    #:: ExpectedOutput(invalid.program:ghost.function.call)
-    #@ def some() -> int128: 0 if accessible(self, self.balance) else 1
+    #@ def some() -> int128: 5
 
 
 @public

@@ -63,6 +63,13 @@ def _check_resources(program: VyperProgram):
 def _check_ghost_functions(program: VyperProgram):
     if not isinstance(program, VyperInterface):
         node = first(program.node.stmts) or program.node
+        for implemented_ghost in program.ghost_function_implementations.values():
+            if program.ghost_functions.get(implemented_ghost.name) is None:
+                raise InvalidProgramException(implemented_ghost.node, 'missing.ghost',
+                                              f'This contract is implementing an unknown ghost function. '
+                                              f'None of the interfaces, this contract implements, declares a ghost '
+                                              f'function "{implemented_ghost.name}".')
+
         for interface in program.interfaces.values():
             for ghost_function_list in interface.ghost_functions.values():
                 for ghost_function in ghost_function_list:
