@@ -286,6 +286,7 @@ class FunctionTranslator(CommonTranslator):
                 var_assign = self.viper_ast.LocalVarAssign(fps, self.viper_ast.TrueLit())
                 body.append(var_assign)
 
+            # TODO: Is this at the correct place? I think that self should be initialized before the performs.
             # Translate the performs clauses
             for performs in function.performs:
                 assert isinstance(performs, ast.FunctionCall)
