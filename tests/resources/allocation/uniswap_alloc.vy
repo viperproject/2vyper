@@ -180,6 +180,13 @@ def getOutputPrice(output_amount: uint256, input_reserve: uint256, output_reserv
     denominator: uint256 = (output_reserve - output_amount) * 997
     return numerator / denominator + 1
 
+# TODO: Is there something better than these preconditions?
+#@ requires: allocated() == public_old(allocated())
+#@ requires: allocated[UNI]() == public_old(allocated[UNI]())
+#@ requires: forall({o: address, s: address}, offered[UNI <-> UNI](1, 0, o, s) == public_old(offered[UNI <-> UNI](1, 0, o, s)))
+#@ requires: forall({a: address}, allocated[creator(UNI)](a) == 1)
+#@ requires: forall({a: address}, trusted(a, by=self))
+#@ requires: storage(self) == public_old(storage(self))
 #@ performs: reallocate(eth_sold, to=self)
 # TODO: How should private function calls be handled, if they contain resource modification?
 # FIXME: ?tokens_bought? == self.getInputPrice(eth_sold, self.balance - eth_sold, balanceOf(self.token, self))
@@ -231,6 +238,12 @@ def ethToTokenTransferInput(min_tokens: uint256, deadline: timestamp, recipient:
     assert recipient != self and recipient != ZERO_ADDRESS
     return self.ethToTokenInput(msg.value, min_tokens, deadline, msg.sender, recipient)
 
+#@ requires: allocated() == public_old(allocated())
+#@ requires: allocated[UNI]() == public_old(allocated[UNI]())
+#@ requires: forall({o: address, s: address}, offered[UNI <-> UNI](1, 0, o, s) == public_old(offered[UNI <-> UNI](1, 0, o, s)))
+#@ requires: forall({a: address}, allocated[creator(UNI)](a) == 1)
+#@ requires: forall({a: address}, trusted(a, by=self))
+#@ requires: storage(self) == public_old(storage(self))
 #@ performs: reallocate(max_eth, to=self)
 # FIXME: ?eth_refund? == max(0, max_eth - self.getOutputPrice(tokens_bought, self.balance - max_eth, balanceOf(self.token, self)))
 #@ performs: reallocate(?eth_refund?, to=buyer, acting_for=self)
@@ -278,6 +291,12 @@ def ethToTokenTransferOutput(tokens_bought: uint256, deadline: timestamp, recipi
     assert recipient != self and recipient != ZERO_ADDRESS
     return self.ethToTokenOutput(tokens_bought, msg.value, deadline, msg.sender, recipient)
 
+#@ requires: allocated() == public_old(allocated())
+#@ requires: allocated[UNI]() == public_old(allocated[UNI]())
+#@ requires: forall({o: address, s: address}, offered[UNI <-> UNI](1, 0, o, s) == public_old(offered[UNI <-> UNI](1, 0, o, s)))
+#@ requires: forall({a: address}, allocated[creator(UNI)](a) == 1)
+#@ requires: forall({a: address}, trusted(a, by=self))
+#@ requires: storage(self) == public_old(storage(self))
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
 # FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=tokens_sold)
 # FIXME: ?eth_bought? == self.getInputPrice(tokens_sold, balanceOf(self.token, self), self.balance)
@@ -321,6 +340,12 @@ def tokenToEthTransferInput(tokens_sold: uint256, min_eth: uint256(wei), deadlin
     assert recipient != self and recipient != ZERO_ADDRESS
     return self.tokenToEthInput(tokens_sold, min_eth, deadline, msg.sender, recipient)
 
+#@ requires: allocated() == public_old(allocated())
+#@ requires: allocated[UNI]() == public_old(allocated[UNI]())
+#@ requires: forall({o: address, s: address}, offered[UNI <-> UNI](1, 0, o, s) == public_old(offered[UNI <-> UNI](1, 0, o, s)))
+#@ requires: forall({a: address}, allocated[creator(UNI)](a) == 1)
+#@ requires: forall({a: address}, trusted(a, by=self))
+#@ requires: storage(self) == public_old(storage(self))
 # FIXME: ?tokens_sold? == self.getOutputPrice(eth_bought, balanceOf(self.token, self), self.balance)
 #@ performs: reallocate[token[self.token]](?tokens_sold?, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
 # FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=?tokens_sold?)
@@ -364,6 +389,12 @@ def tokenToEthTransferOutput(eth_bought: uint256(wei), max_tokens: uint256, dead
     assert recipient != self and recipient != ZERO_ADDRESS
     return self.tokenToEthOutput(eth_bought, max_tokens, deadline, msg.sender, recipient)
 
+#@ requires: allocated() == public_old(allocated())
+#@ requires: allocated[UNI]() == public_old(allocated[UNI]())
+#@ requires: forall({o: address, s: address}, offered[UNI <-> UNI](1, 0, o, s) == public_old(offered[UNI <-> UNI](1, 0, o, s)))
+#@ requires: forall({a: address}, allocated[creator(UNI)](a) == 1)
+#@ requires: forall({a: address}, trusted(a, by=self))
+#@ requires: storage(self) == public_old(storage(self))
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
 # FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=tokens_sold)
 # FIXME: ?eth_bought? == self.getInputPrice(tokens_sold, balanceOf(self.token, self), self.balance)
@@ -418,6 +449,12 @@ def tokenToTokenTransferInput(tokens_sold: uint256, min_tokens_bought: uint256, 
     exchange_addr: address = self.factory.getExchange(token_addr)
     return self.tokenToTokenInput(tokens_sold, min_tokens_bought, min_eth_bought, deadline, msg.sender, recipient, exchange_addr)
 
+#@ requires: allocated() == public_old(allocated())
+#@ requires: allocated[UNI]() == public_old(allocated[UNI]())
+#@ requires: forall({o: address, s: address}, offered[UNI <-> UNI](1, 0, o, s) == public_old(offered[UNI <-> UNI](1, 0, o, s)))
+#@ requires: forall({a: address}, allocated[creator(UNI)](a) == 1)
+#@ requires: forall({a: address}, trusted(a, by=self))
+#@ requires: storage(self) == public_old(storage(self))
 # FIXME: ?token_sold? == self.getOutputPrice(getEthToTokenOutputPrice(exchange_addr, tokens_bought), balanceOf(self.token, self), self.balance)
 #@ performs: reallocate[token[self.token]](?token_sold?, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
 # FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=?tokens_sold?)
