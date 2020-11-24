@@ -5,6 +5,10 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from semantic_version import Version
+
+from twovyper import vyper
+
 # Constants for names in the original AST
 
 # Decorators
@@ -251,6 +255,27 @@ TRUST_ACTING_FOR = 'acting_for'
 ALLOCATE_UNTRACKED_WEI = 'allocate_untracked_wei'
 
 CREATOR = 'creator'
+
+if vyper.get_vyper_version() >= Version("0.2.0"):
+    PUBLIC = 'external'
+    PRIVATE = 'internal'
+    CONSTANT = 'view'
+    BYTE = 'Bytes'
+    STRING = 'String'
+    ASSERT_MODIFIABLE = None
+    RAW_CALL_OUTSIZE = 'max_outsize'
+    EXTRACT32_TYPE = 'output_type'
+
+    RAW_CALL_IS_STATIC_CALL = 'is_static_call'  # TODO: new kwarg
+    METHOD_ID_OUTPUT_TYPE = 'output_type'  # TODO: check if its a kwarg
+    # TODO: raise without reasons
+    PURE_FUNCTION = 'pure'  # TODO: New decorator clashes with existing...
+    EMPTY = 'empty'  # TODO: empty(typename) → Any
+    # TODO: Event declaration syntax now resembles that of struct declarations
+    # TODO: log is now a statement "log MyEvent(msg.sender, msg.value)"
+    MAP = 'HashMap'  # TODO: Mapping declaration syntax changed from v: map(key_t, val_t) to v: HashMap[key_t, val_t]
+    # TODO: Interfaces are now declared via the interface keyword instead of contract
+    # TODO: Various type changes
 
 GHOST_STATEMENTS = [REALLOCATE, FOREACH, OFFER, REVOKE, EXCHANGE, CREATE, DESTROY, TRUST, ALLOCATE_UNTRACKED_WEI]
 QUANTIFIED_GHOST_STATEMENTS = [OFFER, REVOKE, CREATE, DESTROY, TRUST]

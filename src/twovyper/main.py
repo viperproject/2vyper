@@ -13,13 +13,13 @@ from time import time
 
 from jpype import JException
 
+########################################################################################################################
+#               DO NOT GLOBALLY IMPORT ANY SUBMODULE OF TWOVYPER THAT MIGHT DEPEND ON THE VYPER VERSION!               #
+########################################################################################################################
+
 from twovyper import config
 from twovyper import vyper
-
-from twovyper.parsing import parser
-from twovyper.analysis import analyzer
-from twovyper.translation import translator
-from twovyper.translation.translator import TranslationOptions
+from twovyper.utils import reload_package
 
 from twovyper.viper.jvmaccess import JVM
 from twovyper.viper.typedefs import Program
@@ -44,6 +44,8 @@ class TwoVyper:
 
     def translate(self, path: str, vyper_root: str = None, skip_vyper: bool = False) -> Program:
         path = os.path.abspath(path)
+        vyper.set_vyper_version(path)
+
         error_manager.clear()
 
         # Check that the file is a valid Vyper contract
@@ -52,11 +54,13 @@ class TwoVyper:
 
         logging.debug("Start parsing.")
 
+        from twovyper.parsing import parser
         vyper_program = parser.parse(path, vyper_root, name=os.path.basename(path.split('.')[0]))
 
         logging.info("Finished parsing.")
         logging.debug("Start analyzing.")
 
+        from twovyper.analysis import analyzer
         for interface in vyper_program.interfaces.values():
             analyzer.analyze(interface)
         analyzer.analyze(vyper_program)
@@ -64,6 +68,8 @@ class TwoVyper:
         logging.info("Finished analyzing.")
         logging.debug("Start translating.")
 
+        from twovyper.translation import translator
+        from twovyper.translation.translator import TranslationOptions
         options = TranslationOptions(self.get_model)
         translated = translator.translate(vyper_program, options, self.jvm)
 
@@ -222,6 +228,26 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
     except JException as e:
         print(e.stacktrace())
         raise e
+
+
+def prepare_twovyper_for_vyper_version(path: str) -> bool:
+    """
+    Checks if the current loaded vyper version differs from the vyper version used in a vyper contract.
+    If it does differ, reload the whole twovyper module.
+
+    Please note that all references (e.g. via a "from ... import ...") to the twovyper module are not refreshed
+    automatically. Therefore, use this function with caution.
+
+    :param path: The path to a vyper contract.
+    :return: True iff a reload of the module was performed.
+    """
+    version = vyper.get_vyper_version()
+    vyper.set_vyper_version(path)
+    if version != vyper.get_vyper_version():
+        import twovyper
+        reload_package(twovyper)
+        return True
+    return False
 
 
 if __name__ == '__main__':
