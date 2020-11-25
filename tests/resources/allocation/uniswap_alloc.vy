@@ -49,7 +49,6 @@ factory: Factory                                  # interface for the factory th
 #@ invariant: old(self.factory) != ZERO_ADDRESS ==> self.factory == old(self.factory)
 #@ invariant: old(self.factory) != ZERO_ADDRESS ==> self.token == old(self.token)
 
-#@ invariant: forall({a: address}, allocated(a) == sum(allocated()) if a == self 0)
 #@ invariant: allocated[UNI]() == balances(self)
 #@ invariant: forall({a: address}, allocated[creator(UNI)](a) == 1)
 
@@ -79,12 +78,10 @@ def setup(token_addr: address):
 # @param max_tokens Maximum number of tokens deposited. Deposits max amount if total UNI supply is 0.
 # @param deadline Time after which this transaction can no longer be executed.
 # @return The amount of UNI minted.
-#@ performs: reallocate(msg.value, to=self)
 # FIXME: ?token_amount? == msg.value * balanceOf(self.token, self) / self.balance + 1
 #@ performs: reallocate[token[self.token]](max_tokens if self.totalSupply == 0 else ?token_amount?, to=self)
 # FIXME: ?liquidity_minted? == msg.value * self.totalSupply / self.balance
-#@ performs: create[UNI](self.balance if self.totalSupply == 0 else ?liquidity_minted?)
-#@ performs: allocate_untracked_wei(self)
+#@ performs: create[UNI](self.balance + msg.value if self.totalSupply == 0 else ?liquidity_minted?)
 @public
 @payable
 def addLiquidity(min_liquidity: uint256, max_tokens: uint256, deadline: timestamp) -> uint256:
@@ -93,7 +90,6 @@ def addLiquidity(min_liquidity: uint256, max_tokens: uint256, deadline: timestam
     #@ allocate_untracked_wei(self)
     if total_liquidity > 0:
         assert min_liquidity > 0
-        #@ reallocate(msg.value, to=self)
         eth_reserve: uint256(wei) = self.balance - msg.value
         token_reserve: uint256 = self.token.balanceOf(self)
         token_amount: uint256 = msg.value * token_reserve / eth_reserve + 1
@@ -109,7 +105,6 @@ def addLiquidity(min_liquidity: uint256, max_tokens: uint256, deadline: timestam
     else:
         assert (self.factory != ZERO_ADDRESS and self.token != ZERO_ADDRESS) and msg.value >= 1000000000
         assert self.factory.getExchange(self.token) == self
-        #@ reallocate(msg.value, to=self)
         token_amount: uint256 = max_tokens
         initial_liquidity: uint256 = as_unitless_number(self.balance)
         self.totalSupply = initial_liquidity
@@ -127,7 +122,7 @@ def addLiquidity(min_liquidity: uint256, max_tokens: uint256, deadline: timestam
 # @param deadline Time after which this transaction can no longer be executed.
 # @return The amount of ETH and Tokens withdrawn.
 # FIXME: ?eth_amount? == amount * self.balance / self.totalSupply
-#@ performs: reallocate(?eth_amount?, to=msg.sender, acting_for=self)
+#@ performs: reallocate[WEI](?eth_amount?, to=msg.sender, acting_for=self)
 # TODO: The following acting_for feels weird... (should be "from")
 # FIXME: ?token_amount? == amount * balanceOf(self.token, self) / self.totalSupply
 #@ performs: reallocate[token[self.token]](?token_amount?, to=msg.sender, acting_for=self)
@@ -141,7 +136,6 @@ def removeLiquidity(amount: uint256, min_eth: uint256(wei), min_tokens: uint256,
     eth_amount: uint256(wei) = amount * self.balance / total_liquidity
     token_amount: uint256 = amount * token_reserve / total_liquidity
     assert eth_amount >= min_eth and token_amount >= min_tokens
-    #@ reallocate(eth_amount, to=msg.sender, acting_for=self)
     self.balances[msg.sender] -= amount
     #@ destroy[UNI](amount)
     self.totalSupply = total_liquidity - amount
@@ -187,13 +181,11 @@ def getOutputPrice(output_amount: uint256, input_reserve: uint256, output_reserv
 #@ requires: forall({a: address}, allocated[creator(UNI)](a) == 1)
 #@ requires: forall({a: address}, trusted(a, by=self))
 #@ requires: storage(self) == public_old(storage(self))
-#@ performs: reallocate(eth_sold, to=self)
 # TODO: How should private function calls be handled, if they contain resource modification?
 # FIXME: ?tokens_bought? == self.getInputPrice(eth_sold, self.balance - eth_sold, balanceOf(self.token, self))
 #@ performs: reallocate[token[self.token]](?tokens_bought?, to=recipient, acting_for=self)
 @private
 def ethToTokenInput(eth_sold: uint256(wei), min_tokens: uint256, deadline: timestamp, buyer: address, recipient: address) -> uint256:
-    #@ reallocate(eth_sold, to=self)
     assert deadline >= block.timestamp and (eth_sold > 0 and min_tokens > 0)
     token_reserve: uint256 = self.token.balanceOf(self)
     tokens_bought: uint256 = self.getInputPrice(as_unitless_number(eth_sold), as_unitless_number(self.balance - eth_sold), token_reserve)
@@ -205,7 +197,6 @@ def ethToTokenInput(eth_sold: uint256(wei), min_tokens: uint256, deadline: times
 # @notice Convert ETH to Tokens.
 # @dev User specifies exact input (msg.value).
 # @dev User cannot specify minimum output or deadline.
-#@ performs: reallocate(msg.value, to=self)
 #@ performs: reallocate[token[self.token]](???, to=msg.sender, acting_for=self)
 @public
 @payable
@@ -217,7 +208,6 @@ def __default__():
 # @param min_tokens Minimum Tokens bought.
 # @param deadline Time after which this transaction can no longer be executed.
 # @return Amount of Tokens bought.
-#@ performs: reallocate(msg.value, to=self)
 #@ performs: reallocate[token[self.token]](???, to=msg.sender, acting_for=self)
 @public
 @payable
@@ -230,7 +220,6 @@ def ethToTokenSwapInput(min_tokens: uint256, deadline: timestamp) -> uint256:
 # @param deadline Time after which this transaction can no longer be executed.
 # @param recipient The address that receives output Tokens.
 # @return Amount of Tokens bought.
-#@ performs: reallocate(msg.value, to=self)
 #@ performs: reallocate[token[self.token]](???, to=recipient, acting_for=self)
 @public
 @payable
@@ -244,20 +233,17 @@ def ethToTokenTransferInput(min_tokens: uint256, deadline: timestamp, recipient:
 #@ requires: forall({a: address}, allocated[creator(UNI)](a) == 1)
 #@ requires: forall({a: address}, trusted(a, by=self))
 #@ requires: storage(self) == public_old(storage(self))
-#@ performs: reallocate(max_eth, to=self)
 # FIXME: ?eth_refund? == max(0, max_eth - self.getOutputPrice(tokens_bought, self.balance - max_eth, balanceOf(self.token, self)))
-#@ performs: reallocate(?eth_refund?, to=buyer, acting_for=self)
+#@ performs: reallocate[WEI](?eth_refund?, to=buyer, acting_for=self)
 #@ performs: reallocate[token[self.token]](tokens_bought, to=recipient, acting_for=self)
 @private
 def ethToTokenOutput(tokens_bought: uint256, max_eth: uint256(wei), deadline: timestamp, buyer: address, recipient: address) -> uint256(wei):
-    #@ reallocate(max_eth, to=self)
     assert deadline >= block.timestamp and (tokens_bought > 0 and max_eth > 0)
     token_reserve: uint256 = self.token.balanceOf(self)
     eth_sold: uint256 = self.getOutputPrice(tokens_bought, as_unitless_number(self.balance - max_eth), token_reserve)
     # Throws if eth_sold > max_eth
     eth_refund: uint256(wei) = max_eth - as_wei_value(eth_sold, 'wei')
     if eth_refund > 0:
-        #@ reallocate(eth_refund, to=buyer, acting_for=self)
         send(buyer, eth_refund)
     assert_modifiable(self.token.transfer(recipient, tokens_bought))
     log.TokenPurchase(buyer, as_wei_value(eth_sold, 'wei'), tokens_bought)
@@ -268,8 +254,7 @@ def ethToTokenOutput(tokens_bought: uint256, max_eth: uint256(wei), deadline: ti
 # @param tokens_bought Amount of tokens bought.
 # @param deadline Time after which this transaction can no longer be executed.
 # @return Amount of ETH sold.
-#@ performs: reallocate(msg.value, to=self)  # TODO: Get some ether... Reallocate to self <-> msg.sender
-#@ performs: reallocate(???, to=msg.sender, acting_for=self)  # TODO: Refund some ether... Reallocate to self <-> msg.sender
+#@ performs: reallocate[WEI](???, to=msg.sender, acting_for=self)
 #@ performs: reallocate[token[self.token]](tokens_bought, to=msg.sender, acting_for=self)
 @public
 @payable
@@ -282,8 +267,7 @@ def ethToTokenSwapOutput(tokens_bought: uint256, deadline: timestamp) -> uint256
 # @param deadline Time after which this transaction can no longer be executed.
 # @param recipient The address that receives output Tokens.
 # @return Amount of ETH sold.
-#@ performs: reallocate(msg.value, to=self)  # TODO: Get some ether... Reallocate to self <-> msg.sender
-#@ performs: reallocate(???, to=msg.sender, acting_for=self)  # TODO: Refund some ether... Reallocate to self <-> msg.sender
+#@ performs: reallocate[WEI](???, to=msg.sender, acting_for=self)
 #@ performs: reallocate[token[self.token]](tokens_bought, to=recipient, acting_for=self)
 @public
 @payable
@@ -300,7 +284,7 @@ def ethToTokenTransferOutput(tokens_bought: uint256, deadline: timestamp, recipi
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
 # FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=tokens_sold)
 # FIXME: ?eth_bought? == self.getInputPrice(tokens_sold, balanceOf(self.token, self), self.balance)
-#@ performs: reallocate(?eth_bought?, to=recipient, acting_for=self)
+#@ performs: reallocate[WEI](?eth_bought?, to=recipient, acting_for=self)
 @private
 def tokenToEthInput(tokens_sold: uint256, min_eth: uint256(wei), deadline: timestamp, buyer: address, recipient: address) -> uint256(wei):
     assert deadline >= block.timestamp and (tokens_sold > 0 and min_eth > 0)
@@ -308,7 +292,6 @@ def tokenToEthInput(tokens_sold: uint256, min_eth: uint256(wei), deadline: times
     eth_bought: uint256 = self.getInputPrice(tokens_sold, token_reserve, as_unitless_number(self.balance))
     wei_bought: uint256(wei) = as_wei_value(eth_bought, 'wei')
     assert wei_bought >= min_eth
-    #@ reallocate(eth_bought, to=recipient, acting_for=self)
     send(recipient, wei_bought)
     assert_modifiable(self.token.transferFrom(buyer, self, tokens_sold))
     log.EthPurchase(buyer, tokens_sold, wei_bought)
@@ -321,7 +304,7 @@ def tokenToEthInput(tokens_sold: uint256, min_eth: uint256(wei), deadline: times
 # @param deadline Time after which this transaction can no longer be executed.
 # @return Amount of ETH bought.
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=msg.sender)
-#@ performs: reallocate(???, to=msg.sender, acting_for=self)
+#@ performs: reallocate[WEI](???, to=msg.sender, acting_for=self)
 @public
 def tokenToEthSwapInput(tokens_sold: uint256, min_eth: uint256(wei), deadline: timestamp) -> uint256(wei):
     return self.tokenToEthInput(tokens_sold, min_eth, deadline, msg.sender, msg.sender)
@@ -334,7 +317,7 @@ def tokenToEthSwapInput(tokens_sold: uint256, min_eth: uint256(wei), deadline: t
 # @param recipient The address that receives output ETH.
 # @return Amount of ETH bought.
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=msg.sender)
-#@ performs: reallocate(???, to=recipient, acting_for=self)
+#@ performs: reallocate[WEI](???, to=recipient, acting_for=self)
 @public
 def tokenToEthTransferInput(tokens_sold: uint256, min_eth: uint256(wei), deadline: timestamp, recipient: address) -> uint256(wei):
     assert recipient != self and recipient != ZERO_ADDRESS
@@ -349,7 +332,7 @@ def tokenToEthTransferInput(tokens_sold: uint256, min_eth: uint256(wei), deadlin
 # FIXME: ?tokens_sold? == self.getOutputPrice(eth_bought, balanceOf(self.token, self), self.balance)
 #@ performs: reallocate[token[self.token]](?tokens_sold?, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
 # FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=?tokens_sold?)
-#@ performs: reallocate(eth_bought, to=recipient, acting_for=self)
+#@ performs: reallocate[WEI](eth_bought, to=recipient, acting_for=self)
 @private
 def tokenToEthOutput(eth_bought: uint256(wei), max_tokens: uint256, deadline: timestamp, buyer: address, recipient: address) -> uint256:
     assert deadline >= block.timestamp and eth_bought > 0
@@ -357,7 +340,6 @@ def tokenToEthOutput(eth_bought: uint256(wei), max_tokens: uint256, deadline: ti
     tokens_sold: uint256 = self.getOutputPrice(as_unitless_number(eth_bought), token_reserve, as_unitless_number(self.balance))
     # tokens sold is always > 0
     assert max_tokens >= tokens_sold
-    #@ reallocate(eth_bought, to=recipient, acting_for=self)
     send(recipient, eth_bought)
     assert_modifiable(self.token.transferFrom(buyer, self, tokens_sold))
     log.EthPurchase(buyer, tokens_sold, eth_bought)
@@ -370,7 +352,7 @@ def tokenToEthOutput(eth_bought: uint256(wei), max_tokens: uint256, deadline: ti
 # @param deadline Time after which this transaction can no longer be executed.
 # @return Amount of Tokens sold.
 #@ performs: reallocate[token[self.token]](???, to=self, acting_for=msg.sender)
-#@ performs: reallocate(eth_bought, to=msg.sender, acting_for=self)
+#@ performs: reallocate[WEI](eth_bought, to=msg.sender, acting_for=self)
 @public
 def tokenToEthSwapOutput(eth_bought: uint256(wei), max_tokens: uint256, deadline: timestamp) -> uint256:
     return self.tokenToEthOutput(eth_bought, max_tokens, deadline, msg.sender, msg.sender)
@@ -383,7 +365,7 @@ def tokenToEthSwapOutput(eth_bought: uint256(wei), max_tokens: uint256, deadline
 # @param recipient The address that receives output ETH.
 # @return Amount of Tokens sold.
 #@ performs: reallocate[token[self.token]](???, to=self, acting_for=msg.sender)
-#@ performs: reallocate(eth_bought, to=recipient, acting_for=self)
+#@ performs: reallocate[WEI](eth_bought, to=recipient, acting_for=self)
 @public
 def tokenToEthTransferOutput(eth_bought: uint256(wei), max_tokens: uint256, deadline: timestamp, recipient: address) -> uint256:
     assert recipient != self and recipient != ZERO_ADDRESS
@@ -397,8 +379,6 @@ def tokenToEthTransferOutput(eth_bought: uint256(wei), max_tokens: uint256, dead
 #@ requires: storage(self) == public_old(storage(self))
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
 # FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=tokens_sold)
-# FIXME: ?eth_bought? == self.getInputPrice(tokens_sold, balanceOf(self.token, self), self.balance)
-#@ performs: reallocate(?eth_bought?, to=exchange_addr, acting_for=self)
 # TODO: Only works if we believe that "self.token.transferFrom" does not change the price
 #@ performs: reallocate[token[token(exchange_addr)]](getEthToTokenInputPrice(exchange_addr, ?eth_bought?), to=recipient, acting_for=exchange_addr)  # TODO: Is this what we want?
 @private
@@ -410,7 +390,6 @@ def tokenToTokenInput(tokens_sold: uint256, min_tokens_bought: uint256, min_eth_
     wei_bought: uint256(wei) = as_wei_value(eth_bought, 'wei')
     assert wei_bought >= min_eth_bought
     assert_modifiable(self.token.transferFrom(buyer, self, tokens_sold))
-    #@ reallocate(eth_bought, to=exchange_addr, acting_for=self)
     tokens_bought: uint256 = Exchange(exchange_addr).ethToTokenTransferInput(min_tokens_bought, deadline, recipient, value=wei_bought)
     log.EthPurchase(buyer, tokens_sold, wei_bought)
     return tokens_bought
@@ -424,7 +403,6 @@ def tokenToTokenInput(tokens_sold: uint256, min_tokens_bought: uint256, min_eth_
 # @param token_addr The address of the token being purchased.
 # @return Amount of Tokens (token_addr) bought.
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=msg.sender)
-#@ performs: reallocate(???, to=getExchange(self.factory, token_addr), acting_for=self)
 #@ performs: reallocate[token[token(getExchange(self.factory, token_addr))]](getEthToTokenInputPrice(getExchange(self.factory, token_addr), self.getInputPrice(tokens_sold, balanceOf(self.token, self), self.balance)), to=msg.sender, acting_for=getExchange(self.factory, token_addr))  # TODO: Is this what we want?
 @public
 def tokenToTokenSwapInput(tokens_sold: uint256, min_tokens_bought: uint256, min_eth_bought: uint256(wei), deadline: timestamp, token_addr: address) -> uint256:
@@ -442,7 +420,6 @@ def tokenToTokenSwapInput(tokens_sold: uint256, min_tokens_bought: uint256, min_
 # @param token_addr The address of the token being purchased.
 # @return Amount of Tokens (token_addr) bought.
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=msg.sender)
-#@ performs: reallocate(???, to=getExchange(self.factory, token_addr), acting_for=self)
 #@ performs: reallocate[token[token(getExchange(self.factory, token_addr))]](getEthToTokenInputPrice(getExchange(self.factory, token_addr), ???), to=recipient, acting_for=getExchange(self.factory, token_addr))
 @public
 def tokenToTokenTransferInput(tokens_sold: uint256, min_tokens_bought: uint256, min_eth_bought: uint256(wei), deadline: timestamp, recipient: address, token_addr: address) -> uint256:
@@ -458,7 +435,6 @@ def tokenToTokenTransferInput(tokens_sold: uint256, min_tokens_bought: uint256, 
 # FIXME: ?token_sold? == self.getOutputPrice(getEthToTokenOutputPrice(exchange_addr, tokens_bought), balanceOf(self.token, self), self.balance)
 #@ performs: reallocate[token[self.token]](?token_sold?, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
 # FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=?tokens_sold?)
-#@ performs: reallocate(getEthToTokenOutputPrice(exchange_addr, tokens_bought), to=exchange_addr, acting_for=self)
 # TODO: Only works if we believe that "self.token.transferFrom" does not change the price
 #@ performs: reallocate[token[token(exchange_addr)]](tokens_bought, to=recipient, acting_for=exchange_addr)
 @private
@@ -471,7 +447,6 @@ def tokenToTokenOutput(tokens_bought: uint256, max_tokens_sold: uint256, max_eth
     # tokens sold is always > 0
     assert max_tokens_sold >= tokens_sold and max_eth_sold >= eth_bought
     assert_modifiable(self.token.transferFrom(buyer, self, tokens_sold))
-    #@ reallocate(eth_bought, to=exchange_addr, acting_for=self)
     eth_sold: uint256(wei) = Exchange(exchange_addr).ethToTokenTransferOutput(tokens_bought, deadline, recipient, value=eth_bought)
     log.EthPurchase(buyer, tokens_sold, eth_bought)
     return tokens_sold
@@ -485,7 +460,6 @@ def tokenToTokenOutput(tokens_bought: uint256, max_tokens_sold: uint256, max_eth
 # @param token_addr The address of the token being purchased.
 # @return Amount of Tokens (self.token) sold.
 #@ performs: reallocate[token[self.token]](???, to=self, acting_for=msg.sender)
-#@ performs: reallocate(getEthToTokenOutputPrice(getExchange(self.factory, token_addr), tokens_bought), to=getExchange(self.factory, token_addr), acting_for=self)
 #@ performs: reallocate[token[token(getExchange(self.factory, token_addr))]](tokens_bought, to=msg.sender, acting_for=getExchange(self.factory, token_addr))
 @public
 def tokenToTokenSwapOutput(tokens_bought: uint256, max_tokens_sold: uint256, max_eth_sold: uint256(wei), deadline: timestamp, token_addr: address) -> uint256:
@@ -503,7 +477,6 @@ def tokenToTokenSwapOutput(tokens_bought: uint256, max_tokens_sold: uint256, max
 # @param token_addr The address of the token being purchased.
 # @return Amount of Tokens (self.token) sold.
 #@ performs: reallocate[token[self.token]](???, to=self, acting_for=msg.sender)
-#@ performs: reallocate(getEthToTokenOutputPrice(getExchange(self.factory, token_addr), tokens_bought), to=getExchange(self.factory, token_addr), acting_for=self)
 #@ performs: reallocate[token[token(getExchange(self.factory, token_addr))]](tokens_bought, to=recipient, acting_for=getExchange(self.factory, token_addr))
 @public
 def tokenToTokenTransferOutput(tokens_bought: uint256, max_tokens_sold: uint256, max_eth_sold: uint256(wei), deadline: timestamp, recipient: address, token_addr: address) -> uint256:
@@ -520,7 +493,6 @@ def tokenToTokenTransferOutput(tokens_bought: uint256, max_tokens_sold: uint256,
 # @param exchange_addr The address of the exchange for the token being purchased.
 # @return Amount of Tokens (exchange_addr.token) bought.
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=msg.sender)
-#@ performs: reallocate(???, to=exchange_addr, acting_for=self)
 #@ performs: reallocate[token[token(exchange_addr)]](getEthToTokenInputPrice(exchange_addr, ???), to=msg.sender, acting_for=exchange_addr)
 @public
 def tokenToExchangeSwapInput(tokens_sold: uint256, min_tokens_bought: uint256, min_eth_bought: uint256(wei), deadline: timestamp, exchange_addr: address) -> uint256:
@@ -538,7 +510,6 @@ def tokenToExchangeSwapInput(tokens_sold: uint256, min_tokens_bought: uint256, m
 # @param exchange_addr The address of the exchange for the token being purchased.
 # @return Amount of Tokens (exchange_addr.token) bought.
 #@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=msg.sender)
-#@ performs: reallocate(???, to=exchange_addr, acting_for=self)
 #@ performs: reallocate[token[token(exchange_addr)]](getEthToTokenInputPrice(exchange_addr, ???), to=recipient, acting_for=exchange_addr)
 @public
 def tokenToExchangeTransferInput(tokens_sold: uint256, min_tokens_bought: uint256, min_eth_bought: uint256(wei), deadline: timestamp, recipient: address, exchange_addr: address) -> uint256:
@@ -555,7 +526,6 @@ def tokenToExchangeTransferInput(tokens_sold: uint256, min_tokens_bought: uint25
 # @param exchange_addr The address of the exchange for the token being purchased.
 # @return Amount of Tokens (self.token) sold.
 #@ performs: reallocate[token[self.token]](???, to=self, acting_for=msg.sender)
-#@ performs: reallocate(getEthToTokenOutputPrice(exchange_addr, tokens_bought), to=exchange_addr, acting_for=self)
 #@ performs: reallocate[token[token(exchange_addr)]](tokens_bought, to=msg.sender, acting_for=exchange_addr)
 @public
 def tokenToExchangeSwapOutput(tokens_bought: uint256, max_tokens_sold: uint256, max_eth_sold: uint256(wei), deadline: timestamp, exchange_addr: address) -> uint256:
@@ -573,7 +543,6 @@ def tokenToExchangeSwapOutput(tokens_bought: uint256, max_tokens_sold: uint256, 
 # @param token_addr The address of the token being purchased.
 # @return Amount of Tokens (self.token) sold.
 #@ performs: reallocate[token[self.token]](???, to=self, acting_for=msg.sender)
-#@ performs: reallocate(getEthToTokenOutputPrice(exchange_addr, tokens_bought), to=exchange_addr, acting_for=self)
 #@ performs: reallocate[token[token(exchange_addr)]](tokens_bought, to=recipient, acting_for=exchange_addr)
 @public
 def tokenToExchangeTransferOutput(tokens_bought: uint256, max_tokens_sold: uint256, max_eth_sold: uint256(wei), deadline: timestamp, recipient: address, exchange_addr: address) -> uint256:
