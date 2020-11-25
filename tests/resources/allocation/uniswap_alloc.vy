@@ -44,8 +44,11 @@ allowances: map(address, map(address, uint256))   # UNI allowance of one address
 token: ERC20                                      # address of the ERC20 token traded on this contract
 factory: Factory                                  # interface for the factory that created this contract
 
-#@ meta resource: UNI() -> [(self.balance / self.totalSupply if self.totalSupply > 0 else self.balance) * WEI,
-                         #@ (balanceOf(self.token, self) / self.totalSupply if self.totalSupply > 0 else 0) * token[self.token]]
+#@ meta resource: UNI() -> [(self.balance / self.totalSupply if self.totalSupply > 0 else 1) * WEI,
+                         #@ (balanceOf(self.token, self) / self.totalSupply if self.totalSupply > 0 else 0) * token[self.token]],
+                         #@ self.balance * balanceOf(self.token, self)
+
+#@ meta resource wei() -> [1 * WEI], 1
 
 #@ invariant: old(self.factory) != ZERO_ADDRESS ==> self.factory == old(self.factory)
 #@ invariant: old(self.factory) != ZERO_ADDRESS ==> self.token == old(self.token)
