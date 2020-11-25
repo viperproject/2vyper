@@ -201,8 +201,7 @@ def ethToTokenTransferOutput(tokens_bought: uint256, deadline: timestamp, recipi
     assert recipient != self and recipient != ZERO_ADDRESS
     return self.ethToTokenOutput(tokens_bought, msg.value, deadline, msg.sender, recipient)
 
-#@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
-# FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=tokens_sold)
+#@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=tokens_sold)
 # FIXME: ?eth_bought? == self.getInputPrice(tokens_sold, balanceOf(self.token, self), self.balance)
 #@ performs: reallocate[WEI](?eth_bought?, to=recipient, acting_for=self)
 @private
@@ -231,8 +230,7 @@ def tokenToEthTransferInput(tokens_sold: uint256, min_eth: uint256(wei), deadlin
     return self.tokenToEthInput(tokens_sold, min_eth, deadline, msg.sender, recipient)
 
 # FIXME: ?tokens_sold? == self.getOutputPrice(eth_bought, balanceOf(self.token, self), self.balance)
-#@ performs: reallocate[token[self.token]](?tokens_sold?, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
-# FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=?tokens_sold?)
+#@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=?tokens_sold?)
 #@ performs: reallocate[WEI](eth_bought, to=recipient, acting_for=self)
 @private
 def tokenToEthOutput(eth_bought: uint256(wei), max_tokens: uint256, deadline: timestamp, buyer: address, recipient: address) -> uint256:
@@ -259,8 +257,7 @@ def tokenToEthTransferOutput(eth_bought: uint256(wei), max_tokens: uint256, dead
     assert recipient != self and recipient != ZERO_ADDRESS
     return self.tokenToEthOutput(eth_bought, max_tokens, deadline, msg.sender, recipient)
 
-#@ performs: reallocate[token[self.token]](tokens_sold, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
-# FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=tokens_sold)
+#@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=tokens_sold)
 # TODO: Only works if we believe that "self.token.transferFrom" does not change the price
 #@ performs: reallocate[token[token(exchange_addr)]](getEthToTokenInputPrice(exchange_addr, ?eth_bought?), to=recipient, acting_for=exchange_addr)  # TODO: Is this what we want?
 @private
@@ -291,8 +288,7 @@ def tokenToTokenTransferInput(tokens_sold: uint256, min_tokens_bought: uint256, 
     return self.tokenToTokenInput(tokens_sold, min_tokens_bought, min_eth_bought, deadline, msg.sender, recipient, exchange_addr)
 
 # FIXME: ?token_sold? == self.getOutputPrice(getEthToTokenOutputPrice(exchange_addr, tokens_bought), balanceOf(self.token, self), self.balance)
-#@ performs: reallocate[token[self.token]](?token_sold?, to=self, acting_for=buyer)  # TODO: It is a transferFrom... Can we write reallocate?
-# FIXME: #@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=?tokens_sold?)
+#@ performs: exchange[token[self.token] <-> token[self.token]](1, 0, buyer, self, times=?tokens_sold?)
 # TODO: Only works if we believe that "self.token.transferFrom" does not change the price
 #@ performs: reallocate[token[token(exchange_addr)]](tokens_bought, to=recipient, acting_for=exchange_addr)
 @private
