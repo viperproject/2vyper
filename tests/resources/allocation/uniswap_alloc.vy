@@ -44,22 +44,17 @@ allowances: map(address, map(address, uint256))   # UNI allowance of one address
 token: ERC20                                      # address of the ERC20 token traded on this contract
 factory: Factory                                  # interface for the factory that created this contract
 
-#@ resource: UNI()
+#@ meta resource: UNI() -> [(self.balance / self.totalSupply if self.totalSupply > 0 else self.balance) * WEI,
+                         #@ (balanceOf(self.token, self) / self.totalSupply if self.totalSupply > 0 else 0) * token[self.token]]
 
 #@ invariant: old(self.factory) != ZERO_ADDRESS ==> self.factory == old(self.factory)
 #@ invariant: old(self.factory) != ZERO_ADDRESS ==> self.token == old(self.token)
 
+#@ invariant: sum(balances(self)) == self.totalSupply
 #@ invariant: allocated[UNI]() == balances(self)
-#@ invariant: forall({a: address}, allocated[creator(UNI)](a) == 1)
 
 #@ invariant: forall({o: address, s: address}, self.allowances[o][s] == offered[UNI <-> UNI](1, 0, o, s))
 
-# TODO: There was no __init__ function...
-#@ performs: foreach({a: address}, create[creator(UNI)](1, to=a))
-@public
-def __init__():
-    pass
-    #@ foreach({a: address}, create[creator(UNI)](1, to=a))
 
 # @dev This function acts as a contract constructor which is not currently supported in contracts deployed
 #      using create_with_code_of(). It is called once by the factory during contract creation.
@@ -78,10 +73,9 @@ def setup(token_addr: address):
 # @param max_tokens Maximum number of tokens deposited. Deposits max amount if total UNI supply is 0.
 # @param deadline Time after which this transaction can no longer be executed.
 # @return The amount of UNI minted.
-# FIXME: ?token_amount? == msg.value * balanceOf(self.token, self) / self.balance + 1
-#@ performs: reallocate[token[self.token]](max_tokens if self.totalSupply == 0 else ?token_amount?, to=self)
+#@ performs: allocate_untracked[UNI](msg.sender)
 # FIXME: ?liquidity_minted? == msg.value * self.totalSupply / self.balance
-#@ performs: create[UNI](self.balance + msg.value if self.totalSupply == 0 else ?liquidity_minted?)
+#@ performs: payable[UNI](msg.value if self.totalSupply == 0 else ?liquidity_minted?)
 @public
 @payable
 def addLiquidity(min_liquidity: uint256, max_tokens: uint256, deadline: timestamp) -> uint256:
@@ -96,7 +90,6 @@ def addLiquidity(min_liquidity: uint256, max_tokens: uint256, deadline: timestam
         liquidity_minted: uint256 = msg.value * total_liquidity / eth_reserve
         assert max_tokens >= token_amount and liquidity_minted >= min_liquidity
         self.balances[msg.sender] += liquidity_minted
-        #@ create[UNI](liquidity_minted)
         self.totalSupply = total_liquidity + liquidity_minted
         assert_modifiable(self.token.transferFrom(msg.sender, self, token_amount))
         log.AddLiquidity(msg.sender, msg.value, token_amount)
@@ -109,7 +102,6 @@ def addLiquidity(min_liquidity: uint256, max_tokens: uint256, deadline: timestam
         initial_liquidity: uint256 = as_unitless_number(self.balance)
         self.totalSupply = initial_liquidity
         self.balances[msg.sender] = initial_liquidity
-        #@ create[UNI](liquidity_minted)
         assert_modifiable(self.token.transferFrom(msg.sender, self, token_amount))
         log.AddLiquidity(msg.sender, msg.value, token_amount)
         log.Transfer(ZERO_ADDRESS, msg.sender, initial_liquidity)
@@ -121,12 +113,7 @@ def addLiquidity(min_liquidity: uint256, max_tokens: uint256, deadline: timestam
 # @param min_tokens Minimum Tokens withdrawn.
 # @param deadline Time after which this transaction can no longer be executed.
 # @return The amount of ETH and Tokens withdrawn.
-# FIXME: ?eth_amount? == amount * self.balance / self.totalSupply
-#@ performs: reallocate[WEI](?eth_amount?, to=msg.sender, acting_for=self)
-# TODO: The following acting_for feels weird... (should be "from")
-# FIXME: ?token_amount? == amount * balanceOf(self.token, self) / self.totalSupply
-#@ performs: reallocate[token[self.token]](?token_amount?, to=msg.sender, acting_for=self)
-#@ performs: destroy[UNI](amount)
+#@ performs: payout[UNI](amount)
 @public
 def removeLiquidity(amount: uint256, min_eth: uint256(wei), min_tokens: uint256, deadline: timestamp) -> EtherTokenPair:
     assert (amount > 0 and deadline > block.timestamp) and (min_eth > 0 and min_tokens > 0)
@@ -137,7 +124,6 @@ def removeLiquidity(amount: uint256, min_eth: uint256(wei), min_tokens: uint256,
     token_amount: uint256 = amount * token_reserve / total_liquidity
     assert eth_amount >= min_eth and token_amount >= min_tokens
     self.balances[msg.sender] -= amount
-    #@ destroy[UNI](amount)
     self.totalSupply = total_liquidity - amount
     send(msg.sender, eth_amount)
     assert_modifiable(self.token.transfer(msg.sender, token_amount))
