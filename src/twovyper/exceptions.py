@@ -86,3 +86,15 @@ class ConsistencyException(TwoVyperException):
         super().__init__(message)
         self.program = program
         self.errors = errors
+
+
+class UnsupportedVersionException(TwoVyperException):
+    """
+    Exception that is thrown when a unsupported Vyper version is used by a contract.
+    """
+
+    def __init__(self, message: str = None):
+        if message is None:
+            from twovyper.vyper import get_vyper_version
+            message = f"The Vyper version ({get_vyper_version()}) used by the contract is not supported."
+        super().__init__(message)

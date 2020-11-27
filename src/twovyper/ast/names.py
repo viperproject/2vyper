@@ -5,23 +5,22 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from semantic_version import Version
 
-from twovyper import vyper
+from twovyper.vyper import select_version
 
 # Constants for names in the original AST
 
 # Decorators
-PUBLIC = 'public'
-PRIVATE = 'private'
+PUBLIC = select_version({'^0.2.0': 'external', '>0.1.0-beta.16': 'public'})
+PRIVATE = select_version({'^0.2.0': 'internal', '>0.1.0-beta.16': 'private'})
 PAYABLE = 'payable'
-CONSTANT = 'constant'
+CONSTANT = select_version({'^0.2.0': 'view', '>0.1.0-beta.16': 'constant'})
 NONREENTRANT = 'nonreentrant'
 PURE = 'pure'
 INTERPRETED_DECORATOR = 'interpreted'
 
 # Modifiers
-assert CONSTANT == 'constant'  # CONSTANT = 'constant'
+assert CONSTANT == select_version({'^0.2.0': 'view', '>0.1.0-beta.16': 'constant'})
 MODIFYING = 'modifying'
 
 # Types
@@ -33,10 +32,11 @@ WEI_VALUE = 'wei_value'
 TIMESTAMP = 'timestamp'
 TIMEDELTA = 'timedelta'
 ADDRESS = 'address'
-BYTE = 'bytes'
+BYTE = select_version({'^0.2.0': 'Bytes', '>0.1.0-beta.16': 'bytes'})
 BYTES32 = 'bytes32'
-STRING = 'string'
-MAP = 'map'
+STRING = select_version({'^0.2.0': 'String', '>0.1.0-beta.16': 'string'})
+# TODO: Mapping declaration syntax changed from v: map(key_t, val_t) to v: HashMap[key_t, val_t]
+MAP = select_version({'^0.2.0': 'HashMap', '>0.1.0-beta.16': 'map'})
 EVENT = 'event'
 
 # Functions
@@ -123,7 +123,7 @@ AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 CONVERT = 'convert'
 EXTRACT32 = 'extract32'
-EXTRACT32_TYPE = 'type'
+EXTRACT32_TYPE = select_version({'^0.2.0': 'output_type', '>0.1.0-beta.16': 'type'})
 
 RANGE = 'range'
 LEN = 'len'
@@ -137,17 +137,25 @@ ECMUL = 'ecmul'
 
 BLOCKHASH = 'blockhash'
 METHOD_ID = 'method_id'
+METHOD_ID_OUTPUT_TYPE = select_version({'^0.2.0': 'output_type'}, default="")  # TODO: check if its a kwarg
+EMPTY = select_version({'^0.2.0': 'empty'}, default="")  # TODO: empty(typename) → Any
+# TODO: raise without reasons
+# TODO: Event declaration syntax now resembles that of struct declarations
+# TODO: log is now a statement "log MyEvent(msg.sender, msg.value)"
+# TODO: Various type changes
+# TODO: Interfaces are now declared via the interface keyword instead of contract
 
-ASSERT_MODIFIABLE = 'assert_modifiable'
+ASSERT_MODIFIABLE = select_version({'>0.1.0-beta.16': 'assert_modifiable'}, default="")
 CLEAR = 'clear'
 SELFDESTRUCT = 'selfdestruct'
 SEND = 'send'
 
 RAW_CALL = 'raw_call'
-RAW_CALL_OUTSIZE = 'outsize'
+RAW_CALL_OUTSIZE = select_version({'^0.2.0': 'max_outsize', '>0.1.0-beta.16': 'outsize'})
 RAW_CALL_VALUE = 'value'
 RAW_CALL_GAS = 'gas'
 RAW_CALL_DELEGATE_CALL = 'delegate_call'
+RAW_CALL_IS_STATIC_CALL = select_version({'^0.2.0': 'is_static_call'}, default="")
 
 RAW_LOG = 'raw_log'
 
@@ -255,27 +263,6 @@ TRUST_ACTING_FOR = 'acting_for'
 ALLOCATE_UNTRACKED_WEI = 'allocate_untracked_wei'
 
 CREATOR = 'creator'
-
-if vyper.get_vyper_version() >= Version("0.2.0"):
-    PUBLIC = 'external'
-    PRIVATE = 'internal'
-    CONSTANT = 'view'
-    BYTE = 'Bytes'
-    STRING = 'String'
-    ASSERT_MODIFIABLE = None
-    RAW_CALL_OUTSIZE = 'max_outsize'
-    EXTRACT32_TYPE = 'output_type'
-
-    RAW_CALL_IS_STATIC_CALL = 'is_static_call'  # TODO: new kwarg
-    METHOD_ID_OUTPUT_TYPE = 'output_type'  # TODO: check if its a kwarg
-    # TODO: raise without reasons
-    PURE_FUNCTION = 'pure'  # TODO: New decorator clashes with existing...
-    EMPTY = 'empty'  # TODO: empty(typename) → Any
-    # TODO: Event declaration syntax now resembles that of struct declarations
-    # TODO: log is now a statement "log MyEvent(msg.sender, msg.value)"
-    MAP = 'HashMap'  # TODO: Mapping declaration syntax changed from v: map(key_t, val_t) to v: HashMap[key_t, val_t]
-    # TODO: Interfaces are now declared via the interface keyword instead of contract
-    # TODO: Various type changes
 
 GHOST_STATEMENTS = [REALLOCATE, FOREACH, OFFER, REVOKE, EXCHANGE, CREATE, DESTROY, TRUST, ALLOCATE_UNTRACKED_WEI]
 QUANTIFIED_GHOST_STATEMENTS = [OFFER, REVOKE, CREATE, DESTROY, TRUST]

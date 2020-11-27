@@ -9,14 +9,14 @@ import logging
 import os
 import re
 from subprocess import Popen, PIPE
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 import vvm
 import vyper
 from semantic_version import NpmSpec, Version
 from vvm.utils.convert import to_vyper_version
 
-from twovyper.exceptions import InvalidVyperException
+from twovyper.exceptions import InvalidVyperException, UnsupportedVersionException
 
 try:
     # noinspection PyUnresolvedReferences,PyUnboundLocalVariable
@@ -52,6 +52,17 @@ def get_vyper_version() -> Version:
     return _current_vyper_version
 
 
+def _parse_version_string(version_str: str) -> NpmSpec:
+    try:
+        return NpmSpec(version_str)
+    except ValueError:
+        try:
+            version = to_vyper_version(version_str)
+            return NpmSpec(str(version))
+        except Exception:
+            raise InvalidVyperException(f"Cannot parse Vyper version from pragma: {version_str}")
+
+
 def _get_vyper_pragma_spec(path: str) -> NpmSpec:
     pragma_string = None
     with open(path, 'r') as file:
@@ -70,14 +81,7 @@ def _get_vyper_pragma_spec(path: str) -> NpmSpec:
         pragma_string = vyper.__version__
         logging.warning(f'No version pragma found. (Using vyper version "{pragma_string}" instead.)')
 
-    try:
-        return NpmSpec(pragma_string)
-    except ValueError:
-        try:
-            version = to_vyper_version(pragma_string)
-            return NpmSpec(str(version))
-        except Exception:
-            raise InvalidVyperException(f"Cannot parse Vyper version from pragma: {pragma_string}")
+    return _parse_version_string(pragma_string)
 
 
 def _find_vyper_version(file: str) -> str:
@@ -130,3 +134,15 @@ def check(file: str, root=None):
 def set_vyper_version(file: str):
     global _current_vyper_version
     _current_vyper_version = _find_vyper_version(file)
+
+
+def select_version(value_dict: Dict[str, object], default: object = None) -> object:
+    vyper_version = get_vyper_version()
+    for version_str, value in value_dict.items():
+        specs = _parse_version_string(version_str)
+        if specs.match(vyper_version):
+            return value
+    else:
+        if default is None:
+            raise UnsupportedVersionException()
+        return default
