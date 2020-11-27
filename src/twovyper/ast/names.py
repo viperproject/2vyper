@@ -37,7 +37,6 @@ ADDRESS = 'address'
 BYTE = select_version({'^0.2.0': 'Bytes', '>0.1.0-beta.16': 'bytes'})
 BYTES32 = 'bytes32'
 STRING = select_version({'^0.2.0': 'String', '>0.1.0-beta.16': 'string'})
-# TODO: Mapping declaration syntax changed from v: map(key_t, val_t) to v: HashMap[key_t, val_t]
 MAP = select_version({'^0.2.0': 'HashMap', '>0.1.0-beta.16': 'map'})
 EVENT = 'event'
 

@@ -15,7 +15,7 @@ from lark.indenter import Indenter
 from lark.tree import Meta
 from lark.visitors import Transformer, v_args
 
-from twovyper.ast import ast_nodes as ast
+from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.visitors import NodeVisitor
 
@@ -105,6 +105,11 @@ class _PythonTransformer(Transformer):
         name = str(children[0])
         body = children[1]
         return ast.EventDef(name, body)
+
+    @copy_pos
+    def mapdef(self, children, meta):
+        assert len(children) == 1
+        return ast.FunctionCall(names.MAP, children[0], [])
 
     @copy_pos
     def funcdef(self, children, meta):
