@@ -613,12 +613,16 @@ class ExpressionTranslator(NodeTranslator):
             _ = self.translate(node.args[1], res, ctx)
 
             amount = self.viper_ast.IntLit(0, pos)
+            is_static = False
             for kw in node.keywords:
                 arg = self.translate(kw.value, res, ctx)
                 if kw.name == names.RAW_CALL_VALUE:
                     amount = arg
+                elif kw.name == names.RAW_CALL_IS_STATIC_CALL:
+                    assert isinstance(kw.value, ast.Bool)
+                    is_static = kw.value.value
 
-            _, call = self._translate_external_call(node, to, amount, False, res, ctx)
+            _, call = self._translate_external_call(node, to, amount, is_static, res, ctx)
             return call
         elif name == names.RAW_LOG:
             _ = self.translate(node.args[0], res, ctx)

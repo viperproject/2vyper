@@ -140,7 +140,6 @@ BLOCKHASH = 'blockhash'
 METHOD_ID = 'method_id'
 METHOD_ID_OUTPUT_TYPE = select_version({'^0.2.0': 'output_type'}, default="")
 EMPTY = select_version({'^0.2.0': 'empty'}, default="")
-# TODO: Various type changes
 
 ASSERT_MODIFIABLE = select_version({'>=0.1.0-beta.16 <0.1.0': 'assert_modifiable'}, default="")
 CLEAR = 'clear'
@@ -152,7 +151,7 @@ RAW_CALL_OUTSIZE = select_version({'^0.2.0': 'max_outsize', '>=0.1.0-beta.16 <0.
 RAW_CALL_VALUE = 'value'
 RAW_CALL_GAS = 'gas'
 RAW_CALL_DELEGATE_CALL = 'delegate_call'
-RAW_CALL_IS_STATIC_CALL = select_version({'^0.2.0': 'is_static_call'}, default="")  # TODO: add support
+RAW_CALL_IS_STATIC_CALL = select_version({'^0.2.0': 'is_static_call'}, default="")
 
 RAW_LOG = 'raw_log'
 
