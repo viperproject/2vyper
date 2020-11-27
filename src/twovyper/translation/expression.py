@@ -711,7 +711,8 @@ class ExpressionTranslator(NodeTranslator):
 
             if isinstance(rec_type, ContractType):
                 const = rec_type.function_modifiers[node.name] == names.CONSTANT
-                _, call_result = self._translate_external_call(node, to, amount, const, res, ctx)
+                pure = rec_type.function_modifiers[node.name] == names.PURE
+                _, call_result = self._translate_external_call(node, to, amount, const or pure, res, ctx)
             else:
                 interface = ctx.program.interfaces[rec_type.name]
                 function = interface.functions[name]

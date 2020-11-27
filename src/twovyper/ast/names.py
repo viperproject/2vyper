@@ -21,7 +21,9 @@ INTERPRETED_DECORATOR = 'interpreted'
 
 # Modifiers
 assert CONSTANT == select_version({'^0.2.0': 'view', '>0.1.0-beta.16': 'constant'})
-MODIFYING = 'modifying'
+assert PURE == 'pure'
+MODIFYING = select_version({'^0.2.0': 'payable', '>0.1.0-beta.16': 'modifying'})
+NONPAYABLE = select_version({'^0.2.0': 'nonpayable'}, default="")
 
 # Types
 BOOL = 'bool'
@@ -141,7 +143,6 @@ METHOD_ID_OUTPUT_TYPE = select_version({'^0.2.0': 'output_type'}, default="")  #
 EMPTY = select_version({'^0.2.0': 'empty'}, default="")  # TODO: empty(typename) → Any
 # TODO: raise without reasons
 # TODO: Various type changes
-# TODO: Interfaces are now declared via the interface keyword instead of contract
 
 ASSERT_MODIFIABLE = select_version({'>0.1.0-beta.16': 'assert_modifiable'}, default="")
 CLEAR = 'clear'

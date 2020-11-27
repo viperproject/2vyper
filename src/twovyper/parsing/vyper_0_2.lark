@@ -23,7 +23,7 @@
 
 file_input: (_NEWLINE | stmt)*
 
-contractdef: "contract" NAME ":" suite
+contractdef: "interface" NAME ":" suite
 structdef: "struct" NAME ":" suite
 eventdef: "event" NAME ":" suite
 funcdef: decorators "def" NAME "(" parameter_list ")" [return_type] [":" suite]
