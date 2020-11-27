@@ -33,7 +33,7 @@ class PythonIndenter(Indenter):
 
 
 _kwargs = dict(postlex=PythonIndenter(), parser='lalr', propagate_positions=True, maybe_placeholders=False)
-_lark_file = select_version({'^0.2.0': 'vyper_0_2.lark', '>0.1.0-beta.16': 'vyper_0_1.lark'})
+_lark_file = select_version({'^0.2.0': 'vyper_0_2.lark', '>=0.1.0-beta.16 <0.1.0': 'vyper_0_1.lark'})
 _vyper_module_parser = Lark.open(_lark_file, rel_to=__file__, start='file_input', **_kwargs)
 _vyper_expr_parser = Lark.open(_lark_file, rel_to=__file__, start='test', **_kwargs)
 

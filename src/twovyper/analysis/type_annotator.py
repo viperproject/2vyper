@@ -20,6 +20,7 @@ from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction, Vyper
 from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
+from twovyper.vyper import select_version, is_compatible_version
 
 
 def _check(condition: bool, node: ast.Node, reason_code: str, msg: Optional[str] = None):
@@ -598,13 +599,26 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 return [types.VYPER_BYTES32], [node]
             elif case(names.METHOD_ID):
-                _check_number_of_arguments(node, 2)
+                if is_compatible_version('>=0.1.0-beta.16 <0.1.0'):
+                    _check_number_of_arguments(node, 2)
 
-                self.annotate_expected(node.args[0], lambda t: isinstance(t, StringType))
-                ntype = self.type_builder.build(node.args[1])
+                    self.annotate_expected(node.args[0], lambda t: isinstance(t, StringType))
+                    ntype = self.type_builder.build(node.args[1])
+                    return [ntype], [node]
+                elif is_compatible_version('^0.2.0'):
+                    _check_number_of_arguments(node, 1, allowed_keywords=[names.METHOD_ID_OUTPUT_TYPE])
+
+                    self.annotate_expected(node.args[0], lambda t: isinstance(t, StringType))
+                    ntype = types.ArrayType(types.VYPER_BYTE, 4)
+                    for keyword in node.keywords:
+                        if keyword.name == names.METHOD_ID_OUTPUT_TYPE:
+                            ntype = self.type_builder.build(keyword.value)
+                else:
+                    assert False
                 is_bytes32 = ntype == types.VYPER_BYTES32
-                is_bytes4 = isinstance(ntype, ArrayType) and ntype.element_type == types.VYPER_BYTE and ntype.size == 4
-                _check(is_bytes32 or is_bytes4, node.args[1], 'invalid.method_id')
+                is_bytes4 = (isinstance(ntype, ArrayType) and ntype.element_type == types.VYPER_BYTE
+                             and ntype.size == 4)
+                _check(is_bytes32 or is_bytes4, node, 'invalid.method_id')
                 return [ntype], [node]
             elif case(names.ECRECOVER):
                 _check_number_of_arguments(node, 4)

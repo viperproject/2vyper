@@ -9,7 +9,7 @@ import logging
 import os
 import re
 from subprocess import Popen, PIPE
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, TypeVar
 
 import vvm
 import vyper
@@ -136,7 +136,10 @@ def set_vyper_version(file: str):
     _current_vyper_version = _find_vyper_version(file)
 
 
-def select_version(value_dict: Dict[str, object], default: object = None) -> object:
+T = TypeVar('T')
+
+
+def select_version(value_dict: Dict[str, T], default: T = None) -> T:
     vyper_version = get_vyper_version()
     for version_str, value in value_dict.items():
         specs = _parse_version_string(version_str)
@@ -146,3 +149,9 @@ def select_version(value_dict: Dict[str, object], default: object = None) -> obj
         if default is None:
             raise UnsupportedVersionException()
         return default
+
+
+def is_compatible_version(version: str) -> bool:
+    vyper_version = get_vyper_version()
+    specs = _parse_version_string(version)
+    return specs.match(vyper_version)

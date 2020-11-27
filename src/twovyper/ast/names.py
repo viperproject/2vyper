@@ -11,18 +11,18 @@ from twovyper.vyper import select_version
 # Constants for names in the original AST
 
 # Decorators
-PUBLIC = select_version({'^0.2.0': 'external', '>0.1.0-beta.16': 'public'})
-PRIVATE = select_version({'^0.2.0': 'internal', '>0.1.0-beta.16': 'private'})
+PUBLIC = select_version({'^0.2.0': 'external', '>=0.1.0-beta.16 <0.1.0': 'public'})
+PRIVATE = select_version({'^0.2.0': 'internal', '>=0.1.0-beta.16 <0.1.0': 'private'})
 PAYABLE = 'payable'
-CONSTANT = select_version({'^0.2.0': 'view', '>0.1.0-beta.16': 'constant'})
+CONSTANT = select_version({'^0.2.0': 'view', '>=0.1.0-beta.16 <0.1.0': 'constant'})
 NONREENTRANT = 'nonreentrant'
 PURE = 'pure'
 INTERPRETED_DECORATOR = 'interpreted'
 
 # Modifiers
-assert CONSTANT == select_version({'^0.2.0': 'view', '>0.1.0-beta.16': 'constant'})
+assert CONSTANT == select_version({'^0.2.0': 'view', '>=0.1.0-beta.16 <0.1.0': 'constant'})
 assert PURE == 'pure'
-MODIFYING = select_version({'^0.2.0': 'payable', '>0.1.0-beta.16': 'modifying'})
+MODIFYING = select_version({'^0.2.0': 'payable', '>=0.1.0-beta.16 <0.1.0': 'modifying'})
 NONPAYABLE = select_version({'^0.2.0': 'nonpayable'}, default="")
 
 # Types
@@ -34,10 +34,10 @@ WEI_VALUE = 'wei_value'
 TIMESTAMP = 'timestamp'
 TIMEDELTA = 'timedelta'
 ADDRESS = 'address'
-BYTE = select_version({'^0.2.0': 'Bytes', '>0.1.0-beta.16': 'bytes'})
+BYTE = select_version({'^0.2.0': 'Bytes', '>=0.1.0-beta.16 <0.1.0': 'bytes'})
 BYTES32 = 'bytes32'
-STRING = select_version({'^0.2.0': 'String', '>0.1.0-beta.16': 'string'})
-MAP = select_version({'^0.2.0': 'HashMap', '>0.1.0-beta.16': 'map'})
+STRING = select_version({'^0.2.0': 'String', '>=0.1.0-beta.16 <0.1.0': 'string'})
+MAP = select_version({'^0.2.0': 'HashMap', '>=0.1.0-beta.16 <0.1.0': 'map'})
 EVENT = 'event'
 
 # Functions
@@ -124,7 +124,7 @@ AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 CONVERT = 'convert'
 EXTRACT32 = 'extract32'
-EXTRACT32_TYPE = select_version({'^0.2.0': 'output_type', '>0.1.0-beta.16': 'type'})
+EXTRACT32_TYPE = select_version({'^0.2.0': 'output_type', '>=0.1.0-beta.16 <0.1.0': 'type'})
 
 RANGE = 'range'
 LEN = 'len'
@@ -138,21 +138,21 @@ ECMUL = 'ecmul'
 
 BLOCKHASH = 'blockhash'
 METHOD_ID = 'method_id'
-METHOD_ID_OUTPUT_TYPE = select_version({'^0.2.0': 'output_type'}, default="")  # TODO: check if its a kwarg
+METHOD_ID_OUTPUT_TYPE = select_version({'^0.2.0': 'output_type'}, default="")
 EMPTY = select_version({'^0.2.0': 'empty'}, default="")
 # TODO: Various type changes
 
-ASSERT_MODIFIABLE = select_version({'>0.1.0-beta.16': 'assert_modifiable'}, default="")
+ASSERT_MODIFIABLE = select_version({'>=0.1.0-beta.16 <0.1.0': 'assert_modifiable'}, default="")
 CLEAR = 'clear'
 SELFDESTRUCT = 'selfdestruct'
 SEND = 'send'
 
 RAW_CALL = 'raw_call'
-RAW_CALL_OUTSIZE = select_version({'^0.2.0': 'max_outsize', '>0.1.0-beta.16': 'outsize'})
+RAW_CALL_OUTSIZE = select_version({'^0.2.0': 'max_outsize', '>=0.1.0-beta.16 <0.1.0': 'outsize'})
 RAW_CALL_VALUE = 'value'
 RAW_CALL_GAS = 'gas'
 RAW_CALL_DELEGATE_CALL = 'delegate_call'
-RAW_CALL_IS_STATIC_CALL = select_version({'^0.2.0': 'is_static_call'}, default="")
+RAW_CALL_IS_STATIC_CALL = select_version({'^0.2.0': 'is_static_call'}, default="")  # TODO: add support
 
 RAW_LOG = 'raw_log'
 
