@@ -620,6 +620,10 @@ class TypeAnnotator(NodeVisitor):
                 arg_type = int_pair if case(names.ECADD) else types.VYPER_UINT256
                 self.annotate_expected(node.args[1], arg_type)
                 return [int_pair], [node]
+            elif case(names.EMPTY):
+                _check_number_of_arguments(node, 1)
+                ntype = self.type_builder.build(node.args[0])
+                return [ntype], [node]
             elif case(names.IMPLIES):
                 _check_number_of_arguments(node, 2)
 

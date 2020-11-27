@@ -437,6 +437,8 @@ class ExpressionTranslator(NodeTranslator):
                 else:
                     assert False
             return i
+        elif name == names.EMPTY:
+            return self.type_translator.default_value(node, node.type, res, ctx)
         elif name == names.CONVERT:
             from_type = node.args[0].type
             to_type = node.type

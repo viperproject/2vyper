@@ -4,7 +4,7 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
-
+from functools import reduce
 from typing import Optional, List
 
 from twovyper.ast import ast_nodes as ast, names, types
@@ -82,10 +82,20 @@ class TypeTranslator(CommonTranslator):
             value_default = self.default_value(node, type.value_type, res, ctx)
             return helpers.map_init(self.viper_ast, value_default, key_type, value_type, pos)
         elif isinstance(type, ArrayType):
-            element_type = self.translate(type.element_type, ctx)
+            sizes = [type.size]
+            curr_type = type
+            while isinstance(curr_type.element_type, ArrayType):
+                # noinspection PyUnresolvedReferences
+                sizes.append(curr_type.element_type.size)
+                curr_type = curr_type.element_type
+            element_type = self.translate(curr_type.element_type, ctx)
             if type.is_strict:
-                element_default = self.default_value(node, type.element_type, res, ctx)
-                return helpers.array_init(self.viper_ast, element_default, type.size, element_type, pos)
+                result = self.default_value(node, curr_type.element_type, res, ctx)
+                result_type = element_type
+                for size in sizes:
+                    result = helpers.array_init(self.viper_ast, result, size, result_type, pos)
+                    result_type = helpers.array_type(self.viper_ast, result_type)
+                return result
             else:
                 return helpers.empty_array(self.viper_ast, element_type, pos)
         elif isinstance(type, StructType):
