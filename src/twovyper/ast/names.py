@@ -141,7 +141,6 @@ BLOCKHASH = 'blockhash'
 METHOD_ID = 'method_id'
 METHOD_ID_OUTPUT_TYPE = select_version({'^0.2.0': 'output_type'}, default="")  # TODO: check if its a kwarg
 EMPTY = select_version({'^0.2.0': 'empty'}, default="")  # TODO: empty(typename) → Any
-# TODO: raise without reasons
 # TODO: Various type changes
 
 ASSERT_MODIFIABLE = select_version({'>0.1.0-beta.16': 'assert_modifiable'}, default="")

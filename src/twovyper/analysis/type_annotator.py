@@ -338,8 +338,9 @@ class TypeAnnotator(NodeVisitor):
             self.visit(stmt)
 
     def visit_Raise(self, node: ast.Raise):
-        if not (isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE):
-            self.annotate(node.msg)
+        if node.msg:
+            if not (isinstance(node.msg, ast.Name) and node.msg.id == names.UNREACHABLE):
+                self.annotate(node.msg)
 
     def visit_Assert(self, node: ast.Assert):
         self.annotate_expected(node.test, types.VYPER_BOOL)
