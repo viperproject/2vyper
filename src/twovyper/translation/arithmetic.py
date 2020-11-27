@@ -18,6 +18,7 @@ from twovyper.utils import switch
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt
+from twovyper.vyper import is_compatible_version
 
 
 class ArithmeticTranslator(CommonTranslator):
@@ -150,7 +151,11 @@ class ArithmeticTranslator(CommonTranslator):
 
         if types.is_bounded(otype):
             assert isinstance(otype, BoundedType)
-            self.check_under_overflow(expr, otype, res, ctx, pos)
+            if is_compatible_version('<=0.1.0-beta.17') and op == ast_op.POW:
+                # In certain versions of Vyper there was no overflow check for POW.
+                self.check_underflow(expr, otype, res, ctx, pos)
+            else:
+                self.check_under_overflow(expr, otype, res, ctx, pos)
 
         return expr
 
