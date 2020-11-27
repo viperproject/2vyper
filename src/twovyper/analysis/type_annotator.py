@@ -20,7 +20,7 @@ from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction, Vyper
 from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
-from twovyper.vyper import select_version, is_compatible_version
+from twovyper.vyper import is_compatible_version, select_version
 
 
 def _check(condition: bool, node: ast.Node, reason_code: str, msg: Optional[str] = None):
@@ -506,7 +506,9 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.LEN):
                 _check_number_of_arguments(node, 1)
                 self.annotate_expected(node.args[0], lambda t: isinstance(t, types.ArrayType))
-                return [types.VYPER_INT128], [node]
+                return_type = select_version({'^0.2.0': types.VYPER_UINT256,
+                                              '>=0.1.0-beta.16 <0.1.0': types.VYPER_INT128})
+                return [return_type], [node]
             elif case(names.STORAGE):
                 _check_number_of_arguments(node, 1)
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
@@ -604,7 +606,6 @@ class TypeAnnotator(NodeVisitor):
 
                     self.annotate_expected(node.args[0], lambda t: isinstance(t, StringType))
                     ntype = self.type_builder.build(node.args[1])
-                    return [ntype], [node]
                 elif is_compatible_version('^0.2.0'):
                     _check_number_of_arguments(node, 1, allowed_keywords=[names.METHOD_ID_OUTPUT_TYPE])
 
