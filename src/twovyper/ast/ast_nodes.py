@@ -337,6 +337,19 @@ class ContractDef(Node):
         self.body = body
 
 
+class EventDef(Node):
+    """
+    Struct like event declaration
+    """
+
+    _children = ['body']
+
+    def __init__(self, name: str, body: ListT[Stmt]):
+        super().__init__()
+        self.name = name
+        self.body = body
+
+
 class Arg(Node, AllowedInGhostCode):
 
     _children = ['annotation', 'default']
@@ -445,6 +458,15 @@ class If(Stmt, AllowedInGhostCode):
         self.test = test
         self.body = body
         self.orelse = orelse
+
+
+class Log(Stmt, AllowedInGhostCode):
+
+    _children = ['body']
+
+    def __init__(self, body: Expr):
+        super().__init__()
+        self.body = body
 
 
 class Ghost(Stmt, AllowedInGhostCode):

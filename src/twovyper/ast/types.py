@@ -307,6 +307,10 @@ class TypeBuilder(NodeVisitor):
         members = {n.target.id: self.visit(n.annotation) for n in node.body}
         return StructType(node.name, members)
 
+    def _visit_EventDef(self, node: ast.EventDef) -> VyperType:
+        arg_types = [self.visit(n.annotation) for n in node.body]
+        return EventType(arg_types)
+
     def _visit_FunctionStub(self, node: ast.FunctionStub) -> VyperType:
         members = {n.name: self.visit(n.annotation) for n in node.args}
         contract_name = os.path.split(os.path.abspath(node.file))[1].split('.')[0]

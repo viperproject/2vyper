@@ -140,8 +140,6 @@ METHOD_ID = 'method_id'
 METHOD_ID_OUTPUT_TYPE = select_version({'^0.2.0': 'output_type'}, default="")  # TODO: check if its a kwarg
 EMPTY = select_version({'^0.2.0': 'empty'}, default="")  # TODO: empty(typename) → Any
 # TODO: raise without reasons
-# TODO: Event declaration syntax now resembles that of struct declarations
-# TODO: log is now a statement "log MyEvent(msg.sender, msg.value)"
 # TODO: Various type changes
 # TODO: Interfaces are now declared via the interface keyword instead of contract
 

@@ -687,8 +687,14 @@ class _FunctionPureChecker(NodeVisitor):
         self._ghost_allowed = ghost_allowed
 
     def check_function(self, function: VyperFunction, program: VyperProgram):
+
         # A function must be constant, private and non-payable to be valid
-        if not (function.is_constant() and function.is_private() and (not function.is_payable())):
+        ghost_pure_cond = not (function.is_constant() and function.is_private() and (not function.is_payable()))
+        pure_decorators = [decorator for decorator in function.decorators if decorator.name == names.PURE]
+        if len(pure_decorators) > 1:
+            _assert(False, pure_decorators[0], 'invalid.pure',
+                    'A pure function can only have exactly one pure decorator')
+        elif pure_decorators[0].is_ghost_code and ghost_pure_cond:
             _assert(False, function.node, 'invalid.pure', 'A pure function must be constant, private and non-payable')
         else:
             self.max_allowed_function_index = function.index - 1
@@ -789,3 +795,6 @@ class _FunctionPureChecker(NodeVisitor):
             else:
                 _assert(False, node, 'invalid.pure',
                         'Pure function must not call functions of another contract.')
+
+    def visit_Log(self, node: ast.Log, program: VyperProgram):
+        raise UnsupportedException(node, 'Pure functions that log events are not supported.')

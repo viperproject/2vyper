@@ -109,6 +109,14 @@ class StatementTranslator(NodeTranslator):
 
         self.assignment_translator.assign_to(node.target, value, res, ctx)
 
+    def translate_Log(self, node: ast.Log, res: List[Stmt], ctx: Context):
+        pos = self.to_position(node, ctx)
+        event_function = node.body
+        assert isinstance(event_function, ast.FunctionCall)
+        event = ctx.program.events[event_function.name]
+        args = [self.expression_translator.translate(arg, res, ctx) for arg in event_function.args]
+        self.expression_translator.log_event(event, args, res, ctx, pos)
+
     def translate_ExprStmt(self, node: ast.ExprStmt, res: List[Stmt], ctx: Context):
         # Check if we are translating a call to clear
         # We handle clear in the StatementTranslator because it is essentially an assignment

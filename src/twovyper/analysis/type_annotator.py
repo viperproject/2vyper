@@ -347,6 +347,14 @@ class TypeAnnotator(NodeVisitor):
     def visit_ExprStmt(self, node: ast.ExprStmt):
         self.annotate(node.value)
 
+    def visit_Log(self, node: ast.Log):
+        _check(isinstance(node.body, ast.FunctionCall), node, 'invalid.log')
+        assert isinstance(node.body, ast.FunctionCall)
+        for arg in node.body.args:
+            self.annotate(arg)
+        for kw in node.body.keywords:
+            self.annotate(kw.value)
+
     def visit_Pass(self, node: ast.Pass):
         pass
 

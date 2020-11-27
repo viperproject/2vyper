@@ -647,7 +647,7 @@ class ExpressionTranslator(NodeTranslator):
                     args.append(arg.localVar())
 
                 log_event = []
-                self._log_event(event, args, log_event, ctx, pos)
+                self.log_event(event, args, log_event, ctx, pos)
                 res.append(self.viper_ast.If(condition, log_event, [], pos))
 
             return None
@@ -734,7 +734,7 @@ class ExpressionTranslator(NodeTranslator):
             assert isinstance(node.receiver, ast.Name)
             if node.receiver.id == names.LOG:
                 event = ctx.program.events[name]
-                self._log_event(event, args, res, ctx, pos)
+                self.log_event(event, args, res, ctx, pos)
                 return None
             elif node.receiver.id == names.LEMMA:
                 lemma = ctx.program.lemmas[node.name]
@@ -839,7 +839,7 @@ class ExpressionTranslator(NodeTranslator):
                 implements = helpers.implements(self.viper_ast, interface_ref, interface_name, ctx)
                 res.append(self.viper_ast.If(implements, body, []))
 
-    def _log_event(self, event: VyperEvent, args: List[Expr], res: List[Stmt], ctx: Context, pos=None):
+    def log_event(self, event: VyperEvent, args: List[Expr], res: List[Stmt], ctx: Context, pos=None):
         assert ctx
         event_name = mangled.event_name(event.name)
         pred_acc = self.viper_ast.PredicateAccess(args, event_name, pos)

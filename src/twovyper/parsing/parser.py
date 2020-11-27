@@ -276,6 +276,12 @@ class ProgramBuilder(NodeVisitor):
         struct = VyperStruct(node.name, vyper_type, node)
         self.structs[struct.name] = struct
 
+    def visit_EventDef(self, node: ast.EventDef):
+        vyper_type = self.type_builder.build(node)
+        assert isinstance(vyper_type, EventType)
+        event = VyperEvent(node.name, vyper_type)
+        self.events[node.name] = event
+
     def visit_FunctionStub(self, node: ast.FunctionStub):
         # A function stub on the top-level is a resource declaration
         self._check_no_local_spec()

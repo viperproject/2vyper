@@ -68,6 +68,9 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         expr = self.viper_ast.Implies(ctx.pure_conds, assign, pos) if ctx.pure_conds else assign
         res.append(expr)
 
+    def translate_Log(self, node: ast.Log, res: List[Expr], ctx: Context):
+        assert False
+
     def translate_Raise(self, node: ast.Raise, res: List[Expr], ctx: Context):
         pos = self.to_position(node, ctx)
         self.fail_if(self.viper_ast.TrueLit(pos), [], res, ctx, pos)
