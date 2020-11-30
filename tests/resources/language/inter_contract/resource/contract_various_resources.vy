@@ -1,5 +1,5 @@
 #:: IgnoreFile(0)
-# Does not terminate with Silicon
+# Takes about 5 min. with Silicon
 
 #
 # Copyright (c) 2020 ETH Zurich
