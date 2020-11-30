@@ -18,4 +18,4 @@ semantic-version=2.8.5
 vvm==0.1.0
 vyper==0.1.0b16
 wcwidth==0.1.7
-z3-solver==4.8.5.0
+z3-solver==4.8.6.0
