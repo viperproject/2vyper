@@ -46,7 +46,7 @@ factory: Factory                                  # interface for the factory th
 
 #@ meta resource: UNI() -> [(self.balance / self.totalSupply if self.totalSupply > 0 else 1) * WEI,
                          #@ (balanceOf(self.token, self) / self.totalSupply if self.totalSupply > 0 else 0) * token[self.token]],
-                         #@ self.balance * balanceOf(self.token, self)
+                         #@ (self.balance / self.totalSupply) * (balanceOf(self.token, self) / self.totalSupply) if self.totalSupply > 0 else 0
 
 #@ meta resource wei() -> [1 * WEI], 1
 
