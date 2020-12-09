@@ -957,7 +957,7 @@ class TypeAnnotator(NodeVisitor):
     def _visit_resource(self, node: ast.Node, top: bool = False):
         if isinstance(node, ast.Name):
             resources = self.program.resources.get(node.id)
-            if len(resources) == 1:
+            if resources is not None and len(resources) == 1:
                 resource = resources[0]
                 if top and self.program.file != resource.file and resource.name != names.WEI:
                     interface = first(i for i in self.program.interfaces.values() if i.file == resource.file)
@@ -971,7 +971,7 @@ class TypeAnnotator(NodeVisitor):
             return
         elif isinstance(node, ast.FunctionCall):
             resources = self.program.resources.get(node.name)
-            if len(resources) == 1:
+            if resources is not None and len(resources) == 1:
                 resource = resources[0]
             else:
                 resource = self.program.own_resources.get(node.name)
