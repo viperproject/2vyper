@@ -167,7 +167,7 @@ def __init__(_bidding_time: timedelta):
     #@ forall({offered_map: map(address, map(address, map(uint256, map(uint256, uint256)))), pre_offered_map: map(address, map(address, map(uint256, map(uint256, uint256))))},
         #@ ((self.highestBidder != ZERO_ADDRESS and not self.ended ==> pre_offered_map[self.highestBidder][self.beneficiary][self.highestBid][1] >= 1) and
         #@ ((forall({a: address, o: address, v1: uint256, v2: uint256}, a != msg.sender or o != self.beneficiary or v1 != msg.value or v2 != 1 ==> offered_map[a][o][v1][v2] == pre_offered_map[a][o][v1][v2]))
-            #@ and (offered_map[msg.sender][self.beneficiary][msg.value][1] == 1)) ==>
+            #@ and (offered_map[msg.sender][self.beneficiary][msg.value][1] == pre_offered_map[msg.sender][self.beneficiary][msg.value][1] + 1)) ==>
         #@ (self.highestBidder != ZERO_ADDRESS and not self.ended ==> offered_map[self.highestBidder][self.beneficiary][self.highestBid][1] >= 1))))
 @public
 @payable
