@@ -404,6 +404,16 @@ class SpecificationTranslator(ExpressionTranslator):
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
             args = [self.translate(arg, res, ctx) for arg in node.args]
             return self.allocation_translator.get_offered(offered, from_resource, to_resource, *args, ctx, pos)
+        elif name == names.ALLOWED_TO_DECOMPOSE:
+            resource = self.resource_translator.translate(node.resource, res, ctx)
+            offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
+            claimed_amount = self.translate(node.args[0], res, ctx)
+            const_one = self.viper_ast.IntLit(1, pos)
+            address = self.translate(node.args[1], res, ctx)
+            # TODO: translate it as an offer from a derived resource to an underlying resource
+            offered_amount = self.allocation_translator.get_offered(offered, resource, resource, const_one, const_one,
+                                                                    address, address, ctx, pos)
+            return self.viper_ast.LeCmp(claimed_amount, offered_amount, pos)
         elif name == names.TRUSTED:
             address = self.translate(node.args[0], res, ctx)
             by = self.translate(node.keywords[0].value, res, ctx)
@@ -659,7 +669,8 @@ class SpecificationTranslator(ExpressionTranslator):
         apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
         res.append(self.viper_ast.Assert(quant, apos))
 
-    def translate_ghost_statement(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context, is_performs: bool = False) -> Expr:
+    def translate_ghost_statement(self, node: ast.FunctionCall, res: List[Stmt],
+                                  ctx: Context, is_performs: bool = False) -> Expr:
         pos = self.to_position(node, ctx)
         name = node.name
         if name == names.REALLOCATE:
@@ -679,7 +690,7 @@ class SpecificationTranslator(ExpressionTranslator):
                     assert False
 
             if is_performs:
-                self.allocation_translator.performs(node, [resource, frm, to, amount], [amount], res, ctx, pos)
+                self.allocation_translator.performs(name, [resource, frm, to, amount], [amount], res, ctx, pos)
             else:
                 self.allocation_translator.reallocate(node, resource, frm, to, amount, msg_sender, res, ctx, pos)
 
@@ -718,13 +729,28 @@ class SpecificationTranslator(ExpressionTranslator):
                                         rules.OFFER_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to, times],
+                self.allocation_translator.performs(name, [from_resource, to_resource, left, right, frm, to, times],
                                                     [left, times], res, ctx, pos)
             else:
                 self.allocation_translator.offer(node, from_resource, to_resource, left, right, frm, to, times,
                                                  msg_sender, res, ctx, pos)
 
             return None
+        elif name == names.ALLOW_TO_DECOMPOSE:
+            resource = self.resource_translator.translate(node.resource, res, ctx)
+            times = self.translate(node.args[0], res, ctx)
+            const_one = self.viper_ast.IntLit(1, pos)
+            address = self.translate(node.args[1], res, ctx)
+
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+
+            # TODO: translate it as an offer from a derived resource to an underlying resource
+            if is_performs:
+                self.allocation_translator.performs(names.OFFER, [resource, resource, const_one, const_one,
+                                                                  address, address, times], times, res, ctx, pos)
+            else:
+                self.allocation_translator.offer(node, resource, resource, const_one, const_one, address, address,
+                                                 times, msg_sender, res, ctx, pos)
         elif name == names.REVOKE:
             from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, res, ctx)
 
@@ -750,7 +776,7 @@ class SpecificationTranslator(ExpressionTranslator):
                                         rules.REVOKE_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [from_resource, to_resource, left, right, frm, to], [left],
+                self.allocation_translator.performs(name, [from_resource, to_resource, left, right, frm, to], [left],
                                                     res, ctx, pos)
             else:
                 self.allocation_translator.revoke(node, from_resource, to_resource, left, right, frm, to, msg_sender,
@@ -798,7 +824,7 @@ class SpecificationTranslator(ExpressionTranslator):
                                         rules.CREATE_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [resource, frm, to, amount], [amount], res, ctx, pos)
+                self.allocation_translator.performs(name, [resource, frm, to, amount], [amount], res, ctx, pos)
             else:
                 is_init = ctx.function.name == names.INIT
                 self.allocation_translator.create(node, resource, frm, to, amount, msg_sender, is_init, res, ctx, pos)
@@ -820,7 +846,7 @@ class SpecificationTranslator(ExpressionTranslator):
                                         rules.DESTROY_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [resource, frm, amount], [amount], res, ctx, pos)
+                self.allocation_translator.performs(name, [resource, frm, amount], [amount], res, ctx, pos)
             else:
                 self.allocation_translator.destroy(node, resource, frm, amount, msg_sender, res, ctx, pos)
 
@@ -836,7 +862,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0]], None, rule, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(node, [address, msg_sender, val], [], res, ctx, pos)
+                self.allocation_translator.performs(name, [address, msg_sender, val], [], res, ctx, pos)
             else:
                 self.allocation_translator.trust(node, address, msg_sender, val, res, ctx, pos)
 
@@ -846,7 +872,7 @@ class SpecificationTranslator(ExpressionTranslator):
             balance = self.balance_translator.get_balance(ctx.self_var.local_var(ctx), ctx, pos)
 
             if is_performs:
-                self.allocation_translator.performs(node, [address], [], res, ctx, pos)
+                self.allocation_translator.performs(name, [address], [], res, ctx, pos)
             else:
                 self.allocation_translator.allocate_untracked_wei(node, address, balance, res, ctx, pos)
             return None

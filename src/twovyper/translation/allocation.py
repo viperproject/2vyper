@@ -553,13 +553,35 @@ class AllocationTranslator(CommonTranslator):
 
         self.seqn_with_info(stmts, "Reallocate", res)
 
-    def deallocate(self, node: ast.Node,
-                   resource: Expr, address: Expr, amount: Expr,
-                   res: List[Stmt], ctx: Context, pos=None):
+    def deallocate_wei(self, node: ast.Node,
+                       address: Expr, amount: Expr,
+                       res: List[Stmt], ctx: Context, pos=None):
         """
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
         stmts = []
+        resource = self.resource_translator.translate(None, res, ctx)
+        const_one = self.viper_ast.IntLit(1, pos)
+
+        offer_check_stmts = []
+
+        def check_offer(then):
+            # TODO: translate it as an offer from a derived resource to an underlying resource
+            self._check_from_agrees(node, resource, resource, const_one, const_one,
+                                    address, address, amount, then, ctx, pos)
+            self._change_offered(resource, resource, const_one, const_one,
+                                 address, address, amount, False, then, ctx, pos)
+        self._if_non_zero_values(check_offer, amount, offer_check_stmts, ctx, pos)
+
+        # Only check that there was an offer, if someone else than a trusted address performs the deallocation
+        msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+        trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
+        is_trusted_address = self.get_trusted(trusted, msg_sender, address, ctx, pos)
+        is_itself = self.viper_ast.EqCmp(msg_sender, address, pos)
+        is_trusted_address = self.viper_ast.Or(is_itself, is_trusted_address, pos)
+        not_trusted_address = self.viper_ast.Not(is_trusted_address, pos)
+        stmts.append(self.viper_ast.If(not_trusted_address, offer_check_stmts, [], pos))
+
         self._check_allocation(node, resource, address, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
         self._change_allocation(resource, address, amount, False, stmts, ctx, pos)
 
@@ -886,8 +908,8 @@ class AllocationTranslator(CommonTranslator):
 
         self.seqn_with_info(stmts, "Allocate untracked wei", res)
 
-    def performs(self, node: ast.FunctionCall, args: List[Expr], amount_args: List[Expr], res: List[Stmt],
-                 ctx: Context, pos=None):
-        pred = self._performs_acc_predicate(node.name, args, ctx, pos)
+    def performs(self, resource_function_name: str, args: List[Expr], amount_args: Union[List[Expr], Expr],
+                 res: List[Stmt], ctx: Context, pos=None):
+        pred = self._performs_acc_predicate(resource_function_name, args, ctx, pos)
         # TODO: rule
         self._if_non_zero_values(lambda l: l.append(self.viper_ast.Inhale(pred, pos)), amount_args, res, ctx, pos)

@@ -737,6 +737,11 @@ class TypeAnnotator(NodeVisitor):
                 for kw in node.keywords:
                     self.annotate_expected(kw.value, keywords[kw.name])
                 return [None], [node]
+            elif case(names.ALLOW_TO_DECOMPOSE):
+                _check_number_of_arguments(node, 2, resources=1)
+                self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
+                self.annotate_expected(node.args[1], types.VYPER_ADDRESS)
+                return [None], [node]
             elif case(names.REVOKE):
                 keywords = {
                     names.REVOKE_TO: types.VYPER_ADDRESS,
@@ -800,6 +805,11 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[2], types.VYPER_ADDRESS)
                 self.annotate_expected(node.args[3], types.VYPER_ADDRESS)
                 return [types.VYPER_INT128], [node]
+            elif case(names.ALLOWED_TO_DECOMPOSE):
+                _check_number_of_arguments(node, 2, resources=1)
+                self.annotate_expected(node.args[0], types.VYPER_WEI_VALUE)
+                self.annotate_expected(node.args[1], types.VYPER_ADDRESS)
+                return [types.VYPER_BOOL], [node]
             elif case(names.TRUSTED):
                 keywords = [names.TRUSTED_BY]
                 _check_number_of_arguments(node, 1, allowed_keywords=keywords, required_keywords=keywords)
