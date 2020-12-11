@@ -660,6 +660,11 @@ class ExpressionTranslator(NodeTranslator):
             at = self.translate(node.args[0], res, ctx)
             if node.keywords:
                 amount = self.translate(node.keywords[0].value, res, ctx)
+
+                if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                    msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+                    self.allocation_translator.deallocate_wei(node, msg_sender, amount, res, ctx, pos)
+
                 self.balance_translator.check_balance(amount, res, ctx, pos)
                 self.balance_translator.increase_sent(at, amount, res, ctx, pos)
                 self.balance_translator.decrease_balance(amount, res, ctx, pos)
