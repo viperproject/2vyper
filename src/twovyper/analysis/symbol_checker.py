@@ -25,6 +25,8 @@ def _check_resources(program: VyperProgram):
         for interface in program.interfaces.values():
             for resource_name, resources_list in interface.resources.items():
                 for resource in resources_list:
+                    if resource.file is None:
+                        continue
                     imported_resources = [r for r in program.resources.get(resource_name, [])
                                           if r.file == resource.file]
                     if not imported_resources:
@@ -50,9 +52,7 @@ def _check_resources(program: VyperProgram):
 
         for interface_type in program.implements:
             interface = program.interfaces[interface_type.name]
-            for resource_name, resource in program.own_resources.items():
-                if resource_name == names.WEI:
-                    continue
+            for resource_name, resource in program.declared_resources.items():
                 if resource_name in interface.own_resources:
                     raise InvalidProgramException(resource.node, 'duplicate.resource',
                                                   f'A contract cannot redeclare a resource it already imports. '

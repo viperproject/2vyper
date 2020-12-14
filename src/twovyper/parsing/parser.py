@@ -108,6 +108,21 @@ class ProgramBuilder(NodeVisitor):
 
         self.config = self.config or Config([])
 
+        if self.config.has_option(names.CONFIG_ALLOCATION):
+            # Add wei underlying resource
+            underlying_wei_type = ResourceType(names.UNDERLYING_WEI, {})
+            underlying_wei_resource = Resource(underlying_wei_type, None, None)
+            self.resources[names.UNDERLYING_WEI] = underlying_wei_resource
+            # Create a fake node for the underlying wei resource
+            fake_node = ast.Name(names.UNDERLYING_WEI)
+            copy_pos_from(node, fake_node)
+            fake_node.is_ghost_code = True
+            if not self.config.has_option(names.CONFIG_NO_DERIVED_WEI):
+                # Add wei derived resource
+                wei_type = DerivedResourceType(names.WEI, {}, underlying_wei_type)
+                wei_resource = Resource(wei_type, None, None, fake_node)
+                self.resources[names.WEI] = wei_resource
+
         if self.is_interface:
             interface_type = InterfaceType(self.name)
             if self.parse_further_interfaces:
@@ -143,21 +158,6 @@ class ProgramBuilder(NodeVisitor):
             # Create the self-type
             self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
-
-            if self.config.has_option(names.CONFIG_ALLOCATION):
-                # Add wei underlying resource
-                underlying_wei_type = ResourceType(names.UNDERLYING_WEI, {})
-                underlying_wei_resource = Resource(underlying_wei_type, None, None)
-                self.resources[names.UNDERLYING_WEI] = underlying_wei_resource
-                # Create a fake node for the underlying wei resource
-                fake_node = ast.Name(names.UNDERLYING_WEI)
-                copy_pos_from(node, fake_node)
-                fake_node.is_ghost_code = True
-                if not self.config.has_option(names.CONFIG_NO_DERIVED_WEI):
-                    # Add wei derived resource
-                    wei_type = DerivedResourceType(names.WEI, {}, underlying_wei_type)
-                    wei_resource = Resource(wei_type, None, None, fake_node)
-                    self.resources[names.WEI] = wei_resource
 
             return VyperProgram(node,
                                 self.path,

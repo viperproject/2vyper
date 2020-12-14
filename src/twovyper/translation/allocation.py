@@ -708,8 +708,10 @@ class AllocationTranslator(CommonTranslator):
                          # Do not make a leak check for the underlying wei resource
                          if name != names.UNDERLYING_WEI]
         for i in interfaces:
-            # noinspection PyTypeChecker
-            own_resources.extend(i.own_resources.items())
+            interface_resources = [(name, resource) for name, resource in i.own_resources.items()
+                                   # Do not make a leak check for the underlying wei resource
+                                   if name != names.UNDERLYING_WEI]
+            own_resources.extend(interface_resources)
 
         for name, resource in own_resources:
             type_assumptions = address_assumptions.copy()

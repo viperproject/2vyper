@@ -195,6 +195,8 @@ class VyperProgram:
         for key, value in self._resources():
             self.imported_resources[key].append(value)
         self.own_resources = resources
+        self.declared_resources = dict((name, resource) for name, resource in self.own_resources.items()
+                                       if name != names.WEI and name != names.UNDERLYING_WEI)
         self.resources: Dict[str, List[Resource]] = defaultdict(list, self.imported_resources)
         for key, value in resources.items():
             self.resources[key].append(value)
@@ -230,7 +232,7 @@ class VyperProgram:
 
     def _resources(self) -> Iterable[Tuple[str, Resource]]:
         for interface in self.interfaces.values():
-            for name, resource in interface.own_resources.items():
+            for name, resource in interface.declared_resources.items():
                 yield name, resource
 
     @property
@@ -247,7 +249,7 @@ class VyperInterface(VyperProgram):
                  config: Config,
                  functions: Dict[str, VyperFunction],
                  interfaces: Dict[str, 'VyperInterface'],
-                 resources: Dict[str, VyperStruct],
+                 resources: Dict[str, Resource],
                  local_state_invariants: List[ast.Expr],
                  inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],

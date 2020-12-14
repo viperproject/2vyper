@@ -993,9 +993,9 @@ class TypeAnnotator(NodeVisitor):
                         and resource.name != names.UNDERLYING_WEI):
                     interface = first(i for i in self.program.interfaces.values() if i.file == resource.file)
                     _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
-                    _check(node.id in interface.own_resources, node, 'invalid.resource')
+                    _check(node.id in interface.declared_resources, node, 'invalid.resource')
             else:
-                resource = self.program.own_resources.get(node.id)
+                resource = self.program.declared_resources.get(node.id)
             args = []
         elif isinstance(node, ast.FunctionCall) and node.name == names.CREATOR:
             self._visit_resource(top_node, node.args[0])
@@ -1005,7 +1005,7 @@ class TypeAnnotator(NodeVisitor):
             if resources is not None and len(resources) == 1:
                 resource = resources[0]
             else:
-                resource = self.program.own_resources.get(node.name)
+                resource = self.program.declared_resources.get(node.name)
             if self.program.config.has_option(names.CONFIG_NO_DERIVED_WEI):
                 _check(resource.name != names.WEI, node, 'invalid.resource')
             if node.resource is not None:
@@ -1015,7 +1015,7 @@ class TypeAnnotator(NodeVisitor):
                     and resource.name != names.UNDERLYING_WEI):
                 interface = first(i for i in self.program.interfaces.values() if i.file == resource.file)
                 _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
-                _check(node.name in interface.own_resources, node, 'invalid.resource')
+                _check(node.name in interface.declared_resources, node, 'invalid.resource')
             args = node.args
         elif isinstance(node, ast.Exchange):
             self._visit_resource(top_node, node.left, True)
@@ -1026,15 +1026,15 @@ class TypeAnnotator(NodeVisitor):
             interface = self.program.interfaces[node.value.id]
             if top:
                 _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
-                _check(node.attr in interface.own_resources, node, 'invalid.resource')
-            resource = interface.own_resources.get(node.attr)
+                _check(node.attr in interface.declared_resources, node, 'invalid.resource')
+            resource = interface.declared_resources.get(node.attr)
             args = []
         elif isinstance(node, ast.ReceiverCall):
             if isinstance(node.receiver, ast.Name):
                 interface = self.program.interfaces[node.receiver.id]
                 if top:
                     _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
-                    _check(node.name in interface.own_resources, node, 'invalid.resource')
+                    _check(node.name in interface.declared_resources, node, 'invalid.resource')
             elif isinstance(node.receiver, ast.Subscript):
                 assert isinstance(node.receiver.value, ast.Attribute)
                 assert isinstance(node.receiver.value.value, ast.Name)
@@ -1044,7 +1044,7 @@ class TypeAnnotator(NodeVisitor):
                 self._visit_resource_address(address, node.name, interface)
             else:
                 assert False
-            resource = interface.own_resources.get(node.name)
+            resource = interface.declared_resources.get(node.name)
             args = node.args
         elif isinstance(node, ast.Subscript):
             address = node.index

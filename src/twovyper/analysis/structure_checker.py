@@ -148,9 +148,6 @@ class StructureChecker(NodeVisitor):
             for check in function.checks:
                 self.visit(check, _Context.CHECK, program, function)
 
-            if function.performs:
-                _assert(not program.is_interface(), function.performs[0],
-                        'invalid.performs', 'No performs are allowed in interfaces.')
             for performs in function.performs:
                 self._visit_performs(performs, program, function)
 
