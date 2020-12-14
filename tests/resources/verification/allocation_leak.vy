@@ -18,6 +18,7 @@ value: wei_value
 #@ invariant: self.b ==> forall({a: address}, {allocated(a)}, allocated(a) == (self.value if a == self.owner else 0))
 
 
+#@ performs: payable(msg.value)
 @public
 @payable
 def __init__():
@@ -26,6 +27,7 @@ def __init__():
     self.value = msg.value
 
 
+#@ performs: payable(msg.value)
 #:: ExpectedOutput(leakcheck.failed:allocation.leaked)
 @public
 @payable
@@ -33,6 +35,7 @@ def always_fail():
     assert False
 
 
+#@ performs: payable(msg.value)
 #:: ExpectedOutput(leakcheck.failed:allocation.leaked) | ExpectedOutput(carbon)(invariant.violated:assertion.false, INV)
 @public
 @payable
@@ -41,6 +44,7 @@ def pay_fail():
     assert msg.sender == self.owner
 
 
+#@ performs: payout(self.value)
 #:: ExpectedOutput(leakcheck.failed:allocation.leaked)
 @public
 def withdraw_fail():

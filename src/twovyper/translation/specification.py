@@ -851,6 +851,24 @@ class SpecificationTranslator(ExpressionTranslator):
                 self.allocation_translator.destroy(node, resource, frm, amount, msg_sender, res, ctx, pos)
 
             return None
+        elif name == names.RESOURCE_PAYABLE:
+            resource = self.resource_translator.translate(node.resource, res, ctx)
+            amount = self.translate(node.args[0], res, ctx)
+            assert is_performs
+            self.allocation_translator.performs(name, [resource, amount], [amount], res, ctx, pos)
+        elif name == names.RESOURCE_PAYOUT:
+            resource = self.resource_translator.translate(node.resource, res, ctx)
+            amount = self.translate(node.args[0], res, ctx)
+
+            msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            frm = msg_sender
+            for kw in node.keywords:
+                kw_val = self.translate(kw.value, res, ctx)
+                if kw.name == names.RESOURCE_PAYOUT_ACTING_FOR:
+                    frm = kw_val
+
+            assert is_performs
+            self.allocation_translator.performs(name, [resource, frm, amount], [amount], res, ctx, pos)
         elif name == names.TRUST:
             address = self.translate(node.args[0], res, ctx)
             val = self.translate(node.args[1], res, ctx)

@@ -328,6 +328,16 @@ DESTROY_FAIL = {
         ('destroy.failed', 'not.trusted')
 }
 
+PAYABLE_FAIL = {
+    ('$operation.failed', 'no.performs'):
+        ('payable.failed', 'no.performs')
+}
+
+PAYOUT_FAIL = {
+    ('$operation.failed', 'no.performs'):
+        ('payout.failed', 'no.performs')
+}
+
 OFFER_FAIL = {
     ('$operation.failed', 'offer.not.injective'):
         ('offer.failed', 'offer.not.injective'),

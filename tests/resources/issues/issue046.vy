@@ -9,12 +9,15 @@
 
 #@ invariant: sum(allocated()) == 0
 
+#@ performs: payable(msg.value)
+#@ performs: payout(msg.value)
 @public
 @payable
 def create_new_with_msg_value(at: address) -> address:
     new: address = create_forwarder_to(at, value=msg.value)
     return new
 
+#@ performs: payout(self.balance)
 #@ performs: allocate_untracked_wei(msg.sender)
 @public
 def create_new_with_whole_allocated_balance(at: address) -> address:
@@ -22,6 +25,7 @@ def create_new_with_whole_allocated_balance(at: address) -> address:
     new: address = create_forwarder_to(at, value=self.balance)
     return new
 
+#@ performs: payout(self.balance)
 @public
 def create_new_with_whole_balance(at: address) -> address:
     #:: ExpectedOutput(reallocate.failed:insufficient.funds)

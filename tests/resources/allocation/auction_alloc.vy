@@ -81,6 +81,7 @@ def __init__(_bidding_time: timedelta):
     #@ allow_to_decompose[wei](MAX_UINT256, self.beneficiary)
 
 
+#@ performs: payable[wei](msg.value)
 #@ performs: offer[wei <-> good](msg.value, 1, to=self.beneficiary, times=1)
 @public
 @payable
@@ -97,6 +98,7 @@ def bid():
     self.highestBid = msg.value
 
 
+#@ performs: payout[wei](self.pendingReturns[msg.sender])
 @public
 def withdraw():
     pending_amount: wei_value = self.pendingReturns[msg.sender]
@@ -104,6 +106,7 @@ def withdraw():
     send(msg.sender, pending_amount)
 
 
+#@ performs: payout[wei](self.highestBid, acting_for=self.beneficiary)
 @public
 def endAuction():
     assert block.timestamp >= self.auctionEnd

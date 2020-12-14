@@ -437,6 +437,9 @@ class StructureChecker(NodeVisitor):
                 self.generic_visit(node, ctx, program, function)
 
             return
+        elif node.name in [names.RESOURCE_PAYABLE, names.RESOURCE_PAYOUT]:
+            _assert(self._inside_performs, node, f'invalid.{node.name}',
+                    f'{node.name} is only allowed in perform clauses.')
         elif node.name == names.RESULT or node.name == names.REVERT:
             if len(node.args) == 1:
                 argument = node.args[0]

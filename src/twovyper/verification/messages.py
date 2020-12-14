@@ -75,6 +75,10 @@ ERRORS = {
         lambda i: f"Create might fail.",
     'destroy.failed':
         lambda i: f"Destroy might fail.",
+    'payable.failed':
+        lambda i: f"The function {i.function.name} is payable and must be granted to allocate resources.",
+    'payout.failed':
+        lambda i: f"Resource payout might fail.",
     'offer.failed':
         lambda i: f"Offer might fail.",
     'revoke.failed':

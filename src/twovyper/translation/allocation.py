@@ -529,6 +529,10 @@ class AllocationTranslator(CommonTranslator):
             apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
             res.append(self.viper_ast.Exhale(pred, apos))
 
+    def check_performs(self, node: ast.Node, function: str, args: List[Expr], amounts: Union[List[Expr], Expr],
+                       rule: Rule, res: List[Stmt], ctx: Context, pos=None):
+        self._exhale_performs_if_non_zero_amount(node, function, args, amounts, rule, res, ctx, pos)
+
     def allocate(self,
                  resource: Expr, address: Expr, amount: Expr,
                  res: List[Stmt], ctx: Context, pos=None):
@@ -562,6 +566,9 @@ class AllocationTranslator(CommonTranslator):
         stmts = []
         resource = self.resource_translator.translate(None, res, ctx)
         const_one = self.viper_ast.IntLit(1, pos)
+
+        self._exhale_performs_if_non_zero_amount(node, names.RESOURCE_PAYOUT, [resource, address, amount], amount,
+                                                 rules.PAYOUT_FAIL, stmts, ctx, pos)
 
         offer_check_stmts = []
 
@@ -741,7 +748,10 @@ class AllocationTranslator(CommonTranslator):
                 names.REALLOCATE: [struct_t, int_t, int_t, int_t],
                 names.OFFER: [struct_t, struct_t, int_t, int_t, int_t, int_t, int_t],
                 names.REVOKE: [struct_t, struct_t, int_t, int_t, int_t, int_t],
-                names.TRUST: [int_t, int_t, bool_t]
+                names.TRUST: [int_t, int_t, bool_t],
+                names.ALLOCATE_UNTRACKED_WEI: [int_t],
+                names.RESOURCE_PAYABLE: [struct_t, int_t],
+                names.RESOURCE_PAYOUT: [struct_t, int_t, int_t],
             }
 
             modelt = self.model_translator.save_variables(res, ctx, pos)

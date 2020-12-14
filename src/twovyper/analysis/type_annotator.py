@@ -765,6 +765,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.keywords[0].value, types.VYPER_UINT256)
                 return [None], [node]
             elif case(names.CREATE):
+                # TODO: Disallow all derived resources
                 msg = "Ether cannot be created."
                 is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
                 _check(not is_wei, node, 'ether.change', msg)
@@ -778,10 +779,28 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(kw.value, keywords[kw.name])
                 return [None], [node]
             elif case(names.DESTROY):
+                # TODO: Disallow all derived resources
                 msg = "Ether cannot be destroyed."
                 is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
                 _check(not is_wei, node, 'ether.change', msg)
                 keywords = [names.DESTROY_ACTING_FOR]
+                _check_number_of_arguments(node, 1, resources=1, allowed_keywords=keywords)
+                self.annotate_expected(node.args[0], types.VYPER_UINT256)
+                for kw in node.keywords:
+                    self.annotate_expected(kw.value, types.VYPER_ADDRESS)
+                return [None], [node]
+            elif case(names.RESOURCE_PAYABLE):
+                # TODO: Allow all derived resources
+                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
+                _check(is_wei, node, 'ether.change')
+                _check_number_of_arguments(node, 1, resources=1)
+                self.annotate_expected(node.args[0], types.VYPER_UINT256)
+                return [None], [node]
+            elif case(names.RESOURCE_PAYOUT):
+                # TODO: Allow all derived resources
+                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
+                _check(is_wei, node, 'ether.change')
+                keywords = [names.RESOURCE_PAYOUT_ACTING_FOR]
                 _check_number_of_arguments(node, 1, resources=1, allowed_keywords=keywords)
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 for kw in node.keywords:

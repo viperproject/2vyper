@@ -17,6 +17,7 @@ flag: bool
 #@ invariant: allocated() == old(allocated())
 
 
+#@ performs: payable(msg.value)
 #:: ExpectedOutput(leakcheck.failed:allocation.leaked)
 @public
 @payable
