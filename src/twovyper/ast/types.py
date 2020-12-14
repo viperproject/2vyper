@@ -125,6 +125,13 @@ class ResourceType(StructType):
         return 'resource'
 
 
+class DerivedResourceType(ResourceType):
+
+    def __init__(self, name: str, member_types: Dict[str, VyperType], underlying_resource: ResourceType):
+        super().__init__(name, member_types)
+        self.underlying_resource = underlying_resource
+
+
 class ContractType(VyperType):
 
     def __init__(self,

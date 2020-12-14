@@ -404,7 +404,7 @@ class TypeAnnotator(NodeVisitor):
         name = node.name
 
         if node.resource:
-            self._visit_resource(node.resource, True)
+            self._visit_resource(node, node.resource, True)
 
         with switch(name) as case:
             if case(names.CONVERT):
@@ -765,43 +765,37 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.keywords[0].value, types.VYPER_UINT256)
                 return [None], [node]
             elif case(names.CREATE):
-                # TODO: Disallow all derived resources
-                msg = "Ether cannot be created."
-                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
-                _check(not is_wei, node, 'ether.change', msg)
                 keywords = {
                     names.CREATE_TO: types.VYPER_ADDRESS,
                     names.CREATE_ACTING_FOR: types.VYPER_ADDRESS
                 }
                 _check_number_of_arguments(node, 1, allowed_keywords=keywords.keys(), resources=1)
+                _check(node.resource is not None and node.underlying_resource is None, node, 'invalid.create',
+                       'Only non-derived resources can be used with "create"')
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 for kw in node.keywords:
                     self.annotate_expected(kw.value, keywords[kw.name])
                 return [None], [node]
             elif case(names.DESTROY):
-                # TODO: Disallow all derived resources
-                msg = "Ether cannot be destroyed."
-                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
-                _check(not is_wei, node, 'ether.change', msg)
                 keywords = [names.DESTROY_ACTING_FOR]
                 _check_number_of_arguments(node, 1, resources=1, allowed_keywords=keywords)
+                _check(node.resource is not None and node.underlying_resource is None, node, 'invalid.destroy',
+                       'Only non-derived resources can be used with "destroy"')
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 for kw in node.keywords:
                     self.annotate_expected(kw.value, types.VYPER_ADDRESS)
                 return [None], [node]
             elif case(names.RESOURCE_PAYABLE):
-                # TODO: Allow all derived resources
-                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
-                _check(is_wei, node, 'ether.change')
                 _check_number_of_arguments(node, 1, resources=1)
+                _check(node.resource is None or node.underlying_resource is not None, node, 'invalid.payable',
+                       'Only derived resources can be used with "payable"')
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 return [None], [node]
             elif case(names.RESOURCE_PAYOUT):
-                # TODO: Allow all derived resources
-                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
-                _check(is_wei, node, 'ether.change')
                 keywords = [names.RESOURCE_PAYOUT_ACTING_FOR]
                 _check_number_of_arguments(node, 1, resources=1, allowed_keywords=keywords)
+                _check(node.resource is None or node.underlying_resource is not None, node, 'invalid.payout',
+                       'Only derived resources can be used with "payout"')
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 for kw in node.keywords:
                     self.annotate_expected(kw.value, types.VYPER_ADDRESS)
@@ -814,10 +808,9 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(kw.value, types.VYPER_ADDRESS)
                 return [None], [node]
             elif case(names.ALLOCATE_UNTRACKED):
-                # TODO: Allow all derived resources
-                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
-                _check(is_wei, node, 'ether.change')
                 _check_number_of_arguments(node, 1, resources=1)
+                _check(node.resource is None or node.underlying_resource is not None, node,
+                       'invalid.allocate_untracked', 'Only derived resources can be used with "allocate_untracked"')
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                 return [None], [node]
             elif case(names.OFFERED):
@@ -945,6 +938,8 @@ class TypeAnnotator(NodeVisitor):
 
     def _visit_resource_address(self, node: ast.Node, resource_name: str, interface: Optional[VyperInterface] = None):
         self.annotate_expected(node, types.VYPER_ADDRESS)
+        _check(resource_name != names.UNDERLYING_WEI, node, 'invalid.resource.address',
+               'The underlying wei resource cannot have an address.')
         is_wei = resource_name == names.WEI
 
         ref_interface = None
@@ -986,12 +981,14 @@ class TypeAnnotator(NodeVisitor):
                 self_does_not_have_resource = resource_name not in self.program.own_resources
                 _check(self_is_interface or self_does_not_have_resource, node, 'invalid.resource.address')
 
-    def _visit_resource(self, node: ast.Node, top: bool = False):
+    def _visit_resource(self, top_node: ast.FunctionCall, node: ast.Node, top: bool = False):
         if isinstance(node, ast.Name):
             resources = self.program.resources.get(node.id)
             if resources is not None and len(resources) == 1:
                 resource = resources[0]
-                if top and self.program.file != resource.file and resource.name != names.WEI:
+                if (top and self.program.file != resource.file
+                        and resource.name != names.WEI
+                        and resource.name != names.UNDERLYING_WEI):
                     interface = first(i for i in self.program.interfaces.values() if i.file == resource.file)
                     _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
                     _check(node.id in interface.own_resources, node, 'invalid.resource')
@@ -999,7 +996,7 @@ class TypeAnnotator(NodeVisitor):
                 resource = self.program.own_resources.get(node.id)
             args = []
         elif isinstance(node, ast.FunctionCall) and node.name == names.CREATOR:
-            self._visit_resource(node.args[0])
+            self._visit_resource(top_node, node.args[0])
             return
         elif isinstance(node, ast.FunctionCall):
             resources = self.program.resources.get(node.name)
@@ -1009,14 +1006,16 @@ class TypeAnnotator(NodeVisitor):
                 resource = self.program.own_resources.get(node.name)
             if node.resource is not None:
                 self._visit_resource_address(node.resource, node.name)
-            elif top and self.program.file != resource.file and resource.name != names.WEI:
+            elif (top and self.program.file != resource.file
+                    and resource.name != names.WEI
+                    and resource.name != names.UNDERLYING_WEI):
                 interface = first(i for i in self.program.interfaces.values() if i.file == resource.file)
                 _check(any(i.name == interface.name for i in self.program.implements), node, 'invalid.resource')
                 _check(node.name in interface.own_resources, node, 'invalid.resource')
             args = node.args
         elif isinstance(node, ast.Exchange):
-            self._visit_resource(node.left, True)
-            self._visit_resource(node.right, True)
+            self._visit_resource(top_node, node.left, True)
+            self._visit_resource(top_node, node.right, True)
             return
         elif isinstance(node, ast.Attribute):
             assert isinstance(node.value, ast.Name)
@@ -1045,7 +1044,7 @@ class TypeAnnotator(NodeVisitor):
             args = node.args
         elif isinstance(node, ast.Subscript):
             address = node.index
-            self._visit_resource(node.value)
+            self._visit_resource(top_node, node.value)
             interface = None
             if isinstance(node.value, ast.Name):
                 resource_name = node.value.id
@@ -1067,6 +1066,9 @@ class TypeAnnotator(NodeVisitor):
 
         for arg_type, arg in zip(resource.type.member_types.values(), args):
             self.annotate_expected(arg, arg_type)
+
+        if top:
+            top_node.underlying_resource = resource.underlying_resource
 
     def _add_quantified_vars(self, var_decls: ast.Dict):
         vars_types = zip(var_decls.keys, var_decls.values)

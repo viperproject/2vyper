@@ -9,6 +9,6 @@
 
 @public
 def foo():
-    #:: ExpectedOutput(invalid.program:ether.change)
+    #:: ExpectedOutput(invalid.program:invalid.create)
     #@ create[wei](1)
     pass

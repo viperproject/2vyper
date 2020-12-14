@@ -246,7 +246,7 @@ class ProgramTranslator(CommonTranslator):
         init_name = mangled.struct_init_name(struct.name, struct.type.kind)
         init_parms = [var for _, var in members]
         resource_address_var = None
-        if isinstance(struct, Resource) and struct.name != mangled.CREATOR:
+        if isinstance(struct, Resource) and not (struct.name == mangled.CREATOR or struct.name == names.UNDERLYING_WEI):
             # First argument has to be an address for resources if it is not the creator resource
             resource_address_var = self.viper_ast.LocalVarDecl(f'$address_arg', address_type)
             init_parms.append(resource_address_var)
@@ -283,7 +283,7 @@ class ProgramTranslator(CommonTranslator):
             eq_eq = self.type_translator.eq(eq_get_l, eq_get_r, member_type, ctx)
             eq_expr = self.viper_ast.And(eq_expr, eq_eq)
 
-        if isinstance(struct, Resource) and struct.name != mangled.CREATOR:
+        if isinstance(struct, Resource) and not (struct.name == mangled.CREATOR or struct.name == names.UNDERLYING_WEI):
             init_get = helpers.struct_get_idx(self.viper_ast, init, number_of_members, address_type)
             init_eq = self.viper_ast.EqCmp(init_get, resource_address_var.localVar())
             init_expr = self.viper_ast.And(init_expr, init_eq)

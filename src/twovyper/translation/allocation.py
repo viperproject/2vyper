@@ -564,7 +564,7 @@ class AllocationTranslator(CommonTranslator):
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
         stmts = []
-        resource = self.resource_translator.translate(None, res, ctx)
+        resource, underlying_resource = self.resource_translator.translate_with_underlying(None, res, ctx)
         const_one = self.viper_ast.IntLit(1, pos)
 
         self._exhale_performs_if_non_zero_amount(node, names.RESOURCE_PAYOUT, [resource, address, amount], amount,
@@ -573,10 +573,9 @@ class AllocationTranslator(CommonTranslator):
         offer_check_stmts = []
 
         def check_offer(then):
-            # TODO: translate it as an offer from a derived resource to an underlying resource
-            self._check_from_agrees(node, resource, resource, const_one, const_one,
+            self._check_from_agrees(node, resource, underlying_resource, const_one, const_one,
                                     address, address, amount, then, ctx, pos)
-            self._change_offered(resource, resource, const_one, const_one,
+            self._change_offered(resource, underlying_resource, const_one, const_one,
                                  address, address, amount, False, then, ctx, pos)
         self._if_non_zero_values(check_offer, amount, offer_check_stmts, ctx, pos)
 
@@ -705,8 +704,11 @@ class AllocationTranslator(CommonTranslator):
 
         interface_names = [t.name for t in ctx.program.implements]
         interfaces = [ctx.program.interfaces[name] for name in interface_names]
-        own_resources = list(ctx.program.own_resources.items())
+        own_resources = [(name, resource) for name, resource in ctx.program.own_resources.items()
+                         # Do not make a leak check for the underlying wei resource
+                         if name != names.UNDERLYING_WEI]
         for i in interfaces:
+            # noinspection PyTypeChecker
             own_resources.extend(i.own_resources.items())
 
         for name, resource in own_resources:

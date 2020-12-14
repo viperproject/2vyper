@@ -27,6 +27,9 @@ class ResourceTranslator(NodeTranslator):
         from twovyper.translation.specification import SpecificationTranslator
         return SpecificationTranslator(self.viper_ast)
 
+    def underlying_wei_resource(self, ctx, pos=None) -> Expr:
+        return self._resource(names.UNDERLYING_WEI, [], ctx, pos)
+
     def resource(self, name: str, args: List[Expr], ctx: Context, pos=None) -> Expr:
         self_address = ctx.self_address or helpers.self_address(self.viper_ast)
         args = list(args)
@@ -48,6 +51,14 @@ class ResourceTranslator(NodeTranslator):
             self_address = ctx.self_address or helpers.self_address(self.viper_ast)
             return self._resource(names.WEI, [self_address], ctx)
 
+    def translate_with_underlying(self, top_node: Optional[ast.FunctionCall], res: List[Stmt], ctx: Context) -> Expr:
+        if top_node:
+            resource_node = top_node.resource
+            underlying_resource_node = top_node.underlying_resource
+            return self.translate(resource_node, res, ctx), self.translate(underlying_resource_node, res, ctx)
+        else:
+            return self.translate(None, res, ctx), self.underlying_wei_resource(ctx)
+
     def translate_exchange(self, exchange: Optional[ast.Exchange], res: Stmt, ctx: Context) -> Tuple[Expr, Expr]:
         if not exchange:
             wei_resource = self.translate(None, res, ctx)
@@ -59,8 +70,11 @@ class ResourceTranslator(NodeTranslator):
 
     def translate_Name(self, node: ast.Name, _: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)
-        self_address = ctx.self_address or helpers.self_address(self.viper_ast)
-        return self._resource(node.id, [self_address], ctx, pos)
+        if node.id == names.UNDERLYING_WEI:
+            return self._resource(node.id, [], ctx, pos)
+        else:
+            self_address = ctx.self_address or helpers.self_address(self.viper_ast)
+            return self._resource(node.id, [self_address], ctx, pos)
 
     def translate_FunctionCall(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context) -> Expr:
         pos = self.to_position(node, ctx)

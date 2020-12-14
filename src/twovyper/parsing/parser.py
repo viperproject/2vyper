@@ -11,6 +11,7 @@ from contextlib import contextmanager
 
 from typing import Optional, Dict, Union, List
 
+from twovyper.parsing.lark import copy_pos_from
 from twovyper.utils import switch, first
 
 from twovyper.parsing import lark
@@ -26,7 +27,7 @@ from twovyper.ast.nodes import (
 )
 from twovyper.ast.types import (
     TypeBuilder, FunctionType, EventType, SelfType, InterfaceType, ResourceType,
-    StructType, ContractType
+    StructType, ContractType, DerivedResourceType
 )
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
@@ -143,10 +144,18 @@ class ProgramBuilder(NodeVisitor):
             self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
 
-            # Add wei resource
             if self.config.has_option(names.CONFIG_ALLOCATION):
-                wei_type = ResourceType(names.WEI, {})
-                wei_resource = Resource(wei_type, None, None)
+                # Add wei underlying resource
+                underlying_wei_type = ResourceType(names.UNDERLYING_WEI, {})
+                underlying_wei_resource = Resource(underlying_wei_type, None, None)
+                self.resources[names.UNDERLYING_WEI] = underlying_wei_resource
+                # Create a fake node for the underlying wei resource
+                fake_node = ast.Name(names.UNDERLYING_WEI)
+                copy_pos_from(node, fake_node)
+                fake_node.is_ghost_code = True
+                # Add wei derived resource
+                wei_type = DerivedResourceType(names.WEI, {}, underlying_wei_type)
+                wei_resource = Resource(wei_type, None, None, fake_node)
                 self.resources[names.WEI] = wei_resource
 
             return VyperProgram(node,

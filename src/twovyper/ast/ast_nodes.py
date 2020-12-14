@@ -197,6 +197,7 @@ class FunctionCall(Expr):
         self.args = args
         self.keywords = keywords
         self.resource = resource
+        self.underlying_resource = None
 
 
 class ReceiverCall(Expr):

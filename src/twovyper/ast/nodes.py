@@ -11,7 +11,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.types import (
-    VyperType, FunctionType, StructType, ResourceType, ContractType, EventType, InterfaceType
+    VyperType, FunctionType, StructType, ResourceType, ContractType, EventType, InterfaceType, DerivedResourceType
 )
 if TYPE_CHECKING:
     from twovyper.analysis.analyzer import FunctionAnalysis, ProgramAnalysis
@@ -128,13 +128,22 @@ class Resource(VyperStruct):
     def __init__(self,
                  rtype: ResourceType,
                  node: Optional[ast.Node],
-                 file: Optional[str]):
+                 file: Optional[str],
+                 underlying_resource: Optional[ast.Node] = None):
         super().__init__(rtype.name, rtype, node)
         self.file = file
+        self.underlying_resource = underlying_resource
 
     @property
     def interface(self):
         return os.path.split(self.file)[1].split('.')[0] if self.file else ''
+
+    @property
+    def underlying_resource_name(self):
+        return self.type.underlying_resource.name if isinstance(self.type, DerivedResourceType) else None
+
+    def is_derived_resource(self):
+        return self.underlying_resource_name is not None
 
 
 class VyperContract:
