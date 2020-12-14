@@ -33,7 +33,7 @@ from vyper.interfaces import ERC20
 
 implements: ERC20
 
-#@ config: allocation, no_performs
+#@ config: allocation, no_performs, no_derived_wei_resource
 
 Transfer: event({_from: indexed(address), _to: indexed(address), _value: uint256})
 Approval: event({_owner: indexed(address), _spender: indexed(address), _value: uint256})
@@ -64,7 +64,7 @@ minter: address
 #@ always check: forall({a: address}, {self.balanceOf[a]}, {old(self.balanceOf[a])}, implies(old(self.balanceOf[a]) < self.balanceOf[a] and forall({b: address}, {self.balanceOf[b]}, {old(self.balanceOf[b])}, implies(b != a, self.balanceOf[b] == old(self.balanceOf[b]))), event(Transfer(ZERO_ADDRESS, a, self.balanceOf[a] - old(self.balanceOf[a])))))
 #@ always check: forall({a: address, b: address}, {self.allowances[a][b]}, {old(self.allowances[a][b])}, implies(old(self.allowances[a][b]) < self.allowances[a][b], event(Approval(a, b, self.allowances[a][b]))))
 
-#@ invariant: sum(allocated[wei]()) == 0 and sum(allocated[nothing]()) == 0
+#@ invariant: sum(allocated[nothing]()) == 0
 #@ invariant: allocated[token]() == self.balanceOf
 #@ invariant: forall({a: address}, {allocated[creator(token)](a)}, allocated[creator(token)](a) == (1 if a == self.minter else 0))
 

@@ -986,6 +986,8 @@ class TypeAnnotator(NodeVisitor):
             resources = self.program.resources.get(node.id)
             if resources is not None and len(resources) == 1:
                 resource = resources[0]
+                if self.program.config.has_option(names.CONFIG_NO_DERIVED_WEI):
+                    _check(resource.name != names.WEI, node, 'invalid.resource')
                 if (top and self.program.file != resource.file
                         and resource.name != names.WEI
                         and resource.name != names.UNDERLYING_WEI):
@@ -1004,6 +1006,8 @@ class TypeAnnotator(NodeVisitor):
                 resource = resources[0]
             else:
                 resource = self.program.own_resources.get(node.name)
+            if self.program.config.has_option(names.CONFIG_NO_DERIVED_WEI):
+                _check(resource.name != names.WEI, node, 'invalid.resource')
             if node.resource is not None:
                 self._visit_resource_address(node.resource, node.name)
             elif (top and self.program.file != resource.file

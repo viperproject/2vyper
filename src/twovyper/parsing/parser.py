@@ -153,10 +153,11 @@ class ProgramBuilder(NodeVisitor):
                 fake_node = ast.Name(names.UNDERLYING_WEI)
                 copy_pos_from(node, fake_node)
                 fake_node.is_ghost_code = True
-                # Add wei derived resource
-                wei_type = DerivedResourceType(names.WEI, {}, underlying_wei_type)
-                wei_resource = Resource(wei_type, None, None, fake_node)
-                self.resources[names.WEI] = wei_resource
+                if not self.config.has_option(names.CONFIG_NO_DERIVED_WEI):
+                    # Add wei derived resource
+                    wei_type = DerivedResourceType(names.WEI, {}, underlying_wei_type)
+                    wei_resource = Resource(wei_type, None, None, fake_node)
+                    self.resources[names.WEI] = wei_resource
 
             return VyperProgram(node,
                                 self.path,

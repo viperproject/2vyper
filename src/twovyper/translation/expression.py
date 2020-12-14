@@ -578,7 +578,8 @@ class ExpressionTranslator(NodeTranslator):
 
             balance = self.balance_translator.get_balance(self_var, ctx, pos)
 
-            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            if (ctx.program.config.has_option(names.CONFIG_ALLOCATION)
+                    and not ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)):
                 self.allocation_translator.deallocate_wei(node, to, balance, res, ctx, pos)
 
             val = self.viper_ast.TrueLit(pos)
@@ -661,7 +662,8 @@ class ExpressionTranslator(NodeTranslator):
             if node.keywords:
                 amount = self.translate(node.keywords[0].value, res, ctx)
 
-                if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                if (ctx.program.config.has_option(names.CONFIG_ALLOCATION)
+                        and not ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)):
                     msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
                     self.allocation_translator.deallocate_wei(node, msg_sender, amount, res, ctx, pos)
 
@@ -928,7 +930,8 @@ class ExpressionTranslator(NodeTranslator):
             self.balance_translator.check_balance(amount, res, ctx, pos)
             self.balance_translator.increase_sent(to, amount, res, ctx, pos)
 
-            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            if (ctx.program.config.has_option(names.CONFIG_ALLOCATION)
+                    and not ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)):
                 self.allocation_translator.deallocate_wei(node, to, amount, res, ctx, pos)
 
             self.balance_translator.decrease_balance(amount, res, ctx, pos)

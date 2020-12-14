@@ -31,7 +31,7 @@ from vyper.interfaces import ERC721
 
 implements: ERC721
 
-#@ config: allocation, no_performs
+#@ config: allocation, no_performs, no_derived_wei_resource
 
 # Interface for the contract called by safeTransferFrom()
 contract ERC721Receiver:
@@ -120,7 +120,6 @@ ERC721_INTERFACE_ID: constant(bytes32) = 0x0000000000000000000000000000000000000
 
 #@ invariant: self.minter == old(self.minter)
 
-#@ invariant: forall({a: address}, {allocated[wei](a)}, allocated[wei](a) == 0)
 #@ invariant: forall({a: address}, {allocated[nothing](a)}, allocated[nothing](a) == 0)
 #@ invariant: forall({a: address, id: uint256}, allocated[token(id)](a) == (1 if self.idToOwner[id] == a and a != ZERO_ADDRESS else 0))
 

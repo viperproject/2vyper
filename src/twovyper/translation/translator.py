@@ -151,7 +151,8 @@ class ProgramTranslator(CommonTranslator):
             trigger = self.viper_ast.Trigger([sent])
             sent_inc = self.viper_ast.Forall([q_var], [trigger], expr)
 
-            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            if (ctx.program.config.has_option(names.CONFIG_ALLOCATION)
+                    and not ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)):
                 # self.balance >= sum(allocated())
                 balance = self.balance_translator.get_balance(self_var, ctx)
                 allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
