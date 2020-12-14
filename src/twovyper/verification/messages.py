@@ -87,8 +87,8 @@ ERRORS = {
         lambda i: f"Exchange {pprint(i.node)} might fail.",
     'trust.failed':
         lambda i: f"Trust might fail.",
-    'allocate.untracked.wei.failed':
-        lambda i: f"The allocation of the untracked wei might fail.",
+    'allocate.untracked.failed':
+        lambda i: f"The allocation of untracked resources might fail.",
     'leakcheck.failed':
         lambda i: f"Leak check for resource {i.resource.name} might fail in {i.function.name}.",
     'performs.leakcheck.failed':

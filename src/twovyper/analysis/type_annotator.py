@@ -813,8 +813,11 @@ class TypeAnnotator(NodeVisitor):
                 for kw in node.keywords:
                     self.annotate_expected(kw.value, types.VYPER_ADDRESS)
                 return [None], [node]
-            elif case(names.ALLOCATE_UNTRACKED_WEI):
-                _check_number_of_arguments(node, 1)
+            elif case(names.ALLOCATE_UNTRACKED):
+                # TODO: Allow all derived resources
+                is_wei = not node.resource or (isinstance(node.resource, ast.Name) and node.resource.id == names.WEI)
+                _check(is_wei, node, 'ether.change')
+                _check_number_of_arguments(node, 1, resources=1)
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                 return [None], [node]
             elif case(names.OFFERED):

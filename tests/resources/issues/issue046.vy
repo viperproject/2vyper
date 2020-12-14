@@ -18,10 +18,10 @@ def create_new_with_msg_value(at: address) -> address:
     return new
 
 #@ performs: payout(self.balance)
-#@ performs: allocate_untracked_wei(msg.sender)
+#@ performs: allocate_untracked[wei](msg.sender)
 @public
 def create_new_with_whole_allocated_balance(at: address) -> address:
-    #@ allocate_untracked_wei(msg.sender)
+    #@ allocate_untracked[wei](msg.sender)
     new: address = create_forwarder_to(at, value=self.balance)
     return new
 

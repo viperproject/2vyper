@@ -749,7 +749,7 @@ class AllocationTranslator(CommonTranslator):
                 names.OFFER: [struct_t, struct_t, int_t, int_t, int_t, int_t, int_t],
                 names.REVOKE: [struct_t, struct_t, int_t, int_t, int_t, int_t],
                 names.TRUST: [int_t, int_t, bool_t],
-                names.ALLOCATE_UNTRACKED_WEI: [int_t],
+                names.ALLOCATE_UNTRACKED: [struct_t, int_t],
                 names.RESOURCE_PAYABLE: [struct_t, int_t],
                 names.RESOURCE_PAYOUT: [struct_t, int_t, int_t],
             }
@@ -902,13 +902,12 @@ class AllocationTranslator(CommonTranslator):
 
         self.seqn_with_info(stmts, "Trust", res)
 
-    def allocate_untracked_wei(self, node: ast.Node, address: Expr, balance: Expr,
-                               res: List[Stmt], ctx: Context, pos=None):
+    def allocate_untracked(self, node: ast.Node, resource: Expr, address: Expr, balance: Expr,
+                           res: List[Stmt], ctx: Context, pos=None):
         stmts = []
-        self._exhale_performs(node, names.ALLOCATE_UNTRACKED_WEI, [address],
-                              rules.ALLOCATE_UNTRACKED_WEI_FAIL, stmts, ctx, pos)
+        self._exhale_performs(node, names.ALLOCATE_UNTRACKED, [resource, address],
+                              rules.ALLOCATE_UNTRACKED_FAIL, stmts, ctx, pos)
 
-        resource = self.resource_translator.translate(None, stmts, ctx)
         allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
         allocated_map = self.get_allocated_map(allocated, resource, ctx, pos)
         key_type = self.type_translator.translate(helpers.allocated_type().value_type.key_type, ctx)

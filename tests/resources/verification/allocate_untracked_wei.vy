@@ -12,17 +12,17 @@
 #@ invariant: sum(allocated()) == 0
 
 #@ performs: payout(self.balance)
-#@ performs: allocate_untracked_wei(msg.sender)
+#@ performs: allocate_untracked[wei](msg.sender)
 @public
 def destroy():
-    #@ allocate_untracked_wei(msg.sender)
+    #@ allocate_untracked[wei](msg.sender)
     selfdestruct(msg.sender)
 
 #@ performs: payout(self.balance)
 @public
 def destroy_no_perform():
-    #:: ExpectedOutput(allocate.untracked.wei.failed:no.performs)
-    #@ allocate_untracked_wei(msg.sender)
+    #:: ExpectedOutput(allocate.untracked.failed:no.performs)
+    #@ allocate_untracked[wei](msg.sender)
     selfdestruct(msg.sender)
 
 #@ performs: payout(self.balance)
