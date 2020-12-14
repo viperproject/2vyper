@@ -106,6 +106,7 @@ def withdraw():
     send(msg.sender, pending_amount)
 
 
+#@ performs: exchange[wei <-> good](self.highestBid, 1, self.highestBidder, self.beneficiary, times=1)
 #@ performs: payout[wei](self.highestBid, acting_for=self.beneficiary)
 @public
 def endAuction():

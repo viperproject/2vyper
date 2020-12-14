@@ -784,7 +784,6 @@ class SpecificationTranslator(ExpressionTranslator):
 
             return None
         elif name == names.EXCHANGE:
-            assert not is_performs
 
             resource1, resource2 = self.resource_translator.translate_exchange(node.resource, res, ctx)
 
@@ -795,8 +794,13 @@ class SpecificationTranslator(ExpressionTranslator):
 
             times = self.translate(node.keywords[0].value, res, ctx)
 
-            self.allocation_translator.exchange(node, resource1, resource2, left, right, left_owner, right_owner,
-                                                times, res, ctx, pos)
+            if is_performs:
+                self.allocation_translator.performs(name, [resource1, resource2, left, right,
+                                                           left_owner, right_owner, times],
+                                                    [self.viper_ast.Add(left, right)], res, ctx, pos)
+            else:
+                self.allocation_translator.exchange(node, resource1, resource2, left, right, left_owner, right_owner,
+                                                    times, res, ctx, pos)
 
             return None
         elif name == names.CREATE:

@@ -328,6 +328,11 @@ DESTROY_FAIL = {
         ('destroy.failed', 'not.trusted')
 }
 
+EXCHANGE_FAIL = {
+    ('$operation.failed', 'no.performs'):
+        ('exchange.failed', 'no.performs')
+}
+
 PAYABLE_FAIL = {
     ('$operation.failed', 'no.performs'):
         ('payable.failed', 'no.performs')

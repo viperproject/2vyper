@@ -25,6 +25,8 @@ predicate $performs$reallocate($resource: $Struct, $from_address: Int, $to_addre
 
 predicate $performs$offer($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_address: Int, $times: Int)
 
+predicate $performs$exchange($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_address: Int, $times: Int)
+
 predicate $performs$revoke($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_adress: Int)
 
 predicate $performs$trust($address: Int, $by_address: Int, $value: Bool)
