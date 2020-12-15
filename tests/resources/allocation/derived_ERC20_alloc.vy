@@ -45,6 +45,7 @@ token: ERC20
 
 balanceOf: public(map(address, uint256))
 allowances: map(address, map(address, uint256))
+self.allowance_to_decompose: map(address, uint256)
 total_supply: uint256
 
 
@@ -63,6 +64,8 @@ total_supply: uint256
 #@ invariant: allocated[token]() == self.balanceOf
 
 #@ invariant: forall({o: address, s: address}, self.allowances[o][s] == offered[token <-> token](1, 0, o, s))
+
+#@ invariant: forall({a: address}, allowed_to_decompose[token](a) == self.allowance_to_decompose[a])
 
 
 @public
@@ -125,6 +128,13 @@ def approve(_spender: address, _value : uint256) -> bool:
     log.Approval(msg.sender, _spender, _value)
     return True
 
+
+@public
+@constant
+def approve_to_decompose(_value: uint256) -> uint256:
+    self.allowance_to_decompose[msg.sender] = _value
+    return True
+
 #@ performs: payable?[token](_value)
 #@ performs: reallocate[token](_value, to=_to)
 @public
@@ -161,4 +171,5 @@ def burn(_value: uint256):
 def burnFrom(_to: address, _value: uint256):
     self.allowances[_to][msg.sender] -= _value
     #@ exchange[token <-> token](1, 0, _to, msg.sender, times=min(_value, self.balanceOf[_to]))
+    self.allowance_to_decompose[_to] -= _value
     self._burn(_to, _value)
