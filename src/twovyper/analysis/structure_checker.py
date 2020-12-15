@@ -510,6 +510,8 @@ class StructureChecker(NodeVisitor):
         if node.name in names.ALLOCATION_FUNCTIONS:
             msg = "Allocation statements require allocation config option."
             _assert(program.config.has_option(names.CONFIG_ALLOCATION), node, 'alloc.not.alloc', msg)
+            if isinstance(program, VyperInterface):
+                _assert(not program.config.has_option(names.CONFIG_NO_PERFORMS), node, 'alloc.not.alloc')
 
         if node.name in names.GHOST_STATEMENTS:
             msg = "Allocation statements are not allowed in constant functions."

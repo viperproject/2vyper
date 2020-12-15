@@ -291,6 +291,16 @@ class FunctionTranslator(CommonTranslator):
                 assert isinstance(performs, ast.FunctionCall)
                 _ = self.specification_translator.translate_ghost_statement(performs, body, ctx, is_performs=True)
 
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                interface_func = interface.functions.get(function.name)
+                if interface_func:
+                    with ctx.program_scope(interface):
+                        for performs in interface_func.performs:
+                            assert isinstance(performs, ast.FunctionCall)
+                            self.specification_translator.translate_ghost_statement(performs, body, ctx,
+                                                                                    is_performs=True)
+
             # Revert if a @nonreentrant lock is set
             self._assert_unlocked(function, body, ctx)
             # Set all @nonreentrant locks

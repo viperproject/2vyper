@@ -9,6 +9,7 @@ from functools import reduce
 from typing import Callable, List, Union
 
 from twovyper.ast import ast_nodes as ast, names, types
+from twovyper.ast.nodes import VyperProgram
 
 from twovyper.translation import helpers, mangled
 from twovyper.translation.abstract import CommonTranslator
@@ -688,10 +689,14 @@ class AllocationTranslator(CommonTranslator):
 
                 # As an optimization we only assume invariants that mention allocated(), all other invariants
                 # are already known since we only changed the allocation map to a fresh one
-                for inv in ctx.program.analysis.allocated_invariants:
-                    ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
-                    expr = spec_translator.translate_invariant(inv, res, ctx, True)
-                    res.append(self.viper_ast.Inhale(expr, ppos))
+                contracts: List[VyperProgram] = [ctx.program.interfaces[i.name] for i in ctx.program.implements]
+                contracts.append(ctx.program)
+                for contract in contracts:
+                    with ctx.program_scope(contract):
+                        for inv in ctx.current_program.analysis.allocated_invariants:
+                            ppos = self.to_position(inv, ctx, rules.INHALE_INVARIANT_FAIL)
+                            expr = spec_translator.translate_invariant(inv, res, ctx, True)
+                            res.append(self.viper_ast.Inhale(expr, ppos))
 
         modelt = self.model_translator.save_variables(res, ctx, pos)
 

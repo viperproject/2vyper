@@ -26,6 +26,16 @@ def _check_resources(program: VyperProgram):
             for resource_name, resources_list in interface.resources.items():
                 for resource in resources_list:
                     if resource.file is None:
+                        if program.resources.get(resource_name) is None:
+                            if not program.config.has_option(names.CONFIG_ALLOCATION):
+                                raise InvalidProgramException(node, 'alloc.not.alloc',
+                                                              f'The interface "{interface.name}" uses the '
+                                                              f'allocation config option. Therefore, this contract '
+                                                              f'also has to enable this config option.')
+                            raise InvalidProgramException(node, 'missing.resource',
+                                                          f'The interface "{interface.name}" '
+                                                          f'needs a default resource "{resource_name}" '
+                                                          f'that is not present in this contract.')
                         continue
                     imported_resources = [r for r in program.resources.get(resource_name, [])
                                           if r.file == resource.file]

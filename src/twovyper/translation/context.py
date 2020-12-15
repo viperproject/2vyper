@@ -438,9 +438,20 @@ class Context:
         old_program = self.current_program
         self.current_program = program
 
+        args = None
+        if self.function:
+            args = self.args
+            other_func: VyperFunction = program.functions.get(self.function.name)
+            if other_func:
+                assert len(other_func.args) == len(args)
+                self.args = {}
+                for (name, _), (_, var) in zip(other_func.args.items(), args.items()):
+                    self.args[name] = var
         yield
 
         self.current_program = old_program
+        if args:
+            self.args = args
 
     @contextmanager
     def state_scope(self, present_state, old_state):

@@ -7,16 +7,11 @@
 
 # Interface for the used methods in ERC20
 
-#@ config: allocation
+#@ config: allocation, no_derived_wei_resource
 
 #@ interface
 
 #@ resource: token()
-
-# Events
-
-Transfer: event({_from: address, _to: address, _value: uint256})
-Approval: event({_owner: address, _spender: address, _value: uint256})
 
 #@ ghost:
     #@ def balanceOf() -> map(address, uint256): ...
@@ -27,7 +22,6 @@ Approval: event({_owner: address, _spender: address, _value: uint256})
 #@ invariant: minter(self) == old(minter(self))
 #@ invariant: total_supply(self) == sum(balanceOf(self))
 
-#@ invariant: sum(allocated[wei]()) == 0
 #@ invariant: allocated[token]() == balanceOf(self)
 #@ invariant: forall({a: address}, {allocated[creator(token)](a)}, allocated[creator(token)](a) == (1 if a == minter(self) else 0))
 
@@ -38,12 +32,6 @@ Approval: event({_owner: address, _spender: address, _value: uint256})
 # caller private: conditional(forall({a: address}, not trusted(a, by=caller())) and sum(allowance(self)[caller()]) == 0, allowance(self)[caller()])
 
 # Functions
-
-#@ performs: create[token](_supply * 10 ** _decimals)
-#@ performs: create[creator(token)](1)
-@public
-def __init__(_name: string[64], _symbol: string[32], _decimals: uint256, _supply: uint256):
-    raise "Not implemented"
 
 #@ ensures: success() ==> result() == total_supply(self)
 @constant
@@ -58,10 +46,10 @@ def totalSupply() -> uint256:
 def allowance(_owner: address, _spender: address) -> uint256:
     raise "Not implemented"
 
-#@ ensures: success() ==> result() == balanceOf(self)[arg0]
+#@ ensures: success() ==> result() == balanceOf(self)[a]
 @constant
 @public
-def balanceOf(arg0: address) -> uint256:
+def balanceOf(a: address) -> uint256:
     raise "Not implemented"
 
 #@ performs: reallocate[token](_value, to=_to)
@@ -86,7 +74,7 @@ def approve(_spender: address, _value: uint256) -> bool:
 def burn(_value: uint256):
     raise "Not implemented"
 
-#@ performs: exchange[token <-> token](1, 0, _from, msg.sender, times=_value)
+#@ performs: exchange[token <-> token](1, 0, _from, msg.sender, times=min(_value, balanceOf(self)[_from]))
 #@ performs: destroy[token](_value)
 @public
 def burnFrom(_from: address, _value: uint256):
