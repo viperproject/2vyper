@@ -404,6 +404,11 @@ class SpecificationTranslator(ExpressionTranslator):
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
             args = [self.translate(arg, res, ctx) for arg in node.args]
             return self.allocation_translator.get_offered(offered, from_resource, to_resource, *args, ctx, pos)
+        elif name == names.NO_OFFERS:
+            offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
+            resource = self.resource_translator.translate(node.resource, res, ctx)
+            address = self.translate(node.args[0], res, ctx)
+            return helpers.no_offers(self.viper_ast, offered, resource, address, pos)
         elif name == names.ALLOWED_TO_DECOMPOSE:
             resource, underlying_resource = self.resource_translator.translate_with_underlying(node, res, ctx)
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
@@ -423,6 +428,11 @@ class SpecificationTranslator(ExpressionTranslator):
             assert by is not None
             trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
             return self.allocation_translator.get_trusted(trusted, where, address, by, ctx, pos)
+        elif name == names.TRUST_NO_ONE:
+            trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
+            address = self.translate(node.args[0], res, ctx)
+            where = self.translate(node.args[1], res, ctx)
+            return helpers.trust_no_one(self.viper_ast, trusted, address, where, pos)
         elif name == names.ACCESSIBLE:
             # The function necessary for accessible is either the one used as the third argument
             # or the one the heuristics determined

@@ -133,6 +133,9 @@ FORCED_ETHER_CHECK = '$forced_ether_check'
 PURE_SUCCESS = '$pure$success_get'
 PURE_RESULT = '$pure$return_get'
 
+TRUST_NO_ONE = '$trust_no_one'
+NO_OFFERS = '$no_offers'
+
 
 def method_name(vyper_name: str) -> str:
     return f'f${vyper_name}'

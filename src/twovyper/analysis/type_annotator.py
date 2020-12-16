@@ -818,6 +818,10 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[2], types.VYPER_ADDRESS)
                 self.annotate_expected(node.args[3], types.VYPER_ADDRESS)
                 return [types.VYPER_INT128], [node]
+            elif case(names.NO_OFFERS):
+                _check_number_of_arguments(node, 1, resources=1)
+                self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                return [types.VYPER_BOOL], [node]
             elif case(names.ALLOWED_TO_DECOMPOSE):
                 _check_number_of_arguments(node, 1, resources=1)
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
@@ -829,6 +833,11 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                 for kw in node.keywords:
                     self.annotate_expected(kw.value, types.VYPER_ADDRESS)
+                return [types.VYPER_BOOL], [node]
+            elif case(names.TRUST_NO_ONE):
+                _check_number_of_arguments(node, 2)
+                self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                self.annotate_expected(node.args[1], types.VYPER_ADDRESS)
                 return [types.VYPER_BOOL], [node]
             elif len(node.args) == 1 and isinstance(node.args[0], ast.Dict):
                 # This is a struct initializer

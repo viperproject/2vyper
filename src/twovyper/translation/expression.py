@@ -1001,6 +1001,7 @@ class ExpressionTranslator(NodeTranslator):
             # Save the values of to, amount, and args, as self could be changed by reentrancy
             if known:
                 def new_var(variable, name='v'):
+                    name += '$'
                     var_name = ctx.new_local_var_name(name)
                     var_decl = self.viper_ast.LocalVarDecl(var_name, variable.typ(), pos)
                     ctx.new_local_vars.append(var_decl)

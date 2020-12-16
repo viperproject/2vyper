@@ -113,8 +113,16 @@ def offer_predicate(viper_ast: ViperAST, from_resource, to_resource, from_val, t
     return viper_ast.PredicateAccess([from_resource, to_resource, from_val, to_val, from_addr, to_addr], mangled.OFFER, pos)
 
 
+def no_offers(viper_ast: ViperAST, offered, resource, address, pos=None):
+    return viper_ast.FuncApp(mangled.NO_OFFERS, [offered, resource, address], pos, type=viper_ast.Bool)
+
+
 def trust_predicate(viper_ast: ViperAST, where, address, by_address, pos=None):
     return viper_ast.PredicateAccess([where, address, by_address], mangled.TRUST, pos)
+
+
+def trust_no_one(viper_ast: ViperAST, trusted, who, where, pos=None):
+    return viper_ast.FuncApp(mangled.TRUST_NO_ONE, [trusted, who, where], pos, type=viper_ast.Bool)
 
 
 def performs_predicate(viper_ast: ViperAST, function: str, args, pos=None):
