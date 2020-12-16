@@ -407,12 +407,10 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.ALLOWED_TO_DECOMPOSE:
             resource, underlying_resource = self.resource_translator.translate_with_underlying(node, res, ctx)
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
-            claimed_amount = self.translate(node.args[0], res, ctx)
             const_one = self.viper_ast.IntLit(1, pos)
-            address = self.translate(node.args[1], res, ctx)
-            offered_amount = self.allocation_translator.get_offered(offered, resource, underlying_resource, const_one,
-                                                                    const_one, address, address, ctx, pos)
-            return self.viper_ast.LeCmp(claimed_amount, offered_amount, pos)
+            address = self.translate(node.args[0], res, ctx)
+            return self.allocation_translator.get_offered(offered, resource, underlying_resource, const_one,
+                                                          const_one, address, address, ctx, pos)
         elif name == names.TRUSTED:
             address = self.translate(node.args[0], res, ctx)
             by = self.translate(node.keywords[0].value, res, ctx)
@@ -737,18 +735,18 @@ class SpecificationTranslator(ExpressionTranslator):
             return None
         elif name == names.ALLOW_TO_DECOMPOSE:
             resource, underlying_resource = self.resource_translator.translate_with_underlying(None, res, ctx)
-            times = self.translate(node.args[0], res, ctx)
-            const_one = self.viper_ast.IntLit(1, pos)
+            amount = self.translate(node.args[0], res, ctx)
             address = self.translate(node.args[1], res, ctx)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
 
             if is_performs:
+                const_one = self.viper_ast.IntLit(1, pos)
                 self.allocation_translator.performs(names.OFFER, [resource, underlying_resource, const_one, const_one,
-                                                                  address, address, times], times, res, ctx, pos)
+                                                                  address, address, amount], amount, res, ctx, pos)
             else:
-                self.allocation_translator.offer(node, resource, underlying_resource, const_one, const_one, address,
-                                                 address, times, msg_sender, res, ctx, pos)
+                self.allocation_translator.allow_to_decompose(node, resource, underlying_resource, address, amount,
+                                                              msg_sender, res, ctx, pos)
         elif name == names.REVOKE:
             from_resource, to_resource = self.resource_translator.translate_exchange(node.resource, res, ctx)
 

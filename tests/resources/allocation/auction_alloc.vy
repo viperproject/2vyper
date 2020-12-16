@@ -64,7 +64,7 @@ pendingReturns: public(map(address, wei_value))
 
 #@ invariant: forall({a: address}, accessible(a, self.pendingReturns[a]))
 
-#@ invariant: not self.ended ==> allowed_to_decompose[wei](MAX_UINT256, self.beneficiary)
+#@ invariant: not self.ended ==> allowed_to_decompose[wei](self.beneficiary) == MAX_UINT256
 
 
 #@ performs: create[good](1, to=msg.sender)

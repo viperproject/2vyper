@@ -823,6 +823,23 @@ class AllocationTranslator(CommonTranslator):
 
         self.seqn_with_info(stmts, "Offer", res)
 
+    def allow_to_decompose(self, node: ast.Node,
+                           resource: Expr, underlying_resource: Expr,
+                           owner: Expr, amount: Expr, actor: Expr,
+                           res: List[Stmt], ctx: Context, pos=None):
+        stmts = []
+        const_one = self.viper_ast.IntLit(1, pos)
+
+        self._exhale_performs_if_non_zero_amount(node, names.OFFER, [resource, underlying_resource, const_one,
+                                                                     const_one, owner, owner, amount],
+                                                 amount, rules.OFFER_FAIL, stmts, ctx, pos)
+        self._check_trusted_if_non_zero_amount(node, actor, owner, amount,
+                                               rules.OFFER_FAIL, stmts, ctx, pos)
+
+        self._set_offered(resource, underlying_resource, const_one, const_one, owner, owner, amount, stmts, ctx, pos)
+
+        self.seqn_with_info(stmts, "Allow to decompose", res)
+
     def revoke(self, node: ast.Node,
                from_resource: Expr, to_resource: Expr,
                from_value: Expr, to_value: Expr,
