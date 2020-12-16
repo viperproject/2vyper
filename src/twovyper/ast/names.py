@@ -230,6 +230,7 @@ OFFERED = 'offered'
 
 TRUSTED = 'trusted'
 TRUSTED_BY = 'by'
+TRUSTED_WHERE = 'where'
 
 REALLOCATE = 'reallocate'
 REALLOCATE_TO = 'to'
@@ -265,7 +266,6 @@ DESTROY = 'destroy'
 DESTROY_ACTING_FOR = 'acting_for'
 
 TRUST = 'trust'
-TRUST_ACTING_FOR = 'acting_for'
 
 ALLOCATE_UNTRACKED = 'allocate_untracked'
 

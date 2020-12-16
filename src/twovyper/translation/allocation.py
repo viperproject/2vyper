@@ -142,7 +142,7 @@ class AllocationTranslator(CommonTranslator):
         return self.set_offered_map(offered, from_resource, to_resource, set_offered, ctx, pos)
 
     def get_trusted(self,
-                    trusted: Expr,
+                    trusted: Expr, where: Expr,
                     address: Expr, by_address: Expr,
                     ctx: Context, pos=None) -> Expr:
         """
@@ -152,28 +152,38 @@ class AllocationTranslator(CommonTranslator):
 
         key1_type = self.type_translator.translate(trusted_type.key_type, ctx)
         value1_type = self.type_translator.translate(trusted_type.value_type, ctx)
-        trusted1 = helpers.map_get(self.viper_ast, trusted, address, key1_type, value1_type, pos)
+        trusted1 = helpers.map_get(self.viper_ast, trusted, where, key1_type, value1_type, pos)
 
         key2_type = self.type_translator.translate(trusted_type.value_type.key_type, ctx)
         value2_type = self.type_translator.translate(trusted_type.value_type.value_type, ctx)
-        map_get = helpers.map_get(self.viper_ast, trusted1, by_address, key2_type, value2_type, pos)
+        trusted2 = helpers.map_get(self.viper_ast, trusted1, address, key2_type, value2_type, pos)
+
+        key3_type = self.type_translator.translate(trusted_type.value_type.value_type.key_type, ctx)
+        value3_type = self.type_translator.translate(trusted_type.value_type.value_type.value_type, ctx)
+        map_get = helpers.map_get(self.viper_ast, trusted2, by_address, key3_type, value3_type, pos)
         return map_get
 
     def set_trusted(self,
-                    trusted: Expr,
+                    trusted: Expr, where: Expr,
                     address: Expr, by_address: Expr,
                     new_value: Expr,
                     ctx: Context, pos=None) -> Expr:
         trusted_type = helpers.trusted_type()
 
-        outer_key_type = self.type_translator.translate(trusted_type.key_type, ctx)
-        outer_value_type = self.type_translator.translate(trusted_type.value_type, ctx)
-        inner_key_type = self.type_translator.translate(trusted_type.value_type.key_type, ctx)
-        inner_value_type = self.type_translator.translate(trusted_type.value_type.value_type, ctx)
+        key1_type = self.type_translator.translate(trusted_type.key_type, ctx)
+        value1_type = self.type_translator.translate(trusted_type.value_type, ctx)
+        middle_map = helpers.map_get(self.viper_ast, trusted, where, key1_type, value1_type, pos)
 
-        inner_map = helpers.map_get(self.viper_ast, trusted, address, outer_key_type, outer_value_type, pos)
-        new_inner = helpers.map_set(self.viper_ast, inner_map, by_address, new_value, inner_key_type, inner_value_type, pos)
-        return helpers.map_set(self.viper_ast, trusted, address, new_inner, outer_key_type, outer_value_type, pos)
+        key2_type = self.type_translator.translate(trusted_type.value_type.key_type, ctx)
+        value2_type = self.type_translator.translate(trusted_type.value_type.value_type, ctx)
+        inner_map = helpers.map_get(self.viper_ast, middle_map, address, key2_type, value2_type, pos)
+
+        key3_type = self.type_translator.translate(trusted_type.value_type.value_type.key_type, ctx)
+        value3_type = self.type_translator.translate(trusted_type.value_type.value_type.value_type, ctx)
+
+        new_inner = helpers.map_set(self.viper_ast, inner_map, by_address, new_value, key3_type, value3_type, pos)
+        new_middle = helpers.map_set(self.viper_ast, middle_map, address, new_inner, key2_type, value2_type, pos)
+        return helpers.map_set(self.viper_ast, trusted, where, new_middle, key1_type, value1_type, pos)
 
     def _check_allocation(self, node: ast.Node,
                           resource: Expr, address: Expr, value: Expr,
@@ -423,8 +433,10 @@ class AllocationTranslator(CommonTranslator):
     def _check_trusted(self, node: ast.Node,
                        address: Expr, by_address: Expr,
                        rule: rules.Rule, res: List[Stmt], ctx: Context, pos=None):
+        where = ctx.self_address or helpers.self_address(self.viper_ast, pos)
+
         trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
-        get_trusted = self.get_trusted(trusted, address, by_address, ctx, pos)
+        get_trusted = self.get_trusted(trusted, where, address, by_address, ctx, pos)
         eq = self.viper_ast.EqCmp(address, by_address, pos)
         cond = self.viper_ast.Or(eq, get_trusted, pos)
         if ctx.quantified_vars:
@@ -440,8 +452,10 @@ class AllocationTranslator(CommonTranslator):
                         address: Expr, by_address: Expr,
                         new_value: Expr,
                         res: List[Stmt], ctx: Context, pos=None):
+        where = ctx.self_address or helpers.self_address(self.viper_ast, pos)
+
         trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
-        set_trusted = self.set_trusted(trusted, address, by_address, new_value, ctx, pos)
+        set_trusted = self.set_trusted(trusted, where, address, by_address, new_value, ctx, pos)
         trusted_assign = self.viper_ast.LocalVarAssign(trusted, set_trusted, pos)
         res.append(trusted_assign)
 
@@ -449,9 +463,10 @@ class AllocationTranslator(CommonTranslator):
                                 address: Expr, by_address: Expr,
                                 new_value: Expr,
                                 res: List[Stmt], ctx: Context, pos=None):
+        where = ctx.self_address or helpers.self_address(self.viper_ast, pos)
         trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
 
-        self._inhale_trust(address, by_address, res, ctx, pos)
+        self._inhale_trust(where, address, by_address, res, ctx, pos)
 
         trusted_type = self.type_translator.translate(helpers.trusted_type(), ctx)
         fresh_trusted_name = ctx.new_local_var_name(names.TRUSTED)
@@ -464,16 +479,18 @@ class AllocationTranslator(CommonTranslator):
         qaddr_var = qaddr.localVar()
         qby = self.viper_ast.LocalVarDecl('$b', self.viper_ast.Int, pos)
         qby_var = qby.localVar()
+        qwhere = self.viper_ast.LocalVarDecl('$c', self.viper_ast.Int, pos)
+        qwhere_var = qwhere.localVar()
 
-        fresh_trusted_get = self.get_trusted(fresh_trusted, qaddr_var, qby_var, ctx, pos)
-        old_trusted_get = self.get_trusted(trusted, qaddr_var, qby_var, ctx, pos)
-        trust_pred = helpers.trust_predicate(self.viper_ast, qaddr_var, qby_var, pos)
+        fresh_trusted_get = self.get_trusted(fresh_trusted, qwhere_var, qaddr_var, qby_var, ctx, pos)
+        old_trusted_get = self.get_trusted(trusted, qwhere_var, qaddr_var, qby_var, ctx, pos)
+        trust_pred = helpers.trust_predicate(self.viper_ast, qwhere_var, qaddr_var, qby_var, pos)
         perm = self.viper_ast.CurrentPerm(trust_pred, pos)
         gtz = self.viper_ast.PermGtCmp(perm, self.viper_ast.NoPerm(pos), pos)
         cond = self.viper_ast.CondExp(gtz, new_value, old_trusted_get, pos)
         eq = self.viper_ast.EqCmp(fresh_trusted_get, cond, pos)
         trigger = self.viper_ast.Trigger([fresh_trusted_get], pos)
-        quant = self.viper_ast.Forall([qaddr, qby], [trigger], eq, pos)
+        quant = self.viper_ast.Forall([qaddr, qby, qwhere], [trigger], eq, pos)
         assume = self.viper_ast.Inhale(quant, pos)
         res.append(assume)
 
@@ -484,28 +501,14 @@ class AllocationTranslator(CommonTranslator):
         # Heap clean-up
         self._exhale_allocation(res, ctx, pos)
 
-    def _inhale_trust(self, address: Expr, by_address: Expr, res: List[Stmt], ctx: Context, pos=None):
-        trust = helpers.trust_predicate(self.viper_ast, address, by_address, pos)
+    def _inhale_trust(self, where: Expr, address: Expr, by_address: Expr, res: List[Stmt], ctx: Context, pos=None):
+        trust = helpers.trust_predicate(self.viper_ast, where, address, by_address, pos)
         perm = self.viper_ast.FullPerm(pos)
         acc_trust = self.viper_ast.PredicateAccessPredicate(trust, perm, pos)
         trigger = self.viper_ast.Trigger([trust], pos)
         quant = self._quantifier(acc_trust, [trigger], ctx, pos)
         # TODO: rule
         res.append(self.viper_ast.Inhale(quant, pos))
-
-    def _exhale_trusted(self, res: List[Stmt], ctx: Context, pos=None):
-        # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
-        # to exhale no permissions under a quantifier.
-        qaddr = self.viper_ast.LocalVarDecl('$a', self.viper_ast.Int, pos)
-        qby = self.viper_ast.LocalVarDecl('$b', self.viper_ast.Int, pos)
-        trust = helpers.trust_predicate(self.viper_ast, qaddr.localVar(), qby.localVar(), pos)
-        perm = self.viper_ast.CurrentPerm(trust, pos)
-        cond = self.viper_ast.GtCmp(perm, self.viper_ast.NoPerm(pos), pos)
-        acc_trust = self.viper_ast.PredicateAccessPredicate(trust, perm, pos)
-        trigger = self.viper_ast.Trigger([trust], pos)
-        quant = self.viper_ast.Forall([qaddr, qby], [trigger], self.viper_ast.Implies(cond, acc_trust, pos), pos)
-        # TODO: rule
-        res.append(self.viper_ast.Exhale(quant, pos))
 
     def _performs_acc_predicate(self, function: str, args: List[Expr], ctx: Context, pos=None) -> Expr:
         pred = helpers.performs_predicate(self.viper_ast, function, args, pos)
@@ -582,8 +585,9 @@ class AllocationTranslator(CommonTranslator):
 
         # Only check that there was an offer, if someone else than a trusted address performs the deallocation
         msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+        where = ctx.self_address or helpers.self_address(self.viper_ast, pos)
         trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
-        is_trusted_address = self.get_trusted(trusted, msg_sender, address, ctx, pos)
+        is_trusted_address = self.get_trusted(trusted, where, msg_sender, address, ctx, pos)
         is_itself = self.viper_ast.EqCmp(msg_sender, address, pos)
         is_trusted_address = self.viper_ast.Or(is_itself, is_trusted_address, pos)
         not_trusted_address = self.viper_ast.Not(is_trusted_address, pos)
@@ -923,7 +927,8 @@ class AllocationTranslator(CommonTranslator):
               ctx: Context, pos=None):
         stmts = []
 
-        self._exhale_performs(node, names.TRUST, [address, from_address, new_value], rules.TRUST_FAIL, stmts, ctx, pos)
+        self._exhale_performs(node, names.TRUST, [address, from_address, new_value],
+                              rules.TRUST_FAIL, stmts, ctx, pos)
 
         if ctx.quantified_vars:
             self._foreach_change_trusted(address, from_address, new_value, stmts, ctx, pos)

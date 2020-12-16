@@ -14,7 +14,7 @@ predicate $allocation($resource: $Struct, $address: Int)
 
 predicate $offer($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_address: Int)
 
-predicate $trust($address: Int, $by_address: Int)
+predicate $trust($where: Int, $address: Int, $by_address: Int)
 
 
 predicate $performs$create($resource: $Struct, $from_address: Int, $to_address: Int, $amount: Int)
@@ -38,12 +38,12 @@ predicate $performs$payable($resource: $Struct, $amount: Int)
 predicate $performs$payout($resource: $Struct, $from_address: Int, $amount: Int)
 
 
-function $pure$success_get(x:$Struct): Bool
+function $pure$success_get(x: $Struct): Bool
 {
   $struct_get($struct_loc(x, 0))
 }
 
-function $pure$return_get(x:$Struct): Int
+function $pure$return_get(x: $Struct): Int
   requires $pure$success_get(x)
 {
   $struct_loc(x, 1)

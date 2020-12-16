@@ -98,7 +98,7 @@ def offered_type():
 
 
 def trusted_type():
-    return MapType(types.VYPER_ADDRESS, MapType(types.VYPER_ADDRESS, types.VYPER_BOOL))
+    return MapType(types.VYPER_ADDRESS, MapType(types.VYPER_ADDRESS, MapType(types.VYPER_ADDRESS, types.VYPER_BOOL)))
 
 
 def allocation_predicate(viper_ast: ViperAST, resource, address, pos=None):
@@ -113,8 +113,8 @@ def offer_predicate(viper_ast: ViperAST, from_resource, to_resource, from_val, t
     return viper_ast.PredicateAccess([from_resource, to_resource, from_val, to_val, from_addr, to_addr], mangled.OFFER, pos)
 
 
-def trust_predicate(viper_ast: ViperAST, address, by_address, pos=None):
-    return viper_ast.PredicateAccess([address, by_address], mangled.TRUST, pos)
+def trust_predicate(viper_ast: ViperAST, where, address, by_address, pos=None):
+    return viper_ast.PredicateAccess([where, address, by_address], mangled.TRUST, pos)
 
 
 def performs_predicate(viper_ast: ViperAST, function: str, args, pos=None):

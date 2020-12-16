@@ -413,9 +413,16 @@ class SpecificationTranslator(ExpressionTranslator):
                                                           const_one, address, address, ctx, pos)
         elif name == names.TRUSTED:
             address = self.translate(node.args[0], res, ctx)
-            by = self.translate(node.keywords[0].value, res, ctx)
+            by = None
+            where = ctx.self_address or helpers.self_address(self.viper_ast, pos)
+            for kw in node.keywords:
+                if kw.name == names.TRUSTED_BY:
+                    by = self.translate(kw.value, res, ctx)
+                elif kw.name == names.TRUSTED_WHERE:
+                    where = self.translate(kw.value, res, ctx)
+            assert by is not None
             trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
-            return self.allocation_translator.get_trusted(trusted, address, by, ctx, pos)
+            return self.allocation_translator.get_trusted(trusted, where, address, by, ctx, pos)
         elif name == names.ACCESSIBLE:
             # The function necessary for accessible is either the one used as the third argument
             # or the one the heuristics determined
