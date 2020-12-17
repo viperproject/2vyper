@@ -799,6 +799,78 @@ class ExpressionTranslator(NodeTranslator):
                         forall = self.viper_ast.Forall([q_var.var_decl(ctx)], [], expr, pos)
                         res.append(self.viper_ast.Assert(forall, pos))
 
+    def assume_own_resources_stayed_constant(self, res: List[Stmt], ctx: Context, pos=None):
+        if not ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            return
+        
+        interface_names = [t.name for t in ctx.program.implements]
+        interfaces = [ctx.program.interfaces[name] for name in interface_names]
+        # The underlying wei resource must be translated differently. Therefore, exclude it for the moment.
+        own_resources = [(name, resource) for name, resource in ctx.program.own_resources.items()
+                         if name != names.UNDERLYING_WEI]
+        for i in interfaces:
+            interface_resources = [(name, resource) for name, resource in i.own_resources.items()
+                                   if name != names.UNDERLYING_WEI]
+            own_resources.extend(interface_resources)
+
+        counter = 0
+        translated_resource_with_args_and_type_assumption = []
+        for name, resource in own_resources:
+            type_assumptions = []
+            args = []
+            for idx, arg_type in enumerate(resource.type.member_types.values()):
+                viper_type = self.type_translator.translate(arg_type, ctx)
+                arg = self.viper_ast.LocalVarDecl(f'$arg{idx}${counter}', viper_type, pos)
+                counter += 1
+                args.append(arg)
+                arg_var = arg.localVar()
+                type_assumptions.extend(self.type_translator.type_assumptions(arg_var, arg_type, ctx))
+            type_cond = reduce(lambda l, r: self.viper_ast.And(l, r, pos), type_assumptions, self.viper_ast.TrueLit())
+            t_resource = self.resource_translator.resource(name, [arg.localVar() for arg in args], ctx)
+            translated_resource_with_args_and_type_assumption.append((t_resource, args, type_cond))
+
+        # Special translation of underlying Wei
+        t_underlying_wei = self.resource_translator.underlying_wei_resource(ctx)
+        translated_resource_with_args_and_type_assumption.append((t_underlying_wei, (), self.viper_ast.TrueLit()))
+
+        # forall({r: own Resources}, allocated[r]() == old(allocated[r]()))
+        current_allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+        old_allocated = ctx.old_state[mangled.ALLOCATED].local_var(ctx)
+        for t_resource, args, type_cond in translated_resource_with_args_and_type_assumption:
+            current_allocated_map = self.allocation_translator.get_allocated_map(current_allocated, t_resource, ctx)
+            old_allocated_map = self.allocation_translator.get_allocated_map(old_allocated, t_resource, ctx)
+            allocated_eq = self.viper_ast.EqCmp(current_allocated_map, old_allocated_map, pos)
+            trigger = self.viper_ast.Trigger([current_allocated_map, old_allocated_map], pos)
+            forall_eq = self.viper_ast.Forall([*args], [trigger],
+                                              self.viper_ast.Implies(type_cond, allocated_eq, pos), pos)
+            res.append(self.viper_ast.Inhale(forall_eq, pos))
+
+        # trusted(self) == old(trusted(self))
+        current_trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
+        old_trusted = ctx.old_state[mangled.TRUSTED].local_var(ctx)
+        self_addr = ctx.self_address or helpers.self_address(self.viper_ast, pos)
+        current_trusted_map = self.allocation_translator.get_trusted_map(current_trusted, self_addr, ctx)
+        old_trusted_map = self.allocation_translator.get_trusted_map(old_trusted, self_addr, ctx)
+        eq = self.viper_ast.EqCmp(current_trusted_map, old_trusted_map, pos)
+        res.append(self.viper_ast.Inhale(eq, pos))
+
+        # forall({r1: own Resources, r2: own Resources}, offered[r1 <-> r2]() == old(offered[r1 <-> r2]())
+        own_resources = ctx.program.own_resources.values()
+        current_offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
+        old_offered = ctx.old_state[mangled.OFFERED].local_var(ctx)
+        for t_resource1, args1, type_cond1 in translated_resource_with_args_and_type_assumption:
+            for t_resource2, args2, type_cond2 in translated_resource_with_args_and_type_assumption:
+                current_offered_map = self.allocation_translator.get_offered_map(current_offered, t_resource1,
+                                                                                 t_resource2, ctx)
+                old_offered_map = self.allocation_translator.get_offered_map(old_offered, t_resource1, t_resource2, ctx)
+                offered_eq = self.viper_ast.EqCmp(current_offered_map, old_offered_map, pos)
+                type_cond = self.viper_ast.And(type_cond1, type_cond2)
+                trigger = self.viper_ast.Trigger([current_offered_map, old_offered_map], pos)
+                forall_eq = self.viper_ast.Forall([*args1, *args2], [trigger],
+                                                  self.viper_ast.Implies(type_cond, offered_eq, pos), pos)
+                res.append(self.viper_ast.Inhale(forall_eq, pos))
+                res.append(self.viper_ast.Inhale(eq, pos))
+
     def assume_contract_state(self, known_interface_refs: List[Tuple[str, Expr]], res: List[Stmt], ctx: Context,
                               receiver: Optional[Expr] = None, skip_caller_private=False):
         for interface_name, interface_ref in known_interface_refs:
@@ -1090,7 +1162,8 @@ class ExpressionTranslator(NodeTranslator):
             self.state_translator.copy_state(ctx.current_state, old_state_for_postconditions, res, ctx)
             # Havoc state
             self.state_translator.havoc_state(ctx.current_state, res, ctx,
-                                              unless=lambda n: n != mangled.CONTRACTS)
+                                              unless=lambda n: n == mangled.SELF)
+            self.assume_own_resources_stayed_constant(res, ctx, pos)
 
             # Prepare old state for inter contract invariants
             assume_caller_private_without_receiver = []
@@ -1100,12 +1173,13 @@ class ExpressionTranslator(NodeTranslator):
 
             # Assume caller private and create new contract state
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
-                                             unless=lambda n: n != mangled.CONTRACTS)
+                                             unless=lambda n: n == mangled.SELF)
             self.state_translator.havoc_state(ctx.current_state, res, ctx,
-                                              unless=lambda n: n != mangled.CONTRACTS)
+                                              unless=lambda n: n == mangled.SELF)
+            self.assume_own_resources_stayed_constant(res, ctx, pos)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
-                                             unless=lambda n: n != mangled.CONTRACTS)
+                                             unless=lambda n: n == mangled.SELF)
             self.state_translator.havoc_state(ctx.current_state, res, ctx)
 
             ############################################################################################################
@@ -1159,9 +1233,10 @@ class ExpressionTranslator(NodeTranslator):
 
             # Assume caller private in a new contract state
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
-                                             unless=lambda n: n != mangled.CONTRACTS)
+                                             unless=lambda n: n == mangled.SELF)
             self.state_translator.havoc_state(ctx.current_state, res, ctx,
-                                              unless=lambda n: n != mangled.CONTRACTS)
+                                              unless=lambda n: n == mangled.SELF)
+            self.assume_own_resources_stayed_constant(res, ctx, pos)
             assume_caller_private = []
             self.assume_contract_state(known_interface_ref, assume_caller_private, ctx)
             self.seqn_with_info(assume_caller_private, "Assume caller private", res)
@@ -1176,16 +1251,17 @@ class ExpressionTranslator(NodeTranslator):
             ############################################################################################################
 
             self.state_translator.copy_state(old_state_for_inter_contract_invariant, ctx.current_old_state, res,
-                                             ctx, unless=lambda n: n != mangled.CONTRACTS)
+                                             ctx, unless=lambda n: n == mangled.SELF)
             # Assert inter contract invariants during call
             assert_invs = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
                                             rules.DURING_CALL_INVARIANT_FAIL)
             self.seqn_with_info(assert_invs, "Assert inter contract invariants during call", res)
             # Assume caller private in a new contract state
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
-                                             unless=lambda n: n != mangled.CONTRACTS)
+                                             unless=lambda n: n == mangled.SELF)
             self.state_translator.havoc_state(ctx.current_state, res, ctx,
-                                              unless=lambda n: n != mangled.CONTRACTS)
+                                              unless=lambda n: n == mangled.SELF)
+            self.assume_own_resources_stayed_constant(res, ctx, pos)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
 
             ############################################################################################################
@@ -1201,9 +1277,10 @@ class ExpressionTranslator(NodeTranslator):
 
             # Assume caller private in a new contract state
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
-                                             unless=lambda n: n != mangled.CONTRACTS)
+                                             unless=lambda n: n == mangled.SELF)
             self.state_translator.havoc_state(ctx.current_state, res, ctx,
-                                              unless=lambda n: n != mangled.CONTRACTS)
+                                              unless=lambda n: n == mangled.SELF)
+            self.assume_own_resources_stayed_constant(res, ctx, pos)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
 
             ############################################################################################################
@@ -1215,7 +1292,7 @@ class ExpressionTranslator(NodeTranslator):
 
             # Restore old state for postcondition
             self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state, res,
-                                             ctx, unless=lambda n: n != mangled.CONTRACTS)
+                                             ctx, unless=lambda n: n == mangled.SELF)
 
         success = self.viper_ast.Not(fail_cond, pos)
         amount = amount or self.viper_ast.IntLit(0)

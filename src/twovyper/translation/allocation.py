@@ -141,6 +141,13 @@ class AllocationTranslator(CommonTranslator):
         set_offered = helpers.map_set(self.viper_ast, offered_map, offer, new_value, key_type, value_type, pos)
         return self.set_offered_map(offered, from_resource, to_resource, set_offered, ctx, pos)
 
+    def get_trusted_map(self, trusted: Expr, where: Expr, ctx: Context, pos=None):
+        trusted_type = helpers.trusted_type()
+
+        key_type = self.type_translator.translate(trusted_type.key_type, ctx)
+        value_type = self.type_translator.translate(trusted_type.value_type, ctx)
+        return helpers.map_get(self.viper_ast, trusted, where, key_type, value_type, pos)
+
     def get_trusted(self,
                     trusted: Expr, where: Expr,
                     address: Expr, by_address: Expr,
