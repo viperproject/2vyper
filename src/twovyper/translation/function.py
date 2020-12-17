@@ -312,6 +312,22 @@ class FunctionTranslator(CommonTranslator):
                 # Havoc self.balance, because we are not allowed to assume self.balance == 0
                 # in the beginning
                 self._havoc_balance(body, ctx)
+                if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                    self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, body, ctx,
+                                                     unless=lambda n: (n != mangled.ALLOCATED
+                                                                       and n != mangled.TRUSTED
+                                                                       and n != mangled.OFFERED))
+                    self.state_translator.havoc_state(ctx.current_state, body, ctx,
+                                                      unless=lambda n: (n != mangled.ALLOCATED
+                                                                        and n != mangled.TRUSTED
+                                                                        and n != mangled.OFFERED))
+                    self.expression_translator.assume_own_resources_stayed_constant(body, ctx, pos)
+                    for interface_name, interface_ref in known_interface_ref:
+                        interface = ctx.program.interfaces[interface_name]
+                        with ctx.program_scope(interface):
+                            with ctx.self_address_scope(interface_ref):
+                                self.expression_translator\
+                                    .implicit_resource_caller_private_expressions(interface, self_address, body, ctx)
 
             # For public function we can make further assumptions about msg.value
             if function.is_public():
