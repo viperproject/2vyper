@@ -887,9 +887,10 @@ class ExpressionTranslator(NodeTranslator):
                 old_offered_map = self.allocation_translator.get_offered_map(old_offered, t_resource1, t_resource2, ctx)
                 offered_eq = self.viper_ast.EqCmp(current_offered_map, old_offered_map, pos)
                 type_cond = self.viper_ast.And(type_cond1, type_cond2)
-                # TODO: Find good trigger
-                forall_eq = self.viper_ast.Forall([*args1, *args2], [],
-                                                  self.viper_ast.Implies(type_cond, offered_eq, pos), pos)
+                forall_eq = self.viper_ast.Forall(
+                    [*args1, *args2], [self.viper_ast.Trigger([current_offered_map], pos),
+                                       self.viper_ast.Trigger([old_offered_map], pos)],
+                    self.viper_ast.Implies(type_cond, offered_eq, pos), pos)
                 res.append(self.viper_ast.Inhale(forall_eq, pos))
 
             no_offers = helpers.no_offers(self.viper_ast, old_offered, t_resource1, address_var)
@@ -953,7 +954,7 @@ class ExpressionTranslator(NodeTranslator):
         v_type = self.type_translator.translate(offered_type.value_type.value_type.value_type, ctx)
         # forall({r1: Resource on interface, r2: Resource on interface, o: Offer},
         #   trust_no_one(self, interface) ==> old(offered[r1 <-> r2][o]) == 0 ==>
-        #   old(offered[r1 <-> r2][o]) == 0)
+        #   offered[r1 <-> r2][o] == 0)
         current_offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
         old_offered = ctx.current_old_state[mangled.OFFERED].local_var(ctx)
         for t_resource1, args1, type_cond1 in translated_resources1:
@@ -971,9 +972,10 @@ class ExpressionTranslator(NodeTranslator):
                 offered_eq = self.viper_ast.EqCmp(current_offered_map_get, old_offered_map_get)
                 type_cond = self.viper_ast.And(type_cond1, type_cond2)
                 cond = self.viper_ast.And(trust_no_one, type_cond)
-                # TODO: Find good trigger
-                forall_eq = self.viper_ast.Forall([offer, *args1, *args2], [],
-                                                  self.viper_ast.Implies(cond, offered_eq))
+                forall_eq = self.viper_ast.Forall(
+                    [offer, *args1, *args2], [self.viper_ast.Trigger([current_offered_map_get], pos),
+                                              self.viper_ast.Trigger([old_offered_map_get], pos)],
+                    self.viper_ast.Implies(cond, offered_eq))
                 body.append(self.viper_ast.Inhale(forall_eq, pos))
         # forall({r: Resource on interface}, trust_no_one(self, interface)
         #   and no_offers[r](self) ==> allocated[r](self) >= old(allocated[r](self)))
@@ -991,10 +993,10 @@ class ExpressionTranslator(NodeTranslator):
             allocated_geq = self.viper_ast.GeCmp(current_allocated_map, old_allocated_map, pos)
             cond = self.viper_ast.And(trust_no_one, no_offers)
             allocated_geq = self.viper_ast.Implies(cond, allocated_geq)
-            # TODO: Find good trigger
-            forall = self.viper_ast.Forall([*args], [],
-                                           self.viper_ast.Implies(type_cond, allocated_geq, pos),
-                                           pos)
+            forall = self.viper_ast.Forall(
+                [*args], [self.viper_ast.Trigger([current_allocated_map], pos),
+                          self.viper_ast.Trigger([old_allocated_map], pos)],
+                self.viper_ast.Implies(type_cond, allocated_geq, pos), pos)
             body.append(self.viper_ast.Inhale(forall, pos))
             body.append(self.viper_ast.Inhale(self.viper_ast.Implies(no_offers, curr_no_offers, pos), pos))
 
