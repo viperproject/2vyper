@@ -105,6 +105,8 @@ class Context:
         self._current_inline = -1
         self.inline_vias = []
 
+        self.inside_interface_call = False
+
     @property
     def current_function(self) -> Optional[VyperFunction]:
         return self.function if not self.inside_inline_analysis else self.inline_function
@@ -252,6 +254,8 @@ class Context:
         pure_continues = self.pure_continues
         pure_breaks = self.pure_breaks
 
+        inside_interface_call = self.inside_interface_call
+
         self.function = None
         self.is_pure_function = False
 
@@ -299,6 +303,8 @@ class Context:
         self._pure_var_index_counter = 1
         self.pure_continues = []
         self.pure_breaks = []
+
+        self.inside_interface_call = False
 
         yield
 
@@ -352,6 +358,8 @@ class Context:
         self._pure_var_index_counter = pure_var_index_counter
         self.pure_continues = pure_continues
         self.pure_breaks = pure_breaks
+
+        self.inside_interface_call = inside_interface_call
 
     @contextmanager
     def quantified_var_scope(self):
@@ -425,6 +433,9 @@ class Context:
         self._inline_counter += 1
         self._current_inline = self._inline_counter
 
+        inside_interface_call = self.inside_interface_call
+        self.inside_interface_call = True
+
         yield
 
         self.result_var = result_var
@@ -432,6 +443,8 @@ class Context:
 
         self.locals = local_vars
         self._current_inline = old_inline
+
+        self.inside_interface_call = inside_interface_call
 
     @contextmanager
     def program_scope(self, program):

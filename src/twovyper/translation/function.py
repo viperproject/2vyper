@@ -324,10 +324,8 @@ class FunctionTranslator(CommonTranslator):
                     self.expression_translator.assume_own_resources_stayed_constant(body, ctx, pos)
                     for interface_name, interface_ref in known_interface_ref:
                         interface = ctx.program.interfaces[interface_name]
-                        with ctx.program_scope(interface):
-                            with ctx.self_address_scope(interface_ref):
-                                self.expression_translator\
-                                    .implicit_resource_caller_private_expressions(interface, self_address, body, ctx)
+                        self.expression_translator.implicit_resource_caller_private_expressions(
+                            interface, interface_ref, self_address, body, ctx)
 
             # For public function we can make further assumptions about msg.value
             if function.is_public():

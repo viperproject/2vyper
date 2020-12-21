@@ -907,7 +907,7 @@ class ExpressionTranslator(NodeTranslator):
                 with ctx.self_address_scope(interface_inst):
                     self.assume_own_resources_stayed_constant(res, ctx, pos)
 
-    def implicit_resource_caller_private_expressions(self, interface, self_address, res, ctx, pos=None):
+    def _implicit_resource_caller_private_expressions(self, interface, self_address, res, ctx, pos=None):
         if not ctx.program.config.has_option(names.CONFIG_ALLOCATION):
             return
 
@@ -1002,6 +1002,13 @@ class ExpressionTranslator(NodeTranslator):
 
         self.seqn_with_info(body, f"Implicit caller private expr of resources in interface {interface.name}", res)
 
+    def implicit_resource_caller_private_expressions(self, interface, interface_inst, self_address,
+                                                     res, ctx: Context, pos=None):
+        if isinstance(interface, VyperInterface):
+            with ctx.program_scope(interface):
+                with ctx.self_address_scope(interface_inst):
+                    self._implicit_resource_caller_private_expressions(interface, self_address, res, ctx, pos)
+
     def assume_contract_state(self, known_interface_refs: List[Tuple[str, Expr]], res: List[Stmt], ctx: Context,
                               receiver: Optional[Expr] = None, skip_caller_private=False):
         for interface_name, interface_ref in known_interface_refs:
@@ -1036,8 +1043,8 @@ class ExpressionTranslator(NodeTranslator):
                                 caller_private_cond = self.viper_ast.Implies(cond, caller_private_cond, pos)
                                 body.append(self.viper_ast.Inhale(caller_private_cond, pos))
 
-                            self.implicit_resource_caller_private_expressions(interface, caller_var.local_var(ctx),
-                                                                              body, ctx)
+                            self._implicit_resource_caller_private_expressions(interface, caller_var.local_var(ctx),
+                                                                               body, ctx)
 
             if receiver and body:
                 neq_cmp = self.viper_ast.NeCmp(receiver, interface_ref)
@@ -1305,10 +1312,84 @@ class ExpressionTranslator(NodeTranslator):
             self.assume_contract_state(known_interface_ref, assume_caller_private_without_receiver, ctx, to)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private for old state", res)
             self.state_translator.copy_state(ctx.current_state, old_state_for_inter_contract_invariant, res, ctx)
-            # TODO: assume performs clauses of function (either here or later)
-            #  Only allocation map...
-            #  Rest should be not used e.g. let offered_map = (new map) in ...
-            self.assume_interface_resources_stayed_constant(interface, to, res, ctx, pos)
+            general_stmts_for_performs = []
+            performs_as_stmts_generators = []
+            if known and function.performs:
+                performs_as_stmts = {}
+                performs_decider_variables = {}
+                with ctx.program_scope(interface):
+                    with ctx.self_address_scope(to):
+                        with ctx.state_scope(ctx.current_state, ctx.current_old_state):
+                            ctx.current_state[mangled.SELF] = old_state_for_postconditions[mangled.SELF]
+                            ctx.current_state[mangled.CONTRACTS] = old_state_for_postconditions[mangled.CONTRACTS]
+                            with ctx.interface_call_scope():
+                                # Define new msg variable
+                                msg_name = ctx.inline_prefix + mangled.MSG
+                                msg_var = TranslatedVar(names.MSG, msg_name, types.MSG_TYPE, self.viper_ast)
+                                ctx.locals[names.MSG] = msg_var
+                                ctx.new_local_vars.append(msg_var.var_decl(ctx))
+
+                                # Assume msg.sender == self and msg.value == amount
+                                msg = msg_var.local_var(ctx)
+                                svytype = types.MSG_TYPE.member_types[names.MSG_SENDER]
+                                svitype = self.type_translator.translate(svytype, ctx)
+                                msg_sender = helpers.struct_get(self.viper_ast, msg, names.MSG_SENDER,
+                                                                svitype, types.MSG_TYPE)
+                                self_address = helpers.self_address(self.viper_ast)
+                                general_stmts_for_performs.append(self.viper_ast.Inhale(
+                                    self.viper_ast.EqCmp(msg_sender, self_address)))
+
+                                if amount:
+                                    vvytype = types.MSG_TYPE.member_types[names.MSG_VALUE]
+                                    vvitype = self.type_translator.translate(vvytype, ctx)
+                                    msg_value = helpers.struct_get(self.viper_ast, msg, names.MSG_VALUE,
+                                                                   vvitype, types.MSG_TYPE)
+                                    general_stmts_for_performs.append(self.viper_ast.Inhale(
+                                        self.viper_ast.EqCmp(msg_value, amount)))
+
+                                # Arguments as translated variables
+                                args_as_translated_var = [
+                                    TranslatedVar(name, val.name(), arg.type, self.viper_ast,
+                                                  is_local=not self.arithmetic_translator.is_wrapped(val))
+                                    for (name, arg), val in zip(function.args.items(), args)]
+                                ctx.locals.update((var.name, var) for var in args_as_translated_var)
+
+                                zero = self.viper_ast.IntLit(0)
+                                four = self.viper_ast.IntLit(4)
+
+                                for performs_idx, performs in enumerate(function.performs):
+                                    perform_as_stmts = []
+                                    self.spec_translator.translate(performs, perform_as_stmts, ctx)
+
+                                    performs_var_name = ctx.new_local_var_name("performs_decider_var")
+                                    performs_var = TranslatedVar(performs_var_name, performs_var_name,
+                                                                 types.VYPER_UINT256, self.viper_ast)
+                                    ctx.locals[performs_var_name] = performs_var
+                                    ctx.new_local_vars.append(performs_var.var_decl(ctx))
+
+                                    performs_local_var = performs_var.local_var(ctx)
+                                    performs_var_ge_zero = self.viper_ast.GeCmp(performs_local_var, zero)
+                                    performs_var_lt_four = self.viper_ast.LtCmp(performs_local_var, four)
+                                    cond = self.viper_ast.And(performs_var_ge_zero, performs_var_lt_four)
+                                    general_stmts_for_performs.append(self.viper_ast.Inhale(cond))
+
+                                    performs_as_stmts[performs_idx] = perform_as_stmts
+                                    performs_decider_variables[performs_idx] = performs_local_var
+
+                                    def conditional_perform_generator(p_idx: int) -> Callable[[int], Stmt]:
+                                        def conditional_perform(index: int) -> Stmt:
+                                            idx = self.viper_ast.IntLit(index)
+                                            decider_eq_idx = self.viper_ast.EqCmp(
+                                                performs_decider_variables[p_idx], idx)
+                                            return self.viper_ast.If(
+                                                decider_eq_idx, performs_as_stmts[p_idx], [])
+                                        return conditional_perform
+                                    performs_as_stmts_generators.append(conditional_perform_generator(performs_idx))
+
+            res.extend(general_stmts_for_performs)
+            caller_address = ctx.self_address or helpers.self_address(self.viper_ast)
+            self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
+            res.extend([performs_as_stmts(0) for performs_as_stmts in performs_as_stmts_generators])
 
             # Assume caller private and create new contract state
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
@@ -1317,10 +1398,8 @@ class ExpressionTranslator(NodeTranslator):
                                               unless=lambda n: n == mangled.SELF)
             self.assume_own_resources_stayed_constant(res, ctx, pos)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
-            # TODO: assume performs clauses of function (either here or later or earlier)
-            #  Only allocation map...
-            #  Rest should be not used e.g. let offered_map = (new map) in ...
-            self.assume_interface_resources_stayed_constant(interface, to, res, ctx, pos)
+            self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
+            res.extend([performs_as_stmts(1) for performs_as_stmts in performs_as_stmts_generators])
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
                                              unless=lambda n: n == mangled.SELF)
             self.state_translator.havoc_state(ctx.current_state, res, ctx)
@@ -1406,10 +1485,8 @@ class ExpressionTranslator(NodeTranslator):
                                               unless=lambda n: n == mangled.SELF)
             self.assume_own_resources_stayed_constant(res, ctx, pos)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
-            # TODO: assume performs clauses of function (either here or later or earlier)
-            #  Only allocation map...
-            #  Rest should be not used e.g. let offered_map = (new map) in ...
-            self.assume_interface_resources_stayed_constant(interface, to, res, ctx, pos)
+            self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
+            res.extend([performs_as_stmts(2) for performs_as_stmts in performs_as_stmts_generators])
 
             ############################################################################################################
             # The contract state is at the point where the external call returns. Since the last modeled public state, #
@@ -1429,10 +1506,8 @@ class ExpressionTranslator(NodeTranslator):
                                               unless=lambda n: n == mangled.SELF)
             self.assume_own_resources_stayed_constant(res, ctx, pos)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
-            # TODO: assume performs clauses of function (either here or earlier)
-            #  Only allocation map...
-            #  Rest should be not used e.g. let offered_map = (new map) in ...
-            self.assume_interface_resources_stayed_constant(interface, to, res, ctx, pos)
+            self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
+            res.extend([performs_as_stmts(3) for performs_as_stmts in performs_as_stmts_generators])
 
             ############################################################################################################
             #  The contract is at the end of the external call, only changes to the caller private expressions of the  #

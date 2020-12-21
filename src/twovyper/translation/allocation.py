@@ -198,6 +198,9 @@ class AllocationTranslator(CommonTranslator):
         """
         Checks that `address` has at least `amount` of `resource` allocated to them.
         """
+        if ctx.inside_interface_call:
+            return
+
         allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx, pos)
         get_alloc = self.get_allocated(allocated, resource, address, ctx, pos)
         cond = self.viper_ast.LeCmp(value, get_alloc, pos)
@@ -233,6 +236,9 @@ class AllocationTranslator(CommonTranslator):
         """
         Checks that `from_addr` offered to exchange `from_val` for `to_val` to `to_addr`.
         """
+        if ctx.inside_interface_call:
+            return
+
         offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
         modelt = self.model_translator.save_variables(res, ctx, pos)
         get_offered = self.get_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, ctx, pos)
@@ -440,6 +446,9 @@ class AllocationTranslator(CommonTranslator):
     def _check_trusted(self, node: ast.Node,
                        address: Expr, by_address: Expr,
                        rule: rules.Rule, res: List[Stmt], ctx: Context, pos=None):
+        if ctx.inside_interface_call:
+            return
+
         where = ctx.self_address or helpers.self_address(self.viper_ast, pos)
 
         trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx, pos)
@@ -533,6 +542,9 @@ class AllocationTranslator(CommonTranslator):
 
     def _exhale_performs(self, node: ast.Node, function: str, args: List[Expr], rule: Rule, res: List[Stmt],
                          ctx: Context, pos=None):
+        if ctx.inside_interface_call:
+            return
+
         if not ctx.program.config.has_option(names.CONFIG_NO_PERFORMS):
             pred = self._performs_acc_predicate(function, args, ctx, pos)
             modelt = self.model_translator.save_variables(res, ctx, pos)

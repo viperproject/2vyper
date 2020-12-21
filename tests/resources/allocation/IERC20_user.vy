@@ -14,15 +14,25 @@ token: IERC20_alloc
 #@ preserves:
     #@ always ensures: trust_no_one(self, self.token)
     #@ always ensures: no_offers[token[self.token]](self)
+    #:: Label(POST)
     #@ always ensures: allocated[token[self.token]](self) >= old(allocated[token[self.token]](self))
 
 #@ invariant: self.token == old(self.token)
+#:: Label(INV)
 #@ inter contract invariant: allocated[token[self.token]](self) >= old(allocated[token[self.token]](self))
 #@ inter contract invariant: trust_no_one(self, self.token)
 #@ inter contract invariant: no_offers[token[self.token]](self)
 
 
-# ensures: success() ==> allocated[token[self.token]](self) >= old(allocated[token[self.token]](self)) + v
+#@ ensures: success() ==> allocated[token[self.token]](self) >= old(allocated[token[self.token]](self)) + v
 @public
 def test(a: address, v: uint256):
+    assert a != self.token and a != self
     self.token.transferFrom(a, self, v)
+
+
+#:: ExpectedOutput(carbon)(postcondition.violated:assertion.false, POST)
+@public
+def test_fail(a: address, v: uint256):
+    #:: ExpectedOutput(during.call.invariant:assertion.false, INV)
+    self.token.transfer(a, v)
