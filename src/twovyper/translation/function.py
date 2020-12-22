@@ -322,10 +322,13 @@ class FunctionTranslator(CommonTranslator):
                                                                         and n != mangled.TRUSTED
                                                                         and n != mangled.OFFERED))
                     self.expression_translator.assume_own_resources_stayed_constant(body, ctx, pos)
-                    for interface_name, interface_ref in known_interface_ref:
-                        interface = ctx.program.interfaces[interface_name]
-                        self.expression_translator.implicit_resource_caller_private_expressions(
-                            interface, interface_ref, self_address, body, ctx)
+                    for _, interface in ctx.program.interfaces.items():
+                        with ctx.quantified_var_scope():
+                            var_name = mangled.quantifier_var_name(names.INTERFACE)
+                            qvar = TranslatedVar(var_name, var_name, types.VYPER_ADDRESS, self.viper_ast)
+                            ctx.quantified_vars[var_name] = qvar
+                            self.expression_translator.implicit_resource_caller_private_expressions(
+                                interface, qvar.local_var(ctx), self_address, body, ctx)
 
             # For public function we can make further assumptions about msg.value
             if function.is_public():

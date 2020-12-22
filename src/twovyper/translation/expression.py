@@ -912,6 +912,12 @@ class ExpressionTranslator(NodeTranslator):
             return
 
         body = []
+        # Quantified self address
+        q_self_address_from_context = []
+        q_self_address_name = mangled.quantifier_var_name(names.INTERFACE)
+        q_self_address = ctx.quantified_vars.get(q_self_address_name)
+        if q_self_address is not None:
+            q_self_address_from_context = [q_self_address.var_decl(ctx)]
         # Interface Address
         interface_addr = ctx.self_address or helpers.self_address(self.viper_ast)
         # Quantified address variable
@@ -928,14 +934,19 @@ class ExpressionTranslator(NodeTranslator):
         old_trusted_value = self.allocation_translator.get_trusted(old_trusted, interface_addr,
                                                                    address_var, self_address, ctx)
         trusted_eq = self.viper_ast.EqCmp(curr_trusted_value, old_trusted_value)
-        trigger = self.viper_ast.Trigger([curr_trusted_value, old_trusted_value], pos)
-        forall_eq = self.viper_ast.Forall([address], [trigger],
+        forall_eq = self.viper_ast.Forall([address, *q_self_address_from_context],
+                                          [self.viper_ast.Trigger([old_trusted_value], pos),
+                                           self.viper_ast.Trigger([curr_trusted_value], pos)],
                                           self.viper_ast.Implies(type_cond, trusted_eq))
         body.append(self.viper_ast.Inhale(forall_eq, pos))
 
         current_trust_no_one = helpers.trust_no_one(self.viper_ast, current_trusted, self_address, interface_addr)
         old_trust_no_one = helpers.trust_no_one(self.viper_ast, old_trusted, self_address, interface_addr)
-        body.append(self.viper_ast.Inhale(self.viper_ast.Implies(old_trust_no_one, current_trust_no_one), pos))
+        forall_implies = self.viper_ast.Forall([*q_self_address_from_context],
+                                               [self.viper_ast.Trigger([current_trust_no_one], pos),
+                                                self.viper_ast.Trigger([old_trust_no_one], pos)],
+                                               self.viper_ast.Implies(old_trust_no_one, current_trust_no_one))
+        body.append(self.viper_ast.Inhale(forall_implies, pos))
 
         # Declared resources of interface
         resources = interface.declared_resources.items()
@@ -972,10 +983,10 @@ class ExpressionTranslator(NodeTranslator):
                 offered_eq = self.viper_ast.EqCmp(current_offered_map_get, old_offered_map_get)
                 type_cond = self.viper_ast.And(type_cond1, type_cond2)
                 cond = self.viper_ast.And(trust_no_one, type_cond)
-                forall_eq = self.viper_ast.Forall(
-                    [offer, *args1, *args2], [self.viper_ast.Trigger([current_offered_map_get], pos),
-                                              self.viper_ast.Trigger([old_offered_map_get], pos)],
-                    self.viper_ast.Implies(cond, offered_eq))
+                forall_eq = self.viper_ast.Forall([offer, *args1, *args2, *q_self_address_from_context],
+                                                  [self.viper_ast.Trigger([current_offered_map_get], pos),
+                                                   self.viper_ast.Trigger([old_offered_map_get], pos)],
+                                                  self.viper_ast.Implies(cond, offered_eq))
                 body.append(self.viper_ast.Inhale(forall_eq, pos))
         # forall({r: Resource on interface}, trust_no_one(self, interface)
         #   and no_offers[r](self) ==> allocated[r](self) >= old(allocated[r](self)))
@@ -993,12 +1004,17 @@ class ExpressionTranslator(NodeTranslator):
             allocated_geq = self.viper_ast.GeCmp(current_allocated_map, old_allocated_map, pos)
             cond = self.viper_ast.And(trust_no_one, no_offers)
             allocated_geq = self.viper_ast.Implies(cond, allocated_geq)
-            forall = self.viper_ast.Forall(
-                [*args], [self.viper_ast.Trigger([current_allocated_map], pos),
-                          self.viper_ast.Trigger([old_allocated_map], pos)],
-                self.viper_ast.Implies(type_cond, allocated_geq, pos), pos)
-            body.append(self.viper_ast.Inhale(forall, pos))
-            body.append(self.viper_ast.Inhale(self.viper_ast.Implies(no_offers, curr_no_offers, pos), pos))
+            forall_implies = self.viper_ast.Forall([*args, *q_self_address_from_context],
+                                                   [self.viper_ast.Trigger([current_allocated_map], pos),
+                                                    self.viper_ast.Trigger([old_allocated_map], pos)],
+                                                   self.viper_ast.Implies(type_cond, allocated_geq, pos), pos)
+            body.append(self.viper_ast.Inhale(forall_implies, pos))
+
+            forall_implies = self.viper_ast.Forall([*q_self_address_from_context],
+                                                   [self.viper_ast.Trigger([no_offers], pos),
+                                                    self.viper_ast.Trigger([curr_no_offers], pos)],
+                                                   self.viper_ast.Implies(no_offers, curr_no_offers, pos), pos)
+            body.append(self.viper_ast.Inhale(forall_implies, pos))
 
         self.seqn_with_info(body, f"Implicit caller private expr of resources in interface {interface.name}", res)
 

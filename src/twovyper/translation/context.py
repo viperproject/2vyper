@@ -45,7 +45,7 @@ class Context:
         self.current_state = {}
         # The state which is currently regarded as 'old'
         self.current_old_state = {}
-        self.quantified_vars = {}
+        self.quantified_vars: Dict[str, TranslatedVar] = {}
 
         # The actual present, old, pre, and issued states
         self.present_state = {}
