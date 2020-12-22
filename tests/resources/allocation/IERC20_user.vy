@@ -31,8 +31,8 @@ def test(a: address, v: uint256):
     self.token.transferFrom(a, self, v)
 
 
-#:: ExpectedOutput(carbon)(postcondition.violated:assertion.false, POST)
+#:: ExpectedOutput(postcondition.violated:assertion.false, POST)
 @public
 def test_fail(a: address, v: uint256):
-    #:: ExpectedOutput(during.call.invariant:assertion.false, INV)
+    #:: ExpectedOutput(carbon)(during.call.invariant:assertion.false, INV)
     self.token.transfer(a, v)

@@ -1370,7 +1370,7 @@ class ExpressionTranslator(NodeTranslator):
                                 ctx.locals.update((var.name, var) for var in args_as_translated_var)
 
                                 zero = self.viper_ast.IntLit(0)
-                                four = self.viper_ast.IntLit(4)
+                                two = self.viper_ast.IntLit(2)
 
                                 for performs_idx, performs in enumerate(function.performs):
                                     perform_as_stmts = []
@@ -1384,8 +1384,8 @@ class ExpressionTranslator(NodeTranslator):
 
                                     performs_local_var = performs_var.local_var(ctx)
                                     performs_var_ge_zero = self.viper_ast.GeCmp(performs_local_var, zero)
-                                    performs_var_lt_four = self.viper_ast.LtCmp(performs_local_var, four)
-                                    cond = self.viper_ast.And(performs_var_ge_zero, performs_var_lt_four)
+                                    performs_var_le_two = self.viper_ast.LeCmp(performs_local_var, two)
+                                    cond = self.viper_ast.And(performs_var_ge_zero, performs_var_le_two)
                                     general_stmts_for_performs.append(self.viper_ast.Inhale(cond))
 
                                     performs_as_stmts[performs_idx] = perform_as_stmts
@@ -1523,7 +1523,6 @@ class ExpressionTranslator(NodeTranslator):
             self.assume_own_resources_stayed_constant(res, ctx, pos)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
             self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
-            res.extend([performs_as_stmts(3) for performs_as_stmts in performs_as_stmts_generators])
 
             ############################################################################################################
             #  The contract is at the end of the external call, only changes to the caller private expressions of the  #
