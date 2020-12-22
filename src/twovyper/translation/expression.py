@@ -1064,7 +1064,25 @@ class ExpressionTranslator(NodeTranslator):
 
             if receiver and body:
                 neq_cmp = self.viper_ast.NeCmp(receiver, interface_ref)
-                body = [self.viper_ast.If(neq_cmp, body, [])]
+
+                inhale_class = self.viper_ast.ast.Inhale
+                seqn_class = self.viper_ast.ast.Seqn
+
+                def transform_stmt(statement):
+                    if statement.getClass() != inhale_class:
+                        return statement
+                    implies = self.viper_ast.Implies(neq_cmp, statement.exp(), statement.pos())
+                    return self.viper_ast.Inhale(implies, statement.pos(), statement.info())
+
+                new_body = []
+                for stmt in body:
+                    if stmt.getClass() == seqn_class:
+                        seqn_as_list = self.viper_ast.to_list(stmt.ss())
+                        seqn_as_list = [transform_stmt(e) for e in seqn_as_list]
+                        new_body.append(self.viper_ast.Seqn(seqn_as_list, stmt.pos(), stmt.info()))
+                    else:
+                        new_body.append(transform_stmt(stmt))
+                body = new_body
 
             # Assume interface invariants
             interface = ctx.program.interfaces[interface_name]
