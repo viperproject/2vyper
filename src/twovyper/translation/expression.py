@@ -1327,7 +1327,6 @@ class ExpressionTranslator(NodeTranslator):
             assume_caller_private_without_receiver = []
             self.assume_contract_state(known_interface_ref, assume_caller_private_without_receiver, ctx, to)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private for old state", res)
-            self.state_translator.copy_state(ctx.current_state, old_state_for_inter_contract_invariant, res, ctx)
             general_stmts_for_performs = []
             performs_as_stmts_generators = []
             if known and function.performs:
@@ -1406,6 +1405,7 @@ class ExpressionTranslator(NodeTranslator):
             caller_address = ctx.self_address or helpers.self_address(self.viper_ast)
             self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
             res.extend([performs_as_stmts(0) for performs_as_stmts in performs_as_stmts_generators])
+            self.state_translator.copy_state(ctx.current_state, old_state_for_inter_contract_invariant, res, ctx)
 
             # Assume caller private and create new contract state
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
