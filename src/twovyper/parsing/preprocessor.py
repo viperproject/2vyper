@@ -7,6 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import re
 
+from twovyper.ast.names import RESOURCE_PREFIX, DERIVED_RESOURCE_PREFIX
+
 
 def preprocess(program: str) -> str:
     # Make specifications valid python statements. We use assignments instead of variable
@@ -27,7 +29,8 @@ def preprocess(program: str) -> str:
     replace(r'#@\s*config\s*:', replacement('config', '='))
     replace(r'#@\s*interface', replacement('interface', '=True'))
     replace(r'#@\s*ghost\s*:', replacement('with(g)', ':'))
-    replace(r'#@\s*resource\s*:', replacement('def ', ''))
+    replace(r'#@\s*resource\s*:\s*', replacement('def ', RESOURCE_PREFIX))
+    replace(r'#@\s*derived\s*resource\s*:\s*', replacement('def ', DERIVED_RESOURCE_PREFIX))
     replace(r'#@\s*ensures\s*:', replacement('ensures', '='))
     replace(r'#@\s*requires\s*:', replacement('requires', '='))
     replace(r'#@\s*check\s*:', replacement('check', '='))

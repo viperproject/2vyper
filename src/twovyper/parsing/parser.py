@@ -296,13 +296,18 @@ class ProgramBuilder(NodeVisitor):
         # A function stub on the top-level is a resource declaration
         self._check_no_local_spec()
 
-        if node.name in self.resources or node.name in names.SPECIAL_RESOURCES:
+        name, is_derived = Resource.get_name_and_derived_flag(node)
+
+        if name in self.resources or name in names.SPECIAL_RESOURCES:
             raise InvalidProgramException(node, 'duplicate.resource')
 
         vyper_type = self.type_builder.build(node)
         assert isinstance(vyper_type, ResourceType)
-        resource = Resource(vyper_type, node, self.path)
-        self.resources[node.name] = resource
+        if is_derived:
+            resource = Resource(vyper_type, node, self.path, node.returns)
+        else:
+            resource = Resource(vyper_type, node, self.path)
+        self.resources[name] = resource
 
     def visit_ContractDef(self, node: ast.ContractDef):
         if node.is_ghost_code:

@@ -125,6 +125,12 @@ class ResourceType(StructType):
         return 'resource'
 
 
+class UnknownResourceType(ResourceType):
+
+    def __init__(self):
+        super().__init__('$unknown', {})
+
+
 class DerivedResourceType(ResourceType):
 
     def __init__(self, name: str, member_types: Dict[str, VyperType], underlying_resource: ResourceType):
@@ -319,9 +325,13 @@ class TypeBuilder(NodeVisitor):
         return EventType(arg_types)
 
     def _visit_FunctionStub(self, node: ast.FunctionStub) -> VyperType:
+        from twovyper.ast.nodes import Resource
+        name, is_derived = Resource.get_name_and_derived_flag(node)
         members = {n.name: self.visit(n.annotation) for n in node.args}
         contract_name = os.path.split(os.path.abspath(node.file))[1].split('.')[0]
-        resource_name = f'{contract_name}${node.name}'
+        resource_name = f'{contract_name}${name}'
+        if is_derived:
+            return DerivedResourceType(resource_name, members, UnknownResourceType())
         return ResourceType(resource_name, members)
 
     def _visit_ContractDef(self, node: ast.ContractDef) -> VyperType:

@@ -129,7 +129,7 @@ class Resource(VyperStruct):
                  rtype: ResourceType,
                  node: Optional[ast.Node],
                  file: Optional[str],
-                 underlying_resource: Optional[ast.Node] = None):
+                 underlying_resource: Optional[ast.Expr] = None):
         super().__init__(rtype.name, rtype, node)
         self.file = file
         self.underlying_resource = underlying_resource
@@ -144,6 +144,13 @@ class Resource(VyperStruct):
 
     def is_derived_resource(self):
         return self.underlying_resource_name is not None
+
+    @staticmethod
+    def get_name_and_derived_flag(node) -> Tuple[str, bool]:
+        if node.name.startswith(names.DERIVED_RESOURCE_PREFIX):
+            return node.name[len(names.DERIVED_RESOURCE_PREFIX):], True
+        assert node.name.startswith(names.RESOURCE_PREFIX)
+        return node.name[len(names.RESOURCE_PREFIX):], False
 
 
 class VyperContract:

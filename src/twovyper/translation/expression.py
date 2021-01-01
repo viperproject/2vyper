@@ -897,8 +897,9 @@ class ExpressionTranslator(NodeTranslator):
             curr_no_offers = helpers.no_offers(self.viper_ast, current_offered, t_resource1, address_var)
             implies = self.viper_ast.Implies(no_offers, curr_no_offers, pos)
             trigger = self.viper_ast.Trigger([curr_no_offers], pos)
+            type_cond = self.viper_ast.And(type_cond1, address_type_cond)
             forall_eq = self.viper_ast.Forall([address, *args1], [trigger],
-                                              self.viper_ast.Implies(address_type_cond, implies))
+                                              self.viper_ast.Implies(type_cond, implies))
             res.append(self.viper_ast.Inhale(forall_eq, pos))
 
     def assume_interface_resources_stayed_constant(self, interface, interface_inst, res, ctx: Context, pos=None):
@@ -1010,7 +1011,7 @@ class ExpressionTranslator(NodeTranslator):
                                                    self.viper_ast.Implies(type_cond, allocated_geq, pos), pos)
             body.append(self.viper_ast.Inhale(forall_implies, pos))
 
-            forall_implies = self.viper_ast.Forall([*q_self_address_from_context],
+            forall_implies = self.viper_ast.Forall([*args, *q_self_address_from_context],
                                                    [self.viper_ast.Trigger([no_offers], pos),
                                                     self.viper_ast.Trigger([curr_no_offers], pos)],
                                                    self.viper_ast.Implies(no_offers, curr_no_offers, pos), pos)

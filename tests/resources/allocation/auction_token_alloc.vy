@@ -26,7 +26,7 @@
 
 # This file was adapted from https://github.com/ethereum/vyper/blob/master/examples/auctions/simple_open_auction.vy
 
-import tests.resources.allocation.ERC20_alloc_interface as ERC20
+import tests.resources.allocation.IERC20_alloc as ERC20
 
 #@ config: allocation, no_derived_wei_resource
 
@@ -82,7 +82,7 @@ def __init__(_bidding_time: timedelta):
 
 
 #@ performs: offer[token <-> good](value, 1, to=self.beneficiary, times=1)
-#@ performs: payable[ERC20.token[self.token]](value)
+#@ performs: payable[token](value)
 @public
 def bid(value: uint256):
     assert block.timestamp < self.auctionEnd
@@ -109,7 +109,7 @@ def withdraw():
     self.token.transfer(msg.sender, pending_amount)
 
 
-#@ performs: payout(self.highestBid, acting_for=self.beneficiary)
+#@ performs: payout[token](self.highestBid, acting_for=self.beneficiary)
 @public
 def endAuction():
     assert block.timestamp >= self.auctionEnd
