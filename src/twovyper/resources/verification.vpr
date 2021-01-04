@@ -39,7 +39,7 @@ predicate $performs$payout($resource: $Struct, $from_address: Int, $amount: Int)
 
 function $trust_no_one($trust_map: $Map[Int, $Map[Int, $Map[Int, Bool]]], $who: Int, $where: Int): Bool
 {
-  forall $whom: Int :: !$map_get($map_get($map_get($trust_map, $where), $who), $whom)
+  forall $whom: Int :: !$map_get($map_get($map_get($trust_map, $where), $whom), $who)
 }
 
 function $no_offers($offered_map: $Map[$Struct, $Map[$Struct, $Map[$Struct, Int]]], $r: $Struct, $who: Int): Bool

@@ -33,6 +33,8 @@ class Context:
         self.unchecked_invariants: Optional[Callable[[], List[Expr]]] = None
         # Transitive postconditions that are known to be true and therefore don't need to be checked
         self.unchecked_transitive_postconditions: Optional[Callable[[], List[Expr]]] = None
+        # Invariants for derived resources
+        self.derived_resources_invariants: Optional[Callable[[], List[Expr]]] = None
 
         self.function: Optional[VyperFunction] = None
         self.is_pure_function = False

@@ -5,13 +5,19 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ config: allocation, no_derived_wei_resource
+#@ config: allocation, no_derived_wei_resource, trust_casts
 
 from . import interface
 implements: interface
 
-#:: ExpectedOutput(invalid.program:invalid.derived.resource)
-#@ derived resource: token() -> r
+i: interface
+
+#:: ExpectedOutput(derived.resource.invariant.failed:underlying.address.self)
+#@ derived resource: token() -> r[self]
+
+#@ invariant: forall({a: address}, allocated[token](a) == 0)
+#@ invariant: forall({a: address}, allocated[r](a) == 0)
+#@ invariant: forall({a: address, v: uint256}, allocated[interface.a(v)](a) == 0)
 
 @public
 def foo():

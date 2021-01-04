@@ -385,6 +385,31 @@ PERFORMS_LEAK_CHECK_FAIL = {
         ('performs.leakcheck.failed', 'performs.leaked')
 }
 
+UNDERLYING_ADDRESS_SELF_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.address.self')
+}
+
+UNDERLYING_ADDRESS_CONSTANT_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.address.constant')
+}
+
+UNDERLYING_ADDRESS_TRUST_NO_ONE_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.address.trust')
+}
+
+UNDERLYING_RESOURCE_NO_OFFERS_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.resource.offers')
+}
+
+UNDERLYING_RESOURCE_NEQ_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.resource.eq')
+}
+
 PURE_FUNCTION_FAIL = {
     ('application.precondition', 'assertion.false'):
         ('function.failed', 'function.revert')

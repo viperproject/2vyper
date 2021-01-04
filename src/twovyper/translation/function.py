@@ -586,6 +586,16 @@ class FunctionTranslator(CommonTranslator):
                 invariant_stmts.extend(assert_collected_invariants(invariant_conditions))
                 self.seqn_with_info(invariant_stmts, "Assert Inter Contract Invariants", body)
 
+                if is_init:
+                    derived_resources_invariants = [
+                        self.viper_ast.Assert(self.viper_ast.Implies(success_var, expr, expr.pos()), expr.pos())
+                        for expr in ctx.derived_resources_invariants()]
+                else:
+                    derived_resources_invariants = [
+                        self.viper_ast.Assert(expr, expr.pos())
+                        for expr in ctx.derived_resources_invariants()]
+                self.seqn_with_info(derived_resources_invariants, "Assert derived resource invariants", body)
+
                 # We check that the invariant tracks all allocation by doing a leak check.
                 # We also check that all necessary operations stated in perform clauses were
                 # performed.

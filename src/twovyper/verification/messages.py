@@ -110,7 +110,9 @@ ERRORS = {
     'lemma.step.invalid':
         lambda i: f"A step in the lemma {i.function.name} might not hold.",
     'lemma.application.invalid':
-        lambda i: f"Cannot apply lemma {i.function.name}."
+        lambda i: f"Cannot apply lemma {i.function.name}.",
+    'derived.resource.invariant.failed':
+        lambda i: f"A property of the derived resource {i.resource.name} might not hold.",
 }
 
 REASONS = {
@@ -157,6 +159,17 @@ REASONS = {
     'insufficient.permission':
         lambda i: f"There might be insufficient permission to access {pprint(i.node)}.",
     'function.revert':
-        lambda i: f"The function {i.function.name} might revert."
-
+        lambda i: f"The function {i.function.name} might revert.",
+    'underlying.address.self':
+        lambda i: f"The address of the underlying resource might be equal to 'self'.",
+    'underlying.address.constant':
+        lambda i: f"The address of the underlying resource might not be constant "
+                  f"even though some derived resources where allocated.",
+    'underlying.address.trust':
+        lambda i: f"The contract might trust others in the contract of the underlying resource.",
+    'underlying.resource.offers':
+        lambda i: f"The contract might have open offers using the underlying resource.",
+    'underlying.resource.eq':
+        lambda i: f"The derived resource {i.resource.name} and {i.other_resource.name} "
+                  f"might have the same underlying resource.",
 }

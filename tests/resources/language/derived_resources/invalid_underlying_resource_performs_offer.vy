@@ -11,10 +11,11 @@ from . import interface
 
 i: interface
 
-#@ derived resource: token(f: uint256) -> interface.a[self.i]
+#:: ExpectedOutput(derived.resource.invariant.failed:underlying.resource.offers)
+#@ derived resource: token() -> interface.r[self.i]
 
-#@ invariant: forall({a: address, v: uint256}, allocated[token(v)](a) == 0)
+#@ invariant: forall({a: address}, allocated[token](a) == 0)
 
 @public
 def foo():
-    self.i.foo()
+    self.i.offer_r()

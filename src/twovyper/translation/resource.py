@@ -5,9 +5,11 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from functools import reduce
 from typing import List, Optional, Tuple
 
-from twovyper.ast import ast_nodes as ast, names
+from twovyper.ast import ast_nodes as ast, names, types
+from twovyper.ast.nodes import Resource
 
 from twovyper.translation import helpers
 from twovyper.translation.abstract import NodeTranslator
@@ -50,6 +52,39 @@ class ResourceTranslator(NodeTranslator):
         else:
             self_address = ctx.self_address or helpers.self_address(self.viper_ast)
             return self._resource(names.WEI, [self_address], ctx)
+
+    def translate_resources_for_quantified_expr(self, resources: List[Tuple[str, Resource]], ctx: Context, pos=None,
+                                                translate_underlying=False, args_idx_start=0):
+        counter = args_idx_start
+        translated_resource_with_args_and_type_assumption = []
+        for name, resource in resources:
+            type_assumptions = []
+            args = []
+            for idx, arg_type in enumerate(resource.type.member_types.values()):
+                viper_type = self.specification_translator.type_translator.translate(arg_type, ctx)
+                arg = self.viper_ast.LocalVarDecl(f'$arg{idx}${counter}', viper_type, pos)
+                counter += 1
+                args.append(arg)
+                arg_var = arg.localVar()
+                type_assumptions.extend(self.specification_translator.type_translator
+                                        .type_assumptions(arg_var, arg_type, ctx))
+            type_cond = reduce(lambda l, r: self.viper_ast.And(l, r, pos), type_assumptions, self.viper_ast.TrueLit())
+            if translate_underlying:
+                assert isinstance(resource.type, types.DerivedResourceType)
+                if resource.name == names.WEI:
+                    t_resource = self.underlying_wei_resource(ctx)
+                else:
+                    stmts = []
+                    underlying_address = self.specification_translator.translate(
+                        resource.underlying_address, stmts, ctx)
+                    assert not stmts
+                    t_resource = helpers.struct_init(
+                        self.viper_ast, [arg.localVar() for arg in args] + [underlying_address],
+                        resource.type.underlying_resource, pos)
+            else:
+                t_resource = self.resource(name, [arg.localVar() for arg in args], ctx)
+            translated_resource_with_args_and_type_assumption.append((t_resource, args, type_cond))
+        return translated_resource_with_args_and_type_assumption
 
     def translate_with_underlying(self, top_node: Optional[ast.FunctionCall], res: List[Stmt], ctx: Context) -> Expr:
         if top_node:

@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ config: allocation, no_derived_wei_resource
+#@ config: allocation, no_derived_wei_resource, trust_casts
 
 from . import interface
 
@@ -13,9 +13,8 @@ i: interface
 
 #@ derived resource: token() -> interface.r[self.i]
 
-#@ invariant: self.i == old(self.i)
 #@ invariant: forall({a: address}, allocated[token](a) == 0)
 
 @public
 def foo():
-    pass
+    self.i.foo()

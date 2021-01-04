@@ -137,7 +137,94 @@ class ProgramTranslator(CommonTranslator):
             offer_struct = VyperStruct(mangled.OFFER, helpers.offer_type(), None)
             domains.append(self._translate_struct(offer_struct, ctx))
 
+        def derived_resources_invariants():
+            if not ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                return []
+
+            derived_resources_invs = []
+            trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
+            offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
+            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
+
+            self_address = ctx.self_address or helpers.self_address(self.viper_ast)
+            q_address = self.viper_ast.LocalVarDecl('$a', self.viper_ast.Int)
+            q_address_var = q_address.localVar()
+            type_conds = self.type_translator.type_assumptions(q_address_var, types.VYPER_ADDRESS, ctx)
+            q_address_type_cond = reduce(lambda l, r: self.viper_ast.And(l, r), type_conds, self.viper_ast.TrueLit())
+
+            own_derived_resources = [(name, resource) for name, resource in ctx.program.own_resources.items()
+                                     if isinstance(resource.type, types.DerivedResourceType)]
+            translated_own_derived_resources = self.resource_translator\
+                .translate_resources_for_quantified_expr(own_derived_resources, ctx)
+            translated_own_underlying_resources = self.resource_translator\
+                .translate_resources_for_quantified_expr(own_derived_resources, ctx,
+                                                         translate_underlying=True,
+                                                         args_idx_start=len(translated_own_derived_resources))
+
+            for index, (name, resource) in enumerate(own_derived_resources):
+                if name == names.WEI:
+                    continue
+
+                invariants = []
+                assert resource.underlying_address is not None
+                assert resource.underlying_resource is not None
+
+                stmts = []
+                t_underlying_address = self.specification_translator.translate(resource.underlying_address, stmts, ctx)
+                with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
+                    t_old_underlying_address = self.specification_translator.translate(resource.underlying_address,
+                                                                                       stmts, ctx)
+                assert not stmts
+                # resource.underlying_address is not self
+                pos = self.to_position(resource.node, ctx, rules.UNDERLYING_ADDRESS_SELF_FAIL,
+                                       values={'resource': resource})
+                underlying_address_not_self = self.viper_ast.NeCmp(t_underlying_address, self_address, pos)
+                invariants.append(underlying_address_not_self)
+                # resource.underlying_address is constant when there are derived resources
+                pos = self.to_position(resource.node, ctx, rules.UNDERLYING_ADDRESS_CONSTANT_FAIL,
+                                       values={'resource': resource})
+                t_resource, args, type_cond = translated_own_derived_resources[index]
+                allocated_derived_resource = self.allocation_translator.get_allocated(allocated, t_resource,
+                                                                                      q_address_var, ctx, pos)
+                underlying_address_eq = self.viper_ast.EqCmp(t_underlying_address, t_old_underlying_address, pos)
+                some_allocated = self.viper_ast.GtCmp(allocated_derived_resource, self.viper_ast.IntLit(0), pos)
+                implies = self.viper_ast.Implies(some_allocated, underlying_address_eq)
+                type_cond = self.viper_ast.And(type_cond, q_address_type_cond, pos)
+                forall_underlying_address_const = self.viper_ast.Forall(
+                    [q_address, *args], [self.viper_ast.Trigger([allocated_derived_resource], pos)],
+                    self.viper_ast.Implies(type_cond, implies, pos), pos)
+                invariants.append(forall_underlying_address_const)
+                # trust_no_one in resource.underlying_address
+                pos = self.to_position(resource.node, ctx, rules.UNDERLYING_ADDRESS_TRUST_NO_ONE_FAIL,
+                                       values={'resource': resource})
+                trust_no_one = helpers.trust_no_one(self.viper_ast, trusted, self_address, t_underlying_address, pos)
+                invariants.append(trust_no_one)
+                # no_offers for resource.underlying_resource
+                pos = self.to_position(resource.node, ctx, rules.UNDERLYING_RESOURCE_NO_OFFERS_FAIL,
+                                       values={'resource': resource})
+                t_resource, args, type_cond = translated_own_underlying_resources[index]
+                no_offers = helpers.no_offers(self.viper_ast, offered, t_resource, self_address, pos)
+                forall_no_offers = self.viper_ast.Forall([*args], [self.viper_ast.Trigger([no_offers], pos)],
+                                                         self.viper_ast.Implies(type_cond, no_offers, pos), pos)
+                invariants.append(forall_no_offers)
+                # forall derived resource the underlying resource is different
+                for i in range(index):
+                    pos = self.to_position(resource.node, ctx, rules.UNDERLYING_RESOURCE_NEQ_FAIL,
+                                           values={'resource': resource, 'other_resource': own_derived_resources[i][1]})
+                    t_other_resource, other_args, other_type_cond = translated_own_underlying_resources[i]
+                    neq_other_resource = self.viper_ast.NeCmp(t_resource, t_other_resource, pos)
+                    and_type_cond = self.viper_ast.And(type_cond, other_type_cond, pos)
+                    forall_neq_other_resource = self.viper_ast.Forall(
+                        [*args, *other_args], [self.viper_ast.Trigger([t_resource, t_other_resource], pos)],
+                        self.viper_ast.Implies(and_type_cond, neq_other_resource, pos), pos)
+                    invariants.append(forall_neq_other_resource)
+                derived_resources_invs.extend(invariants)
+            return derived_resources_invs
+
+        ctx.derived_resources_invariants = derived_resources_invariants
+
         def unchecked_invariants():
+            res = []
             self_var = ctx.self_var.local_var(ctx)
             address_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
 
@@ -150,6 +237,7 @@ class ProgramTranslator(CommonTranslator):
             expr = self.viper_ast.GeCmp(sent, old_sent)
             trigger = self.viper_ast.Trigger([sent])
             sent_inc = self.viper_ast.Forall([q_var], [trigger], expr)
+            res.append(sent_inc)
 
             if (ctx.program.config.has_option(names.CONFIG_ALLOCATION)
                     and not ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)):
@@ -162,9 +250,10 @@ class ProgramTranslator(CommonTranslator):
                 allocated_map = self.allocation_translator.get_allocated_map(allocated, wei_resource, ctx)
                 allocated_sum = helpers.map_sum(self.viper_ast, allocated_map, address_type)
                 balance_geq_sum = self.viper_ast.GeCmp(balance, allocated_sum)
-                return [sent_inc, balance_geq_sum]
-            else:
-                return [sent_inc]
+                res.append(balance_geq_sum)
+
+            res.extend(derived_resources_invariants())
+            return res
 
         def unchecked_transitive_postconditions():
             assume_locked = []

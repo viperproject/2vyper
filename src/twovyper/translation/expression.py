@@ -4,6 +4,7 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
+
 from functools import reduce
 from itertools import chain
 from typing import List, Optional, Tuple, Callable
@@ -799,24 +800,6 @@ class ExpressionTranslator(NodeTranslator):
                         forall = self.viper_ast.Forall([q_var.var_decl(ctx)], [], expr, pos)
                         res.append(self.viper_ast.Assert(forall, pos))
 
-    def _translate_resource_for_quantified_expr(self, resources, ctx: Context, pos=None, args_idx_start=0):
-        counter = args_idx_start
-        translated_resource_with_args_and_type_assumption = []
-        for name, resource in resources:
-            type_assumptions = []
-            args = []
-            for idx, arg_type in enumerate(resource.type.member_types.values()):
-                viper_type = self.type_translator.translate(arg_type, ctx)
-                arg = self.viper_ast.LocalVarDecl(f'$arg{idx}${counter}', viper_type, pos)
-                counter += 1
-                args.append(arg)
-                arg_var = arg.localVar()
-                type_assumptions.extend(self.type_translator.type_assumptions(arg_var, arg_type, ctx))
-            type_cond = reduce(lambda l, r: self.viper_ast.And(l, r, pos), type_assumptions, self.viper_ast.TrueLit())
-            t_resource = self.resource_translator.resource(name, [arg.localVar() for arg in args], ctx)
-            translated_resource_with_args_and_type_assumption.append((t_resource, args, type_cond))
-        return translated_resource_with_args_and_type_assumption
-
     def assume_own_resources_stayed_constant(self, res: List[Stmt], ctx: Context, pos=None):
         if not ctx.program.config.has_option(names.CONFIG_ALLOCATION):
             return
@@ -831,9 +814,10 @@ class ExpressionTranslator(NodeTranslator):
                                    if name != names.UNDERLYING_WEI]
             own_resources.extend(interface_resources)
 
-        translated_resources1 = self._translate_resource_for_quantified_expr(own_resources, ctx, pos)
-        translated_resources2 = self._translate_resource_for_quantified_expr(own_resources, ctx, pos,
-                                                                             args_idx_start=len(translated_resources1))
+        translated_resources1 = self.resource_translator\
+            .translate_resources_for_quantified_expr(own_resources, ctx, pos)
+        translated_resources2 = self.resource_translator\
+            .translate_resources_for_quantified_expr(own_resources, ctx, pos, args_idx_start=len(translated_resources1))
 
         # Special translation for creator resources
         creator_resource = helpers.creator_resource()
@@ -951,9 +935,9 @@ class ExpressionTranslator(NodeTranslator):
 
         # Declared resources of interface
         resources = interface.declared_resources.items()
-        translated_resources1 = self._translate_resource_for_quantified_expr(resources, ctx)
-        translated_resources2 = self._translate_resource_for_quantified_expr(resources, ctx,
-                                                                             args_idx_start=len(translated_resources1))
+        translated_resources1 = self.resource_translator.translate_resources_for_quantified_expr(resources, ctx)
+        translated_resources2 = self.resource_translator\
+            .translate_resources_for_quantified_expr(resources, ctx, args_idx_start=len(translated_resources1))
         # No trust condition
         trust_no_one = helpers.trust_no_one(self.viper_ast, old_trusted,
                                             self_address, interface_addr)
@@ -1239,6 +1223,9 @@ class ExpressionTranslator(NodeTranslator):
         assert_inter_contract_invariants = assert_invariants(lambda c: c.current_program.inter_contract_invariants,
                                                              rules.CALL_INVARIANT_FAIL)
         self.seqn_with_info(assert_inter_contract_invariants, "Assert inter contract invariants before call", res)
+        assert_derived_resource_invariants = [self.viper_ast.Assert(expr, expr.pos())
+                                              for expr in ctx.derived_resources_invariants()]
+        self.seqn_with_info(assert_derived_resource_invariants, "Assert derived resource invariants before call", res)
 
         self.forget_about_all_events(res, ctx, pos)
 

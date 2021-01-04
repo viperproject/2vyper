@@ -15,3 +15,18 @@
 @public
 def foo():
     raise "Not implemented"
+
+#@ performs: offer[r <-> r](1, 0, to=self, times=1)
+@public
+def offer_r():
+    raise "Not implemented"
+
+#@ performs: trust(self, True)
+@public
+def trust():
+    raise "Not implemented"
+
+#@ performs: create[r](1)
+@public
+def create_r():
+    raise "Not implemented"
