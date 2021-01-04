@@ -139,12 +139,17 @@ class TypeAnnotator(NodeVisitor):
                 if (isinstance(resource.type, types.DerivedResourceType)
                         and isinstance(resource.type.underlying_resource, types.UnknownResourceType)):
                     underlying_resource, args = self._annotate_resource(resource.underlying_resource)
+                    resource.underlying_address = underlying_resource.underlying_address
                     if len(args) != 0:
                         _check(False, args[0], 'invalid.derived.resource',
                                'The underlying resource type must be declared without arguments.')
                     resource.type.underlying_resource = underlying_resource.type
                     derived_resource_member_types = resource.type.member_types.values()
                     underlying_resource_member_types = underlying_resource.type.member_types.values()
+                    _check(resource.file != underlying_resource.file, resource.node, 'invalid.derived.resource',
+                           'A resource cannot be a derived resource from a resource of the same contract.')
+                    _check(resource.underlying_address is not None, resource.node, 'invalid.derived.resource',
+                           'The underlying resource of a derived resource must have an address specified.')
                     for derived_member_type, underlying_member_type \
                             in zip_longest(derived_resource_member_types, underlying_resource_member_types):
                         _check(derived_member_type == underlying_member_type, resource.node,
@@ -1044,6 +1049,7 @@ class TypeAnnotator(NodeVisitor):
             if node.resource is not None:
                 assert isinstance(node.resource, ast.Expr)
                 self._visit_resource_address(node.resource, node.name)
+                resource.underlying_address = node.resource
             elif (top and self.program.file != resource.file
                     and resource.name != names.WEI
                     and resource.name != names.UNDERLYING_WEI):
@@ -1060,6 +1066,7 @@ class TypeAnnotator(NodeVisitor):
             resource = interface.declared_resources.get(node.attr)
             args = []
         elif isinstance(node, ast.ReceiverCall):
+            address = None
             if isinstance(node.receiver, ast.Name):
                 interface = self.program.interfaces[node.receiver.id]
                 if top:
@@ -1077,6 +1084,7 @@ class TypeAnnotator(NodeVisitor):
             else:
                 assert False
             resource = interface.declared_resources.get(node.name)
+            resource.underlying_address = address
             args = node.args
         elif isinstance(node, ast.Subscript):
             address = node.index
@@ -1093,6 +1101,7 @@ class TypeAnnotator(NodeVisitor):
             else:
                 assert False
             self._visit_resource_address(address, resource_name, interface)
+            resource.underlying_address = address
         else:
             assert False
 

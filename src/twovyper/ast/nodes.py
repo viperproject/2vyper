@@ -133,6 +133,7 @@ class Resource(VyperStruct):
         super().__init__(rtype.name, rtype, node)
         self.file = file
         self.underlying_resource = underlying_resource
+        self.underlying_address = None
 
     @property
     def interface(self):
