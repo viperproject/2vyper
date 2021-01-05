@@ -18,7 +18,6 @@ m: map(address, uint256)
     #@ always ensures: trust_no_one(self, self.a)
     #@ always ensures: no_offers[interface.r[self.a]](self)
 
-#:: ExpectedOutput(derived.resource.invariant.failed:underlying.address.constant)
 #@ derived resource: token() -> interface.r[self.i]
 
 #@ inter contract invariant: trust_no_one(self, self.a)
@@ -27,6 +26,7 @@ m: map(address, uint256)
 #@ invariant: self != self.a
 #@ invariant: allocated[token]() == self.m
 
+#:: ExpectedOutput(derived.resource.invariant.failed:underlying.address.constant)
 @public
 def foo():
     self.i = self.a

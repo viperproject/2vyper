@@ -11,11 +11,11 @@ from . import interface
 
 i: interface
 
-#:: ExpectedOutput(derived.resource.invariant.failed:underlying.address.trust)
 #@ derived resource: token() -> interface.r[self.i]
 
 #@ invariant: forall({a: address}, allocated[token](a) == 0)
 
+#:: ExpectedOutput(derived.resource.invariant.failed:underlying.address.trust)
 @public
 def foo():
     self.i.trust()

@@ -1224,7 +1224,7 @@ class ExpressionTranslator(NodeTranslator):
                                                              rules.CALL_INVARIANT_FAIL)
         self.seqn_with_info(assert_inter_contract_invariants, "Assert inter contract invariants before call", res)
         assert_derived_resource_invariants = [self.viper_ast.Assert(expr, expr.pos())
-                                              for expr in ctx.derived_resources_invariants()]
+                                              for expr in ctx.derived_resources_invariants(node)]
         self.seqn_with_info(assert_derived_resource_invariants, "Assert derived resource invariants before call", res)
 
         self.forget_about_all_events(res, ctx, pos)

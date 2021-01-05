@@ -589,11 +589,11 @@ class FunctionTranslator(CommonTranslator):
                 if is_init:
                     derived_resources_invariants = [
                         self.viper_ast.Assert(self.viper_ast.Implies(success_var, expr, expr.pos()), expr.pos())
-                        for expr in ctx.derived_resources_invariants()]
+                        for expr in ctx.derived_resources_invariants(function.node)]
                 else:
                     derived_resources_invariants = [
                         self.viper_ast.Assert(expr, expr.pos())
-                        for expr in ctx.derived_resources_invariants()]
+                        for expr in ctx.derived_resources_invariants(function.node)]
                 self.seqn_with_info(derived_resources_invariants, "Assert derived resource invariants", body)
 
                 # We check that the invariant tracks all allocation by doing a leak check.

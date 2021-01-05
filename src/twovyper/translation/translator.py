@@ -14,8 +14,7 @@ from twovyper.translation.lemma import LemmaTranslator
 
 from twovyper.utils import flatten, seq_to_list
 
-from twovyper.ast import names
-from twovyper.ast import types
+from twovyper.ast import names, types, ast_nodes as ast
 from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction, Resource
 from twovyper.ast.types import AnyStructType
 
@@ -137,7 +136,7 @@ class ProgramTranslator(CommonTranslator):
             offer_struct = VyperStruct(mangled.OFFER, helpers.offer_type(), None)
             domains.append(self._translate_struct(offer_struct, ctx))
 
-        def derived_resources_invariants():
+        def derived_resources_invariants(node: Optional[ast.Node] = None):
             if not ctx.program.config.has_option(names.CONFIG_ALLOCATION):
                 return []
 
@@ -165,6 +164,8 @@ class ProgramTranslator(CommonTranslator):
                 if name == names.WEI:
                     continue
 
+                pos_node = node or resource.node
+
                 invariants = []
                 assert resource.underlying_address is not None
                 assert resource.underlying_resource is not None
@@ -181,7 +182,7 @@ class ProgramTranslator(CommonTranslator):
                 underlying_address_not_self = self.viper_ast.NeCmp(t_underlying_address, self_address, pos)
                 invariants.append(underlying_address_not_self)
                 # resource.underlying_address is constant when there are derived resources
-                pos = self.to_position(resource.node, ctx, rules.UNDERLYING_ADDRESS_CONSTANT_FAIL,
+                pos = self.to_position(pos_node, ctx, rules.UNDERLYING_ADDRESS_CONSTANT_FAIL,
                                        values={'resource': resource})
                 t_resource, args, type_cond = translated_own_derived_resources[index]
                 allocated_derived_resource = self.allocation_translator.get_allocated(allocated, t_resource,
@@ -195,12 +196,12 @@ class ProgramTranslator(CommonTranslator):
                     self.viper_ast.Implies(type_cond, implies, pos), pos)
                 invariants.append(forall_underlying_address_const)
                 # trust_no_one in resource.underlying_address
-                pos = self.to_position(resource.node, ctx, rules.UNDERLYING_ADDRESS_TRUST_NO_ONE_FAIL,
+                pos = self.to_position(pos_node, ctx, rules.UNDERLYING_ADDRESS_TRUST_NO_ONE_FAIL,
                                        values={'resource': resource})
                 trust_no_one = helpers.trust_no_one(self.viper_ast, trusted, self_address, t_underlying_address, pos)
                 invariants.append(trust_no_one)
                 # no_offers for resource.underlying_resource
-                pos = self.to_position(resource.node, ctx, rules.UNDERLYING_RESOURCE_NO_OFFERS_FAIL,
+                pos = self.to_position(pos_node, ctx, rules.UNDERLYING_RESOURCE_NO_OFFERS_FAIL,
                                        values={'resource': resource})
                 t_resource, args, type_cond = translated_own_underlying_resources[index]
                 no_offers = helpers.no_offers(self.viper_ast, offered, t_resource, self_address, pos)
@@ -209,7 +210,7 @@ class ProgramTranslator(CommonTranslator):
                 invariants.append(forall_no_offers)
                 # forall derived resource the underlying resource is different
                 for i in range(index):
-                    pos = self.to_position(resource.node, ctx, rules.UNDERLYING_RESOURCE_NEQ_FAIL,
+                    pos = self.to_position(pos_node, ctx, rules.UNDERLYING_RESOURCE_NEQ_FAIL,
                                            values={'resource': resource, 'other_resource': own_derived_resources[i][1]})
                     t_other_resource, other_args, other_type_cond = translated_own_underlying_resources[i]
                     neq_other_resource = self.viper_ast.NeCmp(t_resource, t_other_resource, pos)

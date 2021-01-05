@@ -10,7 +10,7 @@ from collections import ChainMap, defaultdict
 from typing import Dict, TYPE_CHECKING, List, Any, Optional, Tuple, Callable
 
 from twovyper.ast import names
-from twovyper.ast.ast_nodes import Expr
+from twovyper.ast.ast_nodes import Expr, Node
 from twovyper.ast.nodes import VyperFunction, VyperProgram
 from twovyper.translation import mangled
 
@@ -34,7 +34,7 @@ class Context:
         # Transitive postconditions that are known to be true and therefore don't need to be checked
         self.unchecked_transitive_postconditions: Optional[Callable[[], List[Expr]]] = None
         # Invariants for derived resources
-        self.derived_resources_invariants: Optional[Callable[[], List[Expr]]] = None
+        self.derived_resources_invariants: Optional[Callable[[Optional[Node]], List[Expr]]] = None
 
         self.function: Optional[VyperFunction] = None
         self.is_pure_function = False
