@@ -583,11 +583,16 @@ class AllocationTranslator(CommonTranslator):
     def deallocate_wei(self, node: ast.Node,
                        address: Expr, amount: Expr,
                        res: List[Stmt], ctx: Context, pos=None):
+        resource, underlying_resource = self.resource_translator.translate_with_underlying(None, res, ctx)
+        self.deallocate(node, resource, underlying_resource, address, amount, res, ctx, pos)
+
+    def deallocate(self, node: ast.Node,
+                   resource: Expr, underlying_resource: Expr, address: Expr, amount: Expr,
+                   res: List[Stmt], ctx: Context, pos=None):
         """
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
         stmts = []
-        resource, underlying_resource = self.resource_translator.translate_with_underlying(None, res, ctx)
         const_one = self.viper_ast.IntLit(1, pos)
 
         self._exhale_performs_if_non_zero_amount(node, names.RESOURCE_PAYOUT, [resource, address, amount], amount,
@@ -962,14 +967,18 @@ class AllocationTranslator(CommonTranslator):
         self._exhale_performs(node, names.ALLOCATE_UNTRACKED, [resource, address],
                               rules.ALLOCATE_UNTRACKED_FAIL, stmts, ctx, pos)
 
+        difference = self.allocation_difference_to_balance(balance, resource, ctx, pos)
+        self.allocate(resource, address, difference, stmts, ctx, pos)
+
+        self.seqn_with_info(stmts, "Allocate untracked wei", res)
+
+    def allocation_difference_to_balance(self, balance: Expr, resource: Expr, ctx: Context, pos=None):
         allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
         allocated_map = self.get_allocated_map(allocated, resource, ctx, pos)
         key_type = self.type_translator.translate(helpers.allocated_type().value_type.key_type, ctx)
         allocated_sum = helpers.map_sum(self.viper_ast, allocated_map, key_type, pos)
         difference = self.viper_ast.Sub(balance, allocated_sum, pos)
-        self.allocate(resource, address, difference, stmts, ctx, pos)
-
-        self.seqn_with_info(stmts, "Allocate untracked wei", res)
+        return difference
 
     def performs(self, resource_function_name: str, args: List[Expr], amount_args: Union[List[Expr], Expr],
                  res: List[Stmt], ctx: Context, pos=None):

@@ -129,11 +129,12 @@ class Resource(VyperStruct):
                  rtype: ResourceType,
                  node: Optional[ast.Node],
                  file: Optional[str],
-                 underlying_resource: Optional[ast.Expr] = None):
+                 underlying_resource_node: Optional[ast.Expr] = None):
         super().__init__(rtype.name, rtype, node)
         self.file = file
-        self.underlying_resource = underlying_resource
+        self.underlying_resource = underlying_resource_node
         self.underlying_address = None
+        self.derived_resources = []
 
     @property
     def interface(self):

@@ -140,6 +140,7 @@ class TypeAnnotator(NodeVisitor):
                         and isinstance(resource.type.underlying_resource, types.UnknownResourceType)):
                     underlying_resource, args = self._annotate_resource(resource.underlying_resource)
                     resource.underlying_address = underlying_resource.underlying_address
+                    underlying_resource.derived_resources.append(resource)
                     if len(args) != 0:
                         _check(False, args[0], 'invalid.derived.resource',
                                'The underlying resource type must be declared without arguments.')

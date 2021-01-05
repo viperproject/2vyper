@@ -30,3 +30,8 @@ def trust():
 @public
 def create_r():
     raise "Not implemented"
+
+#@ performs: reallocate[r](1, to=self)
+@public
+def reallocate_r():
+    raise "Not implemented"

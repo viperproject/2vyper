@@ -90,6 +90,7 @@ class FunctionTranslator(CommonTranslator):
             # We create copies of variable maps because ctx is allowed to modify them
             ctx.args = args.copy()
             ctx.locals = local_vars.copy()
+            ctx.locals[mangled.ORIGINAL_MSG] = local_vars[names.MSG]
 
             state_dicts = [ctx.present_state, ctx.old_state, ctx.pre_state, ctx.issued_state]
             if function.is_private():

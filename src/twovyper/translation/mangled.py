@@ -25,6 +25,8 @@ TRUST = '$trust'
 CREATOR = '$creator'
 CREATOR_RESOURCE = '$resource'
 
+ORIGINAL_MSG = '$original_msg'
+
 PERFORMS = '$performs'
 
 MSG = names.MSG

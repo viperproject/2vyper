@@ -34,3 +34,7 @@ def trust():
 @public
 def create_r():
     pass
+
+@public
+def reallocate_r():
+    pass

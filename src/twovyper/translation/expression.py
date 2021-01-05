@@ -828,11 +828,6 @@ class ExpressionTranslator(NodeTranslator):
         t_resource = self.resource_translator.creator_resource(arg.localVar(), ctx, pos)
         translated_resources2.append((t_resource, [arg], self.viper_ast.TrueLit()))
 
-        # Special translation of underlying Wei
-        t_underlying_wei = self.resource_translator.underlying_wei_resource(ctx)
-        translated_resources1.append((t_underlying_wei, [], self.viper_ast.TrueLit()))
-        translated_resources2.append((t_underlying_wei, [], self.viper_ast.TrueLit()))
-
         # forall({r: own Resources}, allocated[r]() == old(allocated[r]()))
         current_allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
         old_allocated = ctx.current_old_state[mangled.ALLOCATED].local_var(ctx)
@@ -864,7 +859,8 @@ class ExpressionTranslator(NodeTranslator):
         # forall({r1: own Resources, r2: own Resources}, offered[r1 <-> r2]() == old(offered[r1 <-> r2]())
         current_offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
         old_offered = ctx.current_old_state[mangled.OFFERED].local_var(ctx)
-        for t_resource1, args1, type_cond1 in translated_resources1:
+        for index, (t_resource1, args1, type_cond1) in enumerate(translated_resources1):
+            resource1 = own_resources[index][1] if index < len(own_resources) else None
             for t_resource2, args2, type_cond2 in translated_resources2:
                 current_offered_map = self.allocation_translator.get_offered_map(current_offered, t_resource1,
                                                                                  t_resource2, ctx)
@@ -875,6 +871,29 @@ class ExpressionTranslator(NodeTranslator):
                     [*args1, *args2], [self.viper_ast.Trigger([current_offered_map], pos),
                                        self.viper_ast.Trigger([old_offered_map], pos)],
                     self.viper_ast.Implies(type_cond, offered_eq, pos), pos)
+                res.append(self.viper_ast.Inhale(forall_eq, pos))
+
+            if resource1 is not None and resource1.underlying_resource is not None:
+                if resource1.name == names.WEI:
+                    t_underlying_resource = self.resource_translator.underlying_wei_resource(ctx)
+                else:
+                    t_underlying_address = self.spec_translator.translate(resource1.underlying_address, res, ctx)
+                    args = self.viper_ast.to_list(t_resource1.getArgs())
+                    args.pop()
+                    args.append(t_underlying_address)
+                    assert isinstance(resource1.type, types.DerivedResourceType)
+                    t_underlying_resource = helpers.struct_init(self.viper_ast, args,
+                                                                resource1.type.underlying_resource)
+
+                current_offered_map = self.allocation_translator.get_offered_map(current_offered, t_resource1,
+                                                                                 t_underlying_resource, ctx)
+                old_offered_map = self.allocation_translator.get_offered_map(old_offered, t_resource1,
+                                                                             t_underlying_resource, ctx)
+                offered_eq = self.viper_ast.EqCmp(current_offered_map, old_offered_map, pos)
+                forall_eq = self.viper_ast.Forall(
+                    [*args1], [self.viper_ast.Trigger([current_offered_map], pos),
+                               self.viper_ast.Trigger([old_offered_map], pos)],
+                    self.viper_ast.Implies(type_cond1, offered_eq, pos), pos)
                 res.append(self.viper_ast.Inhale(forall_eq, pos))
 
             no_offers = helpers.no_offers(self.viper_ast, old_offered, t_resource1, address_var)
@@ -1168,6 +1187,107 @@ class ExpressionTranslator(NodeTranslator):
 
             self.balance_translator.decrease_balance(amount, res, ctx, pos)
 
+        if modifying:
+            # Save the values of to, amount, and args, as self could be changed by reentrancy
+            if known:
+                def new_var(variable, name='v'):
+                    name += '$'
+                    var_name = ctx.new_local_var_name(name)
+                    var_decl = self.viper_ast.LocalVarDecl(var_name, variable.typ(), pos)
+                    ctx.new_local_vars.append(var_decl)
+                    res.append(self.viper_ast.LocalVarAssign(var_decl.localVar(), variable))
+                    return var_decl.localVar()
+
+                to = new_var(to, 'to')
+                if amount:
+                    amount = new_var(amount, 'amount')
+                # Force evaluation at this point
+                args = list(map(new_var, args))
+
+            general_stmts_for_performs = []
+            performs_as_stmts_generators = []
+            if known and function.performs:
+                performs_as_stmts = {}
+                performs_decider_variables = {}
+                with ctx.program_scope(interface):
+                    with ctx.self_address_scope(to):
+                        with ctx.state_scope(ctx.current_state, ctx.current_old_state):
+                            with ctx.interface_call_scope():
+                                # Define new msg variable
+                                msg_name = ctx.inline_prefix + mangled.MSG
+                                msg_var = TranslatedVar(names.MSG, msg_name, types.MSG_TYPE, self.viper_ast)
+                                ctx.locals[names.MSG] = msg_var
+                                ctx.new_local_vars.append(msg_var.var_decl(ctx))
+
+                                # Assume msg.sender == self and msg.value == amount
+                                msg = msg_var.local_var(ctx)
+                                svytype = types.MSG_TYPE.member_types[names.MSG_SENDER]
+                                svitype = self.type_translator.translate(svytype, ctx)
+                                msg_sender = helpers.struct_get(self.viper_ast, msg, names.MSG_SENDER,
+                                                                svitype, types.MSG_TYPE)
+                                self_address = helpers.self_address(self.viper_ast)
+                                general_stmts_for_performs.append(self.viper_ast.Inhale(
+                                    self.viper_ast.EqCmp(msg_sender, self_address)))
+
+                                if amount:
+                                    vvytype = types.MSG_TYPE.member_types[names.MSG_VALUE]
+                                    vvitype = self.type_translator.translate(vvytype, ctx)
+                                    msg_value = helpers.struct_get(self.viper_ast, msg, names.MSG_VALUE,
+                                                                   vvitype, types.MSG_TYPE)
+                                    general_stmts_for_performs.append(self.viper_ast.Inhale(
+                                        self.viper_ast.EqCmp(msg_value, amount)))
+
+                                # Arguments as translated variables
+                                args_as_translated_var = [
+                                    TranslatedVar(name, val.name(), arg.type, self.viper_ast,
+                                                  is_local=not self.arithmetic_translator.is_wrapped(val))
+                                    for (name, arg), val in zip(function.args.items(), args)]
+                                ctx.locals.update((var.name, var) for var in args_as_translated_var)
+
+                                # Assume performs clauses
+                                with ctx.derived_resource_performs_scope():
+                                    with ctx.interface_call_scope():
+                                        ctx.inside_interface_call = False
+                                        for performs in function.performs:
+                                            self.spec_translator.translate(performs, general_stmts_for_performs,
+                                                                           ctx)
+
+                                zero = self.viper_ast.IntLit(0)
+                                two = self.viper_ast.IntLit(2)
+
+                                for performs_idx, performs in enumerate(function.performs):
+                                    perform_as_stmts = []
+                                    self.spec_translator.translate(performs, perform_as_stmts, ctx)
+
+                                    performs_var_name = ctx.new_local_var_name("performs_decider_var")
+                                    performs_var = TranslatedVar(performs_var_name, performs_var_name,
+                                                                 types.VYPER_UINT256, self.viper_ast)
+                                    ctx.locals[performs_var_name] = performs_var
+                                    ctx.new_local_vars.append(performs_var.var_decl(ctx))
+
+                                    performs_local_var = performs_var.local_var(ctx)
+                                    performs_var_ge_zero = self.viper_ast.GeCmp(performs_local_var, zero)
+                                    performs_var_le_two = self.viper_ast.LeCmp(performs_local_var, two)
+                                    cond = self.viper_ast.And(performs_var_ge_zero, performs_var_le_two)
+                                    general_stmts_for_performs.append(self.viper_ast.Inhale(cond))
+
+                                    performs_as_stmts[performs_idx] = perform_as_stmts
+                                    performs_decider_variables[performs_idx] = performs_local_var
+
+                                    def conditional_perform_generator(p_idx: int) -> Callable[[int], Stmt]:
+                                        def conditional_perform(index: int) -> Stmt:
+                                            idx = self.viper_ast.IntLit(index)
+                                            decider_eq_idx = self.viper_ast.EqCmp(
+                                                performs_decider_variables[p_idx], idx)
+                                            return self.viper_ast.If(
+                                                decider_eq_idx, performs_as_stmts[p_idx], [])
+
+                                        return conditional_perform
+
+                                    performs_as_stmts_generators.append(conditional_perform_generator(performs_idx))
+
+            res.extend(general_stmts_for_performs)
+
         # In init set the old self state to the current self state, if this is the
         # first public state.
         if ctx.function.name == names.INIT:
@@ -1233,22 +1353,6 @@ class ExpressionTranslator(NodeTranslator):
             # Copy contract state
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
                                              unless=lambda n: n == mangled.SELF)
-            # Save the values of to, amount, and args, as self could be changed by reentrancy
-            if known:
-                def new_var(variable, name='v'):
-                    name += '$'
-                    var_name = ctx.new_local_var_name(name)
-                    var_decl = self.viper_ast.LocalVarDecl(var_name, variable.typ(), pos)
-                    ctx.new_local_vars.append(var_decl)
-                    res.append(self.viper_ast.LocalVarAssign(var_decl.localVar(), variable))
-                    return var_decl.localVar()
-
-                to = new_var(to, 'to')
-                if amount:
-                    amount = new_var(amount, 'amount')
-                # Force evaluation at this point
-                args = list(map(new_var, args))
-
             # Havoc contract state
             self.state_translator.havoc_state(ctx.current_state, res, ctx,
                                               unless=lambda n: n == mangled.SELF)
@@ -1333,81 +1437,7 @@ class ExpressionTranslator(NodeTranslator):
             assume_caller_private_without_receiver = []
             self.assume_contract_state(known_interface_ref, assume_caller_private_without_receiver, ctx, to)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private for old state", res)
-            general_stmts_for_performs = []
-            performs_as_stmts_generators = []
-            if known and function.performs:
-                performs_as_stmts = {}
-                performs_decider_variables = {}
-                with ctx.program_scope(interface):
-                    with ctx.self_address_scope(to):
-                        with ctx.state_scope(ctx.current_state, ctx.current_old_state):
-                            ctx.current_state[mangled.SELF] = old_state_for_postconditions[mangled.SELF]
-                            ctx.current_state[mangled.CONTRACTS] = old_state_for_postconditions[mangled.CONTRACTS]
-                            with ctx.interface_call_scope():
-                                # Define new msg variable
-                                msg_name = ctx.inline_prefix + mangled.MSG
-                                msg_var = TranslatedVar(names.MSG, msg_name, types.MSG_TYPE, self.viper_ast)
-                                ctx.locals[names.MSG] = msg_var
-                                ctx.new_local_vars.append(msg_var.var_decl(ctx))
 
-                                # Assume msg.sender == self and msg.value == amount
-                                msg = msg_var.local_var(ctx)
-                                svytype = types.MSG_TYPE.member_types[names.MSG_SENDER]
-                                svitype = self.type_translator.translate(svytype, ctx)
-                                msg_sender = helpers.struct_get(self.viper_ast, msg, names.MSG_SENDER,
-                                                                svitype, types.MSG_TYPE)
-                                self_address = helpers.self_address(self.viper_ast)
-                                general_stmts_for_performs.append(self.viper_ast.Inhale(
-                                    self.viper_ast.EqCmp(msg_sender, self_address)))
-
-                                if amount:
-                                    vvytype = types.MSG_TYPE.member_types[names.MSG_VALUE]
-                                    vvitype = self.type_translator.translate(vvytype, ctx)
-                                    msg_value = helpers.struct_get(self.viper_ast, msg, names.MSG_VALUE,
-                                                                   vvitype, types.MSG_TYPE)
-                                    general_stmts_for_performs.append(self.viper_ast.Inhale(
-                                        self.viper_ast.EqCmp(msg_value, amount)))
-
-                                # Arguments as translated variables
-                                args_as_translated_var = [
-                                    TranslatedVar(name, val.name(), arg.type, self.viper_ast,
-                                                  is_local=not self.arithmetic_translator.is_wrapped(val))
-                                    for (name, arg), val in zip(function.args.items(), args)]
-                                ctx.locals.update((var.name, var) for var in args_as_translated_var)
-
-                                zero = self.viper_ast.IntLit(0)
-                                two = self.viper_ast.IntLit(2)
-
-                                for performs_idx, performs in enumerate(function.performs):
-                                    perform_as_stmts = []
-                                    self.spec_translator.translate(performs, perform_as_stmts, ctx)
-
-                                    performs_var_name = ctx.new_local_var_name("performs_decider_var")
-                                    performs_var = TranslatedVar(performs_var_name, performs_var_name,
-                                                                 types.VYPER_UINT256, self.viper_ast)
-                                    ctx.locals[performs_var_name] = performs_var
-                                    ctx.new_local_vars.append(performs_var.var_decl(ctx))
-
-                                    performs_local_var = performs_var.local_var(ctx)
-                                    performs_var_ge_zero = self.viper_ast.GeCmp(performs_local_var, zero)
-                                    performs_var_le_two = self.viper_ast.LeCmp(performs_local_var, two)
-                                    cond = self.viper_ast.And(performs_var_ge_zero, performs_var_le_two)
-                                    general_stmts_for_performs.append(self.viper_ast.Inhale(cond))
-
-                                    performs_as_stmts[performs_idx] = perform_as_stmts
-                                    performs_decider_variables[performs_idx] = performs_local_var
-
-                                    def conditional_perform_generator(p_idx: int) -> Callable[[int], Stmt]:
-                                        def conditional_perform(index: int) -> Stmt:
-                                            idx = self.viper_ast.IntLit(index)
-                                            decider_eq_idx = self.viper_ast.EqCmp(
-                                                performs_decider_variables[p_idx], idx)
-                                            return self.viper_ast.If(
-                                                decider_eq_idx, performs_as_stmts[p_idx], [])
-                                        return conditional_perform
-                                    performs_as_stmts_generators.append(conditional_perform_generator(performs_idx))
-
-            res.extend(general_stmts_for_performs)
             caller_address = ctx.self_address or helpers.self_address(self.viper_ast)
             self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
             res.extend([performs_as_stmts(0) for performs_as_stmts in performs_as_stmts_generators])
