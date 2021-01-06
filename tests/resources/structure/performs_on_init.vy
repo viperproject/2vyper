@@ -8,23 +8,11 @@
 
 #@ config: allocation
 
+#@ resource: token()
 
-owner: address
-flag: bool
-
-
-#@ invariant: self.owner == old(self.owner)
-#@ invariant: allocated() == old(allocated())
-
-
-#:: ExpectedOutput(leakcheck.failed:allocation.leaked)
+#:: ExpectedOutput(invalid.program:invalid.performs)
+#@ performs: create[token](1)
 @public
-@payable
 def __init__():
-    self.owner = msg.sender
-
-
-#:: ExpectedOutput(leakcheck.failed:allocation.leaked)
-@public
-def do_nothing():
+    #@ create[token](1)
     pass

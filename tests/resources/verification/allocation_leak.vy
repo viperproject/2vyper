@@ -18,7 +18,6 @@ value: wei_value
 #@ invariant: self.b ==> forall({a: address}, {allocated(a)}, allocated(a) == (self.value if a == self.owner else 0))
 
 
-#@ performs: payable(msg.value)
 @public
 @payable
 def __init__():

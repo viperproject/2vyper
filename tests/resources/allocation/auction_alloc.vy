@@ -67,9 +67,6 @@ pendingReturns: public(map(address, wei_value))
 #@ invariant: not self.ended ==> allowed_to_decompose[wei](self.beneficiary) == MAX_UINT256
 
 
-#@ performs: create[good](1, to=msg.sender)
-#@ performs: foreach({a: address, v: wei_value}, offer[good <-> wei](1, v, to=a, times=1))
-#@ performs: allow_to_decompose[wei](MAX_UINT256, msg.sender)
 @public
 def __init__(_bidding_time: timedelta):    
     self.beneficiary = msg.sender

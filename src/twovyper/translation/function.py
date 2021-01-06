@@ -58,6 +58,11 @@ class FunctionTranslator(CommonTranslator):
             ctx.function = function
             is_init = (function.name == names.INIT)
 
+            do_performs = not ctx.program.config.has_option(names.CONFIG_NO_PERFORMS)
+
+            if is_init and do_performs:
+                ctx.program.config.options.append(names.CONFIG_NO_PERFORMS)
+
             args = {name: self._translate_var(var, ctx, False) for name, var in function.args.items()}
             # Local variables will be added when translating.
             local_vars = {
@@ -518,8 +523,6 @@ class FunctionTranslator(CommonTranslator):
 
                 # Havoc self.balance
                 self._havoc_balance(body, ctx)
-                # Havoc other contract state
-                self.state_translator.havoc_state_except_self(ctx.current_state, body, ctx)
 
                 # In init set old to current self, if this is the first public state
                 if is_init:
@@ -661,6 +664,11 @@ class FunctionTranslator(CommonTranslator):
 
             viper_name = mangled.method_name(function.name)
             method = self.viper_ast.Method(viper_name, args_list, ret_list, [], [], locals_list, body, pos)
+
+            if is_init and do_performs:
+                ctx.program.config.options = [option for option in ctx.program.config.options
+                                              if option != names.CONFIG_NO_PERFORMS]
+
             return method
 
     @staticmethod

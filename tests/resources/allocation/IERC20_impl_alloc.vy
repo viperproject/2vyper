@@ -67,8 +67,6 @@ minter: address
 #@ always check: forall({a: address}, {self.balanceOf[a]}, {old(self.balanceOf[a])}, implies(old(self.balanceOf[a]) < self.balanceOf[a] and forall({b: address}, {self.balanceOf[b]}, {old(self.balanceOf[b])}, implies(b != a, self.balanceOf[b] == old(self.balanceOf[b]))), event(Transfer(ZERO_ADDRESS, a, self.balanceOf[a] - old(self.balanceOf[a])))))
 #@ always check: forall({a: address, b: address}, {self.allowances[a][b]}, {old(self.allowances[a][b])}, implies(old(self.allowances[a][b]) < self.allowances[a][b], event(Approval(a, b, self.allowances[a][b]))))
 
-#@ performs: create[token](_supply * 10 ** _decimals)
-#@ performs: create[creator(token)](1)
 @public
 def __init__(_name: string[64], _symbol: string[32], _decimals: uint256, _supply: uint256):
     init_supply: uint256 = _supply * 10 ** _decimals

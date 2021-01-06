@@ -148,6 +148,9 @@ class StructureChecker(NodeVisitor):
             for check in function.checks:
                 self.visit(check, _Context.CHECK, program, function)
 
+            if function.performs:
+                _assert(function.name != names.INIT, function.performs[0],
+                        'invalid.performs', '__init__ does not require and must not have performs clauses.')
             for performs in function.performs:
                 self._visit_performs(performs, program, function)
 
