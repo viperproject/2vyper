@@ -528,6 +528,9 @@ class FunctionTranslator(CommonTranslator):
                 if is_init:
                     self.state_translator.check_first_public_state(body, ctx, False)
 
+                # Havoc other contract state
+                self.state_translator.havoc_state_except_self(ctx.current_state, body, ctx)
+
                 def assert_collected_invariants(collected_invariants) -> List[Expr]:
                     invariant_assertions = []
                     # Assert collected invariants

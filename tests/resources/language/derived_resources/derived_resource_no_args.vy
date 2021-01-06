@@ -32,9 +32,11 @@ def create_test():
 #@ performs: payout[token](1)
 @public
 def reallocate_test():
+    assert self.i != self and self != msg.sender
+
     self.m[msg.sender] += 1
     self.i.create_r()
     #@ allow_to_decompose[token](1, msg.sender)
     self.m[msg.sender] -= 1
-    self.i.reallocate_r()
+    self.i.reallocate_r(msg.sender)
 

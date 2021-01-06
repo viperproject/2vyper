@@ -36,5 +36,5 @@ def create_r():
     pass
 
 @public
-def reallocate_r():
+def reallocate_r(a: address):
     pass

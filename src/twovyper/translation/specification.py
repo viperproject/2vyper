@@ -1051,7 +1051,7 @@ class SpecificationTranslator(ExpressionTranslator):
             frm_eq_self = self.viper_ast.EqCmp(self_address, frm)
             deallocate_stmts = []
             self.allocation_translator.deallocate_derived(node, derived_resource_expr, underlying_resource_expr,
-                                                          original_msg_sender, amount, deallocate_stmts, ctx, pos)
+                                                          to or original_msg_sender, amount, deallocate_stmts, ctx, pos)
             stmts.append(self.viper_ast.If(frm_eq_self, deallocate_stmts, []))
 
         if to is not None and frm is not None:
