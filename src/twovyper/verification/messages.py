@@ -163,8 +163,7 @@ REASONS = {
     'underlying.address.self':
         lambda i: f"The address of the underlying resource might be equal to 'self'.",
     'underlying.address.constant':
-        lambda i: f"The address of the underlying resource might not be constant "
-                  f"even though some derived resources where allocated.",
+        lambda i: f"The address of the underlying resource might got changed after initially setting it.",
     'underlying.address.trust':
         lambda i: f"The contract might trust others in the contract of the underlying resource.",
     'underlying.resource.offers':

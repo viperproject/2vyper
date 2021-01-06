@@ -181,20 +181,15 @@ class ProgramTranslator(CommonTranslator):
                                        values={'resource': resource})
                 underlying_address_not_self = self.viper_ast.NeCmp(t_underlying_address, self_address, pos)
                 invariants.append(underlying_address_not_self)
-                # resource.underlying_address is constant when there are derived resources
+                # resource.underlying_address is constant once set
                 pos = self.to_position(pos_node, ctx, rules.UNDERLYING_ADDRESS_CONSTANT_FAIL,
                                        values={'resource': resource})
-                t_resource, args, type_cond = translated_own_derived_resources[index]
-                allocated_derived_resource = self.allocation_translator.get_allocated(allocated, t_resource,
-                                                                                      q_address_var, ctx, pos)
+                old_underlying_address_neq_zero = self.viper_ast.NeCmp(t_old_underlying_address,
+                                                                       self.viper_ast.IntLit(0), pos)
                 underlying_address_eq = self.viper_ast.EqCmp(t_underlying_address, t_old_underlying_address, pos)
-                some_allocated = self.viper_ast.GtCmp(allocated_derived_resource, self.viper_ast.IntLit(0), pos)
-                implies = self.viper_ast.Implies(some_allocated, underlying_address_eq)
-                type_cond = self.viper_ast.And(type_cond, q_address_type_cond, pos)
-                forall_underlying_address_const = self.viper_ast.Forall(
-                    [q_address, *args], [self.viper_ast.Trigger([allocated_derived_resource], pos)],
-                    self.viper_ast.Implies(type_cond, implies, pos), pos)
-                invariants.append(forall_underlying_address_const)
+                underlying_address_const = self.viper_ast.Implies(old_underlying_address_neq_zero,
+                                                                  underlying_address_eq, pos)
+                invariants.append(underlying_address_const)
                 # trust_no_one in resource.underlying_address
                 pos = self.to_position(pos_node, ctx, rules.UNDERLYING_ADDRESS_TRUST_NO_ONE_FAIL,
                                        values={'resource': resource})
