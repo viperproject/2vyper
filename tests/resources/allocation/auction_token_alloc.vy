@@ -1,5 +1,3 @@
-#:: IgnoreFile(0)
-
 #
 # The MIT License (MIT)
 #
@@ -28,7 +26,7 @@
 
 import tests.resources.allocation.IERC20_alloc as ERC20
 
-#@ config: allocation, no_derived_wei_resource
+#@ config: allocation, no_derived_wei_resource, trust_casts
 
 beneficiary: public(address)
 auctionStart: public(timestamp)
@@ -68,50 +66,60 @@ token: ERC20
 #@ invariant: self.highestBidder != ZERO_ADDRESS and not self.ended ==> \
     #@ offered[token <-> good](self.highestBid, 1, self.highestBidder, self.beneficiary) >= 1
 
+#@ invariant: not self.ended ==> allowed_to_decompose[token](self.beneficiary) == MAX_UINT256
 
-#@ performs: create[good](1, to=msg.sender)
-#@ performs: foreach({a: address, v: wei_value}, offer[good <-> token](1, v, to=a, times=1))
 @public
-def __init__(_bidding_time: timedelta):
+def __init__(_bidding_time: timedelta, token_address: address):
+    assert token_address != self
+
     self.beneficiary = msg.sender
     self.auctionStart = block.timestamp
     self.auctionEnd = self.auctionStart + _bidding_time
+    self.token = ERC20(token_address)
 
     #@ create[good](1, to=self.beneficiary)
     #@ foreach({a: address, v: wei_value}, offer[good <-> token](1, v, to=a, times=1))
+    #@ assert no_offers[ERC20.token[self.token]](self), UNREACHABLE
+    #@ allow_to_decompose[token](MAX_UINT256, msg.sender)
 
 
 #@ performs: offer[token <-> good](value, 1, to=self.beneficiary, times=1)
 #@ performs: payable[token](value)
 @public
 def bid(value: uint256):
+    assert msg.sender != self
+    assert msg.sender != self.beneficiary
     assert block.timestamp < self.auctionEnd
     assert not self.ended
     assert value > self.highestBid
-    assert msg.sender != self.beneficiary
-
-    # This should reallocate ERC20 tokens to this contract and allocate meta resources for the msg.sender
-    self.token.transferFrom(msg.sender, self, value)
-
-    #@ offer[token <-> good](value, 1, to=self.beneficiary, times=1)
 
     self.pendingReturns[self.highestBidder] += self.highestBid
     self.highestBidder = msg.sender
     self.highestBid = value
 
+    #@ offer[token <-> good](value, 1, to=self.beneficiary, times=1)
 
+    self.token.transferFrom(msg.sender, self, value)
+
+
+#@ performs: allow_to_decompose[token](self.pendingReturns[msg.sender], msg.sender)
 #@ performs: payout[token](self.pendingReturns[msg.sender], acting_for=msg.sender)
 @public
 def withdraw():
+    assert msg.sender != self and msg.sender != self.beneficiary
     pending_amount: uint256 = self.pendingReturns[msg.sender]
     self.pendingReturns[msg.sender] = 0
+    #@ allow_to_decompose[token](pending_amount, msg.sender)
+
     # Deallocate the tokens
     self.token.transfer(msg.sender, pending_amount)
 
 
 #@ performs: payout[token](self.highestBid, acting_for=self.beneficiary)
+#@ performs: exchange[token <-> good](self.highestBid, 1, self.highestBidder, self.beneficiary, times=1)
 @public
 def endAuction():
+    assert self.beneficiary != self
     assert block.timestamp >= self.auctionEnd
     assert not self.ended
 
