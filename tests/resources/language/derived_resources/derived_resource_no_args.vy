@@ -21,13 +21,15 @@ m: map(address, uint256)
 def foo():
     self.i.foo()
 
+#@ performs: payable[token](1)
 @public
 def create_test():
     self.m[msg.sender] += 1
     self.i.create_r()
 
-#@ performs: payout[token](1)
+#@ performs: payable[token](1)
 #@ performs: allow_to_decompose[token](1, msg.sender)
+#@ performs: payout[token](1)
 @public
 def reallocate_test():
     self.m[msg.sender] += 1

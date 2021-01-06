@@ -1040,18 +1040,25 @@ class SpecificationTranslator(ExpressionTranslator):
         msg_var = ctx.all_vars[mangled.ORIGINAL_MSG].local_var(ctx)
         original_msg_sender = helpers.struct_get(self.viper_ast, msg_var, names.MSG_SENDER,
                                                  self.viper_ast.Int, types.MSG_TYPE)
+        stmts = []
         if to is not None:
             to_eq_self = self.viper_ast.EqCmp(self_address, to)
             allocate_stmts = []
-            self.allocation_translator.allocate(derived_resource_expr, original_msg_sender, amount,
-                                                allocate_stmts, ctx, pos)
-            res.append(self.viper_ast.If(to_eq_self, allocate_stmts, []))
+            self.allocation_translator.allocate_derived(node, derived_resource_expr, original_msg_sender,
+                                                        amount, allocate_stmts, ctx, pos)
+            stmts.append(self.viper_ast.If(to_eq_self, allocate_stmts, []))
         if frm is not None:
             frm_eq_self = self.viper_ast.EqCmp(self_address, frm)
             deallocate_stmts = []
-            self.allocation_translator.deallocate(node, derived_resource_expr, underlying_resource_expr,
-                                                  original_msg_sender, amount, deallocate_stmts, ctx, pos)
-            res.append(self.viper_ast.If(frm_eq_self, deallocate_stmts, []))
+            self.allocation_translator.deallocate_derived(node, derived_resource_expr, underlying_resource_expr,
+                                                          original_msg_sender, amount, deallocate_stmts, ctx, pos)
+            stmts.append(self.viper_ast.If(frm_eq_self, deallocate_stmts, []))
+
+        if to is not None and frm is not None:
+            frm_neq_to = self.viper_ast.NeCmp(frm, to)
+            res.append(self.viper_ast.If(frm_neq_to, stmts, []))
+        else:
+            res.extend(stmts)
 
 
 class _ResourceArgumentExtractor(NodeVisitor):

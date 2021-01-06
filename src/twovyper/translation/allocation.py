@@ -573,6 +573,14 @@ class AllocationTranslator(CommonTranslator):
                        rule: Rule, res: List[Stmt], ctx: Context, pos=None):
         self._exhale_performs_if_non_zero_amount(node, function, args, amounts, rule, res, ctx, pos)
 
+    def allocate_derived(self, node: ast.Node,
+                         resource: Expr, address: Expr, amount: Expr,
+                         res: List[Stmt], ctx: Context, pos=None):
+        self.allocate(resource, address, amount, res, ctx, pos)
+        self.check_performs(node, names.RESOURCE_PAYABLE,
+                            [resource, amount], [amount],
+                            rules.PAYABLE_FAIL, res, ctx, pos)
+
     def allocate(self,
                  resource: Expr, address: Expr, amount: Expr,
                  res: List[Stmt], ctx: Context, pos=None):
@@ -601,11 +609,11 @@ class AllocationTranslator(CommonTranslator):
                        address: Expr, amount: Expr,
                        res: List[Stmt], ctx: Context, pos=None):
         resource, underlying_resource = self.resource_translator.translate_with_underlying(None, res, ctx)
-        self.deallocate(node, resource, underlying_resource, address, amount, res, ctx, pos)
+        self.deallocate_derived(node, resource, underlying_resource, address, amount, res, ctx, pos)
 
-    def deallocate(self, node: ast.Node,
-                   resource: Expr, underlying_resource: Expr, address: Expr, amount: Expr,
-                   res: List[Stmt], ctx: Context, pos=None):
+    def deallocate_derived(self, node: ast.Node,
+                           resource: Expr, underlying_resource: Expr, address: Expr, amount: Expr,
+                           res: List[Stmt], ctx: Context, pos=None):
         """
         Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
         """
