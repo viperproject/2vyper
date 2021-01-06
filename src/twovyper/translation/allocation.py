@@ -808,8 +808,10 @@ class AllocationTranslator(CommonTranslator):
                 names.CREATE: [struct_t, int_t, int_t, int_t],
                 names.DESTROY: [struct_t, int_t, int_t],
                 names.REALLOCATE: [struct_t, int_t, int_t, int_t],
+                # ALLOW_TO_DECOMPOSE is modelled as an offer and therefore needs no leak check
                 names.OFFER: [struct_t, struct_t, int_t, int_t, int_t, int_t, int_t],
                 names.REVOKE: [struct_t, struct_t, int_t, int_t, int_t, int_t],
+                names.EXCHANGE: [struct_t, struct_t, int_t, int_t, int_t, int_t, int_t],
                 names.TRUST: [int_t, int_t, bool_t],
                 names.ALLOCATE_UNTRACKED: [struct_t, int_t],
                 names.RESOURCE_PAYABLE: [struct_t, int_t],
