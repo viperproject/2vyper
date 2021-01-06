@@ -837,7 +837,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[1], types.VYPER_BOOL)
                 return [None], [node]
             elif case(names.ALLOCATE_UNTRACKED):
-                self.check_number_of_arguments(node, 1, resources=1)
+                self.check_number_of_arguments(node, 1, resources=0)  # By setting resources to 0 we only allow wei.
                 _check(node.resource is None or node.underlying_resource is not None, node,
                        'invalid.allocate_untracked', 'Only derived resources can be used with "allocate_untracked"')
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)

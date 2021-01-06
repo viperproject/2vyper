@@ -31,7 +31,7 @@ predicate $performs$revoke($from_resource: $Struct, $to_resource: $Struct, $from
 
 predicate $performs$trust($address: Int, $by_address: Int, $value: Bool)
 
-predicate $performs$allocate_untracked($resource: $Struct, $address: Int)
+predicate $performs$allocate_untracked_wei($resource: $Struct, $address: Int)
 
 predicate $performs$payable($resource: $Struct, $amount: Int)
 

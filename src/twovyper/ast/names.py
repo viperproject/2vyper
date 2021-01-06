@@ -269,7 +269,7 @@ DESTROY_ACTING_FOR = 'acting_for'
 
 TRUST = 'trust'
 
-ALLOCATE_UNTRACKED = 'allocate_untracked'
+ALLOCATE_UNTRACKED = 'allocate_untracked_wei'
 
 CREATOR = 'creator'
 
