@@ -381,6 +381,23 @@ class AllocationTranslator(CommonTranslator):
         assume = self.viper_ast.Inhale(quant, pos)
         res.append(assume)
 
+        # Assume the no_offers stayed the same for all others
+        qvar_types = 1 * [helpers.struct_type(self.viper_ast)] + 1 * [self.viper_ast.Int]
+        qvars = [self.viper_ast.LocalVarDecl(f'$arg{i}', t, pos) for i, t in enumerate(qvar_types)]
+        qlocals = [var.localVar() for var in qvars]
+
+        fresh_no_offers = helpers.no_offers(self.viper_ast, fresh_offered, *qlocals, pos)
+        old_no_offers = helpers.no_offers(self.viper_ast, offered, *qlocals, pos)
+        resource_eq = self.viper_ast.EqCmp(qlocals[0], from_resource, pos)
+        address_eq = self.viper_ast.EqCmp(qlocals[1], from_owner, pos)
+        cond = self.viper_ast.Not(self.viper_ast.And(resource_eq, address_eq, pos), pos)
+        expr = self.viper_ast.EqCmp(fresh_no_offers, old_no_offers, pos)
+        expr = self.viper_ast.Implies(cond, expr, pos)
+        trigger = self.viper_ast.Trigger([fresh_no_offers], pos)
+        quant = self.viper_ast.Forall(qvars, [trigger], expr, pos)
+        assume = self.viper_ast.Inhale(quant, pos)
+        res.append(assume)
+
         # Set the new offered
         offered_assign = self.viper_ast.LocalVarAssign(offered, fresh_offered, pos)
         res.append(offered_assign)
