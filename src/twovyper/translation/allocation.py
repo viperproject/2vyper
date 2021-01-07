@@ -559,15 +559,23 @@ class AllocationTranslator(CommonTranslator):
 
     def _exhale_performs(self, node: ast.Node, function: str, args: List[Expr], rule: Rule, res: List[Stmt],
                          ctx: Context, pos=None):
-        if ctx.inside_interface_call:
+        if ctx.program.config.has_option(names.CONFIG_NO_PERFORMS):
             return
 
-        if not ctx.program.config.has_option(names.CONFIG_NO_PERFORMS):
-            pred = self._performs_acc_predicate(function, args, ctx, pos)
-            modelt = self.model_translator.save_variables(res, ctx, pos)
-            combined_rule = rules.combine(rules.NO_PERFORMS_FAIL, rule)
-            apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
-            res.append(self.viper_ast.Exhale(pred, apos))
+        pred_access_pred = self._performs_acc_predicate(function, args, ctx, pos)
+        modelt = self.model_translator.save_variables(res, ctx, pos)
+        combined_rule = rules.combine(rules.NO_PERFORMS_FAIL, rule)
+        apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
+
+        if ctx.inside_interface_call:
+            pred = helpers.performs_predicate(self.viper_ast, function, args, pos)
+            perm = self.viper_ast.CurrentPerm(pred, pos)
+            write = self.viper_ast.FullPerm(pos)
+            enough_perm = self.viper_ast.GeCmp(perm, write, pos)
+            cond_pred = self.viper_ast.CondExp(enough_perm, pred_access_pred, self.viper_ast.TrueLit(), pos)
+            res.append(self.viper_ast.Exhale(cond_pred, apos))
+        else:
+            res.append(self.viper_ast.Exhale(pred_access_pred, apos))
 
     def check_performs(self, node: ast.Node, function: str, args: List[Expr], amounts: Union[List[Expr], Expr],
                        rule: Rule, res: List[Stmt], ctx: Context, pos=None):

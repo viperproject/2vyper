@@ -1187,6 +1187,8 @@ class ExpressionTranslator(NodeTranslator):
 
             self.balance_translator.decrease_balance(amount, res, ctx, pos)
 
+        general_stmts_for_performs = []
+        performs_as_stmts_generators = []
         if modifying:
             # Save the values of to, amount, and args, as self could be changed by reentrancy
             if known:
@@ -1204,8 +1206,6 @@ class ExpressionTranslator(NodeTranslator):
                 # Force evaluation at this point
                 args = list(map(new_var, args))
 
-            general_stmts_for_performs = []
-            performs_as_stmts_generators = []
             if known and function.performs:
                 performs_as_stmts = {}
                 performs_decider_variables = {}

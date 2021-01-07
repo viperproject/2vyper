@@ -132,6 +132,8 @@ class Resource(VyperStruct):
                  underlying_resource_node: Optional[ast.Expr] = None):
         super().__init__(rtype.name, rtype, node)
         self.file = file
+        self.analysed = False
+        self._own_address = None
         self.underlying_resource = underlying_resource_node
         self.underlying_address = None
         self.derived_resources = []
@@ -143,6 +145,16 @@ class Resource(VyperStruct):
     @property
     def underlying_resource_name(self):
         return self.type.underlying_resource.name if isinstance(self.type, DerivedResourceType) else None
+
+    @property
+    def own_address(self):
+        if self.analysed:
+            raise AssertionError("The own address attribute is only available during the analysing phase.")
+        return self._own_address
+
+    @own_address.setter
+    def own_address(self, expr: ast.Expr):
+        self._own_address = expr
 
     def is_derived_resource(self):
         return self.underlying_resource_name is not None

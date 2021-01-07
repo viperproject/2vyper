@@ -15,7 +15,7 @@ m: map(address, uint256)
 #@ derived resource: token() -> interface.r[self.i]
 
 #@ invariant: self.i == old(self.i)
-#@ invariant: allocated[token]() == self.m#
+#@ invariant: allocated[token]() == self.m
 
 @public
 def foo():
@@ -28,8 +28,17 @@ def create_test():
     self.i.create_r()
 
 #@ performs: payable[token](1)
+#@ performs: create[interface.r[self.i]](1, to=self, acting_for=self)
+@public
+def create_test_with_redeclare():
+    self.m[msg.sender] += 1
+    self.i.create_r()
+
+#@ performs: payable[token](1)
+#@ performs: create[interface.r[self.i]](1, to=self, acting_for=self)
 #@ performs: allow_to_decompose[token](1, msg.sender)
 #@ performs: payout[token](1)
+#@ performs: reallocate[interface.r[self.i]](1, to=msg.sender, acting_for=self)
 @public
 def reallocate_test():
     assert self.i != self and self != msg.sender

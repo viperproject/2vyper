@@ -52,6 +52,8 @@ class TypeAnnotator(NodeVisitor):
             type_map[name] = struct.type
         for name, contract in program.contracts.items():
             type_map[name] = contract.type
+        for name, interface in program.interfaces.items():
+            type_map[name] = interface.type
 
         self.type_builder = TypeBuilder(type_map)
 
@@ -139,7 +141,7 @@ class TypeAnnotator(NodeVisitor):
                 if (isinstance(resource.type, types.DerivedResourceType)
                         and isinstance(resource.type.underlying_resource, types.UnknownResourceType)):
                     underlying_resource, args = self._annotate_resource(resource.underlying_resource)
-                    resource.underlying_address = underlying_resource.underlying_address
+                    resource.underlying_address = underlying_resource.own_address
                     underlying_resource.derived_resources.append(resource)
                     if len(args) != 0:
                         _check(False, args[0], 'invalid.derived.resource',
@@ -156,6 +158,12 @@ class TypeAnnotator(NodeVisitor):
                         _check(derived_member_type == underlying_member_type, resource.node,
                                'invalid.derived.resource',
                                'Arguments of derived resource are not matching underlying resource.')
+
+        if not isinstance(self.program, VyperInterface):
+            # Set analysed flag to True for all resources
+            for resources in self.program.resources.values():
+                for resource in resources:
+                    resource.analysed = True
 
         for function in self.program.functions.values():
             with self._function_scope(function):
@@ -1050,7 +1058,7 @@ class TypeAnnotator(NodeVisitor):
             if node.resource is not None:
                 assert isinstance(node.resource, ast.Expr)
                 self._visit_resource_address(node.resource, node.name)
-                resource.underlying_address = node.resource
+                resource.own_address = node.resource
             elif (top and self.program.file != resource.file
                     and resource.name != names.WEI
                     and resource.name != names.UNDERLYING_WEI):
@@ -1085,7 +1093,7 @@ class TypeAnnotator(NodeVisitor):
             else:
                 assert False
             resource = interface.declared_resources.get(node.name)
-            resource.underlying_address = address
+            resource.own_address = address
             args = node.args
         elif isinstance(node, ast.Subscript):
             address = node.index
@@ -1102,7 +1110,7 @@ class TypeAnnotator(NodeVisitor):
             else:
                 assert False
             self._visit_resource_address(address, resource_name, interface)
-            resource.underlying_address = address
+            resource.own_address = address
         else:
             assert False
 
