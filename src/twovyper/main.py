@@ -38,9 +38,10 @@ from twovyper.exceptions import (
 
 class TwoVyper:
 
-    def __init__(self, jvm: JVM, get_model: bool = False):
+    def __init__(self, jvm: JVM, get_model: bool = False, check_ast_inconsistencies: bool = False):
         self.jvm = jvm
         self.get_model = get_model
+        self.check_ast_inconsistencies = check_ast_inconsistencies
 
     def translate(self, path: str, vyper_root: str = None, skip_vyper: bool = False) -> Program:
         path = os.path.abspath(path)
@@ -70,7 +71,7 @@ class TwoVyper:
 
         from twovyper.translation import translator
         from twovyper.translation.translator import TranslationOptions
-        options = TranslationOptions(self.get_model)
+        options = TranslationOptions(self.get_model, self.check_ast_inconsistencies)
         translated = translator.translate(vyper_program, options, self.jvm)
 
         logging.info("Finished translating.")
@@ -125,6 +126,11 @@ def main() -> None:
         '--counterexample',
         action='store_true',
         help='print a counterexample if the verification fails',
+    )
+    parser.add_argument(
+        '--check-ast-inconsistencies',
+        action='store_true',
+        help='Check the generated Viper AST for potential inconsistencies.',
     )
     parser.add_argument(
         '--vyper-root',
@@ -192,7 +198,7 @@ def main() -> None:
 def translate_and_verify(vyper_file, jvm, args, print=print):
     try:
         start = time()
-        tw = TwoVyper(jvm, args.counterexample)
+        tw = TwoVyper(jvm, args.counterexample, args.check_ast_inconsistencies)
         program = tw.translate(vyper_file, args.vyper_root, args.skip_vyper)
         if args.print_viper:
             print(str(program))

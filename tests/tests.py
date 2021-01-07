@@ -75,6 +75,11 @@ def _init_model(model):
     OPTIONS_MODEL = model
 
 
+def _init_check_ast(check):
+    global OPTIONS_CHECK_AST_INCONSISTENCIES
+    OPTIONS_CHECK_AST_INCONSISTENCIES = check
+
+
 def _init_store_viper(flag):
     global OPTIONS_STORE_VIPER
     OPTIONS_STORE_VIPER = flag
@@ -85,6 +90,8 @@ _BACKEND_CARBON = 'carbon'
 _BACKEND_ANY = 'ANY'
 
 OPTIONS_MODEL = False
+
+OPTIONS_CHECK_AST_INCONSISTENCIES = False
 
 OPTIONS_STORE_VIPER = False
 
@@ -580,7 +587,7 @@ class TwoVyperTest(AnnotatedTest):
         abspath = os.path.abspath(path)
         prepare_twovyper_for_vyper_version(abspath)
         from twovyper.main import TwoVyper
-        tw = TwoVyper(jvm, OPTIONS_MODEL)
+        tw = TwoVyper(jvm, OPTIONS_MODEL, OPTIONS_CHECK_AST_INCONSISTENCIES)
         from twovyper.exceptions import InvalidProgramException
         try:
             prog = tw.translate(abspath, vyper_root=VYPER_ROOT)

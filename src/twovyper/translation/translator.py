@@ -45,8 +45,9 @@ from twovyper.viper.typedefs import Program, Stmt
 
 class TranslationOptions:
 
-    def __init__(self, create_model: bool):
+    def __init__(self, create_model: bool, check_ast_inconsistencies: bool):
         self.create_model = create_model
+        self.check_ast_inconsistencies = check_ast_inconsistencies
 
 
 builtins: Optional[Program] = None
@@ -69,9 +70,10 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
     translator = ProgramTranslator(viper_ast, builtins)
 
     viper_program = translator.translate(vyper_program, options)
-    consistency_errors = seq_to_list(viper_program.checkTransitively())
-    if consistency_errors:
-        raise ConsistencyException(viper_program, "The AST contains inconsistencies.", consistency_errors)
+    if options.check_ast_inconsistencies:
+        consistency_errors = seq_to_list(viper_program.checkTransitively())
+        if consistency_errors:
+            raise ConsistencyException(viper_program, "The AST contains inconsistencies.", consistency_errors)
 
     sif.configure_mpp_transformation(jvm)
     viper_program = sif.transform(jvm, viper_program)
