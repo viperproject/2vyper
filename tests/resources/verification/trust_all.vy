@@ -25,13 +25,13 @@ def __init__():
 
 @public
 def offer(to: address):
-    #@ offer(1, 1, to=to, acting_for=self.owner, times=1)
+    #@ offer(1, 1, to=to, actor=self.owner, times=1)
     pass
 
 
 @public
 def offer_all(to: address):
-    #@ foreach({amount: uint256}, offer(amount, amount, to=to, acting_for=self.owner, times=1))
+    #@ foreach({amount: uint256}, offer(amount, amount, to=to, actor=self.owner, times=1))
     pass
 
 

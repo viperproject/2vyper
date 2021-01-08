@@ -236,10 +236,10 @@ TRUSTED_WHERE = 'where'
 
 REALLOCATE = 'reallocate'
 REALLOCATE_TO = 'to'
-REALLOCATE_ACTING_FOR = 'acting_for'
+REALLOCATE_ACTOR = 'actor'
 
 RESOURCE_PAYOUT = 'payout'
-RESOURCE_PAYOUT_ACTING_FOR = 'acting_for'
+RESOURCE_PAYOUT_ACTOR = 'actor'
 
 RESOURCE_PAYABLE = 'payable'
 
@@ -247,7 +247,7 @@ FOREACH = 'foreach'
 
 OFFER = 'offer'
 OFFER_TO = 'to'
-OFFER_ACTING_FOR = 'acting_for'
+OFFER_ACTOR = 'actor'
 OFFER_TIMES = 'times'
 
 ALLOW_TO_DECOMPOSE = 'allow_to_decompose'
@@ -255,17 +255,17 @@ ALLOWED_TO_DECOMPOSE = 'allowed_to_decompose'
 
 REVOKE = 'revoke'
 REVOKE_TO = 'to'
-REVOKE_ACTING_FOR = 'acting_for'
+REVOKE_ACTOR = 'actor'
 
 EXCHANGE = 'exchange'
 EXCHANGE_TIMES = 'times'
 
 CREATE = 'create'
 CREATE_TO = 'to'
-CREATE_ACTING_FOR = 'acting_for'
+CREATE_ACTOR = 'actor'
 
 DESTROY = 'destroy'
-DESTROY_ACTING_FOR = 'acting_for'
+DESTROY_ACTOR = 'actor'
 
 TRUST = 'trust'
 

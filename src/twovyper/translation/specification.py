@@ -698,7 +698,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 kw_val = self.translate(kw.value, res, ctx)
                 if kw.name == names.REALLOCATE_TO:
                     to = kw_val
-                elif kw.name == names.REALLOCATE_ACTING_FOR:
+                elif kw.name == names.REALLOCATE_ACTOR:
                     frm = kw_val
                 else:
                     assert False
@@ -740,7 +740,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 if kw.name == names.OFFER_TO:
                     to = kw_val
                     all_args.append(kw.value)
-                elif kw.name == names.OFFER_ACTING_FOR:
+                elif kw.name == names.OFFER_ACTOR:
                     frm = kw_val
                 elif kw.name == names.OFFER_TIMES:
                     times = kw_val
@@ -800,7 +800,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 if kw.name == names.REVOKE_TO:
                     to = kw_val
                     all_args.append(kw.value)
-                elif kw.name == names.REVOKE_ACTING_FOR:
+                elif kw.name == names.REVOKE_ACTOR:
                     frm = kw_val
                 else:
                     assert False
@@ -869,7 +869,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 if kw.name == names.CREATE_TO:
                     to = self.translate(kw.value, res, ctx)
                     args.append(kw.value)
-                elif kw.name == names.CREATE_ACTING_FOR:
+                elif kw.name == names.CREATE_ACTOR:
                     frm = self.translate(kw.value, res, ctx)
                     # The 'by' parameter is not part of the injectivity check as
                     # it does not make a difference as to which resource is created
@@ -905,7 +905,7 @@ class SpecificationTranslator(ExpressionTranslator):
             frm = msg_sender
             for kw in node.keywords:
                 kw_val = self.translate(kw.value, res, ctx)
-                if kw.name == names.DESTROY_ACTING_FOR:
+                if kw.name == names.DESTROY_ACTOR:
                     frm = kw_val
 
             if ctx.inside_derived_resource_performs:
@@ -951,7 +951,7 @@ class SpecificationTranslator(ExpressionTranslator):
             frm = msg_sender
             for kw in node.keywords:
                 kw_val = self.translate(kw.value, res, ctx)
-                if kw.name == names.RESOURCE_PAYOUT_ACTING_FOR:
+                if kw.name == names.RESOURCE_PAYOUT_ACTOR:
                     frm = kw_val
 
             if ctx.inside_derived_resource_performs:

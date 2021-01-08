@@ -104,7 +104,7 @@ def withdraw():
 
 
 #@ performs: exchange[wei <-> good](self.highestBid, 1, self.highestBidder, self.beneficiary, times=1)
-#@ performs: payout[wei](self.highestBid, acting_for=self.beneficiary)
+#@ performs: payout[wei](self.highestBid, actor=self.beneficiary)
 @public
 def endAuction():
     assert block.timestamp >= self.auctionEnd

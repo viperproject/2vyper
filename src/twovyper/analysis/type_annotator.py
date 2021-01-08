@@ -750,7 +750,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[0], types.VYPER_BOOL)
                 return self.pass_through(node.args[1], node)
             elif case(names.REALLOCATE):
-                keywords = [names.REALLOCATE_TO, names.REALLOCATE_ACTING_FOR]
+                keywords = [names.REALLOCATE_TO, names.REALLOCATE_ACTOR]
                 required = [names.REALLOCATE_TO]
                 self.check_number_of_arguments(node, 1, allowed_keywords=keywords,
                                                required_keywords=required, resources=1)
@@ -764,7 +764,7 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.OFFER):
                 keywords = {
                     names.OFFER_TO: types.VYPER_ADDRESS,
-                    names.OFFER_ACTING_FOR: types.VYPER_ADDRESS,
+                    names.OFFER_ACTOR: types.VYPER_ADDRESS,
                     names.OFFER_TIMES: types.VYPER_UINT256
                 }
                 required = [names.OFFER_TO, names.OFFER_TIMES]
@@ -783,7 +783,7 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.REVOKE):
                 keywords = {
                     names.REVOKE_TO: types.VYPER_ADDRESS,
-                    names.REVOKE_ACTING_FOR: types.VYPER_ADDRESS
+                    names.REVOKE_ACTOR: types.VYPER_ADDRESS
                 }
                 required = [names.REVOKE_TO]
                 self.check_number_of_arguments(node, 2, allowed_keywords=keywords.keys(),
@@ -806,7 +806,7 @@ class TypeAnnotator(NodeVisitor):
             elif case(names.CREATE):
                 keywords = {
                     names.CREATE_TO: types.VYPER_ADDRESS,
-                    names.CREATE_ACTING_FOR: types.VYPER_ADDRESS
+                    names.CREATE_ACTOR: types.VYPER_ADDRESS
                 }
                 self.check_number_of_arguments(node, 1, allowed_keywords=keywords.keys(), resources=1)
                 _check(node.resource is not None and node.underlying_resource is None, node, 'invalid.create',
@@ -816,7 +816,7 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(kw.value, keywords[kw.name])
                 return [None], [node]
             elif case(names.DESTROY):
-                keywords = [names.DESTROY_ACTING_FOR]
+                keywords = [names.DESTROY_ACTOR]
                 self.check_number_of_arguments(node, 1, resources=1, allowed_keywords=keywords)
                 _check(node.resource is not None and node.underlying_resource is None, node, 'invalid.destroy',
                        'Only non-derived resources can be used with "destroy"')
@@ -831,7 +831,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
                 return [None], [node]
             elif case(names.RESOURCE_PAYOUT):
-                keywords = [names.RESOURCE_PAYOUT_ACTING_FOR]
+                keywords = [names.RESOURCE_PAYOUT_ACTOR]
                 self.check_number_of_arguments(node, 1, resources=1, allowed_keywords=keywords)
                 _check(node.resource is None or node.underlying_resource is not None, node, 'invalid.payout',
                        'Only derived resources can be used with "payout"')

@@ -103,7 +103,7 @@ def bid(value: uint256):
 
 
 #@ performs: allow_to_decompose[token](self.pendingReturns[msg.sender], msg.sender)
-#@ performs: payout[token](self.pendingReturns[msg.sender], acting_for=msg.sender)
+#@ performs: payout[token](self.pendingReturns[msg.sender], actor=msg.sender)
 @public
 def withdraw():
     assert msg.sender != self and msg.sender != self.beneficiary
@@ -115,7 +115,7 @@ def withdraw():
     self.token.transfer(msg.sender, pending_amount)
 
 
-#@ performs: payout[token](self.highestBid, acting_for=self.beneficiary)
+#@ performs: payout[token](self.highestBid, actor=self.beneficiary)
 #@ performs: exchange[token <-> good](self.highestBid, 1, self.highestBidder, self.beneficiary, times=1)
 @public
 def endAuction():
