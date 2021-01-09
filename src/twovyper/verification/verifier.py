@@ -61,7 +61,7 @@ class Silicon(AbstractVerifier):
             filename
         ]
 
-        self.silicon.parseCommandLine(list_to_seq(args, jvm))
+        self.silicon.parseCommandLine(list_to_seq(args, jvm, t=jvm.java.lang.String))
         self.silicon.start()
 
         logging.info("Initialized Silicon.")

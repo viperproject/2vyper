@@ -18,13 +18,15 @@ def configure_mpp_transformation(jvm: JVM):
     - act_opt:  at the beginning of each method add an 'assume p1' statement.
     - func_opt: only apply the _checkDefined and _isDefined functions in the first execution.
     """
-    jvm.viper.silver.sif.SIFExtendedTransformer.optimizeControlFlow(True)
-    jvm.viper.silver.sif.SIFExtendedTransformer.optimizeSequential(True)
-    jvm.viper.silver.sif.SIFExtendedTransformer.optimizeRestrictActVars(True)
-    jvm.viper.silver.sif.SIFExtendedTransformer.onlyTransformMethodsWithRelationalSpecs(True)
-    jvm.viper.silver.sif.SIFExtendedTransformer.addPrimedFuncAppReplacement("_checkDefined", "first_arg")
-    jvm.viper.silver.sif.SIFExtendedTransformer.addPrimedFuncAppReplacement("_isDefined", "true")
+    transformer_object = getattr(getattr(jvm.viper.silver.sif, 'SIFExtendedTransformer$'), 'MODULE$')
+    transformer_object.optimizeControlFlow(True)
+    transformer_object.optimizeSequential(True)
+    transformer_object.optimizeRestrictActVars(True)
+    transformer_object.onlyTransformMethodsWithRelationalSpecs(True)
+    transformer_object.addPrimedFuncAppReplacement("_checkDefined", "first_arg")
+    transformer_object.addPrimedFuncAppReplacement("_isDefined", "true")
 
 
 def transform(jvm: JVM, program: Program):
-    return jvm.viper.silver.sif.SIFExtendedTransformer.transform(program, False)
+    transformer_object = getattr(getattr(jvm.viper.silver.sif, 'SIFExtendedTransformer$'), 'MODULE$')
+    return transformer_object.transform(program, False)

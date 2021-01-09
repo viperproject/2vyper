@@ -22,5 +22,8 @@ class JVM:
         self.viper = jpype.JPackage('viper')
         self.fastparse = jpype.JPackage('fastparse')
 
+    def get_array(self, t, n):
+        return jpype.JArray(t)(n)
+
     def is_known_class(self, class_object) -> bool:
         return not isinstance(class_object, jpype.JPackage)

@@ -14,7 +14,7 @@ class ViperParser:
     def __init__(self, jvm: JVM):
         self.jvm = jvm
         self.parser = getattr(getattr(jvm.viper.silver.parser, "FastParser$"), "MODULE$")
-        self.parsed_success = getattr(jvm.fastparse.core, 'Parsed$Success')
+        self.parsed_success = getattr(jvm.fastparse, 'Parsed$Success')
         self._None = getattr(getattr(jvm.scala, 'None$'), 'MODULE$')
 
         assert self.parser

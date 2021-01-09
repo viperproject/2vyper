@@ -58,11 +58,14 @@ def seq_to_list(scala_iterable):
     return lst
 
 
-def list_to_seq(lst, jvm):
-    seq = jvm.scala.collection.mutable.ArraySeq(len(lst))
+def list_to_seq(lst, jvm, t=None):
+    if not t:
+        t = jvm.java.lang.Object
+    arr = jvm.get_array(t, len(lst))
+    seq = jvm.scala.collection.mutable.ArraySeq.make(arr)
     for i, element in enumerate(lst):
         seq.update(i, element)
-    return seq
+    return seq.toSeq()
 
 
 class Subscriptable(type):

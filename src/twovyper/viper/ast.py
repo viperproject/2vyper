@@ -85,7 +85,8 @@ class ViperAST:
             list.append(lsttoappend)
 
     def to_seq(self, py_iterable):
-        result = self.scala.collection.mutable.ArraySeq(len(py_iterable))
+        arr = self.jvm.get_array(self.java.lang.Object, len(py_iterable))
+        result = self.scala.collection.mutable.ArraySeq.make(arr)
         for index, value in enumerate(py_iterable):
             result.update(index, value)
         return result.toList()
