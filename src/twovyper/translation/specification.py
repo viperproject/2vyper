@@ -184,8 +184,14 @@ class SpecificationTranslator(ExpressionTranslator):
                 domain = mangled.STRUCT_OPS_DOMAIN
                 getter = mangled.STRUCT_GET
                 type_map = {self.viper_ast.TypeVar(mangled.STRUCT_OPS_VALUE_VAR): viper_result_type}
-                return self.viper_ast.DomainFuncApp(getter, [result_func_app], viper_result_type, pos, None,
-                                                    domain_name=domain, type_var_map=type_map)
+                result = self.viper_ast.DomainFuncApp(getter, [result_func_app], viper_result_type, pos, None,
+                                                      domain_name=domain, type_var_map=type_map)
+                if node.keywords:
+                    success = self._translate_pure_success(node, res, ctx, pos)
+                    default = self.translate(node.keywords[0].value, res, ctx)
+                    return self.viper_ast.CondExp(success, result, default, pos)
+                else:
+                    return result
             else:
                 return ctx.result_var.local_var(ctx, pos)
         elif name == names.SUCCESS:
@@ -231,18 +237,7 @@ class SpecificationTranslator(ExpressionTranslator):
                 not_or_op = self.viper_ast.Not(or_op, pos)
                 return self.viper_ast.Implies(not_or_op, success, pos)
             elif node.args:
-                call = node.args[0]
-                assert isinstance(call, ast.ReceiverCall)
-                func = ctx.program.functions[call.name]
-                mangled_name = mangled.pure_function_name(call.name)
-                function_args = call.args.copy()
-                for (name, _), arg in zip_longest(func.args.items(), call.args):
-                    if not arg:
-                        function_args.append(func.defaults[name])
-                args = [self.translate(arg, res, ctx) for arg in [call.receiver] + function_args]
-                func_app = self.viper_ast.FuncApp(mangled_name, args, pos,
-                                                  type=helpers.struct_type(self.viper_ast))
-                return self.viper_ast.FuncApp(mangled.PURE_SUCCESS, [func_app], pos, type=self.viper_ast.Bool)
+                return self._translate_pure_success(node, res, ctx, pos)
             else:
                 return success
         elif name == names.REVERT:
@@ -570,6 +565,20 @@ class SpecificationTranslator(ExpressionTranslator):
             return super().translate_FunctionCall(node, res, ctx)
         else:
             assert False
+
+    def _translate_pure_success(self, node, res, ctx, pos=None):
+        call = node.args[0]
+        assert isinstance(call, ast.ReceiverCall)
+        func = ctx.program.functions[call.name]
+        mangled_name = mangled.pure_function_name(call.name)
+        function_args = call.args.copy()
+        for (name, _), arg in zip_longest(func.args.items(), call.args):
+            if not arg:
+                function_args.append(func.defaults[name])
+        args = [self.translate(arg, res, ctx) for arg in [call.receiver] + function_args]
+        func_app = self.viper_ast.FuncApp(mangled_name, args, pos,
+                                          type=helpers.struct_type(self.viper_ast))
+        return self.viper_ast.FuncApp(mangled.PURE_SUCCESS, [func_app], pos, type=self.viper_ast.Bool)
 
     def translate_ReceiverCall(self, node: ast.ReceiverCall, res: List[Stmt], ctx: Context) -> Expr:
         receiver = node.receiver

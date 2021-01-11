@@ -683,15 +683,21 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[1], types.VYPER_BOOL)
                 return [types.VYPER_BOOL], [node]
             elif case(names.RESULT):
-                self.check_number_of_arguments(node, 0, 1)
+                self.check_number_of_arguments(node, 0, 1, allowed_keywords=[names.RESULT_DEFAULT])
                 if node.args:
                     argument = node.args[0]
                     assert isinstance(argument, ast.ReceiverCall)
                     self.annotate(argument)
-                    _check(isinstance(argument.receiver.type, types.SelfType), argument, 'spec.success',
+                    _check(isinstance(argument.receiver.type, types.SelfType), argument, 'spec.result',
                            'Only functions defined in this contract can be called from the specification.')
                     func = self.program.functions[argument.name]
+
+                    for kw in node.keywords:
+                        self.annotate_expected(kw.value, func.type.return_type)
                     return [func.type.return_type], [node]
+                elif len(node.keywords) > 0:
+                    _check(False, node.keywords[0].value, 'spec.result',
+                           'The default keyword argument can only be used in combination with a pure function.')
                 return [self.current_func.type.return_type], [node]
             elif case(names.SUM):
                 self.check_number_of_arguments(node, 1)

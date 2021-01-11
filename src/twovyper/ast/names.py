@@ -185,7 +185,10 @@ IMPLIES = 'implies'
 FORALL = 'forall'
 SUM = 'sum'
 TUPLE = 'tuple'
+
 RESULT = 'result'
+RESULT_DEFAULT = 'default'
+
 STORAGE = 'storage'
 OLD = 'old'
 PUBLIC_OLD = 'public_old'
