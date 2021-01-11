@@ -1381,6 +1381,7 @@ class ExpressionTranslator(NodeTranslator):
 
         call_failed = helpers.call_failed(self.viper_ast, to, pos)
         self.fail_if(fail_cond, [call_failed], res, ctx, pos)
+        self.fail_if(self.viper_ast.EqCmp(to, self.viper_ast.IntLit(0, pos), pos), [], res, ctx, pos)
 
         with ctx.inline_scope(None):
             # Create pre_state for function call
