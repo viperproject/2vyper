@@ -616,7 +616,20 @@ class AllocationTranslator(CommonTranslator):
     def deallocate_wei(self, node: ast.Node,
                        address: Expr, amount: Expr,
                        res: List[Stmt], ctx: Context, pos=None):
-        resource, underlying_resource = self.resource_translator.translate_with_underlying(None, res, ctx)
+        no_derived_wei = ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)
+
+        if no_derived_wei:
+            resource, underlying_resource = None, self.resource_translator.underlying_wei_resource(ctx)
+        else:
+            resource, underlying_resource = self.resource_translator.translate_with_underlying(None, res, ctx)
+        self_address = ctx.self_address or helpers.self_address(self.viper_ast)
+        with ctx.interface_call_scope():
+            self._exhale_performs_if_non_zero_amount(node, names.REALLOCATE,
+                                                     [underlying_resource, self_address, address, amount],
+                                                     amount, rules.REALLOCATE_FAIL, res, ctx, pos)
+
+        if no_derived_wei:
+            return
         self.deallocate_derived(node, resource, underlying_resource, address, amount, res, ctx, pos)
 
     def deallocate_derived(self, node: ast.Node,

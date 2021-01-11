@@ -467,7 +467,7 @@ class Context:
         self.current_program = program
 
         args = None
-        if self.function:
+        if self.function and not self.inside_inline_analysis:
             args = self.args
             other_func: VyperFunction = program.functions.get(self.function.name)
             if other_func:
