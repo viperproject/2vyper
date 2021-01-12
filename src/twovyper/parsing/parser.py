@@ -145,7 +145,7 @@ class ProgramBuilder(NodeVisitor):
                 return VyperInterface(node,
                                       self.path,
                                       self.name,
-                                      Config([]), {}, {},
+                                      self.config, {}, {},
                                       self.resources,
                                       [], [], [], [], [], [],
                                       self.ghost_functions,
