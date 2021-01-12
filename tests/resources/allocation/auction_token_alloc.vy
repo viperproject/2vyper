@@ -24,7 +24,7 @@
 
 # This file was adapted from https://github.com/ethereum/vyper/blob/master/examples/auctions/simple_open_auction.vy
 
-import tests.resources.allocation.IERC20_alloc as ERC20
+import tests.resources.allocation.ERC20.IERC20_alloc as ERC20
 
 #@ config: allocation, no_derived_wei_resource, trust_casts
 
