@@ -382,7 +382,8 @@ class StructureChecker(NodeVisitor):
             elif (ctx == _Context.INVARIANT
                   or ctx == _Context.TRANSITIVE_POSTCONDITION
                   or ctx == _Context.LOOP_INVARIANT
-                  or ctx == _Context.GHOST_CODE):
+                  or ctx == _Context.GHOST_CODE
+                  or ctx == _Context.GHOST_FUNCTION):
                 _assert(False, node, f'{ctx.value}.call')
 
             return
@@ -452,6 +453,9 @@ class StructureChecker(NodeVisitor):
                         'Only pure functions can be called from the specification.')
                 self.generic_visit(argument, ctx, program, function)
 
+                if node.keywords:
+                    self.visit_nodes([kv.value for kv in node.keywords], ctx, program, function)
+
                 if node.name == names.RESULT:
                     _assert(func.type.return_type is not None, argument, f"spec.{node.name}",
                             'Only functions with a return type can be used in a result-expression.')
@@ -461,7 +465,8 @@ class StructureChecker(NodeVisitor):
                   or ctx == _Context.INVARIANT
                   or ctx == _Context.TRANSITIVE_POSTCONDITION
                   or ctx == _Context.LOOP_INVARIANT
-                  or ctx == _Context.GHOST_CODE):
+                  or ctx == _Context.GHOST_CODE
+                  or ctx == _Context.GHOST_FUNCTION):
                 _assert(False, node, f'{ctx.value}.call')
 
         elif node.name == names.INDEPENDENT:
@@ -520,7 +525,7 @@ class StructureChecker(NodeVisitor):
             msg = "Allocation statements are not allowed in constant functions."
             _assert(not (function and function.is_constant()), node, 'alloc.in.constant', msg)
 
-        arg_ctx = _Context.GHOST_STATEMENT if node.name in names.GHOST_STATEMENTS else ctx
+        arg_ctx = _Context.GHOST_STATEMENT if node.name in names.GHOST_STATEMENTS and not self._inside_performs else ctx
 
         if node.resource:
             # Resources are only allowed in allocation functions. They can have the following structure:
@@ -552,11 +557,6 @@ class StructureChecker(NodeVisitor):
                         f = program.ghost_function_implementations.get(address.name)
                     _assert(f is not None, address, 'invalid.resource.address')
                     _assert(len(address.args) >= 1, address, 'invalid.resource.address')
-                    # The first argument has to be "SELF"
-                    ghost_address_arg = address.args[0]
-                    _assert(isinstance(ghost_address_arg, ast.Name), address, 'invalid.resource.address')
-                    assert isinstance(ghost_address_arg, ast.Name)
-                    _assert(ghost_address_arg.id == names.SELF, address, 'invalid.resource.address')
                 else:
                     _assert(False, address, 'invalid.resource.address')
 
@@ -607,14 +607,14 @@ class StructureChecker(NodeVisitor):
                     _assert(False, resource, 'invalid.resource')
 
             check_resource(node.resource, True)
-        else:
-            self.visit_nodes(chain(node.args, node.keywords), arg_ctx, program, function)
+
+        self.visit_nodes(chain(node.args, node.keywords), arg_ctx, program, function)
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall, ctx: _Context,
                            program: VyperProgram, function: Optional[VyperFunction]):
         if ctx == _Context.CALLER_PRIVATE:
             _assert(False, node, 'spec.call')
-        elif ctx.is_specification:
+        elif ctx.is_specification or self._inside_performs:
             receiver = node.receiver
             if isinstance(receiver, ast.Name):
                 if receiver.id == names.LEMMA:

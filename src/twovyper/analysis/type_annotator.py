@@ -686,6 +686,8 @@ class TypeAnnotator(NodeVisitor):
                 self.check_number_of_arguments(node, 0, 1, allowed_keywords=[names.RESULT_DEFAULT])
                 if node.args:
                     argument = node.args[0]
+                    _check(isinstance(argument, ast.ReceiverCall), argument, 'spec.result',
+                           'Only functions defined in this contract can be called from the specification.')
                     assert isinstance(argument, ast.ReceiverCall)
                     self.annotate(argument)
                     _check(isinstance(argument.receiver.type, types.SelfType), argument, 'spec.result',

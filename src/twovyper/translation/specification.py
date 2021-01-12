@@ -596,7 +596,8 @@ class SpecificationTranslator(ExpressionTranslator):
         if interface_file:
             function = first(func for func in functions if func.file == interface_file)
         else:
-            if isinstance(ctx.current_program, VyperInterface):
+            if (isinstance(ctx.current_program, VyperInterface)
+                    and ctx.current_program.own_ghost_functions.get(ghost_function) is not None):
                 function = ctx.current_program.own_ghost_functions[ghost_function]
             else:
                 assert len(functions) == 1
