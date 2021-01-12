@@ -1186,6 +1186,12 @@ class ExpressionTranslator(NodeTranslator):
 
         general_stmts_for_performs = []
         performs_as_stmts_generators = []
+        with ctx.inline_scope(None):
+            # Create pre_state for function call
+            def inlined_pre_state(name: str) -> str:
+                return ctx.inline_prefix + mangled.pre_state_var_name(name)
+            state_for_performs = self.state_translator.state(inlined_pre_state, ctx)
+
         if modifying:
             # Save the values of to, amount, and args, as self could be changed by reentrancy
             if known:
@@ -1204,11 +1210,16 @@ class ExpressionTranslator(NodeTranslator):
                 args = list(map(new_var, args))
 
             if known and function.performs:
+
+                self.state_translator.copy_state(ctx.current_state, state_for_performs, general_stmts_for_performs, ctx)
+
                 performs_as_stmts = {}
                 performs_decider_variables = {}
                 with ctx.program_scope(interface):
                     with ctx.self_address_scope(to):
                         with ctx.state_scope(ctx.current_state, ctx.current_old_state):
+                            ctx.current_state[mangled.SELF] = state_for_performs[mangled.SELF]
+                            ctx.current_state[mangled.CONTRACTS] = state_for_performs[mangled.CONTRACTS]
                             with ctx.interface_call_scope():
                                 # Define new msg variable
                                 msg_name = ctx.inline_prefix + mangled.MSG
@@ -1417,7 +1428,8 @@ class ExpressionTranslator(NodeTranslator):
             # Undo havocing of contract state
             self.state_translator.copy_state(ctx.current_old_state, ctx.current_state, res, ctx,
                                              unless=lambda n: n == mangled.SELF)
-            for val in chain(old_state_for_postconditions.values(),
+            for val in chain(state_for_performs.values(),
+                             old_state_for_postconditions.values(),
                              old_state_for_inter_contract_invariant.values(),
                              curr_state_for_inter_contract_invariant.values()):
                 ctx.new_local_vars.append(val.var_decl(ctx, pos))
