@@ -1,3 +1,5 @@
+#:: IgnoreFile(silicon)(0)
+
 #
 # The MIT License (MIT)
 #

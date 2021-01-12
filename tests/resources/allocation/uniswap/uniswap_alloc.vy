@@ -1,3 +1,4 @@
+#:: IgnoreFile(silicon)(0)
 
 # @title Uniswap Exchange Interface V1
 # @notice Source code found at https://github.com/uniswap
