@@ -327,8 +327,9 @@ class ProgramBuilder(NodeVisitor):
 
         variable_name = node.target.id
         if variable_name == names.IMPLEMENTS:
-            if node.annotation.id not in [interfaces.ERC20, interfaces.ERC721]:
-                interface_type = InterfaceType(node.annotation.id)
+            interface_name = node.annotation.id
+            if interface_name not in [interfaces.ERC20, interfaces.ERC721] or interface_name in self.interfaces:
+                interface_type = InterfaceType(interface_name)
                 self.implements.append(interface_type)
         # We ignore the units declarations
         elif variable_name != names.UNITS:
