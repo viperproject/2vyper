@@ -45,6 +45,9 @@ class TwoVyper:
 
     def translate(self, path: str, vyper_root: str = None, skip_vyper: bool = False) -> Program:
         path = os.path.abspath(path)
+        if not os.path.isfile(path):
+            raise InvalidVyperException(f"Contract not found at the given location '{path}'.")
+
         vyper.set_vyper_version(path)
 
         error_manager.clear()
