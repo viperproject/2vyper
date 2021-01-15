@@ -531,6 +531,10 @@ class StructureChecker(NodeVisitor):
 
         arg_ctx = _Context.GHOST_STATEMENT if node.name in names.GHOST_STATEMENTS and not self._inside_performs else ctx
 
+        if node.name == names.TRUST and node.keywords:
+            _assert(not (function and function.name != names.INIT), node, 'invalid.trusted',
+                    f'Only the "{names.INIT}" function is allowed to have trust calls with keywords.')
+
         if node.resource:
             # Resources are only allowed in allocation functions. They can have the following structure:
             #   - a simple name: r

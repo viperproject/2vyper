@@ -271,6 +271,7 @@ DESTROY = 'destroy'
 DESTROY_ACTOR = 'actor'
 
 TRUST = 'trust'
+TRUST_ACTOR = 'actor'
 
 ALLOCATE_UNTRACKED = 'allocate_untracked_wei'
 

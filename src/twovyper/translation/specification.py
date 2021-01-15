@@ -983,15 +983,23 @@ class SpecificationTranslator(ExpressionTranslator):
             val = self.translate(node.args[1], res, ctx)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            actor = msg_sender
+            keyword_args = []
+            for kw in node.keywords:
+                kw_val = self.translate(kw.value, res, ctx)
+                if kw.name == names.TRUST_ACTOR:
+                    actor = kw_val
+                    keyword_args.append(kw.value)
 
             if ctx.quantified_vars:
                 rule = rules.TRUST_FAIL
-                self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0]], None, rule, res, ctx)
+                self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0], *keyword_args], None,
+                                        rule, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(name, [address, msg_sender, val], [], res, ctx, pos)
+                self.allocation_translator.performs(name, [address, actor, val], [], res, ctx, pos)
             else:
-                self.allocation_translator.trust(node, address, msg_sender, val, res, ctx, pos)
+                self.allocation_translator.trust(node, address, actor, val, res, ctx, pos)
 
             return None
         elif name == names.ALLOCATE_UNTRACKED:
