@@ -25,10 +25,12 @@
 # ICO stays the same
 #@ invariant: old(gvtoken_ico(self)) == gvtoken_ico(self)
 # Total supply only increases (there is no burn)
-#@ invariant: total_supply(self) >= old(total_supply(self))
+#@ invariant: migration_agent(self) ==  ZERO_ADDRESS ==> total_supply(self) >= old(total_supply(self))
 
 #@ invariant: minter(self) == old(minter(self))
 #@ invariant: total_supply(self) == sum(balanceOf(self))
+
+#@ invariant: old(migration_agent(self)) != ZERO_ADDRESS ==> migration_agent(self) == old(migration_agent(self))
 
 #@ invariant: allocated[token]() == balanceOf(self)
 #@ invariant: forall({a: address}, {allocated[creator(token)](a)}, allocated[creator(token)](a) == (1 if a == minter(self) else 0))
@@ -40,7 +42,13 @@
 
 
 #@ caller private: conditional(gvtoken_ico(self) == caller(), frozen(self))
-#@ caller private: conditional(gvtoken_ico(self) == caller(), total_supply(self))
+#@ caller private: conditional(gvtoken_ico(self) == caller() and migration_agent(self) == ZERO_ADDRESS, total_supply(self))
+
+
+#@ ensures: not frozen(self) ==> revert()
+@public
+def setup(migrationMaster: address):
+    raise "Not implemented"
 
 
 #@ ensures: success() ==> result() == gvtoken_ico(self)

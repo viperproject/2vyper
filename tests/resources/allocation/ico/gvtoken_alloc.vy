@@ -8,6 +8,7 @@
 #@ config: allocation, no_derived_wei_resource, trust_casts
 
 from . import gvtoken_interface_alloc
+import tests.resources.allocation.ico.migration_agent_interface as MigrationAgent
 
 implements: gvtoken_interface_alloc
 
@@ -16,7 +17,11 @@ total_supply: uint256
 balances: map(address, uint256)
 allowances: map(address, map(address, uint256))
 frozen: public(bool)
-migration_agent: address
+
+migration_master: public(address)
+migration_agent: public(MigrationAgent)
+total_migrated: public(uint256)
+
 ico: public(address)
 
 name: public(string[64])
@@ -41,10 +46,8 @@ decimals: public(uint256)
 
 
 @public
-def __init__(ma: address, a: address):
-    assert ma != ZERO_ADDRESS
+def __init__(a: address):
     assert a != ZERO_ADDRESS
-    self.migration_agent = ma
     self.ico = a
     self.frozen = True
 
@@ -53,6 +56,14 @@ def __init__(ma: address, a: address):
     self.name = "Genesis Vision Token"
     self.symbol = "GVT"
     self.decimals = 18
+
+@public
+def setup(migrationMaster: address):
+    assert self.frozen
+    assert self.migration_master == ZERO_ADDRESS
+    assert migrationMaster != ZERO_ADDRESS
+
+    self.migration_master = migrationMaster
 
 
 @public
@@ -126,3 +137,32 @@ def approve(_spender: address, _value : uint256) -> bool:
     self.allowances[msg.sender][_spender] = _value
     #@ offer[token <-> token](1, 0, to=_spender, times=_value)
     return True
+
+
+#@ performs: destroy[token](value)
+#@ performs: reallocate[token[new_token(self.migration_agent)]](value, to=msg.sender, actor=self.migration_agent)
+@public
+def migrate(value: uint256):
+    assert self.migration_agent != ZERO_ADDRESS
+    assert value > 0
+
+    self.balances[msg.sender] -= value
+    #@ destroy[token](value)
+    self.total_supply -= value
+    self.total_migrated += value
+    self.migration_agent.migrateFrom(msg.sender, value)
+
+
+@public
+def setMigrationAgent(_agent: address):
+    assert self.migration_agent == ZERO_ADDRESS
+    assert msg.sender == self.migration_master
+    self.migration_agent = MigrationAgent(_agent)
+
+
+@public
+def setMigrationMaster(_master: address):
+    assert msg.sender == self.migration_master
+    assert _master != ZERO_ADDRESS
+    self.migration_master = _master
+

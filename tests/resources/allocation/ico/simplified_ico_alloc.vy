@@ -52,22 +52,26 @@ _init: bool
 
 
 @public
-def __init__(token: address, op: address, ta: address):
+def __init__(token: address, op: address, ta: address, migrationMaster: address):
     assert token != op
     assert token != self
     assert token != ZERO_ADDRESS
     assert op != self
     assert op != ZERO_ADDRESS
 
-    self.gvToken = GVT(token)
+    self.gvToken = GVT(create_forwarder_to(token))
+    assert self.gvToken != op
+    assert self.gvToken != self
     self.optionProgram = op
 
     self.teamAllocator = ta
     self.state = 0
     self.isPaused = False
 
-    assert self.gvToken.isFrozen()
     assert self.gvToken.get_ico() == self
+    assert self.gvToken.isFrozen()
+    self.gvToken.setup(migrationMaster)
+
     self._init = True
 
 
