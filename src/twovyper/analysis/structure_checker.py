@@ -554,11 +554,13 @@ class StructureChecker(NodeVisitor):
                     assert isinstance(address.value, ast.Name)
                     _assert(address.value.id == names.SELF, address, 'invalid.resource.address')
                 elif isinstance(address, ast.FunctionCall):
-                    # We only allow own ghost functions
                     if isinstance(program, VyperInterface):
+                        # We only allow own ghost functions
                         f = program.own_ghost_functions.get(address.name)
                     else:
-                        f = program.ghost_function_implementations.get(address.name)
+                        f = program.ghost_functions.get(address.name)
+                        _assert(f is None or len(f) == 1, address, 'invalid.resource.address',
+                                'The ghost function is not unique.')
                     _assert(f is not None, address, 'invalid.resource.address')
                     _assert(len(address.args) >= 1, address, 'invalid.resource.address')
                 else:
