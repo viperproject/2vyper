@@ -361,7 +361,6 @@ class FunctionTranslator(CommonTranslator):
                     # Allocate the received ether to the sender
                     if (ctx.program.config.has_option(names.CONFIG_ALLOCATION)
                             and not ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)):
-                        # TODO: bundle this in new function in allocation translator
                         resource = self.resource_translator.translate(None, body, ctx)  # Wei resource
                         self.allocation_translator.allocate_derived(
                             function.node, resource, msg_sender, msg_value, body, ctx, pos)
