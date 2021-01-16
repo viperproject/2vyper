@@ -462,19 +462,22 @@ class Context:
         self.inside_derived_resource_performs = inside_derived_resource_performs
 
     @contextmanager
-    def program_scope(self, program):
-        old_program = self.current_program
+    def program_scope(self, program: VyperProgram):
+        old_program: VyperProgram = self.current_program
         self.current_program = program
 
         args = None
         if self.function and not self.inside_inline_analysis:
-            args = self.args
-            other_func: VyperFunction = program.functions.get(self.function.name)
-            if other_func:
-                assert len(other_func.args) == len(args)
-                self.args = {}
-                for (name, _), (_, var) in zip(other_func.args.items(), args.items()):
-                    self.args[name] = var
+            interfaces = [name for name, interface in old_program.interfaces.items() if interface.file == program.file]
+            implemented_interfaces = [interface.name for interface in old_program.implements]
+            if any(interface in implemented_interfaces for interface in interfaces):
+                args = self.args
+                other_func: VyperFunction = program.functions.get(self.function.name)
+                if other_func:
+                    assert len(other_func.args) == len(args)
+                    self.args = {}
+                    for (name, _), (_, var) in zip(other_func.args.items(), args.items()):
+                        self.args[name] = var
         yield
 
         self.current_program = old_program
