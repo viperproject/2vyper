@@ -12,6 +12,7 @@
 #@ ghost:
     #@ def option_program() -> address: ...
     #@ def token_limit() -> uint256: ...
+    #@ def remaining_tokens() -> uint256: ...
     #@ def balanceOf() -> map(address, uint256): ...
     #@ def minter() -> address: ...
     #@ def total_supply() -> uint256: ...
@@ -20,12 +21,12 @@
 #@ resource: token()
 
 
-#@ invariant: old(option_program(self)) == option_program(self)
-
 #@ invariant: option_program(self) == old(option_program(self))
 #@ invariant: total_supply(self) == sum(balanceOf(self))
 
 #@ invariant: old(token_limit(self)) != 0 ==> token_limit(self) == old(token_limit(self))
+
+#@ invariant: remaining_tokens(self) == token_limit(self) - total_supply(self)
 
 #@ invariant: allocated[token]() == balanceOf(self)
 #@ invariant: forall({a: address}, {allocated[creator(token)](a)}, allocated[creator(token)](a) == (1 if a == minter(self) else 0))
@@ -53,7 +54,7 @@ def buyOptions(buyer: address, value: uint256):
     raise "Not implemented"
 
 
-#@ ensures: success() ==> result() == token_limit(self) - total_supply(self)
+#@ ensures: success() ==> result() == remaining_tokens(self)
 @public
 @constant
 def remainingTokensCount() -> uint256:
@@ -61,6 +62,7 @@ def remainingTokensCount() -> uint256:
 
 
 #@ ensures: msg.sender != option_program(self) ==> revert()
+#@ ensures: success() ==> result() == min(old(balanceOf(self))[addr], optionsCount)
 #@ performs: destroy[token](min(balanceOf(self)[addr], optionsCount), actor=addr)
 @public
 def executeOption(addr: address, optionsCount: uint256) -> uint256:

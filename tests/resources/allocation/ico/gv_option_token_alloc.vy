@@ -29,6 +29,8 @@ allowances: map(address, map(address, uint256))
     #@ @implements
     #@ def token_limit() -> uint256: self.TOKEN_LIMIT
     #@ @implements
+    #@ def remaining_tokens() -> uint256: self.TOKEN_LIMIT - self.total_supply
+    #@ @implements
     #@ def balanceOf() -> map(address, uint256): self.balances
     #@ @implements
     #@ def minter() -> address: self.option_program
