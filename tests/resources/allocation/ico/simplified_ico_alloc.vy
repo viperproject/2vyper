@@ -23,9 +23,9 @@ _init: bool
     #@ always ensures: locked("lock") and old(self.state) == 3 ==> self.state == old(self.state)
 
 # Properties about gvToken and optionProgram
-#@ invariant: self.gvToken != self and self.gvToken != ZERO_ADDRESS
-#@ invariant: self.optionProgram != self and self.optionProgram != self.gvToken and self.optionProgram != ZERO_ADDRESS
-#@ invariant: old(self.optionProgram) == self.optionProgram and old(self.gvToken) == self.gvToken
+#@ invariant: self._init ==> self.gvToken != self and self.gvToken != ZERO_ADDRESS
+#@ invariant: self._init ==> self.optionProgram != self and self.optionProgram != self.gvToken and self.optionProgram != ZERO_ADDRESS
+#@ invariant: old(self._init) ==> old(self.optionProgram) == self.optionProgram and old(self.gvToken) == self.gvToken
 # Once we are initialized we stay initialized and if the contract is past creation, it is surely initialized.
 #@ invariant: (old(self._init) ==> self._init) and (self.state > 0 ==> self._init)
 
@@ -47,12 +47,19 @@ _init: bool
 # Property spec_07 (altered)
 #@ inter contract invariant: self._init ==> not frozen(self.gvToken) ==> self.state == 4
 # Property spec_08
-#@ always ensures: migration_agent(self.gvToken) == 0 and old(sum(allocated[GVT.token[self.gvToken]]())) > sum(allocated[GVT.token[self.gvToken]]()) ==> self.state == 3 or self.state == 2
+#@ always ensures: old(self._init) ==> migration_agent(self.gvToken) == 0 and old(sum(allocated[GVT.token[self.gvToken]]())) > sum(allocated[GVT.token[self.gvToken]]()) ==> self.state == 3 or self.state == 2
 
 
 
 @public
-def __init__(token: address, op: address, ta: address, migrationMaster: address):
+def __init__():
+    pass
+
+
+@public
+def setup(token: address, op: address, ta: address, migrationMaster: address):
+    assert self._init == False
+
     assert token != op
     assert token != self
     assert token != ZERO_ADDRESS
@@ -70,6 +77,7 @@ def __init__(token: address, op: address, ta: address, migrationMaster: address)
 
     assert self.gvToken.get_ico() == self
     assert self.gvToken.isFrozen()
+    self._init = True
     self.gvToken.setup(migrationMaster)
 
     self._init = True
