@@ -10,13 +10,32 @@
 #@ config: allocation, no_derived_wei_resource, trust_casts
 
 import tests.resources.allocation.ico.gvtoken_interface_alloc as GVT
+import tests.resources.allocation.ico.gv_option_token_interface_alloc as GVOT
+import tests.resources.allocation.ico.simplified_gv_option_program_interface_alloc as GVOptionProgram
+
+option30perCent: constant(uint256) = 26 * 10 ** 16 # GVOT30 tokens per usd cent during option purchase
+option20perCent: constant(uint256) = 24 * 10 ** 16 # GVOT20 tokens per usd cent during option purchase
+option10perCent: constant(uint256) = 22 * 10 ** 16 # GVOT10 tokens per usd cent during option purchase
+token30perCent: constant(uint256)  = 13684210526315800  # GVT tokens per usd cent during execution of GVOT30
+token20perCent: constant(uint256)  = 12631578947368500  # GVT tokens per usd cent during execution of GVOT20
+token10perCent: constant(uint256)  = 11578947368421100  # GVT tokens per usd cent during execution of GVOT10
+
+TOKEN_FOR_SALE: constant(uint256) = 33 * 10 ** 6 * 10 ** 18
+
+_init: bool
+
+gvAgent: address
+team: address
+
+gvToken: GVT
+optionProgram: GVOptionProgram
+teamAllocator: address
+migrationMaster: address
+
+tokenSold: uint256
 
 state: uint256
 isPaused: bool
-teamAllocator: address
-gvToken: GVT
-optionProgram: address
-_init: bool
 
 #@ preserves:
     #@ always ensures: self._init ==> self.state != 4 ==> frozen(self.gvToken)
@@ -24,10 +43,12 @@ _init: bool
 
 # Properties about gvToken and optionProgram
 #@ invariant: self._init ==> self.gvToken != self and self.gvToken != ZERO_ADDRESS
-#@ invariant: self._init ==> self.optionProgram != self and self.optionProgram != self.gvToken and self.optionProgram != ZERO_ADDRESS
-#@ invariant: old(self._init) ==> old(self.optionProgram) == self.optionProgram and old(self.gvToken) == self.gvToken
+#@ invariant: self._init and self.optionProgram != ZERO_ADDRESS ==> self.optionProgram != self and self.optionProgram != GVOptionProgram(self.gvToken)
+#@ invariant: old(self._init) and old(self.optionProgram) != ZERO_ADDRESS ==> old(self.optionProgram) == self.optionProgram
+#@ invariant: old(self._init) ==> old(self.gvToken) == self.gvToken
 # Once we are initialized we stay initialized and if the contract is past creation, it is surely initialized.
 #@ invariant: (old(self._init) ==> self._init) and (self.state > 0 ==> self._init)
+#@ invariant: self.optionProgram == ZERO_ADDRESS ==> self.state == 0
 
 #@ inter contract invariant: self._init ==> gvtoken_ico(self.gvToken) == self and (self.state != 4 ==> frozen(self.gvToken))
 
@@ -57,30 +78,43 @@ def __init__():
 
 
 @public
-def setup(token: address, op: address, ta: address, migrationMaster: address):
+def setup(token: address, _team: address, _gvAgent: address, _teamAllocator: address, _migrationMaster: address):
     assert self._init == False
 
-    assert token != op
-    assert token != self
     assert token != ZERO_ADDRESS
-    assert op != self
-    assert op != ZERO_ADDRESS
 
     self.gvToken = GVT(create_forwarder_to(token))
-    assert self.gvToken != op
     assert self.gvToken != self
-    self.optionProgram = op
 
-    self.teamAllocator = ta
+    self.teamAllocator = _teamAllocator
+    self.migrationMaster = _migrationMaster
+    self.team = _team
+    self.gvAgent = _gvAgent
     self.state = 0
     self.isPaused = False
 
     assert self.gvToken.get_ico() == self
     assert self.gvToken.isFrozen()
+    assert self.optionProgram == ZERO_ADDRESS
     self._init = True
-    self.gvToken.setup(migrationMaster)
+    self.gvToken.setup(_migrationMaster)
 
-    self._init = True
+
+@public
+def initOptionProgram(token: address, option_program: address):
+    assert self._init
+    assert self.state == 0
+    assert msg.sender == self.team
+
+    assert option_program != ZERO_ADDRESS
+    assert token != ZERO_ADDRESS
+
+    if self.optionProgram == ZERO_ADDRESS:
+        self.optionProgram = GVOptionProgram(create_forwarder_to(option_program))
+        assert self.optionProgram != self
+        assert self.optionProgram != GVOptionProgram(self.gvToken)
+        assert self.optionProgram.ico() == self
+        self.optionProgram.setup(self.gvAgent, self.team, token, self.gvToken)
 
 
 @public
@@ -116,9 +150,9 @@ def resumeIco():
     assert self.isPaused
     self.isPaused = False
 
-#@ performs: create[GVT.token[self.gvToken]](11 * (total_supply(self.gvToken) * 4 / 3) / 100, actor=self, to=self.teamAllocator)
-#@ performs: create[GVT.token[self.gvToken]](     (total_supply(self.gvToken) * 4 / 3) /  20, actor=self, to=_fund)
-#@ performs: create[GVT.token[self.gvToken]]( 9 * (total_supply(self.gvToken) * 4 / 3) / 100, actor=self, to=_bounty)
+#@ performs: create[GVT.token[self.gvToken]](11 * (GVT.total_supply(self.gvToken) * 4 / 3) / 100, actor=self, to=self.teamAllocator)
+#@ performs: create[GVT.token[self.gvToken]](     (GVT.total_supply(self.gvToken) * 4 / 3) /  20, actor=self, to=_fund)
+#@ performs: create[GVT.token[self.gvToken]]( 9 * (GVT.total_supply(self.gvToken) * 4 / 3) / 100, actor=self, to=_bounty)
 @nonreentrant("lock")
 @public
 def finishIco(_fund: address, _bounty: address):
@@ -132,11 +166,63 @@ def finishIco(_fund: address, _bounty: address):
         self.gvToken.mint(_bounty, 9 * totalAmount / 100)              # 9% for Advisers, Marketing, Bounty
         self.gvToken.unfreeze()
 
+@private
+def buyTokensInternal(buyer: address, usdCents: uint256, txHash: string[32]) -> uint256:
+    assert usdCents > 0
 
-#@ performs: create[GVT.token[self.gvToken]](value, actor=self, to=buyer)
+    tokens: uint256 = usdCents * 10 ** 16
+    assert self.tokenSold + tokens <= TOKEN_FOR_SALE
+    self.tokenSold += tokens
+
+    self.gvToken.mint(buyer, tokens)
+    return 0
+
+
+#@ performs: create[GVT.token[self.gvToken]](usdCents * 10 ** 16, actor=self, to=buyer)
 @nonreentrant("lock")
 @public
-def buyTokens(buyer: address, value: uint256):
+def buyTokens(buyer: address, usdCents: uint256, txHash: string[32]) -> uint256:
+    assert msg.sender == self.gvAgent
     assert self.state == 3
     assert not self.isPaused
-    self.gvToken.mint(buyer, value)
+    return self.buyTokensInternal(buyer, usdCents, txHash)
+
+
+#@ performs: destroy[GVOT.token[gvOptionToken30(self.optionProgram)]](min(GVOT.balanceOf(gvOptionToken30(self.optionProgram))[buyer], usdCents * token30perCent), actor=buyer)
+#@ performs: create[GVT.token[self.gvToken]](min(GVOT.balanceOf(gvOptionToken30(self.optionProgram))[buyer], usdCents * token30perCent), actor=self, to=buyer)
+#@ performs: create[GVT.token[self.gvToken]]((usdCents - (min(GVOT.balanceOf(gvOptionToken30(self.optionProgram))[buyer], usdCents * token30perCent) / token30perCent)) * 10 ** 16 if self.state == 3 else 0, actor=self, to=buyer)
+@nonreentrant("lock")
+@public
+def buyTokensByOptions(buyer: address, usdCents: uint256, txHash: string[32]) -> uint256:
+    assert msg.sender == self.gvAgent
+    assert not self.isPaused
+    assert self.state == 3 or self.state == 2
+    assert usdCents > 0
+
+    executedTokens: uint256 = 0
+    remainingCents: uint256 = 0
+    executedTokens, remainingCents = self.optionProgram.executeOptions(buyer, usdCents, txHash)
+
+    if executedTokens > 0:
+        assert self.tokenSold + executedTokens <= TOKEN_FOR_SALE
+        self.tokenSold += executedTokens
+
+        self.gvToken.mint(buyer, executedTokens)
+
+    if self.state == 3:
+        return self.buyTokensInternal(buyer, remainingCents, txHash)
+    else:
+        return remainingCents
+
+
+#@ performs: create[GVOT.token[gvOptionToken30(self.optionProgram)]](
+    #@ (usdCents * option30perCent if remaining_tokens(gvOptionToken30(self.optionProgram)) >= usdCents * option30perCent else
+    #@ remaining_tokens(gvOptionToken30(self.optionProgram))) if remaining_tokens(gvOptionToken30(self.optionProgram)) > 0 else 0,
+    #@ to=buyer, actor=self.optionProgram)
+@public
+def buyOptions(buyer: address, usdCents: uint256, txHash: string[32]):
+    assert msg.sender == self.gvAgent
+    assert not self.isPaused
+    assert self.state == 2
+
+    self.optionProgram.buyOptions(buyer, usdCents, txHash)
