@@ -34,6 +34,8 @@
 #@ invariant: forall({o: address, s: address}, allowances(self)[o][s] == offered[token <-> token](1, 0, o, s))
 #@ invariant: forall({a: address}, trusted(option_program(self), by=a))
 
+#@ always ensures: forall({a: address}, a != self ==> storage(a) == old(storage(a)))
+
 #@ ensures: success() ==> result() == option_program(self)
 @public
 @constant

@@ -40,6 +40,8 @@ gvOptionToken10: public(GVOT)
     #@ def gvOptionToken10() -> GVOT: self.gvOptionToken10
     #@ @implements
     #@ def ico() -> address: self.ico
+    #@ @implements
+    #@ def init() -> bool: not locked("setup")
 
 @public
 def __init__(_ico: address):
@@ -50,7 +52,8 @@ def __init__(_ico: address):
 
 @public
 @nonreentrant("setup")
-def setup(_gvAgent: address, _team: address, token: address):
+def setup(_gvAgent: address, _team: address, token: address, gvToken: address):
+    assert msg.sender == self.ico
     assert self.gvAgent == ZERO_ADDRESS
     assert self.team == ZERO_ADDRESS
 
@@ -59,18 +62,24 @@ def setup(_gvAgent: address, _team: address, token: address):
 
     assert self.gvOptionToken30 == ZERO_ADDRESS
     self.gvOptionToken30 = GVOT(create_forwarder_to(token))
+    assert self.gvOptionToken30 != self.ico
+    assert self.gvOptionToken30 != gvToken
     assert self.gvOptionToken30.option_program() == self
     self.gvOptionToken30.setup("30% GVOT", "GVOT30", 26 * 10 ** 5 * 10 ** 18)
 
-    assert self.gvOptionToken20 == ZERO_ADDRESS
-    self.gvOptionToken20 = GVOT(create_forwarder_to(token))
-    assert self.gvOptionToken20.option_program() == self
-    self.gvOptionToken20.setup("20% GVOT", "GVOT20", 36 * 10 ** 5 * 10 ** 18)
+    # assert self.gvOptionToken20 == ZERO_ADDRESS
+    # self.gvOptionToken20 = GVOT(create_forwarder_to(token))
+    # assert self.gvOptionToken20 != self.ico
+    # assert self.gvOptionToken20 != gvToken
+    # assert self.gvOptionToken20.option_program() == self
+    # self.gvOptionToken20.setup("20% GVOT", "GVOT20", 36 * 10 ** 5 * 10 ** 18)
 
-    assert self.gvOptionToken10 == ZERO_ADDRESS
-    self.gvOptionToken10 = GVOT(create_forwarder_to(token))
-    assert self.gvOptionToken10.option_program() == self
-    self.gvOptionToken10.setup("10% GVOT", "GVOT10", 55 * 10 ** 5 * 10 ** 18)
+    # assert self.gvOptionToken10 == ZERO_ADDRESS
+    # self.gvOptionToken10 = GVOT(create_forwarder_to(token))
+    # assert self.gvOptionToken10 != self.ico
+    # assert self.gvOptionToken10 != gvToken
+    # assert self.gvOptionToken10.option_program() == self
+    # self.gvOptionToken10.setup("10% GVOT", "GVOT10", 55 * 10 ** 5 * 10 ** 18)
 
 
 @public
