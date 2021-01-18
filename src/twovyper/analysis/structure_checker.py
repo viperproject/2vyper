@@ -331,6 +331,10 @@ class StructureChecker(NodeVisitor):
         elif node.name == names.CONDITIONAL:
             self._num_visited_conditional += 1
 
+        if node.name == names.LOCKED:
+            _assert(not isinstance(program, VyperInterface), node, 'invalid.locked',
+                    'Locked cannot be used in an interface.')
+
         if node.name == names.SENT or node.name == names.RECEIVED:
             _assert(not program.is_interface(), node, f'invalid.{node.name}',
                     f'"{node.name}" cannot be used in interfaces')
