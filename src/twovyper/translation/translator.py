@@ -430,6 +430,7 @@ class ProgramTranslator(CommonTranslator):
         if implementation:
             with ctx.function_scope():
                 ctx.args = {arg.name: arg for arg in args}
+                ctx.current_state = {mangled.SELF: self_var}
                 expr = implementation.node.body[0].value
                 stmts = []
                 impl_expr = self.specification_translator.translate(expr, stmts, ctx)
