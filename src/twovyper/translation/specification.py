@@ -595,13 +595,15 @@ class SpecificationTranslator(ExpressionTranslator):
         functions = ctx.program.ghost_functions[ghost_function]
         if interface_file:
             function = first(func for func in functions if func.file == interface_file)
+        elif (isinstance(ctx.current_program, VyperInterface)
+                and ctx.current_program.own_ghost_functions.get(ghost_function) is not None):
+            function = ctx.current_program.own_ghost_functions[ghost_function]
+        elif len(functions) == 1:
+            function = functions[0]
         else:
-            if (isinstance(ctx.current_program, VyperInterface)
-                    and ctx.current_program.own_ghost_functions.get(ghost_function) is not None):
-                function = ctx.current_program.own_ghost_functions[ghost_function]
-            else:
-                assert len(functions) == 1
-                function = functions[0]
+            functions = ctx.current_program.ghost_functions[ghost_function]
+            assert len(functions) == 1
+            function = functions[0]
         args = [self.translate(arg, res, ctx) for arg in node.args]
         address = args[0]
         contracts = ctx.current_state[mangled.CONTRACTS].local_var(ctx)
