@@ -17,8 +17,6 @@ accumulatedInput: uint256
 #@ invariant: allocated[token]() == self.balanceOf
 #@ invariant: sum(self.balanceOf) == self.totalSupply
 
-#@ invariant: old(self.accumulatedInput) != 0 ==> self.accumulatedInput == old(self.accumulatedInput)
-
 #:: Label(INV)
 #@ invariant: forall({a: address}, allocated(a) == (0 if self.totalSupply == 0 else(self.balanceOf[a] * self.accumulatedInput) / self.totalSupply - self.paidOut[a]))
 
@@ -37,6 +35,7 @@ def withdrawRewardFor(_account: address) -> bool:
 
 #@ performs: payout(0 if self.totalSupply == 0 else
     #@ (self.balanceOf[msg.sender] * self.accumulatedInput) / self.totalSupply - self.paidOut[msg.sender])
+#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, INV)
 @public
 def getMyReward() -> bool:
     #:: Label(INLINE)
