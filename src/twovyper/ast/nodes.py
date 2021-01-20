@@ -46,7 +46,7 @@ class VyperFunction:
                  preconditions: List[ast.Expr],
                  checks: List[ast.Expr],
                  loop_invariants: Dict[ast.For, List[ast.Expr]],
-                 performs: List[ast.Expr],
+                 performs: List[ast.FunctionCall],
                  decorators: List[ast.Decorator],
                  node: Optional[ast.FunctionDef]):
         self.name = name

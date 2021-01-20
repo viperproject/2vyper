@@ -27,7 +27,7 @@ token: IERC20_alloc
 #@ ensures: success() ==> allocated[token[self.token]](self) >= old(allocated[token[self.token]](self)) + v
 @public
 def test(a: address, v: uint256):
-    assert a != self.token and a != self
+    assert a != self.token and a != self and self.token != self
     self.token.transferFrom(a, self, v)
 
 

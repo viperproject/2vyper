@@ -1215,6 +1215,7 @@ class ExpressionTranslator(NodeTranslator):
 
                 performs_as_stmts = {}
                 performs_decider_variables = {}
+                sender_is_resource_address_map = {}
                 with ctx.program_scope(interface):
                     with ctx.self_address_scope(to):
                         with ctx.state_scope(ctx.current_state, ctx.current_old_state):
@@ -1264,6 +1265,13 @@ class ExpressionTranslator(NodeTranslator):
                                 two = self.viper_ast.IntLit(2)
 
                                 for performs_idx, performs in enumerate(function.performs):
+
+                                    location_address = self.allocation_translator\
+                                        .location_address_of_performs(performs, res, ctx)
+                                    if location_address is not None:
+                                        sender_is_resource_address = self.viper_ast.EqCmp(msg_sender, location_address)
+                                    else:
+                                        sender_is_resource_address = self.viper_ast.FalseLit()
                                     perform_as_stmts = []
                                     self.spec_translator.translate(performs, perform_as_stmts, ctx)
 
@@ -1281,14 +1289,21 @@ class ExpressionTranslator(NodeTranslator):
 
                                     performs_as_stmts[performs_idx] = perform_as_stmts
                                     performs_decider_variables[performs_idx] = performs_local_var
+                                    sender_is_resource_address_map[performs_idx] = sender_is_resource_address
 
                                     def conditional_perform_generator(p_idx: int) -> Callable[[int], Stmt]:
                                         def conditional_perform(index: int) -> Stmt:
-                                            idx = self.viper_ast.IntLit(index)
-                                            decider_eq_idx = self.viper_ast.EqCmp(
-                                                performs_decider_variables[p_idx], idx)
-                                            return self.viper_ast.If(
-                                                decider_eq_idx, performs_as_stmts[p_idx], [])
+                                            if index >= 0:
+                                                idx = self.viper_ast.IntLit(index)
+                                                decider_eq_idx = self.viper_ast.EqCmp(
+                                                    performs_decider_variables[p_idx], idx)
+                                                cond_for_perform = self.viper_ast.And(
+                                                    decider_eq_idx, self.viper_ast.Not(
+                                                        sender_is_resource_address_map[performs_idx]))
+                                                return self.viper_ast.If(cond_for_perform, performs_as_stmts[p_idx], [])
+                                            else:
+                                                return self.viper_ast.If(sender_is_resource_address_map[performs_idx],
+                                                                         performs_as_stmts[p_idx], [])
 
                                         return conditional_perform
 
@@ -1487,6 +1502,7 @@ class ExpressionTranslator(NodeTranslator):
             #  have happened, but it is before the receiver of the external call has made any re-entrant call to self. #
             ############################################################################################################
 
+            res.extend([performs_as_stmts(-1) for performs_as_stmts in performs_as_stmts_generators])
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
             self.seqn_with_info(assume_type_ass, "Assume type assumptions", res)

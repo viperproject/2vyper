@@ -1033,3 +1033,24 @@ class AllocationTranslator(CommonTranslator):
         pred = self._performs_acc_predicate(resource_function_name, args, ctx, pos)
         # TODO: rule
         self._if_non_zero_values(lambda l: l.append(self.viper_ast.Inhale(pred, pos)), amount_args, res, ctx, pos)
+
+    def location_address_of_performs(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context, pos=None):
+        if node.name == names.TRUST:
+            return ctx.self_address or helpers.self_address(self.viper_ast, pos)
+        elif node.name == names.FOREACH:
+            body = node.args[-1]
+            assert isinstance(body, ast.FunctionCall)
+            return self.location_address_of_performs(body, res, ctx, pos)
+
+        # All other allocation functions have a resource with the location
+        if isinstance(node.resource, ast.Exchange):
+            resource, _ = self.resource_translator.translate_exchange(
+                node.resource, res, ctx)
+        else:
+            resource = self.resource_translator.translate(node.resource, res, ctx)
+
+        resource_args = self.viper_ast.to_list(resource.getArgs())
+        if resource_args:
+            return resource_args.pop()
+
+        return None
