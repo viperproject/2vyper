@@ -694,7 +694,7 @@ class ExpressionTranslator(NodeTranslator):
             init = helpers.struct_init(self.viper_ast, init_args, node.type, pos)
             return init
         # This is a contract / interface initializer
-        elif name in ctx.program.contracts or name in ctx.program.interfaces:
+        elif name in ctx.current_program.contracts or name in ctx.current_program.interfaces:
             return self.translate(node.args[0], res, ctx)
         elif name in names.GHOST_STATEMENTS:
             return self.spec_translator.translate_ghost_statement(node, res, ctx)

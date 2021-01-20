@@ -562,15 +562,22 @@ class StructureChecker(NodeVisitor):
                     assert isinstance(address.value, ast.Name)
                     _assert(address.value.id == names.SELF, address, 'invalid.resource.address')
                 elif isinstance(address, ast.FunctionCall):
-                    if isinstance(program, VyperInterface):
-                        # We only allow own ghost functions
-                        f = program.own_ghost_functions.get(address.name)
+                    if address.name in program.ghost_functions:
+                        if isinstance(program, VyperInterface):
+                            # We only allow own ghost functions
+                            f = program.own_ghost_functions.get(address.name)
+                        else:
+                            f = program.ghost_functions.get(address.name)
+                            _assert(f is None or len(f) == 1, address, 'invalid.resource.address',
+                                    'The ghost function is not unique.')
+                        _assert(f is not None, address, 'invalid.resource.address')
+                        _assert(len(address.args) >= 1, address, 'invalid.resource.address')
                     else:
-                        f = program.ghost_functions.get(address.name)
-                        _assert(f is None or len(f) == 1, address, 'invalid.resource.address',
-                                'The ghost function is not unique.')
-                    _assert(f is not None, address, 'invalid.resource.address')
-                    _assert(len(address.args) >= 1, address, 'invalid.resource.address')
+                        _assert(program.config.has_option(names.CONFIG_TRUST_CASTS), address,
+                                'invalid.resource.address', 'Using casted addresses as resource address is only allowed'
+                                                            'when the "trust_casts" config is set.')
+                        _assert(address.name in program.interfaces, address, 'invalid.resource.address')
+
                 else:
                     _assert(False, address, 'invalid.resource.address')
 

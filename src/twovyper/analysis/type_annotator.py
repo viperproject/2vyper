@@ -63,7 +63,7 @@ class TypeAnnotator(NodeVisitor):
 
         self_type = self.program.fields.type
         # Contains the possible types a variable can have
-        self.variables = {
+        self.known_variables = {
             names.BLOCK: [types.BLOCK_TYPE],
             names.CHAIN: [types.CHAIN_TYPE],
             names.TX: [types.TX_TYPE],
@@ -73,7 +73,9 @@ class TypeAnnotator(NodeVisitor):
             names.LEMMA: [None]
         }
 
-        self.variables.update({interface: [None] for interface in program.interfaces.keys()})
+        self.known_variables.update({interface: [None] for interface in program.interfaces.keys()})
+
+        self.variables = self.known_variables.copy()
 
         self.undecided_nodes = False
         self.type_resolver = TypeResolver()
@@ -83,6 +85,7 @@ class TypeAnnotator(NodeVisitor):
         old_func = self.current_func
         self.current_func = func
         old_variables = self.variables.copy()
+        self.variables = self.known_variables.copy()
         self.variables.update({k: [v.type] for k, v in func.args.items()})
 
         yield
@@ -1014,17 +1017,22 @@ class TypeAnnotator(NodeVisitor):
             else:
                 _check(False, node, 'invalid.resource.address')
         elif isinstance(node, ast.FunctionCall):
-            if isinstance(self.program, VyperInterface):
-                function = self.program.own_ghost_functions[node.name]
+            if node.name in self.program.ghost_functions:
+                if isinstance(self.program, VyperInterface):
+                    function = self.program.own_ghost_functions[node.name]
+                else:
+                    function = self.program.ghost_function_implementations.get(node.name)
+                    if function is None:
+                        function = self.program.ghost_functions[node.name][0]
+                _check(isinstance(function.type.return_type, types.InterfaceType), node, 'invalid.resource.address')
+                assert isinstance(function.type.return_type, types.InterfaceType)
+                program = first(interface for interface in self.program.interfaces.values()
+                                if interface.file == function.file) or self.program
+                ref_interface = program.interfaces[function.type.return_type.name]
             else:
-                function = self.program.ghost_function_implementations.get(node.name)
-                if function is None:
-                    function = self.program.ghost_functions[node.name][0]
-            _check(isinstance(function.type.return_type, types.InterfaceType), node, 'invalid.resource.address')
-            assert isinstance(function.type.return_type, types.InterfaceType)
-            program = first(interface for interface in self.program.interfaces.values()
-                            if interface.file == function.file) or self.program
-            ref_interface = program.interfaces[function.type.return_type.name]
+                self.check_number_of_arguments(node, 1)
+                ref_interface = self.program.interfaces[node.name]
+
             _check(is_wei or resource_name in ref_interface.own_resources, node, 'invalid.resource.address')
         else:
             assert False
