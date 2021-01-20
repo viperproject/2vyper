@@ -1064,7 +1064,7 @@ class SpecificationTranslator(ExpressionTranslator):
         if to is not None:
             to_eq_self = self.viper_ast.EqCmp(self_address, to)
             allocate_stmts = []
-            self.allocation_translator.allocate_derived(node, derived_resource_expr, original_msg_sender,
+            self.allocation_translator.allocate_derived(node, derived_resource_expr, frm or original_msg_sender,
                                                         amount, allocate_stmts, ctx, pos)
             stmts.append(self.viper_ast.If(to_eq_self, allocate_stmts, []))
         if frm is not None:
