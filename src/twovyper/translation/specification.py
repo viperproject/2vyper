@@ -862,7 +862,7 @@ class SpecificationTranslator(ExpressionTranslator):
             if is_performs:
                 self.allocation_translator.performs(name, [resource1_expr, resource2_expr, left, right,
                                                            left_owner, right_owner, times],
-                                                    [left, right, times], res, ctx, pos)
+                                                    [self.viper_ast.Add(left, right), times], res, ctx, pos)
             else:
                 self.allocation_translator.exchange(node, resource1_expr, resource2_expr, left, right,
                                                     left_owner, right_owner, times, res, ctx, pos)

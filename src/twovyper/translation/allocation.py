@@ -959,7 +959,7 @@ class AllocationTranslator(CommonTranslator):
         stmts = []
         self._exhale_performs_if_non_zero_amount(node, names.EXCHANGE, [resource1, resource2, value1, value2,
                                                                         owner1, owner2, times],
-                                                 [value1, value2, times], rules.EXCHANGE_FAIL,
+                                                 [self.viper_ast.Add(value1, value2), times], rules.EXCHANGE_FAIL,
                                                  stmts, ctx, pos)
 
         def check_owner_1(then):
