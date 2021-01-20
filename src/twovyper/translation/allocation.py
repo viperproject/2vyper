@@ -40,7 +40,7 @@ class AllocationTranslator(CommonTranslator):
         from twovyper.translation.specification import SpecificationTranslator
         return SpecificationTranslator(self.viper_ast)
 
-    def _quantifier(self, expr: Expr, triggers: List[Trigger], ctx: Context, pos=None) -> Expr:
+    def _quantifier(self, expr: Expr, _: List[Trigger], ctx: Context, pos=None) -> Expr:
         type_assumptions = []
         qvars = []
         for var in ctx.quantified_vars.values():
@@ -109,7 +109,8 @@ class AllocationTranslator(CommonTranslator):
         inner_value_type = self.type_translator.translate(offered_type.value_type.value_type, ctx)
 
         inner_map = helpers.map_get(self.viper_ast, offered, from_resource, outer_key_type, outer_value_type, pos)
-        new_inner = helpers.map_set(self.viper_ast, inner_map, to_resource, new_value, inner_key_type, inner_value_type, pos)
+        new_inner = helpers.map_set(self.viper_ast, inner_map, to_resource, new_value,
+                                    inner_key_type, inner_value_type, pos)
         return helpers.map_set(self.viper_ast, offered, from_resource, new_inner, outer_key_type, outer_value_type, pos)
 
     def get_offered(self,
@@ -241,7 +242,8 @@ class AllocationTranslator(CommonTranslator):
 
         offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
         modelt = self.model_translator.save_variables(res, ctx, pos)
-        get_offered = self.get_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, ctx, pos)
+        get_offered = self.get_offered(offered, from_resource, to_resource, from_val, to_val,
+                                       from_addr, to_addr, ctx, pos)
         cond = self.viper_ast.LeCmp(amount, get_offered, pos)
         apos = self.to_position(node, ctx, rules.EXCHANGE_FAIL_NO_OFFER, modelt=modelt)
         res.append(self.viper_ast.Assert(cond, apos))
@@ -311,7 +313,7 @@ class AllocationTranslator(CommonTranslator):
         # TODO: rule
         res.append(self.viper_ast.Inhale(quant, pos))
 
-    def _exhale_allocation(self, res: List[Stmt], ctx: Context, pos=None):
+    def _exhale_allocation(self, res: List[Stmt], _: Context, pos=None):
         # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
         # to exhale no permissions under a quantifier.
         qres = self.viper_ast.LocalVarDecl('$r', helpers.struct_type(self.viper_ast), pos)
@@ -348,7 +350,8 @@ class AllocationTranslator(CommonTranslator):
                      new_value: Expr,
                      res: List[Stmt], ctx: Context, pos=None):
         offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
-        set_offered = self.set_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, new_value, ctx, pos)
+        set_offered = self.set_offered(offered, from_resource, to_resource, from_val, to_val, from_addr,
+                                       to_addr, new_value, ctx, pos)
         offered_assign = self.viper_ast.LocalVarAssign(offered, set_offered, pos)
         res.append(offered_assign)
 
@@ -359,7 +362,8 @@ class AllocationTranslator(CommonTranslator):
                         amount: Expr, increase: bool,
                         res: List[Stmt], ctx: Context, pos=None):
         offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
-        get_offered = self.get_offered(offered, from_resource, to_resource, from_val, to_val, from_addr, to_addr, ctx, pos)
+        get_offered = self.get_offered(offered, from_resource, to_resource, from_val,
+                                       to_val, from_addr, to_addr, ctx, pos)
         func = self.viper_ast.Add if increase else self.viper_ast.Sub
         new_value = func(get_offered, amount, pos)
 
@@ -373,7 +377,8 @@ class AllocationTranslator(CommonTranslator):
                                 res: List[Stmt], ctx: Context, pos=None):
         offered = ctx.current_state[mangled.OFFERED].local_var(ctx, pos)
 
-        self._inhale_offers(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, res, ctx, pos)
+        self._inhale_offers(from_resource, to_resource, from_value, to_value, from_owner,
+                            to_owner, times, res, ctx, pos)
 
         # Declare the new offered
         offered_type = self.type_translator.translate(helpers.offered_type(), ctx)
@@ -436,7 +441,8 @@ class AllocationTranslator(CommonTranslator):
                        from_addr: Expr, to_addr: Expr,
                        amount: Expr,
                        res: List[Stmt], ctx: Context, pos=None):
-        offer = helpers.offer_predicate(self.viper_ast, from_resource, to_resource, from_val, to_val, from_addr, to_addr, pos)
+        offer = helpers.offer_predicate(self.viper_ast, from_resource, to_resource, from_val,
+                                        to_val, from_addr, to_addr, pos)
         perm = self.viper_ast.IntPermMul(amount, self.viper_ast.FullPerm(pos), pos)
         acc_offer = self.viper_ast.PredicateAccessPredicate(offer, perm, pos)
         trigger = self.viper_ast.Trigger([offer], pos)
@@ -444,9 +450,10 @@ class AllocationTranslator(CommonTranslator):
         # TODO: rule
         res.append(self.viper_ast.Inhale(quant, pos))
 
-    def _exhale_offers(self, res: List[Stmt], ctx: Context, pos=None):
+    def _exhale_offers(self, res: List[Stmt], _: Context, pos=None):
         # We clean up the heap by exhaling all permissions to offer.
-        #   exhale forall a, b, c, d: Int :: perm(offer(a, b, c, d)) > none ==> acc(offer(a, b, c, d), perm(offer(a, b, c, d)))
+        #   exhale forall a, b, c, d: Int :: perm(offer(a, b, c, d)) > none ==>
+        #   acc(offer(a, b, c, d), perm(offer(a, b, c, d)))
         # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
         # to exhale no permissions under a quantifier.
         qvar_types = 2 * [helpers.struct_type(self.viper_ast)] + 4 * [self.viper_ast.Int]
@@ -687,7 +694,8 @@ class AllocationTranslator(CommonTranslator):
                            resource: Expr, underlying_resource: Expr, address: Expr, amount: Expr,
                            res: List[Stmt], ctx: Context, pos=None):
         """
-        Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
+        Checks that `address` has sufficient allocation and then removes `amount` allocation
+        from the allocation map entry of `address`.
         """
         stmts = []
         const_one = self.viper_ast.IntLit(1, pos)
@@ -714,7 +722,8 @@ class AllocationTranslator(CommonTranslator):
         not_trusted_address = self.viper_ast.Not(is_trusted_address, pos)
         stmts.append(self.viper_ast.If(not_trusted_address, offer_check_stmts, [], pos))
 
-        self._check_allocation(node, resource, address, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
+        self._check_allocation(node, resource, address, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS,
+                               stmts, ctx, pos)
         self._change_allocation(resource, address, amount, False, stmts, ctx, pos)
 
         self.seqn_with_info(stmts, "Deallocate", res)
@@ -755,7 +764,8 @@ class AllocationTranslator(CommonTranslator):
                 resource: Expr, address: Expr, amount: Expr, actor: Expr,
                 res: List[Stmt], ctx: Context, pos=None):
         """
-        Checks that `address` has sufficient allocation and then removes `amount` allocation from the allocation map entry of `address`.
+        Checks that `address` has sufficient allocation and then removes `amount` allocation
+        from the allocation map entry of `address`.
         """
         stmts = []
         self._exhale_performs_if_non_zero_amount(node, names.DESTROY, [resource, address, amount], amount,
@@ -847,8 +857,8 @@ class AllocationTranslator(CommonTranslator):
             type_assumptions = address_assumptions.copy()
             args = []
             for idx, arg_type in enumerate(resource.type.member_types.values()):
-                type = self.type_translator.translate(arg_type, ctx)
-                arg = self.viper_ast.LocalVarDecl(f'$arg{idx}', type, pos)
+                viper_type = self.type_translator.translate(arg_type, ctx)
+                arg = self.viper_ast.LocalVarDecl(f'$arg{idx}', viper_type, pos)
                 args.append(arg)
                 arg_var = arg.localVar()
                 type_assumptions.extend(self.type_translator.type_assumptions(arg_var, arg_type, ctx))
@@ -907,7 +917,8 @@ class AllocationTranslator(CommonTranslator):
                 res.append(self.viper_ast.Assert(quant, apos))
 
     def function_leak_check(self, res: List[Stmt], ctx: Context, pos=None):
-        self._allocation_leak_check(ctx.function.node or ctx.program.node, rules.ALLOCATION_LEAK_CHECK_FAIL, res, ctx, pos)
+        self._allocation_leak_check(ctx.function.node or ctx.program.node, rules.ALLOCATION_LEAK_CHECK_FAIL,
+                                    res, ctx, pos)
         self._performs_leak_check(ctx.function.node or ctx.program.node, res, ctx, pos)
 
     def send_leak_check(self, node: ast.Node, res: List[Stmt], ctx: Context, pos=None):
@@ -944,9 +955,11 @@ class AllocationTranslator(CommonTranslator):
                 perm_add = self.viper_ast.PermAdd(old_mul, perm, pos)
                 return self.viper_ast.EqCmp(fresh_mul, perm_add, pos)
 
-            self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, op, stmts, ctx, pos)
+            self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times,
+                                         op, stmts, ctx, pos)
         else:
-            self._change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, True, stmts, ctx, pos)
+            self._change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, times, True,
+                                 stmts, ctx, pos)
 
         self.seqn_with_info(stmts, "Offer", res)
 
@@ -993,10 +1006,12 @@ class AllocationTranslator(CommonTranslator):
                 cond_expr = self.viper_ast.CondExp(gez, self.viper_ast.IntLit(0, pos), old, pos)
                 return self.viper_ast.EqCmp(fresh, cond_expr, pos)
 
-            self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, one, op, stmts, ctx, pos)
+            self._foreach_change_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, one,
+                                         op, stmts, ctx, pos)
         else:
             zero = self.viper_ast.IntLit(0, pos)
-            self._set_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, zero, stmts, ctx, pos)
+            self._set_offered(from_resource, to_resource, from_value, to_value, from_owner, to_owner, zero,
+                              stmts, ctx, pos)
 
         self.seqn_with_info(stmts, "Revoke", res)
 
@@ -1027,10 +1042,12 @@ class AllocationTranslator(CommonTranslator):
         self._if_non_zero_values(check_owner_2, [value2, times], stmts, ctx, pos)
 
         amount1 = self.viper_ast.Mul(times, value1)
-        self._check_allocation(node, resource1, owner1, amount1, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
+        self._check_allocation(node, resource1, owner1, amount1, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS,
+                               stmts, ctx, pos)
 
         amount2 = self.viper_ast.Mul(times, value2)
-        self._check_allocation(node, resource2, owner2, amount2, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
+        self._check_allocation(node, resource2, owner2, amount2, rules.EXCHANGE_FAIL_INSUFFICIENT_FUNDS,
+                               stmts, ctx, pos)
 
         # owner1 gives up amount1 of resource1
         self._change_allocation(resource1, owner1, amount1, False, stmts, ctx, pos)
