@@ -26,9 +26,12 @@
 
 # This file was adapted from https://github.com/ethereum/vyper/blob/master/examples/auctions/simple_open_auction.vy
 
-import tests.resources.allocation.ERC20.IERC20_alloc as ERC20
+import tests.resources.allocation.ERC1363.IERC1363_alloc as ERC20
+import tests.resources.allocation.ERC1363.IERC1363Spender_alloc as ERC1363Spender
 
 #@ config: allocation, no_derived_wei_resource, trust_casts
+
+implements: ERC1363Spender
 
 beneficiary: public(address)
 auctionStart: public(timestamp)
@@ -70,6 +73,8 @@ token: ERC20
 
 #@ invariant: not self.ended ==> allowed_to_decompose[token](self.beneficiary) == MAX_UINT256
 
+#@ invariant: forall({a: address}, trusted(self.token, by=a))
+
 @public
 def __init__(_bidding_time: timedelta, token_address: address):
     assert token_address != self
@@ -83,6 +88,8 @@ def __init__(_bidding_time: timedelta, token_address: address):
     #@ foreach({a: address, v: wei_value}, offer[good <-> token](1, v, to=a, times=1))
     #@ assert no_offers[ERC20.token[self.token]](self), UNREACHABLE
     #@ allow_to_decompose[token](MAX_UINT256, msg.sender)
+
+    #@ foreach({a: address}, trust(self.token, True, actor=a))
 
 
 #@ performs: offer[token <-> good](value, 1, to=self.beneficiary, times=1)
@@ -102,6 +109,29 @@ def bid(value: uint256):
     #@ offer[token <-> good](value, 1, to=self.beneficiary, times=1)
 
     self.token.transferFrom(msg.sender, self, value)
+
+
+#@ performs: offer[token <-> good](amount, 1, to=self.beneficiary, times=1, actor=sender)
+#@ performs: payable[token](amount)
+@public
+def onApprovalReceived(sender: address, amount: uint256, data: bytes[1024]) -> bytes32:
+    assert msg.sender == self.token
+    assert msg.sender != self.beneficiary
+    assert sender != self.beneficiary
+    assert sender != ZERO_ADDRESS
+    assert sender != self
+    assert block.timestamp < self.auctionEnd
+    assert not self.ended
+    assert amount > self.highestBid
+
+    self.pendingReturns[self.highestBidder] += self.highestBid
+    self.highestBidder = sender
+    self.highestBid = amount
+
+    #@ offer[token <-> good](amount, 1, to=self.beneficiary, times=1, actor=sender)
+
+    self.token.transferFrom(sender, self, amount)
+    return 0x000000000000000000000000000000000000000000000000000000007b04a2d0
 
 
 #@ performs: allow_to_decompose[token](self.pendingReturns[msg.sender], msg.sender)
