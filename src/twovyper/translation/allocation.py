@@ -325,6 +325,22 @@ class AllocationTranslator(CommonTranslator):
         # TODO: rule
         res.append(self.viper_ast.Exhale(quant, pos))
 
+    def _exhale_trust(self, res: List[Stmt], _: Context, pos=None):
+        # We use an implication with a '> none' because of a bug in Carbon (TODO: issue #171) where it isn't possible
+        # to exhale no permissions under a quantifier.
+        qwhere = self.viper_ast.LocalVarDecl('$where', self.viper_ast.Int, pos)
+        qwhom = self.viper_ast.LocalVarDecl('$whom', self.viper_ast.Int, pos)
+        qwho = self.viper_ast.LocalVarDecl('$who', self.viper_ast.Int, pos)
+        trust = helpers.trust_predicate(self.viper_ast, qwhere.localVar(), qwhom.localVar(), qwho.localVar(), pos)
+        perm = self.viper_ast.CurrentPerm(trust, pos)
+        cond = self.viper_ast.GtCmp(perm, self.viper_ast.NoPerm(pos), pos)
+        acc_allocation = self.viper_ast.PredicateAccessPredicate(trust, perm, pos)
+        trigger = self.viper_ast.Trigger([trust], pos)
+        quant = self.viper_ast.Forall([qwhere, qwhom, qwho], [trigger],
+                                      self.viper_ast.Implies(cond, acc_allocation, pos), pos)
+        # TODO: rule
+        res.append(self.viper_ast.Exhale(quant, pos))
+
     def _set_offered(self,
                      from_resource: Expr, to_resource: Expr,
                      from_val: Expr, to_val: Expr,
@@ -532,7 +548,7 @@ class AllocationTranslator(CommonTranslator):
         res.append(trusted_assign)
 
         # Heap clean-up
-        self._exhale_allocation(res, ctx, pos)
+        self._exhale_trust(res, ctx, pos)
 
     def _inhale_trust(self, where: Expr, address: Expr, by_address: Expr, res: List[Stmt], ctx: Context, pos=None):
         trust = helpers.trust_predicate(self.viper_ast, where, address, by_address, pos)
