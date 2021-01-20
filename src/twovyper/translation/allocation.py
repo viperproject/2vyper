@@ -401,11 +401,20 @@ class AllocationTranslator(CommonTranslator):
         qvar_types = 1 * [helpers.struct_type(self.viper_ast)] + 1 * [self.viper_ast.Int]
         qvars = [self.viper_ast.LocalVarDecl(f'$arg{i}', t, pos) for i, t in enumerate(qvar_types)]
         qlocals = [var.localVar() for var in qvars]
+        context_qvars = [qvar.local_var(ctx) for qvar in ctx.quantified_vars.values()]
 
         fresh_no_offers = helpers.no_offers(self.viper_ast, fresh_offered, *qlocals, pos)
         old_no_offers = helpers.no_offers(self.viper_ast, offered, *qlocals, pos)
-        resource_eq = self.viper_ast.EqCmp(qlocals[0], from_resource, pos)
-        address_eq = self.viper_ast.EqCmp(qlocals[1], from_owner, pos)
+        nodes_in_from_resource = self.viper_ast.to_list(from_resource)
+        if any(qvar in nodes_in_from_resource for qvar in context_qvars):
+            resource_eq = self.viper_ast.TrueLit()
+        else:
+            resource_eq = self.viper_ast.EqCmp(qlocals[0], from_resource, pos)
+        nodes_in_from_owner = self.viper_ast.to_list(from_owner)
+        if any(qvar in nodes_in_from_owner for qvar in context_qvars):
+            address_eq = self.viper_ast.TrueLit()
+        else:
+            address_eq = self.viper_ast.EqCmp(qlocals[1], from_owner, pos)
         cond = self.viper_ast.Not(self.viper_ast.And(resource_eq, address_eq, pos), pos)
         expr = self.viper_ast.EqCmp(fresh_no_offers, old_no_offers, pos)
         expr = self.viper_ast.Implies(cond, expr, pos)
@@ -543,7 +552,33 @@ class AllocationTranslator(CommonTranslator):
         assume = self.viper_ast.Inhale(quant, pos)
         res.append(assume)
 
-        # Set the new allocated
+        # Assume the trust_no_one stayed the same for all others
+        qvar_types = [self.viper_ast.Int, self.viper_ast.Int]
+        qvars = [self.viper_ast.LocalVarDecl(f'$arg{i}', t, pos) for i, t in enumerate(qvar_types)]
+        qlocals = [var.localVar() for var in qvars]
+        context_qvars = [qvar.local_var(ctx) for qvar in ctx.quantified_vars.values()]
+
+        fresh_trust_no_one = helpers.trust_no_one(self.viper_ast, fresh_trusted, *qlocals, pos)
+        old_trust_no_one = helpers.trust_no_one(self.viper_ast, trusted, *qlocals, pos)
+        nodes_in_by_address = self.viper_ast.to_list(by_address)
+        if any(qvar in nodes_in_by_address for qvar in context_qvars):
+            by_address_eq = self.viper_ast.TrueLit()
+        else:
+            by_address_eq = self.viper_ast.EqCmp(qlocals[0], by_address, pos)
+        nodes_in_where = self.viper_ast.to_list(where)
+        if any(qvar in nodes_in_where for qvar in context_qvars):
+            where_eq = self.viper_ast.TrueLit()
+        else:
+            where_eq = self.viper_ast.EqCmp(qlocals[1], where, pos)
+        cond = self.viper_ast.Not(self.viper_ast.And(by_address_eq, where_eq, pos), pos)
+        expr = self.viper_ast.EqCmp(fresh_trust_no_one, old_trust_no_one, pos)
+        expr = self.viper_ast.Implies(cond, expr, pos)
+        trigger = self.viper_ast.Trigger([fresh_trust_no_one], pos)
+        quant = self.viper_ast.Forall(qvars, [trigger], expr, pos)
+        assume = self.viper_ast.Inhale(quant, pos)
+        res.append(assume)
+
+        # Set the new trusted
         trusted_assign = self.viper_ast.LocalVarAssign(trusted, fresh_trusted, pos)
         res.append(trusted_assign)
 
