@@ -33,14 +33,14 @@ from twovyper.ast.types import (
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
 
-def parse(path: str, root: Optional[str], as_interface=False, name=None, parse_further_interfaces=True) -> VyperProgram:
+def parse(path: str, root: Optional[str], as_interface=False, name=None, parse_level=0) -> VyperProgram:
     with open(path, 'r') as file:
         contract = file.read()
 
     preprocessed_contract = preprocess(contract)
     contract_ast = lark.parse_module(preprocessed_contract, contract, path)
     contract_ast = transform(contract_ast)
-    program_builder = ProgramBuilder(path, root, as_interface, name, parse_further_interfaces)
+    program_builder = ProgramBuilder(path, root, as_interface, name, parse_level)
     return program_builder.build(contract_ast)
 
 
@@ -54,12 +54,13 @@ class ProgramBuilder(NodeVisitor):
     # top-level statements we gather pre and postconditions until we reach a function
     # definition.
 
-    def __init__(self, path: str, root: Optional[str], is_interface: bool, name: str, parse_further_interfaces: bool):
+    def __init__(self, path: str, root: Optional[str], is_interface: bool, name: str, parse_level: int):
         self.path = os.path.abspath(path)
         self.root = root
         self.is_interface = is_interface
         self.name = name
-        self.parse_further_interfaces = parse_further_interfaces
+        self.parse_further_interfaces = parse_level <= 3
+        self.parse_level = parse_level
 
         self.config = None
 
@@ -100,7 +101,7 @@ class ProgramBuilder(NodeVisitor):
         for name, interface in self.interfaces.items():
             type_map[name] = interface.type
 
-        return TypeBuilder(type_map)
+        return TypeBuilder(type_map, not self.parse_further_interfaces)
 
     def build(self, node) -> VyperProgram:
         self.visit(node)
@@ -126,7 +127,7 @@ class ProgramBuilder(NodeVisitor):
 
         if self.is_interface:
             interface_type = InterfaceType(self.name)
-            if self.parse_further_interfaces:
+            if self.parse_level <= 2:
                 return VyperInterface(node,
                                       self.path,
                                       self.name,
@@ -150,7 +151,8 @@ class ProgramBuilder(NodeVisitor):
                                       self.resources,
                                       [], [], [], [], [], [],
                                       self.ghost_functions,
-                                      interface_type)
+                                      interface_type,
+                                      is_stub=True)
         else:
             if self.caller_private:
                 node = first(self.caller_private)
@@ -226,6 +228,9 @@ class ProgramBuilder(NodeVisitor):
         if node.is_ghost_code:
             raise InvalidProgramException(node, 'invalid.ghost.code')
 
+        if not self.parse_further_interfaces:
+            return
+
         files = {}
         for alias in node.names:
             components = alias.name.split('.')
@@ -236,7 +241,7 @@ class ProgramBuilder(NodeVisitor):
         for file, name in files.items():
             if name in [names.SELF, names.LOG, names.LEMMA, *names.ENV_VARIABLES]:
                 raise UnsupportedException(node, 'Invalid file name.')
-            interface = parse(file, self.root, True, name, not self.is_interface)
+            interface = parse(file, self.root, True, name, self.parse_level + 1)
             self.interfaces[name] = interface
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
@@ -279,7 +284,7 @@ class ProgramBuilder(NodeVisitor):
         for file, name in files.items():
             if name in [names.SELF, names.LOG, names.LEMMA, *names.ENV_VARIABLES]:
                 raise UnsupportedException(node, 'Invalid file name.')
-            interface = parse(file, self.root, True, name, not self.is_interface)
+            interface = parse(file, self.root, True, name, self.parse_level + 1)
             self.interfaces[name] = interface
 
     def visit_StructDef(self, node: ast.StructDef):
@@ -290,9 +295,9 @@ class ProgramBuilder(NodeVisitor):
 
     def visit_EventDef(self, node: ast.EventDef):
         vyper_type = self.type_builder.build(node)
-        assert isinstance(vyper_type, EventType)
-        event = VyperEvent(node.name, vyper_type)
-        self.events[node.name] = event
+        if isinstance(vyper_type, EventType):
+            event = VyperEvent(node.name, vyper_type)
+            self.events[node.name] = event
 
     def visit_FunctionStub(self, node: ast.FunctionStub):
         # A function stub on the top-level is a resource declaration
@@ -304,21 +309,21 @@ class ProgramBuilder(NodeVisitor):
             raise InvalidProgramException(node, 'duplicate.resource')
 
         vyper_type = self.type_builder.build(node)
-        assert isinstance(vyper_type, ResourceType)
-        if is_derived:
-            resource = Resource(vyper_type, node, self.path, node.returns)
-        else:
-            resource = Resource(vyper_type, node, self.path)
-        self.resources[name] = resource
+        if isinstance(vyper_type, ResourceType):
+            if is_derived:
+                resource = Resource(vyper_type, node, self.path, node.returns)
+            else:
+                resource = Resource(vyper_type, node, self.path)
+            self.resources[name] = resource
 
     def visit_ContractDef(self, node: ast.ContractDef):
         if node.is_ghost_code:
             raise InvalidProgramException(node, 'invalid.ghost.code')
 
         vyper_type = self.type_builder.build(node)
-        assert isinstance(vyper_type, ContractType)
-        contract = VyperContract(node.name, vyper_type, node)
-        self.contracts[contract.name] = contract
+        if isinstance(vyper_type, ContractType):
+            contract = VyperContract(node.name, vyper_type, node)
+            self.contracts[contract.name] = contract
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
         if node.is_ghost_code:

@@ -280,7 +280,8 @@ class VyperInterface(VyperProgram):
                  general_checks: List[ast.Expr],
                  caller_private: List[ast.Expr],
                  ghost_functions: Dict[str, GhostFunction],
-                 type: InterfaceType):
+                 type: InterfaceType,
+                 is_stub=False):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})
         empty_struct = VyperStruct(struct_name, empty_struct_type, None)
@@ -308,6 +309,7 @@ class VyperInterface(VyperProgram):
             self.ghost_functions[key].append(value)
         self.type = type
         self.caller_private = caller_private
+        self.is_stub = is_stub
 
     def is_interface(self) -> bool:
         return True

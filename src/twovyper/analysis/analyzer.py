@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from typing import Set, Dict, List
 
 from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.nodes import VyperProgram, VyperFunction
+from twovyper.ast.nodes import VyperProgram, VyperInterface, VyperFunction
 from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.analysis import heuristics
@@ -26,6 +26,9 @@ def analyze(program: VyperProgram):
     Checks the program for structural errors, adds type information to all program expressions
     and creates an analysis for each function.
     """
+    if isinstance(program, VyperInterface) and program.is_stub:
+        return
+
     check_symbols(program)
     check_structure(program)
     TypeAnnotator(program).annotate_program()

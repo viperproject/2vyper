@@ -297,10 +297,13 @@ def matches(t, m):
 
 class TypeBuilder(NodeVisitor):
 
-    def __init__(self, type_map: Dict[str, VyperType]):
+    def __init__(self, type_map: Dict[str, VyperType], is_stub: bool = False):
         self.type_map = type_map
+        self.is_stub = is_stub
 
     def build(self, node) -> VyperType:
+        if self.is_stub:
+            return VyperType('$unknown')
         return self.visit(node)
 
     @property
