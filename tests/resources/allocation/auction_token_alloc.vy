@@ -112,7 +112,7 @@ def bid(value: uint256):
 
 
 #@ performs: offer[token <-> good](amount, 1, to=self.beneficiary, times=1, actor=sender)
-#@ performs: payable[token](amount)
+#@ performs: payable[token](amount, actor=sender)
 @public
 def onApprovalReceived(sender: address, amount: uint256, data: bytes[1024]) -> bytes32:
     assert msg.sender == self.token

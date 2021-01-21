@@ -363,7 +363,7 @@ class FunctionTranslator(CommonTranslator):
                             and not ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)):
                         resource = self.resource_translator.translate(None, body, ctx)  # Wei resource
                         self.allocation_translator.allocate_derived(
-                            function.node, resource, msg_sender, msg_value, body, ctx, pos)
+                            function.node, resource, msg_sender, msg_sender, msg_value, body, ctx, pos)
 
             # If we are in a synthesized init, we don't have a function body
             if function.node:

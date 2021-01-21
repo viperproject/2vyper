@@ -335,7 +335,9 @@ EXCHANGE_FAIL = {
 
 PAYABLE_FAIL = {
     ('$operation.failed', 'no.performs'):
-        ('payable.failed', 'no.performs')
+        ('payable.failed', 'no.performs'),
+    ('$operation.failed', 'not.trusted'):
+        ('payable.failed', 'not.trusted')
 }
 
 PAYOUT_FAIL = {

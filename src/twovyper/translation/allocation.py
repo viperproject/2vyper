@@ -640,11 +640,12 @@ class AllocationTranslator(CommonTranslator):
         self._exhale_performs_if_non_zero_amount(node, function, args, amounts, rule, res, ctx, pos)
 
     def allocate_derived(self, node: ast.Node,
-                         resource: Expr, address: Expr, amount: Expr,
+                         resource: Expr, address: Expr, actor: Expr, amount: Expr,
                          res: List[Stmt], ctx: Context, pos=None):
+        with ctx.self_address_scope(helpers.self_address(self.viper_ast)):
+            self._check_trusted_if_non_zero_amount(node, actor, address, amount, rules.PAYABLE_FAIL, res, ctx, pos)
         self.allocate(resource, address, amount, res, ctx, pos)
-        self.check_performs(node, names.RESOURCE_PAYABLE,
-                            [resource, amount], [amount],
+        self.check_performs(node, names.RESOURCE_PAYABLE, [resource, address, amount], [amount],
                             rules.PAYABLE_FAIL, res, ctx, pos)
 
     def allocate(self,
@@ -896,7 +897,7 @@ class AllocationTranslator(CommonTranslator):
                 names.EXCHANGE: [struct_t, struct_t, int_t, int_t, int_t, int_t, int_t],
                 names.TRUST: [int_t, int_t, bool_t],
                 names.ALLOCATE_UNTRACKED: [struct_t, int_t],
-                names.RESOURCE_PAYABLE: [struct_t, int_t],
+                names.RESOURCE_PAYABLE: [struct_t, int_t, int_t],
                 names.RESOURCE_PAYOUT: [struct_t, int_t, int_t],
             }
 

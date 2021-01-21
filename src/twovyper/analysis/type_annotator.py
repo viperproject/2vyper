@@ -836,10 +836,13 @@ class TypeAnnotator(NodeVisitor):
                     self.annotate_expected(kw.value, types.VYPER_ADDRESS)
                 return [None], [node]
             elif case(names.RESOURCE_PAYABLE):
-                self.check_number_of_arguments(node, 1, resources=1)
+                keywords = [names.RESOURCE_PAYABLE_ACTOR]
+                self.check_number_of_arguments(node, 1, resources=1, allowed_keywords=keywords)
                 _check(node.resource is None or node.underlying_resource is not None, node, 'invalid.payable',
                        'Only derived resources can be used with "payable"')
                 self.annotate_expected(node.args[0], types.VYPER_UINT256)
+                for kw in node.keywords:
+                    self.annotate_expected(kw.value, types.VYPER_ADDRESS)
                 return [None], [node]
             elif case(names.RESOURCE_PAYOUT):
                 keywords = [names.RESOURCE_PAYOUT_ACTOR]

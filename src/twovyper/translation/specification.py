@@ -942,19 +942,23 @@ class SpecificationTranslator(ExpressionTranslator):
         elif name == names.RESOURCE_PAYABLE:
             resource, resource_expr = self.resource_translator.translate(node.resource, res, ctx, return_resource=True)
             amount = self.translate(node.args[0], res, ctx)
+            to = helpers.msg_sender(self.viper_ast, ctx, pos)
+            for kw in node.keywords:
+                kw_val = self.translate(kw.value, res, ctx)
+                if kw.name == names.RESOURCE_PAYABLE_ACTOR:
+                    to = kw_val
 
             if ctx.inside_derived_resource_performs:
-                msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
                 # If there is a derived resource for resource
                 #   If helper.self_address is msg.sender -> deallocate amount derived resource from msg.sender
                 for derived_resource in resource.derived_resources:
                     self.update_allocation_for_derived_resource(
-                        node, derived_resource, resource_expr, None, msg_sender, amount, res, ctx)
+                        node, derived_resource, resource_expr, None, to, amount, res, ctx)
 
                 return None
 
             assert is_performs
-            self.allocation_translator.performs(name, [resource_expr, amount], [amount], res, ctx, pos)
+            self.allocation_translator.performs(name, [resource_expr, to, amount], [amount], res, ctx, pos)
         elif name == names.RESOURCE_PAYOUT:
             resource, resource_expr = self.resource_translator.translate(node.resource, res, ctx, return_resource=True)
             amount = self.translate(node.args[0], res, ctx)
@@ -1065,7 +1069,7 @@ class SpecificationTranslator(ExpressionTranslator):
             to_eq_self = self.viper_ast.EqCmp(self_address, to)
             allocate_stmts = []
             self.allocation_translator.allocate_derived(node, derived_resource_expr, frm or original_msg_sender,
-                                                        amount, allocate_stmts, ctx, pos)
+                                                        original_msg_sender, amount, allocate_stmts, ctx, pos)
             stmts.append(self.viper_ast.If(to_eq_self, allocate_stmts, []))
         if frm is not None:
             frm_eq_self = self.viper_ast.EqCmp(self_address, frm)

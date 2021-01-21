@@ -33,7 +33,7 @@ predicate $performs$trust($address: Int, $by_address: Int, $value: Bool)
 
 predicate $performs$allocate_untracked_wei($resource: $Struct, $address: Int)
 
-predicate $performs$payable($resource: $Struct, $amount: Int)
+predicate $performs$payable($resource: $Struct, $to_address: Int, $amount: Int)
 
 predicate $performs$payout($resource: $Struct, $from_address: Int, $amount: Int)
 

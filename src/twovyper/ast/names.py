@@ -245,6 +245,7 @@ RESOURCE_PAYOUT = 'payout'
 RESOURCE_PAYOUT_ACTOR = 'actor'
 
 RESOURCE_PAYABLE = 'payable'
+RESOURCE_PAYABLE_ACTOR = 'actor'
 
 FOREACH = 'foreach'
 
