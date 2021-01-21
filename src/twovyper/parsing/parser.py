@@ -78,6 +78,7 @@ class ProgramBuilder(NodeVisitor):
         self.transitive_postconditions = []
         self.general_checks = []
         self.implements = []
+        self.additional_implements = []
         self.ghost_functions = {}
         self.ghost_function_implementations = {}
 
@@ -176,6 +177,7 @@ class ProgramBuilder(NodeVisitor):
                                 self.general_checks,
                                 self.lemmas,
                                 self.implements,
+                                self.implements + self.additional_implements,
                                 self.ghost_function_implementations)
 
     def _check_no_local_spec(self):
@@ -331,6 +333,9 @@ class ProgramBuilder(NodeVisitor):
             if interface_name not in [interfaces.ERC20, interfaces.ERC721] or interface_name in self.interfaces:
                 interface_type = InterfaceType(interface_name)
                 self.implements.append(interface_type)
+            elif interface_name in [interfaces.ERC20, interfaces.ERC721]:
+                interface_type = InterfaceType(interface_name)
+                self.additional_implements.append(interface_type)
         # We ignore the units declarations
         elif variable_name != names.UNITS:
             variable_type = self.type_builder.build(node.annotation)

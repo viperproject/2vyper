@@ -1,3 +1,5 @@
+#:: ExpectedOutput(invalid.program:invalid.implemented.interfaces)
+
 #
 # Copyright (c) 2020 ETH Zurich
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -12,10 +14,13 @@
 #@ config: allocation, no_derived_wei_resource, trust_casts
 
 import tests.resources.allocation.ERC1363.IERC1363Spender_alloc as IERC1363Spender
+from vyper.interfaces import ERC20
 from . import IERC1363_alloc
 
 # @dev Implementation of ERC-1363 token standard
 implements: IERC1363_alloc
+# @dev Implementation of ERC-20 token standard.
+implements: ERC20
 
 contract IERC1363Receiver:
     def onTransferReceived(operator: address, sender: address, amount: uint256, data: bytes[1024]) -> bytes32: modifying

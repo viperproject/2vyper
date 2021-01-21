@@ -202,6 +202,7 @@ class VyperProgram:
                  general_checks: List[ast.Expr],
                  lemmas: Dict[str, VyperFunction],
                  implements: List[InterfaceType],
+                 real_implements: List[InterfaceType],
                  ghost_function_implementations: Dict[str, GhostFunction]):
         self.node = node
         self.file = file
@@ -228,6 +229,7 @@ class VyperProgram:
         self.general_checks = general_checks
         self.lemmas = lemmas
         self.implements = implements
+        self.real_implements = real_implements
         self.ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list)
         for key, value in self._ghost_functions():
             self.ghost_functions[key].append(value)
@@ -295,7 +297,7 @@ class VyperInterface(VyperProgram):
                          general_postconditions,
                          transitive_postconditions,
                          general_checks,
-                         {}, [], {})
+                         {}, [], [], {})
         self.name = name
         self.imported_ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list)
         for key, value in self._ghost_functions():

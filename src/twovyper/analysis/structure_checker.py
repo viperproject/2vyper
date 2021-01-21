@@ -128,6 +128,20 @@ class StructureChecker(NodeVisitor):
             msg = "Resources require allocation config option."
             raise InvalidProgramException(first(program.node.stmts) or program.node, 'alloc.not.alloc', msg)
 
+        seen_functions = set()
+        for implements in program.real_implements:
+            interface = program.interfaces.get(implements.name)
+            if interface is not None:
+                function_names = set(function.name for function in interface.functions.values())
+            else:
+                contract = program.contracts[implements.name]
+                function_names = set(contract.type.function_types)
+            _assert(not seen_functions & function_names, program.node, 'invalid.implemented.interfaces',
+                    f'Implemented interfaces should not have a function that shares the name with another function of '
+                    f'another implemented interface.\n'
+                    f'(Conflicting functions: {seen_functions & function_names})')
+            seen_functions.update(function_names)
+
         for function in program.functions.values():
             self.visit(function.node, _Context.CODE, program, function)
             if function.is_pure():
