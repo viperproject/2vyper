@@ -12,13 +12,10 @@
 #@ config: allocation, no_derived_wei_resource, trust_casts
 
 import tests.resources.allocation.ERC1363.IERC1363Spender_alloc as IERC1363Spender
-from vyper.interfaces import ERC20
 from . import IERC1363_alloc
 
 # @dev Implementation of ERC-1363 token standard
 implements: IERC1363_alloc
-# @dev Implementation of ERC-20 token standard.
-implements: ERC20
 
 contract IERC1363Receiver:
     def onTransferReceived(operator: address, sender: address, amount: uint256, data: bytes[1024]) -> bytes32: modifying
@@ -269,6 +266,9 @@ def transferFromAndCall(sender: address, recipient: address, amount: uint256, da
 
 #@ performs: revoke[token <-> token](1, 0, to=spender)
 #@ performs: offer[token <-> token](1, 0, to=spender, times=amount)
+# We should be able to redeclare performs clauses of own resources
+#@ performs: exchange[token <-> token](1, 0, msg.sender, spender, times=amount)
+#:: ExpectedOutput(performs.leakcheck.failed:performs.leaked)
 @public
 def approveAndCall(spender: address, amount: uint256, data: bytes[1024]) -> bool:
     self._approve(msg.sender, spender, amount)

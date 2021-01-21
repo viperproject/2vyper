@@ -626,11 +626,23 @@ class AllocationTranslator(CommonTranslator):
         apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
 
         if ctx.inside_interface_call:
+            # Only exhale if we have enough "perm" (Redeclaration of performs is optional)
             pred = helpers.performs_predicate(self.viper_ast, function, args, pos)
             perm = self.viper_ast.CurrentPerm(pred, pos)
             write = self.viper_ast.FullPerm(pos)
             enough_perm = self.viper_ast.GeCmp(perm, write, pos)
-            cond_pred = self.viper_ast.CondExp(enough_perm, pred_access_pred, self.viper_ast.TrueLit(), pos)
+
+            # Only exhale if the address is not self
+            assert isinstance(node, ast.FunctionCall)
+            address = self.location_address_of_performs(node, res, ctx, pos)
+            if address is not None:
+                self_address = helpers.self_address(self.viper_ast)
+                address_cond = self.viper_ast.NeCmp(address, self_address, pos)
+            else:
+                address_cond = self.viper_ast.TrueLit(pos)
+
+            cond = self.viper_ast.And(enough_perm, address_cond)
+            cond_pred = self.viper_ast.CondExp(cond, pred_access_pred, self.viper_ast.TrueLit(), pos)
             res.append(self.viper_ast.Exhale(cond_pred, apos))
         else:
             res.append(self.viper_ast.Exhale(pred_access_pred, apos))
