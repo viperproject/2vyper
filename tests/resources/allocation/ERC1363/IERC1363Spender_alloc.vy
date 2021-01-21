@@ -12,6 +12,7 @@
 
 import tests.resources.allocation.ERC1363.IERC1363_alloc as ERC1363
 
+#@ interface
 
 #@ performs: exchange[ERC1363.token[ERC1363(msg.sender)] <-> ERC1363.token[ERC1363(msg.sender)]](1, 0, sender, self, times=amount)
 @public

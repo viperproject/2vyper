@@ -92,7 +92,10 @@ ERRORS = {
     'leakcheck.failed':
         lambda i: f"Leak check for resource {i.resource.name} might fail in {i.function.name}.",
     'performs.leakcheck.failed':
-        lambda i: f"Leakcheck for performs clauses might fail.",
+        lambda i: f"Leak check for performs clauses might fail.",
+    'interface.resource':
+        lambda i: f"The resource {i.resource.name} comes from an interface "
+                  f"and therefore its address must not be 'self'.",
     'fold.failed':
         lambda i: "Fold might fail.",
     'unfold.failed':
@@ -160,6 +163,8 @@ REASONS = {
         lambda i: f"There might be insufficient permission to access {pprint(i.node)}.",
     'function.revert':
         lambda i: f"The function {i.function.name} might revert.",
+    'resource.address.self':
+        lambda i: f"The address of the resource might be equal to 'self'.",
     'underlying.address.self':
         lambda i: f"The address of the underlying resource might be equal to 'self'.",
     'underlying.address.constant':

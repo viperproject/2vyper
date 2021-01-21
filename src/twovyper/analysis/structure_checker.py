@@ -165,6 +165,8 @@ class StructureChecker(NodeVisitor):
             if function.performs:
                 _assert(function.name != names.INIT, function.performs[0],
                         'invalid.performs', '__init__ does not require and must not have performs clauses.')
+                _assert(function.is_public(), function.performs[0],
+                        'invalid.performs', 'Private functions are not allowed to have performs clauses.')
             for performs in function.performs:
                 self._visit_performs(performs, program, function)
 

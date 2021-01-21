@@ -12,7 +12,8 @@
 #@ config: allocation, no_derived_wei_resource, trust_casts
 
 import tests.resources.allocation.ERC1363.IERC1363Spender_alloc as IERC1363Spender
-from . import IERC1363_alloc
+import tests.resources.allocation.ERC1363.IERC1363_alloc as not_used
+import tests.resources.allocation.ERC1363.IERC1363_alloc_redeclare_fail as IERC1363_alloc
 
 # @dev Implementation of ERC-1363 token standard
 implements: IERC1363_alloc
@@ -70,9 +71,9 @@ def __init__(_name: string[64], _symbol: string[32], _decimals: uint256, _supply
     self.decimals = _decimals
     self.balanceOf[msg.sender] = init_supply
     self.total_supply = init_supply
-    #@ create[token](init_supply)
+    #@ create[_token](init_supply)
     self.minter = msg.sender
-    #@ create[creator(token)](1)
+    #@ create[creator(_token)](1)
     log.Transfer(ZERO_ADDRESS, msg.sender, init_supply)
 
 
@@ -108,7 +109,7 @@ def _transfer(_msg_sender: address, _to: address, _value: uint256) -> bool:
     # NOTE: vyper does not allow underflows
     #       so the following subtraction would revert on insufficient balance
     self.balanceOf[_msg_sender] -= _value
-    #@ reallocate[token](_value, to=_to, actor=_msg_sender)
+    #@ reallocate[_token](_value, to=_to, actor=_msg_sender)
     self.balanceOf[_to] += _value
     log.Transfer(_msg_sender, _to, _value)
     return True
@@ -138,8 +139,8 @@ def _transferFrom(_msg_sender: address, _from : address, _to: address, _value: u
     # NOTE: vyper does not allow underflows
     #      so the following subtraction would revert on insufficient allowance
     self.allowances[_from][_msg_sender] -= _value
-    #@ exchange[token <-> token](1, 0, _from, _msg_sender, times=_value)
-    #@ reallocate[token](_value, to=_to, actor=_msg_sender)
+    #@ exchange[_token <-> _token](1, 0, _from, _msg_sender, times=_value)
+    #@ reallocate[_token](_value, to=_to, actor=_msg_sender)
     log.Transfer(_from, _to, _value)
     return True
 
@@ -162,9 +163,9 @@ def _approve(_msg_sender: address, _spender: address, _value : uint256) -> bool:
     @param _spender The address which will spend the funds.
     @param _value The amount of tokens to be spent.
     """
-    #@ revoke[token <-> token](1, 0, to=_spender)
+    #@ revoke[_token <-> _token](1, 0, to=_spender)
     self.allowances[_msg_sender][_spender] = _value
-    #@ offer[token <-> token](1, 0, to=_spender, times=_value)
+    #@ offer[_token <-> _token](1, 0, to=_spender, times=_value)
     log.Approval(_msg_sender, _spender, _value)
     return True
 
@@ -187,7 +188,7 @@ def mint(_to: address, _value: uint256):
     assert msg.sender == self.minter
     assert _to != ZERO_ADDRESS
     self.total_supply += _value
-    #@ create[token](_value, to=_to)
+    #@ create[_token](_value, to=_to)
     self.balanceOf[_to] += _value
     log.Transfer(ZERO_ADDRESS, _to, _value)
 
@@ -203,7 +204,7 @@ def _burn(_to: address, _value: uint256):
     assert _to != ZERO_ADDRESS
     self.total_supply -= _value
     self.balanceOf[_to] -= _value
-    #@ destroy[token](_value)
+    #@ destroy[_token](_value)
     log.Transfer(_to, ZERO_ADDRESS, _value)
 
 
@@ -224,7 +225,7 @@ def burnFrom(_to: address, _value: uint256):
     @param _value The amount that will be burned.
     """
     self.allowances[_to][msg.sender] -= _value
-    #@ exchange[token <-> token](1, 0, _to, msg.sender, times=min(_value, self.balanceOf[_to]))
+    #@ exchange[_token <-> _token](1, 0, _to, msg.sender, times=min(_value, self.balanceOf[_to]))
     self._burn(_to, _value)
 
 
@@ -245,7 +246,6 @@ def _checkAndCallApprove(sender: address, spender: address, amount: uint256, dat
     return retval == _ERC1363_APPROVED
 
 
-#@ performs: reallocate[token](amount, to=recipient)
 @public
 def transferAndCall(recipient: address, amount: uint256, data: bytes[1024]) -> bool:
     self._transfer(msg.sender, recipient, amount)
@@ -254,8 +254,6 @@ def transferAndCall(recipient: address, amount: uint256, data: bytes[1024]) -> b
     return True
 
 
-#@ performs: exchange[token <-> token](1, 0, sender, msg.sender, times=amount)
-#@ performs: reallocate[token](amount, to=recipient)
 @public
 def transferFromAndCall(sender: address, recipient: address, amount: uint256, data: bytes[1024]) -> bool:
     self._transferFrom(msg.sender, sender, recipient, amount)
@@ -264,10 +262,6 @@ def transferFromAndCall(sender: address, recipient: address, amount: uint256, da
     return True
 
 
-#@ performs: revoke[token <-> token](1, 0, to=spender)
-#@ performs: offer[token <-> token](1, 0, to=spender, times=amount)
-# We should be able to redeclare performs clauses of own resources
-#@ performs: exchange[token <-> token](1, 0, msg.sender, spender, times=amount)
 #:: ExpectedOutput(performs.leakcheck.failed:performs.leaked)
 @public
 def approveAndCall(spender: address, amount: uint256, data: bytes[1024]) -> bool:

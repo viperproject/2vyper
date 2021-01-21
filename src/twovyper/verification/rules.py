@@ -263,6 +263,11 @@ PRECONDITION_IMPLEMENTS_INTERFACE = {
         ('application.precondition', 'not.implements.interface')
 }
 
+INTERFACE_RESOURCE_PERFORMS = {
+    ('assert.failed', 'assertion.false'):
+        ('interface.resource', 'resource.address.self')
+}
+
 REALLOCATE_FAIL_INSUFFICIENT_FUNDS = {
     ('assert.failed', 'assertion.false'):
         ('reallocate.failed', 'insufficient.funds')

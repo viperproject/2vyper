@@ -632,9 +632,18 @@ class AllocationTranslator(CommonTranslator):
             write = self.viper_ast.FullPerm(pos)
             enough_perm = self.viper_ast.GeCmp(perm, write, pos)
 
-            # Only exhale if the address is not self
-            assert isinstance(node, ast.FunctionCall)
-            address = self.location_address_of_performs(node, res, ctx, pos)
+            # Only exhale if the address is not self and the resource is potentially an "own resource"
+            address = None
+            if isinstance(node, ast.FunctionCall) and node.name in names.GHOST_STATEMENTS:
+                interface_files = [ctx.program.interfaces[impl.name].file for impl in ctx.program.implements]
+                address, resource = self.location_address_of_performs(node, res, ctx, pos, return_resource=True)
+                if resource is not None and (resource.file is None  # It is okay to declare performs for wei
+                                             # It is okay to declare performs for own private resources
+                                             or resource.file == ctx.program.file
+                                             # It is okay to redeclare performs with resources not in interfaces
+                                             # this contract implements
+                                             or resource.file not in interface_files):
+                    address = None
             if address is not None:
                 self_address = helpers.self_address(self.viper_ast)
                 address_cond = self.viper_ast.NeCmp(address, self_address, pos)
@@ -1115,23 +1124,32 @@ class AllocationTranslator(CommonTranslator):
         # TODO: rule
         self._if_non_zero_values(lambda l: l.append(self.viper_ast.Inhale(pred, pos)), amount_args, res, ctx, pos)
 
-    def location_address_of_performs(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context, pos=None):
+    def location_address_of_performs(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context,
+                                     pos=None, return_resource=False):
         if node.name == names.TRUST:
-            return ctx.self_address or helpers.self_address(self.viper_ast, pos)
+            res = ctx.self_address or helpers.self_address(self.viper_ast, pos), None
         elif node.name == names.FOREACH:
             body = node.args[-1]
             assert isinstance(body, ast.FunctionCall)
-            return self.location_address_of_performs(body, res, ctx, pos)
-
-        # All other allocation functions have a resource with the location
-        if isinstance(node.resource, ast.Exchange):
-            resource, _ = self.resource_translator.translate_exchange(
-                node.resource, res, ctx)
+            res = self.location_address_of_performs(body, res, ctx, pos, True)
         else:
-            resource = self.resource_translator.translate(node.resource, res, ctx)
+            # All other allocation functions have a resource with the location
+            if isinstance(node.resource, ast.Exchange):
+                (resource, t_resource), _ = self.resource_translator.translate_exchange(
+                    node.resource, res, ctx, True)
+            elif node.resource is not None:
+                resource, t_resource = self.resource_translator.translate(node.resource, res, ctx, True)
+            elif ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI):
+                resource, t_resource = None, self.resource_translator.underlying_wei_resource(ctx)
+            else:
+                resource, t_resource = self.resource_translator.translate(None, res, ctx, True)
 
-        resource_args = self.viper_ast.to_list(resource.getArgs())
-        if resource_args:
-            return resource_args.pop()
+            resource_args = self.viper_ast.to_list(t_resource.getArgs())
+            if resource_args:
+                res = resource_args.pop(), resource
+            else:
+                res = None, resource
 
-        return None
+        if return_resource:
+            return res
+        return res[0]

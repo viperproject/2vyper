@@ -293,8 +293,20 @@ class FunctionTranslator(CommonTranslator):
                 body.append(var_assign)
 
             # Translate the performs clauses
+            performs_clause_conditions = []
+            interface_files = [ctx.program.interfaces[impl.name].file for impl in ctx.program.implements]
             for performs in function.performs:
                 assert isinstance(performs, ast.FunctionCall)
+                with ctx.state_scope(ctx.pre_state, ctx.pre_state):
+                    address, resource = self.allocation_translator.location_address_of_performs(performs, body, ctx,
+                                                                                                return_resource=True)
+                if (resource is not None and resource.file is not None
+                        and resource.file != ctx.program.file and resource.file in interface_files):
+                    # All performs clauses with own resources of an implemented interface should be on that interface
+                    apos = self.to_position(performs, ctx, rules.INTERFACE_RESOURCE_PERFORMS,
+                                            values={'resource': resource})
+                    cond = self.viper_ast.NeCmp(address, self_address, apos)
+                    performs_clause_conditions.append(self.viper_ast.Assert(cond, apos))
                 _ = self.specification_translator.translate_ghost_statement(performs, body, ctx, is_performs=True)
 
             for interface_type in ctx.program.implements:
@@ -374,6 +386,9 @@ class FunctionTranslator(CommonTranslator):
             # If we reach this point we either jumped to it by returning or got there directly
             # because we didn't revert (yet)
             body.append(return_label)
+
+            # Check that we were allowed to inhale the performs clauses
+            body.extend(performs_clause_conditions)
 
             # Unset @nonreentrant locks
             self._set_locked(function, False, body, ctx)
