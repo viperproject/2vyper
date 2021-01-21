@@ -570,6 +570,7 @@ class StructureChecker(NodeVisitor):
 
             def check_resource_address(address):
                 _assert(resources_with_address_allowed, address, 'invalid.resource.address')
+                self.generic_visit(address, ctx, program, function)
 
                 if isinstance(address, ast.Name):
                     _assert(address.id == names.SELF, address, 'invalid.resource.address')
@@ -579,13 +580,9 @@ class StructureChecker(NodeVisitor):
                     _assert(address.value.id == names.SELF, address, 'invalid.resource.address')
                 elif isinstance(address, ast.FunctionCall):
                     if address.name in program.ghost_functions:
-                        if isinstance(program, VyperInterface):
-                            # We only allow own ghost functions
-                            f = program.own_ghost_functions.get(address.name)
-                        else:
-                            f = program.ghost_functions.get(address.name)
-                            _assert(f is None or len(f) == 1, address, 'invalid.resource.address',
-                                    'The ghost function is not unique.')
+                        f = program.ghost_functions.get(address.name)
+                        _assert(f is None or len(f) == 1, address, 'invalid.resource.address',
+                                'The ghost function is not unique.')
                         _assert(f is not None, address, 'invalid.resource.address')
                         _assert(len(address.args) >= 1, address, 'invalid.resource.address')
                     else:
@@ -593,7 +590,13 @@ class StructureChecker(NodeVisitor):
                                 'invalid.resource.address', 'Using casted addresses as resource address is only allowed'
                                                             'when the "trust_casts" config is set.')
                         _assert(address.name in program.interfaces, address, 'invalid.resource.address')
-
+                elif isinstance(address, ast.ReceiverCall):
+                    _assert(address.name in program.ghost_functions, address, 'invalid.resource.address')
+                    _assert(isinstance(address.receiver, ast.Name), address, 'invalid.resource.address')
+                    assert isinstance(address.receiver, ast.Name)
+                    f = program.interfaces[address.receiver.id].own_ghost_functions.get(address.name)
+                    _assert(f is not None, address, 'invalid.resource.address')
+                    _assert(len(address.args) >= 1, address, 'invalid.resource.address')
                 else:
                     _assert(False, address, 'invalid.resource.address')
 

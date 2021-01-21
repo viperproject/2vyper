@@ -1022,7 +1022,7 @@ class TypeAnnotator(NodeVisitor):
         elif isinstance(node, ast.FunctionCall):
             if node.name in self.program.ghost_functions:
                 if isinstance(self.program, VyperInterface):
-                    function = self.program.own_ghost_functions[node.name]
+                    function = self.program.ghost_functions[node.name][0]
                 else:
                     function = self.program.ghost_function_implementations.get(node.name)
                     if function is None:
@@ -1035,6 +1035,18 @@ class TypeAnnotator(NodeVisitor):
             else:
                 self.check_number_of_arguments(node, 1)
                 ref_interface = self.program.interfaces[node.name]
+
+            _check(is_wei or resource_name in ref_interface.own_resources, node, 'invalid.resource.address')
+        elif isinstance(node, ast.ReceiverCall):
+            assert node.name in self.program.ghost_functions
+            assert isinstance(node.receiver, ast.Name)
+            interface_name = node.receiver.id
+            function = self.program.interfaces[interface_name].own_ghost_functions.get(node.name)
+            _check(isinstance(function.type.return_type, types.InterfaceType), node, 'invalid.resource.address')
+            assert isinstance(function.type.return_type, types.InterfaceType)
+            program = first(interface for interface in self.program.interfaces.values()
+                            if interface.file == function.file) or self.program
+            ref_interface = program.interfaces[function.type.return_type.name]
 
             _check(is_wei or resource_name in ref_interface.own_resources, node, 'invalid.resource.address')
         else:
