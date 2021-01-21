@@ -11,6 +11,7 @@
 
 import tests.resources.allocation.ico.gvtoken_interface_alloc as GVT
 import tests.resources.allocation.ico.gv_option_token_interface_alloc as GVOT
+import tests.resources.allocation.ico.migration_agent_interface as MigrationAgent
 import tests.resources.allocation.ico.simplified_gv_option_program_interface_alloc as GVOptionProgram
 
 option30perCent: constant(uint256) = 26 * 10 ** 16 # GVOT30 tokens per usd cent during option purchase

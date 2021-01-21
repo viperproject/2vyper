@@ -139,8 +139,6 @@ def approve(_spender: address, _value : uint256) -> bool:
     return True
 
 
-#@ performs: destroy[token](value)
-#@ performs: reallocate[token[new_token(self.migration_agent)]](value, to=msg.sender, actor=self.migration_agent)
 @public
 def migrate(value: uint256):
     assert self.migration_agent != ZERO_ADDRESS

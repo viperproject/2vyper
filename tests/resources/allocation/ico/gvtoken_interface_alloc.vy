@@ -7,6 +7,8 @@
 
 #@ config: allocation, no_derived_wei_resource, trust_casts
 
+import tests.resources.allocation.ico.migration_agent_interface as MigrationAgent
+
 #@ interface
 
 #@ resource: token()
@@ -117,6 +119,13 @@ def transferFrom(_from : address, _to: address, _value: uint256) -> bool:
 #@ performs: offer[token <-> token](1, 0, to=_spender, times=_value)
 @public
 def approve(_spender: address, _value : uint256) -> bool:
+    raise "Not implemented"
+
+
+#@ performs: destroy[token](value)
+#@ performs: reallocate[token[MigrationAgent.new_token(migration_agent(self))]](value, to=msg.sender, actor=migration_agent(self))
+@public
+def migrate(value: uint256):
     raise "Not implemented"
 
 
