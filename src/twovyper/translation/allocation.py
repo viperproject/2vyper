@@ -484,7 +484,25 @@ class AllocationTranslator(CommonTranslator):
         if ctx.quantified_vars:
             quantified_vars = [q_var.var_decl(ctx) for q_var in ctx.quantified_vars.values()]
             is_not_zero = self.viper_ast.Forall(quantified_vars, [], is_not_zero)
-        res.append(self.viper_ast.If(is_not_zero, then, [], pos))
+
+        inhale_class = self.viper_ast.ast.Inhale
+        assert_class = self.viper_ast.ast.Assert
+        exhale_class = self.viper_ast.ast.Exhale
+        supported_classes = [inhale_class, assert_class, exhale_class]
+        if all(stmt.getClass() in supported_classes for stmt in then):
+            for stmt in then:
+                stmt_class = stmt.getClass()
+                implies = self.viper_ast.Implies(is_not_zero, stmt.exp(), stmt.pos())
+                if stmt_class == inhale_class:
+                    res.append(self.viper_ast.Inhale(implies, stmt.pos()))
+                elif stmt_class == assert_class:
+                    res.append(self.viper_ast.Assert(implies, stmt.pos()))
+                elif stmt_class == exhale_class:
+                    res.append(self.viper_ast.Exhale(implies, stmt.pos()))
+                else:
+                    assert False
+        else:
+            res.append(self.viper_ast.If(is_not_zero, then, [], pos))
 
     def _check_trusted_if_non_zero_amount(self, node: ast.Node, address: Expr, by_address: Expr,
                                           amounts: Union[List[Expr], Expr], rule: rules.Rule, res: List[Stmt],
