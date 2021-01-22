@@ -110,7 +110,7 @@ class Carbon(AbstractVerifier):
         args = [
             '--boogieExe', config.boogie_path,
             '--z3Exe', config.z3_path,
-            *(['--model=variables'] if get_model else []),
+            *(['--counterexample=variables'] if get_model else []),
             filename
         ]
 

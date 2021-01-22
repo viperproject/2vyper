@@ -88,9 +88,10 @@ class ModelTranslator(CommonTranslator):
                 transform[var.mangled_name] = var.name
                 type_map[var.mangled_name] = var.type
 
-        transform[ctx.success_var.mangled_name] = f'{names.SUCCESS}()'
-        type_map[ctx.success_var.mangled_name] = ctx.success_var.type
-        if ctx.result_var:
+        if ctx.success_var is not None:
+            transform[ctx.success_var.mangled_name] = f'{names.SUCCESS}()'
+            type_map[ctx.success_var.mangled_name] = ctx.success_var.type
+        if ctx.result_var is not None:
             transform[ctx.result_var.mangled_name] = f'{names.RESULT}()'
             type_map[ctx.result_var.mangled_name] = ctx.result_var.type
 
