@@ -32,7 +32,7 @@ decimals: public(uint256)
     #@ @implements
     #@ def frozen() -> bool: self.frozen
     #@ @implements
-    #@ def migration_agent() -> address: self.migration_agent
+    #@ def migration_agent() -> MigrationAgent: self.migration_agent
     #@ @implements
     #@ def gvtoken_ico() -> address: self.ico
     #@ @implements
