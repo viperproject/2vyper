@@ -721,8 +721,8 @@ class TypeAnnotator(NodeVisitor):
                 return [vyper_type], [node]
             elif case(names.TUPLE):
                 return self._visit_tuple(node.args), [node]
-            elif case(names.SENT) or case(names.RECEIVED) or case(names.ALLOCATED):
-                self.check_number_of_arguments(node, 0, 1, resources=1 if case(names.ALLOCATED) else 0)
+            elif case(names.SENT) or case(names.RECEIVED):
+                self.check_number_of_arguments(node, 0, 1)
 
                 if not node.args:
                     map_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
@@ -730,6 +730,15 @@ class TypeAnnotator(NodeVisitor):
                 else:
                     self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
                     return [types.VYPER_WEI_VALUE], [node]
+            elif case(names.ALLOCATED):
+                self.check_number_of_arguments(node, 0, 1, resources=1)
+
+                if not node.args:
+                    map_type = types.MapType(types.VYPER_ADDRESS, types.NON_NEGATIVE_INT)
+                    return [map_type], [node]
+                else:
+                    self.annotate_expected(node.args[0], types.VYPER_ADDRESS)
+                    return [types.NON_NEGATIVE_INT], [node]
             elif case(names.LOCKED):
                 self.check_number_of_arguments(node, 1)
                 lock = node.args[0]
@@ -873,7 +882,7 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[1], types.VYPER_WEI_VALUE)
                 self.annotate_expected(node.args[2], types.VYPER_ADDRESS)
                 self.annotate_expected(node.args[3], types.VYPER_ADDRESS)
-                return [types.VYPER_INT128], [node]
+                return [types.NON_NEGATIVE_INT], [node]
             elif case(names.NO_OFFERS):
                 self.check_number_of_arguments(node, 1, resources=1)
                 self.annotate_expected(node.args[0], types.VYPER_ADDRESS)

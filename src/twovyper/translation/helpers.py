@@ -80,7 +80,7 @@ def contracts_type():
 
 
 def allocated_type():
-    return MapType(AnyStructType(), MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE))
+    return MapType(AnyStructType(), MapType(types.VYPER_ADDRESS, types.NON_NEGATIVE_INT))
 
 
 def offer_type():
@@ -94,7 +94,7 @@ def offer_type():
 
 
 def offered_type():
-    return MapType(AnyStructType(), MapType(AnyStructType(), MapType(offer_type(), types.VYPER_UINT256)))
+    return MapType(AnyStructType(), MapType(AnyStructType(), MapType(offer_type(), types.NON_NEGATIVE_INT)))
 
 
 def trusted_type():

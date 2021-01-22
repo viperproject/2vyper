@@ -40,6 +40,8 @@ STRING = select_version({'^0.2.0': 'String', '>=0.1.0-beta.16 <0.1.0': 'string'}
 MAP = select_version({'^0.2.0': 'HashMap', '>=0.1.0-beta.16 <0.1.0': 'map'})
 EVENT = 'event'
 
+NON_NEGATIVE_INTEGER = "non_negative_integer"
+
 # Functions
 INIT = '__init__'
 

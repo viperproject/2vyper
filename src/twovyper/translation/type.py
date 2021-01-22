@@ -32,7 +32,8 @@ class TypeTranslator(CommonTranslator):
             types.VYPER_UINT256: wrapped_int_type,
             types.VYPER_DECIMAL: wrapped_int_type,
             types.VYPER_ADDRESS: viper_ast.Int,
-            types.VYPER_BYTE: viper_ast.Int
+            types.VYPER_BYTE: viper_ast.Int,
+            types.NON_NEGATIVE_INT: viper_ast.Int
         }
         self.type_dict = {
             types.VYPER_BOOL: viper_ast.Bool,
@@ -40,7 +41,8 @@ class TypeTranslator(CommonTranslator):
             types.VYPER_UINT256: viper_ast.Int,
             types.VYPER_DECIMAL: viper_ast.Int,
             types.VYPER_ADDRESS: viper_ast.Int,
-            types.VYPER_BYTE: viper_ast.Int
+            types.VYPER_BYTE: viper_ast.Int,
+            types.NON_NEGATIVE_INT: viper_ast.Int
         }
 
     def translate(self, type: VyperType, ctx: Context, is_local=True) -> Type:
@@ -143,6 +145,10 @@ class TypeTranslator(CommonTranslator):
                 else:
                     bounds = self.viper_ast.And(lcmp, ucmp)
                 ret.append(bounds)
+            elif type == types.NON_NEGATIVE_INT:
+                lower = self.viper_ast.IntLit(0)
+                lcmp = self.viper_ast.LeCmp(lower, node)
+                ret.append(lcmp)
             # If we encounter a map, we add the following assumptions:
             #   forall k: Key :: construct(map_get(k))
             #   forall k: Key :: map_get(k) <= map_sum()

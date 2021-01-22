@@ -209,6 +209,8 @@ VYPER_ADDRESS = BoundedType(names.ADDRESS, 0, 2 ** 160 - 1)
 VYPER_BYTE = PrimitiveType(names.BYTE)
 VYPER_BYTES32 = ArrayType(VYPER_BYTE, 32, True)
 
+NON_NEGATIVE_INT = PrimitiveType(names.NON_NEGATIVE_INTEGER)
+
 TYPES = {
     VYPER_BOOL.name: VYPER_BOOL,
     VYPER_WEI_VALUE.name: VYPER_WEI_VALUE,
@@ -248,7 +250,7 @@ TX_TYPE = StructType(names.TX, {
 
 
 def is_numeric(type: VyperType) -> bool:
-    return type in [VYPER_INT128, VYPER_UINT256, VYPER_DECIMAL]
+    return type in [VYPER_INT128, VYPER_UINT256, VYPER_DECIMAL, NON_NEGATIVE_INT]
 
 
 def is_bounded(type: VyperType) -> bool:
@@ -256,7 +258,7 @@ def is_bounded(type: VyperType) -> bool:
 
 
 def is_integer(type: VyperType) -> bool:
-    return type == VYPER_INT128 or type == VYPER_UINT256
+    return type in [VYPER_INT128, VYPER_UINT256, NON_NEGATIVE_INT]
 
 
 def is_unsigned(type: VyperType) -> bool:
@@ -271,7 +273,7 @@ def is_bytes_array(type: VyperType):
     return isinstance(type, ArrayType) and type.element_type == VYPER_BYTE
 
 
-def matches(t, m):
+def matches(t: VyperType, m: VyperType):
     """
     Determines whether a type t matches a required type m in the
     specifications.
@@ -281,9 +283,10 @@ def matches(t, m):
     as mathematical integers.
     """
 
-    a1 = isinstance(t, ArrayType)
-    a2 = isinstance(m, ArrayType) and not m.is_strict
-    if a1 and a2 and t.element_type == m.element_type:
+    if isinstance(t, MapType) and isinstance(m, MapType) and t.key_type == m.key_type:
+        return matches(t.value_type, m.value_type)
+    elif (isinstance(t, ArrayType) and (isinstance(m, ArrayType) and not m.is_strict)
+          and t.element_type == m.element_type):
         return t.size <= m.size
     elif is_integer(t) and is_integer(m):
         return True

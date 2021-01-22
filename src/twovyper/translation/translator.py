@@ -250,6 +250,26 @@ class ProgramTranslator(CommonTranslator):
                 balance_geq_sum = self.viper_ast.GeCmp(balance, allocated_sum)
                 res.append(balance_geq_sum)
 
+                # forall({a: address}, self.balance >= allocated(a)
+                allocated_val = self.allocation_translator.get_allocated(allocated, wei_resource, q_local, ctx)
+                balance_geq_val = self.viper_ast.GeCmp(balance, allocated_val)
+                trigger = self.viper_ast.Trigger([allocated_val])
+                forall_balance_geq_sum = self.viper_ast.Forall([q_var], [trigger], balance_geq_val)
+                res.append(forall_balance_geq_sum)
+
+                # forall({s: struct, a: address}, sum(allocated[s]()) == 0 ==> allocated[s](a) == 0
+                struct_q_var = self.viper_ast.LocalVarDecl('$s', helpers.struct_type(self.viper_ast))
+                struct_q_local = struct_q_var.localVar()
+                allocated_val = self.allocation_translator.get_allocated(allocated, struct_q_local, q_local, ctx)
+                allocated_map = self.allocation_translator.get_allocated_map(allocated, struct_q_local, ctx)
+                allocated_sum = helpers.map_sum(self.viper_ast, allocated_map, address_type)
+                allocated_sum_is_zero = self.viper_ast.EqCmp(allocated_sum, self.viper_ast.IntLit(0))
+                allocated_val_is_zero = self.viper_ast.EqCmp(allocated_val, self.viper_ast.IntLit(0))
+                implies = self.viper_ast.Implies(allocated_sum_is_zero, allocated_val_is_zero)
+                trigger = self.viper_ast.Trigger([allocated_val])
+                forall_allocated_sum_zero = self.viper_ast.Forall([struct_q_var, q_var], [trigger], implies)
+                res.append(forall_allocated_sum_zero)
+
             res.extend(derived_resources_invariants())
             return res
 
