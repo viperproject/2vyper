@@ -1272,6 +1272,9 @@ class ExpressionTranslator(NodeTranslator):
                                         sender_is_resource_address = self.viper_ast.EqCmp(msg_sender, location_address)
                                     else:
                                         sender_is_resource_address = self.viper_ast.FalseLit()
+
+                                    with ctx.performs_only_interface_call_scope():
+                                        self.spec_translator.translate(performs, general_stmts_for_performs, ctx)
                                     perform_as_stmts = []
                                     self.spec_translator.translate(performs, perform_as_stmts, ctx)
 

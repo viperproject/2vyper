@@ -637,13 +637,15 @@ class AllocationTranslator(CommonTranslator):
                          ctx: Context, pos=None):
         if ctx.program.config.has_option(names.CONFIG_NO_PERFORMS):
             return
+        if ctx.inside_interface_call and not ctx.inside_performs_only_interface_call:
+            return
 
         pred_access_pred = self._performs_acc_predicate(function, args, ctx, pos)
         modelt = self.model_translator.save_variables(res, ctx, pos)
         combined_rule = rules.combine(rules.NO_PERFORMS_FAIL, rule)
         apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
 
-        if ctx.inside_interface_call:
+        if ctx.inside_performs_only_interface_call:
             # Only exhale if we have enough "perm" (Redeclaration of performs is optional)
             pred = helpers.performs_predicate(self.viper_ast, function, args, pos)
             perm = self.viper_ast.CurrentPerm(pred, pos)
@@ -681,6 +683,8 @@ class AllocationTranslator(CommonTranslator):
     def allocate_derived(self, node: ast.Node,
                          resource: Expr, address: Expr, actor: Expr, amount: Expr,
                          res: List[Stmt], ctx: Context, pos=None):
+        if ctx.inside_performs_only_interface_call:
+            return
         with ctx.self_address_scope(helpers.self_address(self.viper_ast)):
             self._check_trusted_if_non_zero_amount(node, actor, address, amount, rules.PAYABLE_FAIL, res, ctx, pos)
         self.allocate(resource, address, amount, res, ctx, pos)
@@ -704,6 +708,9 @@ class AllocationTranslator(CommonTranslator):
         stmts = []
         self._exhale_performs_if_non_zero_amount(node, names.REALLOCATE, [resource, frm, to, amount], amount,
                                                  rules.REALLOCATE_FAIL, stmts, ctx, pos)
+        if ctx.inside_performs_only_interface_call:
+            res.extend(stmts)
+            return
         self._check_trusted_if_non_zero_amount(node, actor, frm, amount, rules.REALLOCATE_FAIL, stmts, ctx, pos)
         self._check_allocation(node, resource, frm, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
         self._change_allocation(resource, frm, amount, False, stmts, ctx, pos)
@@ -722,9 +729,10 @@ class AllocationTranslator(CommonTranslator):
             resource, underlying_resource = self.resource_translator.translate_with_underlying(None, res, ctx)
         self_address = ctx.self_address or helpers.self_address(self.viper_ast)
         with ctx.interface_call_scope():
-            self._exhale_performs_if_non_zero_amount(node, names.REALLOCATE,
-                                                     [underlying_resource, self_address, address, amount],
-                                                     amount, rules.REALLOCATE_FAIL, res, ctx, pos)
+            with ctx.performs_only_interface_call_scope():
+                self._exhale_performs_if_non_zero_amount(node, names.REALLOCATE,
+                                                         [underlying_resource, self_address, address, amount],
+                                                         amount, rules.REALLOCATE_FAIL, res, ctx, pos)
 
         if no_derived_wei:
             return
@@ -742,6 +750,10 @@ class AllocationTranslator(CommonTranslator):
 
         self._exhale_performs_if_non_zero_amount(node, names.RESOURCE_PAYOUT, [resource, address, amount], amount,
                                                  rules.PAYOUT_FAIL, stmts, ctx, pos)
+
+        if ctx.inside_performs_only_interface_call:
+            res.extend(stmts)
+            return
 
         offer_check_stmts = []
 
@@ -777,6 +789,10 @@ class AllocationTranslator(CommonTranslator):
         self._exhale_performs_if_non_zero_amount(node, names.CREATE, [resource, frm, to, amount], amount,
                                                  rules.CREATE_FAIL, stmts, ctx, pos)
 
+        if ctx.inside_performs_only_interface_call:
+            res.extend(stmts)
+            return
+
         # The initializer is allowed to create all resources unchecked.
         if not is_init:
             def check(then):
@@ -810,6 +826,10 @@ class AllocationTranslator(CommonTranslator):
         stmts = []
         self._exhale_performs_if_non_zero_amount(node, names.DESTROY, [resource, address, amount], amount,
                                                  rules.DESTROY_FAIL, stmts, ctx, pos)
+
+        if ctx.inside_performs_only_interface_call:
+            res.extend(stmts)
+            return
         self._check_trusted_if_non_zero_amount(node, actor, address, amount, rules.DESTROY_FAIL, stmts, ctx, pos)
         self._check_allocation(node, resource, address, amount, rules.DESTROY_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
 
@@ -975,6 +995,10 @@ class AllocationTranslator(CommonTranslator):
         self._exhale_performs_if_non_zero_amount(node, names.OFFER, [from_resource, to_resource, from_value,
                                                                      to_value, from_owner, to_owner, times],
                                                  [from_value, times], rules.OFFER_FAIL, stmts, ctx, pos)
+
+        if ctx.inside_performs_only_interface_call:
+            res.extend(stmts)
+            return
         self._check_trusted_if_non_zero_amount(node, actor, from_owner, [from_value, times],
                                                rules.OFFER_FAIL, stmts, ctx, pos)
 
@@ -1013,6 +1037,10 @@ class AllocationTranslator(CommonTranslator):
         self._exhale_performs_if_non_zero_amount(node, names.OFFER, [resource, underlying_resource, const_one,
                                                                      const_one, owner, owner, amount],
                                                  amount, rules.OFFER_FAIL, stmts, ctx, pos)
+
+        if ctx.inside_performs_only_interface_call:
+            res.extend(stmts)
+            return
         self._check_trusted_if_non_zero_amount(node, actor, owner, amount,
                                                rules.OFFER_FAIL, stmts, ctx, pos)
 
@@ -1030,6 +1058,10 @@ class AllocationTranslator(CommonTranslator):
         self._exhale_performs_if_non_zero_amount(node, names.REVOKE, [from_resource, to_resource, from_value,
                                                                       to_value, from_owner, to_owner],
                                                  from_value, rules.REVOKE_FAIL, stmts, ctx, pos)
+
+        if ctx.inside_performs_only_interface_call:
+            res.extend(stmts)
+            return
         self._check_trusted_if_non_zero_amount(node, actor, from_owner, from_value, rules.REVOKE_FAIL, stmts, ctx, pos)
         if ctx.quantified_vars:
             # We are translating a
@@ -1067,6 +1099,10 @@ class AllocationTranslator(CommonTranslator):
                                                                         owner1, owner2, times],
                                                  [self.viper_ast.Add(value1, value2), times], rules.EXCHANGE_FAIL,
                                                  stmts, ctx, pos)
+
+        if ctx.inside_performs_only_interface_call:
+            res.extend(stmts)
+            return
 
         def check_owner_1(then):
             # If value1 == 0, owner1 will definitely agree, else we check that they offered the exchange, and
