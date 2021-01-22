@@ -65,11 +65,11 @@ isPaused: bool
 #@ always ensures: old(self.state) == 4 ==> self.state == 4
 # Property spec_06 (altered)
 # Original property had not "self.state != 4", but this would not be true if we finishIco from a paused state.
-#@ always ensures: self.isPaused and self.state != 4 ==> sum(allocated[GVT.token[self.gvToken]]()) == old(sum(allocated[GVT.token[self.gvToken]]()))
+#@ always ensures: self.isPaused and self.state != 4 ==> GVT.total_supply(self.gvToken) == old(GVT.total_supply(self.gvToken))
 # Property spec_07 (altered)
 #@ inter contract invariant: self._init ==> not frozen(self.gvToken) ==> self.state == 4
 # Property spec_08
-#@ always ensures: old(self._init) ==> migration_agent(self.gvToken) == 0 and old(sum(allocated[GVT.token[self.gvToken]]())) > sum(allocated[GVT.token[self.gvToken]]()) ==> self.state == 3 or self.state == 2
+#@ always ensures: old(self._init) ==> migration_agent(self.gvToken) == 0 and old(GVT.total_supply(self.gvToken)) > GVT.total_supply(self.gvToken) ==> self.state == 3 or self.state == 2
 
 
 
