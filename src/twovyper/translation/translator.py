@@ -110,10 +110,10 @@ class ProgramTranslator(CommonTranslator):
         predicates = seq_to_list(self.builtins.predicates())
 
         # Add self.$sent field
-        sent_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+        sent_type = types.MapType(types.VYPER_ADDRESS, types.NON_NEGATIVE_INT)
         vyper_program.fields.type.add_member(mangled.SENT_FIELD, sent_type)
         # Add self.$received field
-        received_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+        received_type = types.MapType(types.VYPER_ADDRESS, types.NON_NEGATIVE_INT)
         vyper_program.fields.type.add_member(mangled.RECEIVED_FIELD, received_type)
         # Add self.$selfdestruct field
         selfdestruct_type = types.VYPER_BOOL
