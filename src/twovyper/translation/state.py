@@ -72,7 +72,7 @@ class StateTranslator(CommonTranslator):
         return state_var != mangled.CONTRACTS
 
     @staticmethod
-    def _is_allocation(state_var: str) -> bool:
+    def is_allocation(state_var: str) -> bool:
         return (state_var == mangled.ALLOCATED
                 or state_var == mangled.TRUSTED
                 or state_var == mangled.OFFERED)
@@ -122,9 +122,9 @@ class StateTranslator(CommonTranslator):
             ctx.new_local_vars.append(val.var_decl(ctx, pos))
 
         self.copy_state(ctx.current_state, old_state_for_performs, res, ctx,
-                        unless=lambda n: not self._is_allocation(n))
+                        unless=lambda n: not self.is_allocation(n))
         self.copy_state(ctx.current_old_state, old_state_for_performs, res, ctx,
-                        unless=self._is_allocation)
+                        unless=self.is_allocation)
         self.havoc_state(state, res, ctx, pos, unless=self._is_self)
         with ctx.state_scope(ctx.current_state, old_state_for_performs):
             self.expression_translator.assume_own_resources_stayed_constant(res, ctx, pos)

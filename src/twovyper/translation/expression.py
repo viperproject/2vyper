@@ -1609,6 +1609,11 @@ class ExpressionTranslator(NodeTranslator):
             self.state_translator.copy_state(old_state_for_postconditions, ctx.current_old_state, res,
                                              ctx, unless=lambda n: n == mangled.SELF)
 
+            # Assume type assumptions for allocation maps
+            self.state_translator.assume_type_assumptions_for_state(
+                {name: state for name, state in ctx.current_state.items() if StateTranslator.is_allocation(name)},
+                "State after call", res, ctx)
+
         success = self.viper_ast.Not(fail_cond, pos)
         amount = amount or self.viper_ast.IntLit(0)
         # Assume postcondition of the external call
