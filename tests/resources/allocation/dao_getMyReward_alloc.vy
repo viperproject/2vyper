@@ -1,3 +1,5 @@
+#:: IgnoreFile(carbon)(0)
+
 #
 # Copyright (c) 2020 ETH Zurich
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -35,7 +37,7 @@ def withdrawRewardFor(_account: address) -> bool:
 
 #@ performs: payout(0 if self.totalSupply == 0 else
     #@ (self.balanceOf[msg.sender] * self.accumulatedInput) / self.totalSupply - self.paidOut[msg.sender])
-#:: ExpectedOutput(carbon)(invariant.violated:assertion.false, INV)
+#:: UnexpectedOutput(carbon)(invariant.violated:assertion.false, 0, INV)
 @public
 def getMyReward() -> bool:
     #:: Label(INLINE)

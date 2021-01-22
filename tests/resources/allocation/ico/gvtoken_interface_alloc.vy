@@ -31,6 +31,7 @@ import tests.resources.allocation.ico.migration_agent_interface as MigrationAgen
 
 #@ invariant: minter(self) == old(minter(self))
 #@ invariant: total_supply(self) == sum(balanceOf(self))
+#@ invariant: total_supply(self) == sum(allocated[token]())  # Not necessary but improves performance
 
 #@ invariant: old(migration_agent(self)) != ZERO_ADDRESS ==> migration_agent(self) == old(migration_agent(self))
 

@@ -13,7 +13,7 @@
 
 import tests.resources.allocation.ERC1363.IERC1363Spender_alloc as IERC1363Spender
 import tests.resources.allocation.ERC1363.IERC1363_alloc as not_used
-import tests.resources.allocation.ERC1363.IERC1363_alloc_redeclare_fail as IERC1363_alloc
+import tests.resources.language.inter_contract.IERC1363_alloc_redeclare_fail as IERC1363_alloc
 
 # @dev Implementation of ERC-1363 token standard
 implements: IERC1363_alloc

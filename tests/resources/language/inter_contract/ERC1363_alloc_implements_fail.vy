@@ -14,8 +14,8 @@
 #@ config: allocation, no_derived_wei_resource, trust_casts
 
 import tests.resources.allocation.ERC1363.IERC1363Spender_alloc as IERC1363Spender
+import tests.resources.allocation.ERC1363.IERC1363_alloc as IERC1363_alloc
 from vyper.interfaces import ERC20
-from . import IERC1363_alloc
 
 # @dev Implementation of ERC-1363 token standard
 implements: IERC1363_alloc
