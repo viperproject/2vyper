@@ -82,10 +82,10 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
 
 class ProgramTranslator(CommonTranslator):
 
-    def __init__(self, viper_ast: ViperAST, builtins: Program):
+    def __init__(self, viper_ast: ViperAST, twovyper_builtins: Program):
         viper_ast = WrappedViperAST(viper_ast)
         super().__init__(viper_ast)
-        self.builtins = builtins
+        self.builtins = twovyper_builtins
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.function_translator = FunctionTranslator(viper_ast)
         self.pure_function_translator = PureFunctionTranslator(viper_ast)
@@ -145,13 +145,8 @@ class ProgramTranslator(CommonTranslator):
             derived_resources_invs = []
             trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
             offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
-            allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
 
             self_address = ctx.self_address or helpers.self_address(self.viper_ast)
-            q_address = self.viper_ast.LocalVarDecl('$a', self.viper_ast.Int)
-            q_address_var = q_address.localVar()
-            type_conds = self.type_translator.type_assumptions(q_address_var, types.VYPER_ADDRESS, ctx)
-            q_address_type_cond = reduce(lambda l, r: self.viper_ast.And(l, r), type_conds, self.viper_ast.TrueLit())
 
             own_derived_resources = [(name, resource) for name, resource in ctx.program.own_resources.items()
                                      if isinstance(resource.type, types.DerivedResourceType)]
@@ -249,26 +244,6 @@ class ProgramTranslator(CommonTranslator):
                 allocated_sum = helpers.map_sum(self.viper_ast, allocated_map, address_type)
                 balance_geq_sum = self.viper_ast.GeCmp(balance, allocated_sum)
                 res.append(balance_geq_sum)
-
-                # forall({a: address}, self.balance >= allocated(a)
-                allocated_val = self.allocation_translator.get_allocated(allocated, wei_resource, q_local, ctx)
-                balance_geq_val = self.viper_ast.GeCmp(balance, allocated_val)
-                trigger = self.viper_ast.Trigger([allocated_val])
-                forall_balance_geq_sum = self.viper_ast.Forall([q_var], [trigger], balance_geq_val)
-                res.append(forall_balance_geq_sum)
-
-                # forall({s: struct, a: address}, sum(allocated[s]()) == 0 ==> allocated[s](a) == 0
-                struct_q_var = self.viper_ast.LocalVarDecl('$s', helpers.struct_type(self.viper_ast))
-                struct_q_local = struct_q_var.localVar()
-                allocated_val = self.allocation_translator.get_allocated(allocated, struct_q_local, q_local, ctx)
-                allocated_map = self.allocation_translator.get_allocated_map(allocated, struct_q_local, ctx)
-                allocated_sum = helpers.map_sum(self.viper_ast, allocated_map, address_type)
-                allocated_sum_is_zero = self.viper_ast.EqCmp(allocated_sum, self.viper_ast.IntLit(0))
-                allocated_val_is_zero = self.viper_ast.EqCmp(allocated_val, self.viper_ast.IntLit(0))
-                implies = self.viper_ast.Implies(allocated_sum_is_zero, allocated_val_is_zero)
-                trigger = self.viper_ast.Trigger([allocated_val])
-                forall_allocated_sum_zero = self.viper_ast.Forall([struct_q_var, q_var], [trigger], implies)
-                res.append(forall_allocated_sum_zero)
 
             res.extend(derived_resources_invariants())
             return res
@@ -431,7 +406,7 @@ class ProgramTranslator(CommonTranslator):
         for idx, var in enumerate(function.args.values()):
             args.append(TranslatedVar(var.name, f'$arg_{idx}', var.type, self.viper_ast, pos))
         args_var_decls = [arg.var_decl(ctx) for arg in args]
-        type = self.type_translator.translate(function.type.return_type, ctx)
+        viper_type = self.type_translator.translate(function.type.return_type, ctx)
 
         if ctx.program.config.has_option(names.CONFIG_TRUST_CASTS):
             pres = []
@@ -442,7 +417,7 @@ class ProgramTranslator(CommonTranslator):
             implements = helpers.implements(self.viper_ast, addr, interface.name, ctx, pos)
             pres = [implements]
 
-        result = self.viper_ast.Result(type)
+        result = self.viper_ast.Result(viper_type)
         posts = self.type_translator.type_assumptions(result, function.type.return_type, ctx)
 
         # If the ghost function has an implementation we add a postcondition for that
@@ -451,7 +426,9 @@ class ProgramTranslator(CommonTranslator):
             with ctx.function_scope():
                 ctx.args = {arg.name: arg for arg in args}
                 ctx.current_state = {mangled.SELF: self_var}
-                expr = implementation.node.body[0].value
+                body = implementation.node.body[0]
+                assert isinstance(body, ast.ExprStmt)
+                expr = body.value
                 stmts = []
                 impl_expr = self.specification_translator.translate(expr, stmts, ctx)
                 assert not stmts
@@ -460,7 +437,7 @@ class ProgramTranslator(CommonTranslator):
                 is_self = self.viper_ast.EqCmp(addr_var.local_var(ctx), self_address, pos)
                 posts.append(self.viper_ast.Implies(is_self, definition, pos))
 
-        return self.viper_ast.Function(fname, args_var_decls, type, pres, posts, None, pos)
+        return self.viper_ast.Function(fname, args_var_decls, viper_type, pres, posts, None, pos)
 
     def _translate_implements(self, program: VyperProgram, ctx: Context):
         domain = mangled.IMPLEMENTS_DOMAIN
@@ -476,8 +453,8 @@ class ProgramTranslator(CommonTranslator):
 
     def _translate_event(self, event: VyperEvent, ctx: Context):
         name = mangled.event_name(event.name)
-        types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
-        args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type) for idx, type in enumerate(types)]
+        viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+        args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', viper_type) for idx, viper_type in enumerate(viper_types)]
         return self.viper_ast.Predicate(name, args, None)
 
     def _translate_accessible(self, function: VyperFunction, ctx: Context):
