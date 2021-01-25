@@ -531,10 +531,7 @@ class FunctionTranslator(CommonTranslator):
                         cond_fail = self.specification_translator.translate_check(check, checks_fail, ctx, True)
                         checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
-                check_info = self.to_info(["Assert checks"])
-                if_stmt = self.viper_ast.If(success_var, checks_succ, checks_fail, info=check_info)
-                body.append(if_stmt)
-
+                body.extend(helpers.flattened_conditional(self.viper_ast, success_var, checks_succ, checks_fail))
                 # Havoc self.balance
                 self._havoc_balance(body, ctx)
 

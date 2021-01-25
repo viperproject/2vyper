@@ -578,3 +578,39 @@ def havoc_var(viper_ast: ViperAST, viper_type, ctx: Context):
         havoc = viper_ast.LocalVarDecl(havoc_name, viper_type)
         ctx.new_local_vars.append(havoc)
         return havoc.localVar()
+
+
+def flattened_conditional(viper_ast: ViperAST, cond, thn, els, pos=None):
+    res = []
+
+    if_class = viper_ast.ast.If
+    seqn_class = viper_ast.ast.Seqn
+    assign_class = viper_ast.ast.LocalVarAssign
+    assume_or_check_stmts = [viper_ast.ast.Inhale, viper_ast.ast.Assert, viper_ast.ast.Exhale]
+    supported_classes = [*assume_or_check_stmts, if_class, seqn_class, assign_class]
+    if all(stmt.__class__ in supported_classes for stmt in thn + els):
+        not_cond = viper_ast.Not(cond, pos)
+        thn = [(stmt, cond) for stmt in thn]
+        els = [(stmt, not_cond) for stmt in els]
+        for stmt, cond in thn + els:
+            stmt_class = stmt.__class__
+            if stmt_class in assume_or_check_stmts:
+                implies = viper_ast.Implies(cond, stmt.exp(), stmt.pos())
+                res.append(stmt_class(implies, stmt.pos(), stmt.info(), stmt.errT()))
+            elif stmt_class == assign_class:
+                cond_expr = viper_ast.CondExp(cond, stmt.rhs(), stmt.lhs(), stmt.pos())
+                res.append(viper_ast.LocalVarAssign(stmt.lhs(), cond_expr, stmt.pos()))
+            elif stmt_class == if_class:
+                new_cond = viper_ast.And(stmt.cond(), cond, stmt.pos())
+                res.extend(flattened_conditional(viper_ast, new_cond, stmt.thn(), [], stmt.pos()))
+                new_cond = viper_ast.And(viper_ast.Not(stmt.cond(), stmt.pos()), cond, stmt.pos())
+                res.extend(flattened_conditional(viper_ast, new_cond, stmt.els(), [], stmt.pos()))
+            elif stmt_class == seqn_class:
+                seqn_as_list = viper_ast.to_list(stmt.ss())
+                transformed_stmts = flattened_conditional(viper_ast, cond, seqn_as_list, [], stmt.pos())
+                res.append(viper_ast.Seqn(transformed_stmts, stmt.pos(), stmt.info()))
+            else:
+                assert False
+    else:
+        res.append(viper_ast.If(cond, thn, [], pos))
+    return res

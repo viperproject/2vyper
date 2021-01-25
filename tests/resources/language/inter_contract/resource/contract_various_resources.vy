@@ -1,6 +1,3 @@
-#:: IgnoreFile(0)
-# Takes about 5 min. with Silicon
-
 #
 # Copyright (c) 2020 ETH Zurich
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -58,11 +55,6 @@ k: interface_a2
 #@ inter contract invariant: forall({a: address}, allocated[interface_d.d[self.g]()](a) == 0)
 
 
-#@ performs: reallocate[d](0, to=msg.sender)
-#@ performs: reallocate[d()](0, to=msg.sender)
-#@ performs: reallocate[interface_d.d](0, to=msg.sender)
-#@ performs: reallocate[interface_d.d()](0, to=msg.sender)
-#@ performs: reallocate[interface_d.d()](0, to=msg.sender)
 @public
 def foo():
     send(msg.sender, 0)

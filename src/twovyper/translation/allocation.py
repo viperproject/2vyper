@@ -470,9 +470,6 @@ class AllocationTranslator(CommonTranslator):
 
     def _if_non_zero_values(self, fun: Callable[[List[Stmt]], None], amounts: Union[List[Expr], Expr], res: List[Stmt],
                             ctx: Context, pos=None):
-        """
-        Only check trusted if all values are non-zero.
-        """
         then = []
         fun(then)
         zero = self.viper_ast.IntLit(0, pos)
@@ -485,28 +482,14 @@ class AllocationTranslator(CommonTranslator):
             quantified_vars = [q_var.var_decl(ctx) for q_var in ctx.quantified_vars.values()]
             is_not_zero = self.viper_ast.Forall(quantified_vars, [], is_not_zero)
 
-        inhale_class = self.viper_ast.ast.Inhale
-        assert_class = self.viper_ast.ast.Assert
-        exhale_class = self.viper_ast.ast.Exhale
-        supported_classes = [inhale_class, assert_class, exhale_class]
-        if all(stmt.getClass() in supported_classes for stmt in then):
-            for stmt in then:
-                stmt_class = stmt.getClass()
-                implies = self.viper_ast.Implies(is_not_zero, stmt.exp(), stmt.pos())
-                if stmt_class == inhale_class:
-                    res.append(self.viper_ast.Inhale(implies, stmt.pos()))
-                elif stmt_class == assert_class:
-                    res.append(self.viper_ast.Assert(implies, stmt.pos()))
-                elif stmt_class == exhale_class:
-                    res.append(self.viper_ast.Exhale(implies, stmt.pos()))
-                else:
-                    assert False
-        else:
-            res.append(self.viper_ast.If(is_not_zero, then, [], pos))
+        res.extend(helpers.flattened_conditional(self.viper_ast, is_not_zero, then, [], pos))
 
     def _check_trusted_if_non_zero_amount(self, node: ast.Node, address: Expr, by_address: Expr,
                                           amounts: Union[List[Expr], Expr], rule: rules.Rule, res: List[Stmt],
                                           ctx: Context, pos=None):
+        """
+        Only check trusted if all values are non-zero.
+        """
         self._if_non_zero_values(lambda l: self._check_trusted(node, address, by_address, rule, l, ctx, pos),
                                  amounts, res, ctx, pos)
 
@@ -734,7 +717,7 @@ class AllocationTranslator(CommonTranslator):
         is_itself = self.viper_ast.EqCmp(msg_sender, address, pos)
         is_trusted_address = self.viper_ast.Or(is_itself, is_trusted_address, pos)
         not_trusted_address = self.viper_ast.Not(is_trusted_address, pos)
-        stmts.append(self.viper_ast.If(not_trusted_address, offer_check_stmts, [], pos))
+        stmts.extend(helpers.flattened_conditional(self.viper_ast, not_trusted_address, offer_check_stmts, [], pos))
 
         self._check_allocation(node, resource, address, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS,
                                stmts, ctx, pos)

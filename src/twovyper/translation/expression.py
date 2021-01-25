@@ -1066,25 +1066,7 @@ class ExpressionTranslator(NodeTranslator):
 
             if receiver and body:
                 neq_cmp = self.viper_ast.NeCmp(receiver, interface_ref)
-
-                inhale_class = self.viper_ast.ast.Inhale
-                seqn_class = self.viper_ast.ast.Seqn
-
-                def transform_stmt(statement):
-                    if statement.getClass() != inhale_class:
-                        return statement
-                    implies = self.viper_ast.Implies(neq_cmp, statement.exp(), statement.pos())
-                    return self.viper_ast.Inhale(implies, statement.pos(), statement.info())
-
-                new_body = []
-                for stmt in body:
-                    if stmt.getClass() == seqn_class:
-                        seqn_as_list = self.viper_ast.to_list(stmt.ss())
-                        seqn_as_list = [transform_stmt(e) for e in seqn_as_list]
-                        new_body.append(self.viper_ast.Seqn(seqn_as_list, stmt.pos(), stmt.info()))
-                    else:
-                        new_body.append(transform_stmt(stmt))
-                body = new_body
+                body = helpers.flattened_conditional(self.viper_ast, neq_cmp, body, [])
 
             # Assume interface invariants
             interface = ctx.program.interfaces[interface_name]
@@ -1099,7 +1081,7 @@ class ExpressionTranslator(NodeTranslator):
                 res.extend(body)
             else:
                 implements = helpers.implements(self.viper_ast, interface_ref, interface_name, ctx)
-                res.append(self.viper_ast.If(implements, body, []))
+                res.extend(helpers.flattened_conditional(self.viper_ast, implements, body, []))
 
     def log_event(self, event: VyperEvent, args: List[Expr], res: List[Stmt], ctx: Context, pos=None):
         assert ctx
@@ -1290,8 +1272,8 @@ class ExpressionTranslator(NodeTranslator):
                                     performs_decider_variables[performs_idx] = performs_local_var
                                     sender_is_resource_address_map[performs_idx] = sender_is_resource_address
 
-                                    def conditional_perform_generator(p_idx: int) -> Callable[[int], Stmt]:
-                                        def conditional_perform(index: int) -> Stmt:
+                                    def conditional_perform_generator(p_idx: int) -> Callable[[int], List[Stmt]]:
+                                        def conditional_perform(index: int) -> List[Stmt]:
                                             if index >= 0:
                                                 idx = self.viper_ast.IntLit(index)
                                                 decider_eq_idx = self.viper_ast.EqCmp(
@@ -1299,10 +1281,12 @@ class ExpressionTranslator(NodeTranslator):
                                                 cond_for_perform = self.viper_ast.And(
                                                     decider_eq_idx, self.viper_ast.Not(
                                                         sender_is_resource_address_map[performs_idx]))
-                                                return self.viper_ast.If(cond_for_perform, performs_as_stmts[p_idx], [])
+                                                return helpers.flattened_conditional(self.viper_ast, cond_for_perform,
+                                                                                     performs_as_stmts[p_idx], [])
                                             else:
-                                                return self.viper_ast.If(sender_is_resource_address_map[performs_idx],
-                                                                         performs_as_stmts[p_idx], [])
+                                                return helpers.flattened_conditional(
+                                                    self.viper_ast, sender_is_resource_address_map[performs_idx],
+                                                    performs_as_stmts[p_idx], [])
 
                                         return conditional_perform
 
@@ -1478,7 +1462,7 @@ class ExpressionTranslator(NodeTranslator):
 
             caller_address = ctx.self_address or helpers.self_address(self.viper_ast)
             self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
-            res.extend([performs_as_stmts(0) for performs_as_stmts in performs_as_stmts_generators])
+            res.extend(stmt for performs_as_stmts in performs_as_stmts_generators for stmt in performs_as_stmts(0))
             self.state_translator.copy_state(ctx.current_state, old_state_for_inter_contract_invariant_during, res, ctx)
 
             # Assume caller private and create new contract state
@@ -1489,7 +1473,7 @@ class ExpressionTranslator(NodeTranslator):
             self.assume_own_resources_stayed_constant(res, ctx, pos)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
             self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
-            res.extend([performs_as_stmts(1) for performs_as_stmts in performs_as_stmts_generators])
+            res.extend(stmt for performs_as_stmts in performs_as_stmts_generators for stmt in performs_as_stmts(1))
             self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, res, ctx,
                                              unless=lambda n: n == mangled.SELF)
             self.state_translator.havoc_state(ctx.current_state, res, ctx)
@@ -1501,7 +1485,7 @@ class ExpressionTranslator(NodeTranslator):
             #  have happened, but it is before the receiver of the external call has made any re-entrant call to self. #
             ############################################################################################################
 
-            res.extend([performs_as_stmts(-1) for performs_as_stmts in performs_as_stmts_generators])
+            res.extend(stmt for performs_as_stmts in performs_as_stmts_generators for stmt in performs_as_stmts(-1))
             type_ass = self.type_translator.type_assumptions(self_var, ctx.self_type, ctx)
             assume_type_ass = [self.viper_ast.Inhale(inv) for inv in type_ass]
             self.seqn_with_info(assume_type_ass, "Assume type assumptions", res)
@@ -1532,7 +1516,8 @@ class ExpressionTranslator(NodeTranslator):
             use_zero_reentrant_call_state = []
             self.state_translator.copy_state(ctx.current_old_state, ctx.current_state,
                                              use_zero_reentrant_call_state, ctx)
-            res.append(self.viper_ast.If(no_reentrant_cond, use_zero_reentrant_call_state, []))
+            res.extend(helpers.flattened_conditional(self.viper_ast, no_reentrant_cond,
+                                                     use_zero_reentrant_call_state, []))
 
             ############################################################################################################
             #      At this point, we have a self state with all the assumptions of a self state in a public state.     #
@@ -1574,7 +1559,7 @@ class ExpressionTranslator(NodeTranslator):
             self.assume_own_resources_stayed_constant(res, ctx, pos)
             self.seqn_with_info(assume_caller_private_without_receiver, "Assume caller private", res)
             self.implicit_resource_caller_private_expressions(interface, to, caller_address, res, ctx)
-            res.extend([performs_as_stmts(2) for performs_as_stmts in performs_as_stmts_generators])
+            res.extend(stmt for performs_as_stmts in performs_as_stmts_generators for stmt in performs_as_stmts(2))
 
             ############################################################################################################
             # The contract state is at the point where the external call returns. Since the last modeled public state, #

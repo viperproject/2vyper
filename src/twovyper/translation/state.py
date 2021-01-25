@@ -189,4 +189,4 @@ class StateTranslator(CommonTranslator):
             var_assign = self.viper_ast.LocalVarAssign(first_public_state, false, pos)
             stmts.append(var_assign)
 
-        res.append(self.viper_ast.If(first_public_state, stmts, [], pos, info))
+        res.extend(helpers.flattened_conditional(self.viper_ast, first_public_state, stmts, [], pos))
