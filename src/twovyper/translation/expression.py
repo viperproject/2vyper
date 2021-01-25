@@ -1255,26 +1255,22 @@ class ExpressionTranslator(NodeTranslator):
 
                                 # Assume performs clauses
                                 with ctx.derived_resource_performs_scope():
-                                    with ctx.interface_call_scope():
-                                        ctx.inside_interface_call = False
-                                        for performs in function.performs:
-                                            self.spec_translator.translate(performs, general_stmts_for_performs,
-                                                                           ctx)
+                                    for performs in function.performs:
+                                        self.spec_translator.translate_ghost_statement(
+                                            performs, general_stmts_for_performs, ctx, is_performs=True)
 
                                 zero = self.viper_ast.IntLit(0)
                                 two = self.viper_ast.IntLit(2)
 
                                 for performs_idx, performs in enumerate(function.performs):
 
-                                    location_address = self.allocation_translator\
-                                        .location_address_of_performs(performs, res, ctx)
+                                    location_address = self.allocation_translator.location_address_of_performs(
+                                        performs, res, ctx)
                                     if location_address is not None:
                                         sender_is_resource_address = self.viper_ast.EqCmp(msg_sender, location_address)
                                     else:
                                         sender_is_resource_address = self.viper_ast.FalseLit()
 
-                                    with ctx.performs_only_interface_call_scope():
-                                        self.spec_translator.translate(performs, general_stmts_for_performs, ctx)
                                     perform_as_stmts = []
                                     self.spec_translator.translate(performs, perform_as_stmts, ctx)
 

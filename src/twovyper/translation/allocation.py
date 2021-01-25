@@ -637,7 +637,7 @@ class AllocationTranslator(CommonTranslator):
                          ctx: Context, pos=None):
         if ctx.program.config.has_option(names.CONFIG_NO_PERFORMS):
             return
-        if ctx.inside_interface_call and not ctx.inside_performs_only_interface_call:
+        if ctx.inside_interface_call:
             return
 
         pred_access_pred = self._performs_acc_predicate(function, args, ctx, pos)
@@ -645,36 +645,7 @@ class AllocationTranslator(CommonTranslator):
         combined_rule = rules.combine(rules.NO_PERFORMS_FAIL, rule)
         apos = self.to_position(node, ctx, combined_rule, modelt=modelt)
 
-        if ctx.inside_performs_only_interface_call:
-            # Only exhale if we have enough "perm" (Redeclaration of performs is optional)
-            pred = helpers.performs_predicate(self.viper_ast, function, args, pos)
-            perm = self.viper_ast.CurrentPerm(pred, pos)
-            write = self.viper_ast.FullPerm(pos)
-            enough_perm = self.viper_ast.GeCmp(perm, write, pos)
-
-            # Only exhale if the address is not self and the resource is potentially an "own resource"
-            address = None
-            if isinstance(node, ast.FunctionCall) and node.name in names.GHOST_STATEMENTS:
-                interface_files = [ctx.program.interfaces[impl.name].file for impl in ctx.program.implements]
-                address, resource = self.location_address_of_performs(node, res, ctx, pos, return_resource=True)
-                if resource is not None and (resource.file is None  # It is okay to declare performs for wei
-                                             # It is okay to declare performs for own private resources
-                                             or resource.file == ctx.program.file
-                                             # It is okay to redeclare performs with resources not in interfaces
-                                             # this contract implements
-                                             or resource.file not in interface_files):
-                    address = None
-            if address is not None:
-                self_address = helpers.self_address(self.viper_ast)
-                address_cond = self.viper_ast.NeCmp(address, self_address, pos)
-            else:
-                address_cond = self.viper_ast.TrueLit(pos)
-
-            cond = self.viper_ast.And(enough_perm, address_cond)
-            cond_pred = self.viper_ast.CondExp(cond, pred_access_pred, self.viper_ast.TrueLit(), pos)
-            res.append(self.viper_ast.Exhale(cond_pred, apos))
-        else:
-            res.append(self.viper_ast.Exhale(pred_access_pred, apos))
+        res.append(self.viper_ast.Exhale(pred_access_pred, apos))
 
     def check_performs(self, node: ast.Node, function: str, args: List[Expr], amounts: Union[List[Expr], Expr],
                        rule: Rule, res: List[Stmt], ctx: Context, pos=None):
@@ -683,8 +654,7 @@ class AllocationTranslator(CommonTranslator):
     def allocate_derived(self, node: ast.Node,
                          resource: Expr, address: Expr, actor: Expr, amount: Expr,
                          res: List[Stmt], ctx: Context, pos=None):
-        if ctx.inside_performs_only_interface_call:
-            return
+
         with ctx.self_address_scope(helpers.self_address(self.viper_ast)):
             self._check_trusted_if_non_zero_amount(node, actor, address, amount, rules.PAYABLE_FAIL, res, ctx, pos)
         self.allocate(resource, address, amount, res, ctx, pos)
@@ -708,9 +678,7 @@ class AllocationTranslator(CommonTranslator):
         stmts = []
         self._exhale_performs_if_non_zero_amount(node, names.REALLOCATE, [resource, frm, to, amount], amount,
                                                  rules.REALLOCATE_FAIL, stmts, ctx, pos)
-        if ctx.inside_performs_only_interface_call:
-            res.extend(stmts)
-            return
+
         self._check_trusted_if_non_zero_amount(node, actor, frm, amount, rules.REALLOCATE_FAIL, stmts, ctx, pos)
         self._check_allocation(node, resource, frm, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
         self._change_allocation(resource, frm, amount, False, stmts, ctx, pos)
@@ -728,11 +696,9 @@ class AllocationTranslator(CommonTranslator):
         else:
             resource, underlying_resource = self.resource_translator.translate_with_underlying(None, res, ctx)
         self_address = ctx.self_address or helpers.self_address(self.viper_ast)
-        with ctx.interface_call_scope():
-            with ctx.performs_only_interface_call_scope():
-                self._exhale_performs_if_non_zero_amount(node, names.REALLOCATE,
-                                                         [underlying_resource, self_address, address, amount],
-                                                         amount, rules.REALLOCATE_FAIL, res, ctx, pos)
+
+        self.interface_performed(node, names.REALLOCATE, [underlying_resource, self_address, address, amount],
+                                 amount, res, ctx, pos)
 
         if no_derived_wei:
             return
@@ -750,10 +716,6 @@ class AllocationTranslator(CommonTranslator):
 
         self._exhale_performs_if_non_zero_amount(node, names.RESOURCE_PAYOUT, [resource, address, amount], amount,
                                                  rules.PAYOUT_FAIL, stmts, ctx, pos)
-
-        if ctx.inside_performs_only_interface_call:
-            res.extend(stmts)
-            return
 
         offer_check_stmts = []
 
@@ -789,10 +751,6 @@ class AllocationTranslator(CommonTranslator):
         self._exhale_performs_if_non_zero_amount(node, names.CREATE, [resource, frm, to, amount], amount,
                                                  rules.CREATE_FAIL, stmts, ctx, pos)
 
-        if ctx.inside_performs_only_interface_call:
-            res.extend(stmts)
-            return
-
         # The initializer is allowed to create all resources unchecked.
         if not is_init:
             def check(then):
@@ -827,9 +785,6 @@ class AllocationTranslator(CommonTranslator):
         self._exhale_performs_if_non_zero_amount(node, names.DESTROY, [resource, address, amount], amount,
                                                  rules.DESTROY_FAIL, stmts, ctx, pos)
 
-        if ctx.inside_performs_only_interface_call:
-            res.extend(stmts)
-            return
         self._check_trusted_if_non_zero_amount(node, actor, address, amount, rules.DESTROY_FAIL, stmts, ctx, pos)
         self._check_allocation(node, resource, address, amount, rules.DESTROY_FAIL_INSUFFICIENT_FUNDS, stmts, ctx, pos)
 
@@ -996,9 +951,6 @@ class AllocationTranslator(CommonTranslator):
                                                                      to_value, from_owner, to_owner, times],
                                                  [from_value, times], rules.OFFER_FAIL, stmts, ctx, pos)
 
-        if ctx.inside_performs_only_interface_call:
-            res.extend(stmts)
-            return
         self._check_trusted_if_non_zero_amount(node, actor, from_owner, [from_value, times],
                                                rules.OFFER_FAIL, stmts, ctx, pos)
 
@@ -1038,9 +990,6 @@ class AllocationTranslator(CommonTranslator):
                                                                      const_one, owner, owner, amount],
                                                  amount, rules.OFFER_FAIL, stmts, ctx, pos)
 
-        if ctx.inside_performs_only_interface_call:
-            res.extend(stmts)
-            return
         self._check_trusted_if_non_zero_amount(node, actor, owner, amount,
                                                rules.OFFER_FAIL, stmts, ctx, pos)
 
@@ -1059,9 +1008,6 @@ class AllocationTranslator(CommonTranslator):
                                                                       to_value, from_owner, to_owner],
                                                  from_value, rules.REVOKE_FAIL, stmts, ctx, pos)
 
-        if ctx.inside_performs_only_interface_call:
-            res.extend(stmts)
-            return
         self._check_trusted_if_non_zero_amount(node, actor, from_owner, from_value, rules.REVOKE_FAIL, stmts, ctx, pos)
         if ctx.quantified_vars:
             # We are translating a
@@ -1099,10 +1045,6 @@ class AllocationTranslator(CommonTranslator):
                                                                         owner1, owner2, times],
                                                  [self.viper_ast.Add(value1, value2), times], rules.EXCHANGE_FAIL,
                                                  stmts, ctx, pos)
-
-        if ctx.inside_performs_only_interface_call:
-            res.extend(stmts)
-            return
 
         def check_owner_1(then):
             # If value1 == 0, owner1 will definitely agree, else we check that they offered the exchange, and
@@ -1172,11 +1114,45 @@ class AllocationTranslator(CommonTranslator):
         difference = self.viper_ast.Sub(balance, allocated_sum, pos)
         return difference
 
-    def performs(self, resource_function_name: str, args: List[Expr], amount_args: Union[List[Expr], Expr],
-                 res: List[Stmt], ctx: Context, pos=None):
+    def performs(self, _: ast.Node, resource_function_name: str, args: List[Expr],
+                 amount_args: Union[List[Expr], Expr], res: List[Stmt], ctx: Context, pos=None):
         pred = self._performs_acc_predicate(resource_function_name, args, ctx, pos)
         # TODO: rule
         self._if_non_zero_values(lambda l: l.append(self.viper_ast.Inhale(pred, pos)), amount_args, res, ctx, pos)
+
+    def interface_performed(self, node: ast.Node, resource_function_name: str, args: List[Expr],
+                            amount_args: Union[List[Expr], Expr], res: List[Stmt], ctx: Context, pos=None):
+        pred_access_pred = self._performs_acc_predicate(resource_function_name, args, ctx, pos)
+
+        # Only exhale if we have enough "perm" (Redeclaration of performs is optional)
+        pred = helpers.performs_predicate(self.viper_ast, resource_function_name, args, pos)
+        perm = self.viper_ast.CurrentPerm(pred, pos)
+        write = self.viper_ast.FullPerm(pos)
+        enough_perm = self.viper_ast.GeCmp(perm, write, pos)
+
+        # Only exhale if the address is not self and the resource is potentially an "own resource"
+        address = None
+        if isinstance(node, ast.FunctionCall) and node.name in names.GHOST_STATEMENTS:
+            interface_files = [ctx.program.interfaces[impl.name].file for impl in ctx.program.implements]
+            address, resource = self.location_address_of_performs(node, res, ctx, pos, return_resource=True)
+            if resource is not None and (resource.file is None  # It is okay to declare performs for wei
+                                         # It is okay to declare performs for own private resources
+                                         or resource.file == ctx.program.file
+                                         # It is okay to redeclare performs with resources not in interfaces
+                                         # this contract implements
+                                         or resource.file not in interface_files):
+                address = None
+        if address is not None:
+            self_address = helpers.self_address(self.viper_ast)
+            address_cond = self.viper_ast.NeCmp(address, self_address, pos)
+        else:
+            address_cond = self.viper_ast.TrueLit(pos)
+
+        cond = self.viper_ast.And(enough_perm, address_cond)
+        cond_pred = self.viper_ast.CondExp(cond, pred_access_pred, self.viper_ast.TrueLit(), pos)
+
+        # TODO: rule
+        self._if_non_zero_values(lambda l: l.append(self.viper_ast.Exhale(cond_pred, pos)), amount_args, res, ctx, pos)
 
     def location_address_of_performs(self, node: ast.FunctionCall, res: List[Stmt], ctx: Context,
                                      pos=None, return_resource=False):

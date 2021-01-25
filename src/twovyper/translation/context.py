@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from contextlib import contextmanager
 from collections import ChainMap, defaultdict
-from typing import Dict, TYPE_CHECKING, List, Any, Optional, Tuple, Callable, Union
+from typing import Dict, TYPE_CHECKING, List, Any, Optional, Tuple, Callable
 
 from twovyper.ast import names
 from twovyper.ast.ast_nodes import Expr, Node
@@ -260,7 +260,6 @@ class Context:
 
         inside_interface_call = self.inside_interface_call
         inside_derived_resource_performs = self.inside_derived_resource_performs
-        inside_performs_only_interface_call = self.inside_performs_only_interface_call
 
         self.function = None
         self.is_pure_function = False
@@ -312,7 +311,6 @@ class Context:
 
         self.inside_interface_call = False
         self.inside_derived_resource_performs = False
-        self.inside_performs_only_interface_call = False
 
         yield
 
@@ -369,7 +367,6 @@ class Context:
 
         self.inside_interface_call = inside_interface_call
         self.inside_derived_resource_performs = inside_derived_resource_performs
-        self.inside_performs_only_interface_call = inside_performs_only_interface_call
 
     @contextmanager
     def quantified_var_scope(self):
@@ -457,22 +454,18 @@ class Context:
         self.inside_interface_call = inside_interface_call
 
     @contextmanager
-    def performs_only_interface_call_scope(self):
-        inside_performs_only_interface_call = self.inside_performs_only_interface_call
-        self.inside_performs_only_interface_call = True
-
-        yield
-
-        self.inside_performs_only_interface_call = inside_performs_only_interface_call
-
-    @contextmanager
     def derived_resource_performs_scope(self):
         inside_derived_resource_performs = self.inside_derived_resource_performs
         self.inside_derived_resource_performs = True
 
+        inside_interface_call = self.inside_interface_call
+        self.inside_interface_call = False
+
         yield
 
         self.inside_derived_resource_performs = inside_derived_resource_performs
+
+        self.inside_interface_call = inside_interface_call
 
     @contextmanager
     def program_scope(self, program: VyperProgram):

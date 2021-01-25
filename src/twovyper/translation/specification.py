@@ -715,6 +715,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 else:
                     assert False
 
+            performs_args = node, name, [resource_expr, frm, to, amount], [amount], res, ctx, pos
+
             if ctx.inside_derived_resource_performs:
                 # If there is a derived resource for resource
                 #   If helper.self_address is frm -> deallocate amount derived resource from msg.sender
@@ -723,18 +725,17 @@ class SpecificationTranslator(ExpressionTranslator):
                     self.update_allocation_for_derived_resource(
                         node, derived_resource, resource_expr, frm, to, amount, res, ctx)
 
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
                 return None
 
             if is_performs:
-                self.allocation_translator.performs(name, [resource_expr, frm, to, amount], [amount], res, ctx, pos)
+                self.allocation_translator.performs(*performs_args)
             else:
                 self.allocation_translator.reallocate(node, resource_expr, frm, to, amount, msg_sender, res, ctx, pos)
 
             return None
         elif name == names.OFFER:
-            if ctx.inside_derived_resource_performs:
-                return None
-
             from_resource_expr, to_resource_expr = self.resource_translator.translate_exchange(node.resource, res, ctx)
 
             left = self.translate(node.args[0], res, ctx)
@@ -763,14 +764,20 @@ class SpecificationTranslator(ExpressionTranslator):
             assert times is not None
             assert times_arg is not None
 
+            performs_args = (node, name, [from_resource_expr, to_resource_expr, left, right, frm, to, times],
+                             [left, times], res, ctx, pos)
+
+            if ctx.inside_derived_resource_performs:
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
+                return None
+
             if ctx.quantified_vars:
                 self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, times_arg,
                                         rules.OFFER_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(name, [from_resource_expr, to_resource_expr,
-                                                           left, right, frm, to, times],
-                                                    [left, times], res, ctx, pos)
+                self.allocation_translator.performs(*performs_args)
             else:
                 self.allocation_translator.offer(node, from_resource_expr, to_resource_expr, left, right, frm, to,
                                                  times, msg_sender, res, ctx, pos)
@@ -785,19 +792,23 @@ class SpecificationTranslator(ExpressionTranslator):
             address = self.translate(node.args[1], res, ctx)
 
             msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
+            const_one = self.viper_ast.IntLit(1, pos)
+
+            performs_args = (node, names.OFFER, [resource_expr, underlying_resource_expr, const_one, const_one,
+                                                 address, address, amount],
+                             amount, res, ctx, pos)
+
+            if ctx.inside_derived_resource_performs:
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
+                return None
 
             if is_performs:
-                const_one = self.viper_ast.IntLit(1, pos)
-                self.allocation_translator.performs(names.OFFER, [resource_expr, underlying_resource_expr, const_one,
-                                                                  const_one, address, address, amount],
-                                                    amount, res, ctx, pos)
+                self.allocation_translator.performs(*performs_args)
             else:
                 self.allocation_translator.allow_to_decompose(node, resource_expr, underlying_resource_expr, address,
                                                               amount, msg_sender, res, ctx, pos)
         elif name == names.REVOKE:
-            if ctx.inside_derived_resource_performs:
-                return None
-
             from_resource_expr, to_resource_expr = self.resource_translator.translate_exchange(node.resource, res, ctx)
 
             left = self.translate(node.args[0], res, ctx)
@@ -817,20 +828,26 @@ class SpecificationTranslator(ExpressionTranslator):
                 else:
                     assert False
 
+            performs_args = (node, name, [from_resource_expr, to_resource_expr, left, right, frm, to], [left],
+                             res, ctx, pos)
+
+            if ctx.inside_derived_resource_performs:
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
+                return None
+
             if ctx.quantified_vars:
                 self._injectivity_check(node, ctx.quantified_vars.values(), node.resource, all_args, None,
                                         rules.REVOKE_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(name, [from_resource_expr, to_resource_expr, left, right, frm, to],
-                                                    [left], res, ctx, pos)
+                self.allocation_translator.performs(*performs_args)
             else:
                 self.allocation_translator.revoke(node, from_resource_expr, to_resource_expr, left, right, frm, to,
                                                   msg_sender, res, ctx, pos)
 
             return None
         elif name == names.EXCHANGE:
-
             (resource1, resource1_expr), (resource2, resource2_expr) = self.resource_translator.translate_exchange(
                 node.resource, res, ctx, return_resource=True)
 
@@ -840,6 +857,9 @@ class SpecificationTranslator(ExpressionTranslator):
             right_owner = self.translate(node.args[3], res, ctx)
 
             times = self.translate(node.keywords[0].value, res, ctx)
+
+            performs_args = (node, name, [resource1_expr, resource2_expr, left, right, left_owner, right_owner, times],
+                             [self.viper_ast.Add(left, right), times], res, ctx, pos)
 
             if ctx.inside_derived_resource_performs:
                 # If there is a derived resource for resource1
@@ -857,12 +877,12 @@ class SpecificationTranslator(ExpressionTranslator):
                     self.update_allocation_for_derived_resource(
                         node, derived_resource, resource2_expr, right_owner, left_owner, amount2, res, ctx)
 
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
                 return None
 
             if is_performs:
-                self.allocation_translator.performs(name, [resource1_expr, resource2_expr, left, right,
-                                                           left_owner, right_owner, times],
-                                                    [self.viper_ast.Add(left, right), times], res, ctx, pos)
+                self.allocation_translator.performs(*performs_args)
             else:
                 self.allocation_translator.exchange(node, resource1_expr, resource2_expr, left, right,
                                                     left_owner, right_owner, times, res, ctx, pos)
@@ -888,6 +908,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 else:
                     assert False
 
+            performs_args = node, name, [resource_expr, frm, to, amount], [amount], res, ctx, pos
+
             if ctx.inside_derived_resource_performs:
                 # If there is a derived resource for resource
                 #   If helper.self_address is to -> allocate amount derived resource from msg.sender
@@ -895,6 +917,8 @@ class SpecificationTranslator(ExpressionTranslator):
                     self.update_allocation_for_derived_resource(
                         node, derived_resource, resource_expr, None, to, amount, res, ctx)
 
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
                 return None
 
             if ctx.quantified_vars:
@@ -902,7 +926,7 @@ class SpecificationTranslator(ExpressionTranslator):
                                         rules.CREATE_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(name, [resource_expr, frm, to, amount], [amount], res, ctx, pos)
+                self.allocation_translator.performs(*performs_args)
             else:
                 is_init = ctx.function.name == names.INIT
                 self.allocation_translator.create(node, resource_expr, frm, to, amount,
@@ -920,6 +944,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 if kw.name == names.DESTROY_ACTOR:
                     frm = kw_val
 
+            performs_args = node, name, [resource_expr, frm, amount], [amount], res, ctx, pos
+
             if ctx.inside_derived_resource_performs:
                 # If there is a derived resource for resource
                 #   If helper.self_address is frm -> deallocate amount derived resource from msg.sender
@@ -927,6 +953,8 @@ class SpecificationTranslator(ExpressionTranslator):
                     self.update_allocation_for_derived_resource(
                         node, derived_resource, resource_expr, frm, None, amount, res, ctx)
 
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
                 return None
 
             if ctx.quantified_vars:
@@ -934,7 +962,7 @@ class SpecificationTranslator(ExpressionTranslator):
                                         rules.DESTROY_FAIL, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(name, [resource_expr, frm, amount], [amount], res, ctx, pos)
+                self.allocation_translator.performs(*performs_args)
             else:
                 self.allocation_translator.destroy(node, resource_expr, frm, amount, msg_sender, res, ctx, pos)
 
@@ -948,6 +976,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 if kw.name == names.RESOURCE_PAYABLE_ACTOR:
                     to = kw_val
 
+            performs_args = node, name, [resource_expr, to, amount], [amount], res, ctx, pos
+
             if ctx.inside_derived_resource_performs:
                 # If there is a derived resource for resource
                 #   If helper.self_address is msg.sender -> deallocate amount derived resource from msg.sender
@@ -955,10 +985,12 @@ class SpecificationTranslator(ExpressionTranslator):
                     self.update_allocation_for_derived_resource(
                         node, derived_resource, resource_expr, None, to, amount, res, ctx)
 
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
                 return None
 
             assert is_performs
-            self.allocation_translator.performs(name, [resource_expr, to, amount], [amount], res, ctx, pos)
+            self.allocation_translator.performs(*performs_args)
         elif name == names.RESOURCE_PAYOUT:
             resource, resource_expr = self.resource_translator.translate(node.resource, res, ctx, return_resource=True)
             amount = self.translate(node.args[0], res, ctx)
@@ -970,6 +1002,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 if kw.name == names.RESOURCE_PAYOUT_ACTOR:
                     frm = kw_val
 
+            performs_args = node, name, [resource_expr, frm, amount], [amount], res, ctx, pos
+
             if ctx.inside_derived_resource_performs:
                 # If there is a derived resource for resource
                 #   If helper.self_address is frm -> deallocate amount derived resource from msg.sender
@@ -977,14 +1011,13 @@ class SpecificationTranslator(ExpressionTranslator):
                     self.update_allocation_for_derived_resource(
                         node, derived_resource, resource_expr, frm, None, amount, res, ctx)
 
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
                 return None
 
             assert is_performs
-            self.allocation_translator.performs(name, [resource_expr, frm, amount], [amount], res, ctx, pos)
+            self.allocation_translator.performs(*performs_args)
         elif name == names.TRUST:
-            if ctx.inside_derived_resource_performs:
-                return None
-
             address = self.translate(node.args[0], res, ctx)
             val = self.translate(node.args[1], res, ctx)
 
@@ -997,13 +1030,20 @@ class SpecificationTranslator(ExpressionTranslator):
                     actor = kw_val
                     keyword_args.append(kw.value)
 
+            performs_args = node, name, [address, actor, val], [], res, ctx, pos
+
+            if ctx.inside_derived_resource_performs:
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
+                return None
+
             if ctx.quantified_vars:
                 rule = rules.TRUST_FAIL
                 self._injectivity_check(node, ctx.quantified_vars.values(), None, [node.args[0], *keyword_args], None,
                                         rule, res, ctx)
 
             if is_performs:
-                self.allocation_translator.performs(name, [address, actor, val], [], res, ctx, pos)
+                self.allocation_translator.performs(*performs_args)
             else:
                 self.allocation_translator.trust(node, address, actor, val, res, ctx, pos)
 
@@ -1021,6 +1061,8 @@ class SpecificationTranslator(ExpressionTranslator):
                 balance = self.allocation_translator.get_allocated(allocated, underlying_resource_expr,
                                                                    self_address, ctx)
 
+            performs_args = node, name, [resource_expr, address], [], res, ctx, pos
+
             if ctx.inside_derived_resource_performs:
                 msg_sender = helpers.msg_sender(self.viper_ast, ctx, pos)
                 amount = self.allocation_translator.allocation_difference_to_balance(balance, resource, ctx)
@@ -1030,10 +1072,12 @@ class SpecificationTranslator(ExpressionTranslator):
                     self.update_allocation_for_derived_resource(
                         node, derived_resource, resource_expr, None, msg_sender, amount, res, ctx)
 
+                if is_performs:
+                    self.allocation_translator.interface_performed(*performs_args)
                 return None
 
             if is_performs:
-                self.allocation_translator.performs(name, [resource_expr, address], [], res, ctx, pos)
+                self.allocation_translator.performs(*performs_args)
             else:
                 self.allocation_translator.allocate_untracked(node, resource_expr, address, balance, res, ctx, pos)
             return None
