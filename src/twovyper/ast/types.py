@@ -262,7 +262,7 @@ def is_integer(type: VyperType) -> bool:
 
 
 def is_unsigned(type: VyperType) -> bool:
-    return type == VYPER_UINT256 or type == VYPER_ADDRESS
+    return type in [VYPER_UINT256, VYPER_ADDRESS, NON_NEGATIVE_INT]
 
 
 def has_strict_array_size(element_type: VyperType) -> bool:

@@ -53,7 +53,7 @@ pending_returns: public(map(address, wei_value))
 #@ invariant: forall({a: address}, {allocated(a)}, a != self.buyer and a != self.seller ==> allocated(a) == 0)
 #@ invariant: forall({a: address}, {self.pending_returns[a]}, a != self.buyer and a != self.seller ==> self.pending_returns[a] == 0)
 
-#@ invariant: self.state in [OPEN, PURCHASED] ==> sum(self.pending_returns) == 0 and forall({a: address}, sent(a) == 0)
+#@ invariant: self.state in [OPEN, PURCHASED] ==> sum(self.pending_returns) == 0 and sum(sent()) == 0
 #@ invariant: self.state in [OPEN, PURCHASED] ==> allocated(self.seller) == 2 * self.value
 #@ invariant: self.state in [OPEN, ABORTED] ==> allocated(self.buyer) == 0
 #@ invariant: self.state == PURCHASED ==> allocated(self.buyer) == 2 * self.value

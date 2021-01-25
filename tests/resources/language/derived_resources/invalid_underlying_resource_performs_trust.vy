@@ -15,8 +15,7 @@ i: interface
 
 #@ invariant: forall({a: address}, allocated[token](a) == 0)
 
-#:: ExpectedOutput(carbon)(derived.resource.invariant.failed:underlying.address.trust)
+#:: ExpectedOutput(derived.resource.invariant.failed:underlying.address.trust)
 @public
 def foo():
-    #:: ExpectedOutput(derived.resource.invariant.failed:underlying.address.trust)
     self.i.trust()
