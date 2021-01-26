@@ -602,9 +602,11 @@ def flattened_conditional(viper_ast: ViperAST, cond, thn, els, pos=None):
                 res.append(viper_ast.LocalVarAssign(stmt.lhs(), cond_expr, stmt.pos()))
             elif stmt_class == if_class:
                 new_cond = viper_ast.And(stmt.cond(), cond, stmt.pos())
-                res.extend(flattened_conditional(viper_ast, new_cond, stmt.thn(), [], stmt.pos()))
+                stmts = viper_ast.to_list(stmt.thn().ss())
+                res.extend(flattened_conditional(viper_ast, new_cond, stmts, [], stmt.pos()))
                 new_cond = viper_ast.And(viper_ast.Not(stmt.cond(), stmt.pos()), cond, stmt.pos())
-                res.extend(flattened_conditional(viper_ast, new_cond, stmt.els(), [], stmt.pos()))
+                stmts = viper_ast.to_list(stmt.els().ss())
+                res.extend(flattened_conditional(viper_ast, new_cond, stmts, [], stmt.pos()))
             elif stmt_class == seqn_class:
                 seqn_as_list = viper_ast.to_list(stmt.ss())
                 transformed_stmts = flattened_conditional(viper_ast, cond, seqn_as_list, [], stmt.pos())

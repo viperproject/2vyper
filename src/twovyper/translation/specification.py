@@ -1124,9 +1124,9 @@ class SpecificationTranslator(ExpressionTranslator):
 
         if to is not None and frm is not None:
             frm_neq_to = self.viper_ast.NeCmp(frm, to)
-            res.append(self.viper_ast.If(frm_neq_to, stmts, []))
+            res.extend(helpers.flattened_conditional(self.viper_ast, frm_neq_to, stmts, [], pos))
         else:
-            res.extend(stmts)
+            res.extend(helpers.flattened_conditional(self.viper_ast, self.viper_ast.TrueLit(), stmts, [], pos))
 
 
 class _ResourceArgumentExtractor(NodeVisitor):
