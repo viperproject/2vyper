@@ -116,11 +116,19 @@ def _check_ghost_implements(program: VyperProgram):
             msg = "A ghost function has not been implemented correctly."
             raise InvalidProgramException(node, 'ghost.not.implemented', msg)
 
+    ghost_function_implementations = dict(program.ghost_function_implementations)
+
     for itype in program.implements:
         interface = program.interfaces[itype.name]
         for ghost in interface.own_ghost_functions.values():
-            implementation = program.ghost_function_implementations.get(ghost.name)
-            check(implementation, program.node)
+            implementation = ghost_function_implementations.pop(ghost.name, None)
+            check(implementation is not None, program.node)
             check(implementation.name == ghost.name, implementation.node)
             check(len(implementation.args) == len(ghost.args), implementation.node)
             check(implementation.type == ghost.type, implementation.node)
+
+    if len(ghost_function_implementations) > 0:
+        raise InvalidProgramException(first(ghost_function_implementations.values()).node, 'invalid.ghost.implemented',
+                                      f'This contract implements some ghost functions that have no declaration in '
+                                      f'any of the implemented interfaces.\n'
+                                      f'(Ghost functions without declaration: {list(ghost_function_implementations)})')
