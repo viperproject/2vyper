@@ -111,10 +111,11 @@ def _check_ghost_functions(program: VyperProgram):
 
 
 def _check_ghost_implements(program: VyperProgram):
-    def check(cond, node):
+    def check(cond, node, ghost_name, interface_name):
         if not cond:
-            msg = "A ghost function has not been implemented correctly."
-            raise InvalidProgramException(node, 'ghost.not.implemented', msg)
+            raise InvalidProgramException(node, 'ghost.not.implemented',
+                                          f'The ghost function "{ghost_name}" from the interface "{interface_name}" '
+                                          f'has not been implemented correctly.')
 
     ghost_function_implementations = dict(program.ghost_function_implementations)
 
@@ -122,10 +123,10 @@ def _check_ghost_implements(program: VyperProgram):
         interface = program.interfaces[itype.name]
         for ghost in interface.own_ghost_functions.values():
             implementation = ghost_function_implementations.pop(ghost.name, None)
-            check(implementation is not None, program.node)
-            check(implementation.name == ghost.name, implementation.node)
-            check(len(implementation.args) == len(ghost.args), implementation.node)
-            check(implementation.type == ghost.type, implementation.node)
+            check(implementation is not None, program.node, ghost.name, itype.name)
+            check(implementation.name == ghost.name, implementation.node, ghost.name, itype.name)
+            check(len(implementation.args) == len(ghost.args), implementation.node, ghost.name, itype.name)
+            check(implementation.type == ghost.type, implementation.node, ghost.name, itype.name)
 
     if len(ghost_function_implementations) > 0:
         raise InvalidProgramException(first(ghost_function_implementations.values()).node, 'invalid.ghost.implemented',
