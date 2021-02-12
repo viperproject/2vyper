@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -10,7 +10,7 @@ from collections import ChainMap, defaultdict
 from typing import Dict, TYPE_CHECKING, List, Any, Optional, Tuple, Callable
 
 from twovyper.ast import names
-from twovyper.ast.ast_nodes import Expr
+from twovyper.ast.ast_nodes import Expr, Node
 from twovyper.ast.nodes import VyperFunction, VyperProgram
 from twovyper.translation import mangled
 
@@ -33,6 +33,8 @@ class Context:
         self.unchecked_invariants: Optional[Callable[[], List[Expr]]] = None
         # Transitive postconditions that are known to be true and therefore don't need to be checked
         self.unchecked_transitive_postconditions: Optional[Callable[[], List[Expr]]] = None
+        # Invariants for derived resources
+        self.derived_resources_invariants: Optional[Callable[[Optional[Node]], List[Expr]]] = None
 
         self.function: Optional[VyperFunction] = None
         self.is_pure_function = False
@@ -45,7 +47,7 @@ class Context:
         self.current_state = {}
         # The state which is currently regarded as 'old'
         self.current_old_state = {}
-        self.quantified_vars = {}
+        self.quantified_vars: Dict[str, TranslatedVar] = {}
 
         # The actual present, old, pre, and issued states
         self.present_state = {}
@@ -104,6 +106,10 @@ class Context:
         self._inline_counter = -1
         self._current_inline = -1
         self.inline_vias = []
+
+        self.inside_interface_call = False
+        self.inside_derived_resource_performs = False
+        self.inside_performs_only_interface_call = False
 
     @property
     def current_function(self) -> Optional[VyperFunction]:
@@ -252,6 +258,9 @@ class Context:
         pure_continues = self.pure_continues
         pure_breaks = self.pure_breaks
 
+        inside_interface_call = self.inside_interface_call
+        inside_derived_resource_performs = self.inside_derived_resource_performs
+
         self.function = None
         self.is_pure_function = False
 
@@ -299,6 +308,9 @@ class Context:
         self._pure_var_index_counter = 1
         self.pure_continues = []
         self.pure_breaks = []
+
+        self.inside_interface_call = False
+        self.inside_derived_resource_performs = False
 
         yield
 
@@ -352,6 +364,9 @@ class Context:
         self._pure_var_index_counter = pure_var_index_counter
         self.pure_continues = pure_continues
         self.pure_breaks = pure_breaks
+
+        self.inside_interface_call = inside_interface_call
+        self.inside_derived_resource_performs = inside_derived_resource_performs
 
     @contextmanager
     def quantified_var_scope(self):
@@ -425,6 +440,9 @@ class Context:
         self._inline_counter += 1
         self._current_inline = self._inline_counter
 
+        inside_interface_call = self.inside_interface_call
+        self.inside_interface_call = True
+
         yield
 
         self.result_var = result_var
@@ -433,14 +451,44 @@ class Context:
         self.locals = local_vars
         self._current_inline = old_inline
 
+        self.inside_interface_call = inside_interface_call
+
     @contextmanager
-    def program_scope(self, program):
-        old_program = self.current_program
-        self.current_program = program
+    def derived_resource_performs_scope(self):
+        inside_derived_resource_performs = self.inside_derived_resource_performs
+        self.inside_derived_resource_performs = True
+
+        inside_interface_call = self.inside_interface_call
+        self.inside_interface_call = False
 
         yield
 
+        self.inside_derived_resource_performs = inside_derived_resource_performs
+
+        self.inside_interface_call = inside_interface_call
+
+    @contextmanager
+    def program_scope(self, program: VyperProgram):
+        old_program: VyperProgram = self.current_program
+        self.current_program = program
+
+        args = None
+        if self.function and not self.inside_inline_analysis:
+            interfaces = [name for name, interface in old_program.interfaces.items() if interface.file == program.file]
+            implemented_interfaces = [interface.name for interface in old_program.implements]
+            if any(interface in implemented_interfaces for interface in interfaces):
+                args = self.args
+                other_func: VyperFunction = program.functions.get(self.function.name)
+                if other_func:
+                    assert len(other_func.args) == len(args)
+                    self.args = {}
+                    for (name, _), (_, var) in zip(other_func.args.items(), args.items()):
+                        self.args[name] = var
+        yield
+
         self.current_program = old_program
+        if args:
+            self.args = args
 
     @contextmanager
     def state_scope(self, present_state, old_state):

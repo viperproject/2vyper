@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -35,26 +35,26 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import abc
 import os
-from abc import ABC
-
-import pytest
 import re
 import tokenize
 from typing import Any, Dict, List, Optional, Union
 
+import pytest
+
 # Change path such that the subsequent imports succeed
 import context  # noqa
 
+########################################################################################################################
+#                           PLEASE BE CAUTIOUS WITH GLOBAL IMPORTS FROM THE TWOVYPER MODULE!                           #
+#      THIS MODULE GETS RELOADED AND ANY REFERENCE MIGHT BE INVALID / FROM THE FIRST INSTANTIATION OF THE MODULE.      #
+########################################################################################################################
+
 from twovyper import config
-from twovyper.main import TwoVyper
-
 from twovyper.exceptions import InvalidProgramException
-
-from twovyper.verification import error_manager, TwoVyperError
-from twovyper.verification.result import VerificationResult, Failure
-
+from twovyper.main import prepare_twovyper_for_vyper_version
+from twovyper.verification import TwoVyperError
+from twovyper.verification.result import VerificationResult
 from twovyper.viper.jvmaccess import JVM
-
 
 VYPER_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)))
 
@@ -75,6 +75,11 @@ def _init_model(model):
     OPTIONS_MODEL = model
 
 
+def _init_check_ast(check):
+    global OPTIONS_CHECK_AST_INCONSISTENCIES
+    OPTIONS_CHECK_AST_INCONSISTENCIES = check
+
+
 def _init_store_viper(flag):
     global OPTIONS_STORE_VIPER
     OPTIONS_STORE_VIPER = flag
@@ -85,6 +90,8 @@ _BACKEND_CARBON = 'carbon'
 _BACKEND_ANY = 'ANY'
 
 OPTIONS_MODEL = False
+
+OPTIONS_CHECK_AST_INCONSISTENCIES = False
 
 OPTIONS_STORE_VIPER = False
 
@@ -154,6 +161,7 @@ class VerificationError(Error):
         return self._error.position.line
 
     def get_vias(self) -> List[int]:
+        from twovyper.verification import error_manager
         error_pos = self._error.position
         if error_pos.node_id:
             vias = error_manager.get_vias(error_pos.node_id)
@@ -219,7 +227,7 @@ class Annotation:
         return []
 
 
-class BackendSpecificAnnotationMixIn(Annotation, ABC):
+class BackendSpecificAnnotationMixIn(Annotation, abc.ABC):
     """Annotation that depends on the back-end.
 
     The subclass is expected to define a field ``_backend``.
@@ -236,7 +244,7 @@ class BackendSpecificAnnotationMixIn(Annotation, ABC):
         return self._backend or _BACKEND_ANY
 
 
-class ErrorMatchingAnnotationMixIn(Annotation, ABC):
+class ErrorMatchingAnnotationMixIn(Annotation, abc.ABC):
     """An annotation that can match an error.
 
     The subclass is expected to define fields ``_id`` and ``_labels``.
@@ -250,11 +258,12 @@ class ErrorMatchingAnnotationMixIn(Annotation, ABC):
     def match(self, error: Error) -> bool:
         """Check is error matches this annotation."""
         return (self._id == error.full_id and
-                self.line == error.line and
+                (self.line == error.line or
+                 (self.line == 2 and error.line == 1)) and
                 self.get_vias() == error.get_vias())
 
 
-class UsingLabelsAnnotationMixIn(Annotation, ABC):
+class UsingLabelsAnnotationMixIn(Annotation, abc.ABC):
     """An annotation that can refer to labels.
 
     The subclass is expected to define the field ``_labels``.
@@ -577,7 +586,10 @@ class TwoVyperTest(AnnotatedTest):
         if annotation_manager.ignore_file():
             pytest.skip('Ignored')
         abspath = os.path.abspath(path)
-        tw = TwoVyper(jvm, OPTIONS_MODEL)
+        prepare_twovyper_for_vyper_version(abspath)
+        from twovyper.main import TwoVyper
+        tw = TwoVyper(jvm, OPTIONS_MODEL, OPTIONS_CHECK_AST_INCONSISTENCIES)
+        from twovyper.exceptions import InvalidProgramException
         try:
             prog = tw.translate(abspath, vyper_root=VYPER_ROOT)
         except InvalidProgramException as e:
@@ -606,6 +618,7 @@ class TwoVyperTest(AnnotatedTest):
         if verification_result:
             actual_errors = []
         else:
+            from twovyper.verification.result import Failure
             assert isinstance(verification_result, Failure)
             assert all(
                 isinstance(error.pos(), jvm.viper.silver.ast.HasLineColumn)

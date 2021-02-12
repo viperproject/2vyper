@@ -18,6 +18,9 @@ import tests.resources.language.inter_contract.resource.interface_a1 as Coin
     #@ def a1() -> Coin: ...
     #@ def a2() -> interface_a2: ...
 
+#@ invariant: forall({a: address}, allocated(a) == 0)
+#@ invariant: forall({a: address}, allocated[b](a) == 0)
+
 #@ invariant: sum(allocated[b]()) == 0
 #@ invariant: sum(allocated[Coin.a[a1(self)]]()) == 0
 #@ invariant: sum(allocated[interface_a2.a[a2(self)]]()) == 0

@@ -1,5 +1,5 @@
 """
-Copyright (c) 2020 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -67,6 +67,9 @@ class PureStatementTranslator(PureTranslatorMixin, StatementTranslator):
         assign = self.viper_ast.EqCmp(lhs.local_var(ctx, pos), rhs, pos)
         expr = self.viper_ast.Implies(ctx.pure_conds, assign, pos) if ctx.pure_conds else assign
         res.append(expr)
+
+    def translate_Log(self, node: ast.Log, res: List[Expr], ctx: Context):
+        assert False
 
     def translate_Raise(self, node: ast.Raise, res: List[Expr], ctx: Context):
         pos = self.to_position(node, ctx)

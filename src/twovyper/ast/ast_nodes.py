@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -197,6 +197,7 @@ class FunctionCall(Expr):
         self.args = args
         self.keywords = keywords
         self.resource = resource
+        self.underlying_resource = None
 
 
 class ReceiverCall(Expr):
@@ -337,6 +338,19 @@ class ContractDef(Node):
         self.body = body
 
 
+class EventDef(Node):
+    """
+    Struct like event declaration
+    """
+
+    _children = ['body']
+
+    def __init__(self, name: str, body: ListT[Stmt]):
+        super().__init__()
+        self.name = name
+        self.body = body
+
+
 class Arg(Node, AllowedInGhostCode):
 
     _children = ['annotation', 'default']
@@ -445,6 +459,15 @@ class If(Stmt, AllowedInGhostCode):
         self.test = test
         self.body = body
         self.orelse = orelse
+
+
+class Log(Stmt, AllowedInGhostCode):
+
+    _children = ['body']
+
+    def __init__(self, body: Expr):
+        super().__init__()
+        self.body = body
 
 
 class Ghost(Stmt, AllowedInGhostCode):

@@ -1,10 +1,10 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
-
+from functools import reduce
 from typing import Optional, List
 
 from twovyper.ast import ast_nodes as ast, names, types
@@ -32,7 +32,8 @@ class TypeTranslator(CommonTranslator):
             types.VYPER_UINT256: wrapped_int_type,
             types.VYPER_DECIMAL: wrapped_int_type,
             types.VYPER_ADDRESS: viper_ast.Int,
-            types.VYPER_BYTE: viper_ast.Int
+            types.VYPER_BYTE: viper_ast.Int,
+            types.NON_NEGATIVE_INT: viper_ast.Int
         }
         self.type_dict = {
             types.VYPER_BOOL: viper_ast.Bool,
@@ -40,7 +41,8 @@ class TypeTranslator(CommonTranslator):
             types.VYPER_UINT256: viper_ast.Int,
             types.VYPER_DECIMAL: viper_ast.Int,
             types.VYPER_ADDRESS: viper_ast.Int,
-            types.VYPER_BYTE: viper_ast.Int
+            types.VYPER_BYTE: viper_ast.Int,
+            types.NON_NEGATIVE_INT: viper_ast.Int
         }
 
     def translate(self, type: VyperType, ctx: Context, is_local=True) -> Type:
@@ -82,10 +84,20 @@ class TypeTranslator(CommonTranslator):
             value_default = self.default_value(node, type.value_type, res, ctx)
             return helpers.map_init(self.viper_ast, value_default, key_type, value_type, pos)
         elif isinstance(type, ArrayType):
-            element_type = self.translate(type.element_type, ctx)
+            sizes = [type.size]
+            curr_type = type
+            while isinstance(curr_type.element_type, ArrayType):
+                # noinspection PyUnresolvedReferences
+                sizes.append(curr_type.element_type.size)
+                curr_type = curr_type.element_type
+            element_type = self.translate(curr_type.element_type, ctx)
             if type.is_strict:
-                element_default = self.default_value(node, type.element_type, res, ctx)
-                return helpers.array_init(self.viper_ast, element_default, type.size, element_type, pos)
+                result = self.default_value(node, curr_type.element_type, res, ctx)
+                result_type = element_type
+                for size in sizes:
+                    result = helpers.array_init(self.viper_ast, result, size, result_type, pos)
+                    result_type = helpers.array_type(self.viper_ast, result_type)
+                return result
             else:
                 return helpers.empty_array(self.viper_ast, element_type, pos)
         elif isinstance(type, StructType):
@@ -133,6 +145,10 @@ class TypeTranslator(CommonTranslator):
                 else:
                     bounds = self.viper_ast.And(lcmp, ucmp)
                 ret.append(bounds)
+            elif type == types.NON_NEGATIVE_INT:
+                lower = self.viper_ast.IntLit(0)
+                lcmp = self.viper_ast.LeCmp(lower, node)
+                ret.append(lcmp)
             # If we encounter a map, we add the following assumptions:
             #   forall k: Key :: construct(map_get(k))
             #   forall k: Key :: map_get(k) <= map_sum()

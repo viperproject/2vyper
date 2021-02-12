@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -18,6 +18,7 @@ from twovyper.utils import switch
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt
+from twovyper.vyper import is_compatible_version
 
 
 class ArithmeticTranslator(CommonTranslator):
@@ -150,7 +151,11 @@ class ArithmeticTranslator(CommonTranslator):
 
         if types.is_bounded(otype):
             assert isinstance(otype, BoundedType)
-            self.check_under_overflow(expr, otype, res, ctx, pos)
+            if is_compatible_version('<=0.1.0-beta.17') and op == ast_op.POW:
+                # In certain versions of Vyper there was no overflow check for POW.
+                self.check_underflow(expr, otype, res, ctx, pos)
+            else:
+                self.check_under_overflow(expr, otype, res, ctx, pos)
 
         return expr
 

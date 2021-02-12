@@ -1,6 +1,3 @@
-#:: IgnoreFile(0)
-# Takes about 5 min. with Silicon
-
 #
 # Copyright (c) 2020 ETH Zurich
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -8,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#@ config: allocation
+#@ config: allocation, trust_casts
 
 from . import interface_a1
 from . import interface_a2
@@ -30,8 +27,8 @@ k: interface_a2
 #@ invariant: forall({a: address}, allocated[wei()](a) == 0)
 #@ invariant: forall({a: address}, allocated[wei[self]](a) == 0)
 #@ invariant: forall({a: address}, allocated[wei[self]()](a) == 0)
-#@ invariant: forall({a: address}, allocated[wei[self.g]()](a) == 0)
-#@ invariant: forall({a: address}, allocated[wei[self.i]](a) == 0)
+#@ inter contract invariant: forall({a: address}, allocated[wei[self.g]()](a) == 0)
+#@ inter contract invariant: forall({a: address}, allocated[wei[self.i]](a) == 0)
 
 
 # Normal resources
@@ -39,11 +36,11 @@ k: interface_a2
 #@ invariant: forall({a: address}, allocated[a()](a) == 0)
 #@ invariant: forall({a: address}, allocated[a[self]](a) == 0)
 #@ invariant: forall({a: address}, allocated[a[self]()](a) == 0)
-#@ invariant: forall({a: address}, allocated[interface_a1.a[self.j]](a) == 0)
-#@ invariant: forall({a: address}, allocated[b[self.i]](a) == 0)
-#@ invariant: forall({a: address}, allocated[b[self.i]()](a) == 0)
-#@ invariant: forall({a: address}, allocated[interface_b.b[self.i]](a) == 0)
-#@ invariant: forall({a: address}, allocated[interface_b.b[self.i]()](a) == 0)
+#@ inter contract invariant: forall({a: address}, allocated[interface_a1.a[self.j]](a) == 0)
+#@ inter contract invariant: forall({a: address}, allocated[b[self.i]](a) == 0)
+#@ inter contract invariant: forall({a: address}, allocated[b[self.i]()](a) == 0)
+#@ inter contract invariant: forall({a: address}, allocated[interface_b.b[self.i]](a) == 0)
+#@ inter contract invariant: forall({a: address}, allocated[interface_b.b[self.i]()](a) == 0)
 
 # Interface resources
 #@ invariant: forall({a: address}, allocated[d](a) == 0)
@@ -54,15 +51,10 @@ k: interface_a2
 #@ invariant: forall({a: address}, allocated[interface_d.d()](a) == 0)
 #@ invariant: forall({a: address}, allocated[interface_d.d[self]](a) == 0)
 #@ invariant: forall({a: address}, allocated[interface_d.d[self]()](a) == 0)
-#@ invariant: forall({a: address}, allocated[interface_d.d[self.g]](a) == 0)
-#@ invariant: forall({a: address}, allocated[interface_d.d[self.g]()](a) == 0)
+#@ inter contract invariant: forall({a: address}, allocated[interface_d.d[self.g]](a) == 0)
+#@ inter contract invariant: forall({a: address}, allocated[interface_d.d[self.g]()](a) == 0)
 
 
-#@ performs: reallocate[d](0, to=msg.sender)
-#@ performs: reallocate[d()](0, to=msg.sender)
-#@ performs: reallocate[interface_d.d](0, to=msg.sender)
-#@ performs: reallocate[interface_d.d()](0, to=msg.sender)
-#@ performs: reallocate[interface_d.d()](0, to=msg.sender)
 @public
 def foo():
     send(msg.sender, 0)

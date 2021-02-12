@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -80,7 +80,7 @@ def contracts_type():
 
 
 def allocated_type():
-    return MapType(AnyStructType(), MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE))
+    return MapType(AnyStructType(), MapType(types.VYPER_ADDRESS, types.NON_NEGATIVE_INT))
 
 
 def offer_type():
@@ -94,11 +94,11 @@ def offer_type():
 
 
 def offered_type():
-    return MapType(AnyStructType(), MapType(AnyStructType(), MapType(offer_type(), types.VYPER_UINT256)))
+    return MapType(AnyStructType(), MapType(AnyStructType(), MapType(offer_type(), types.NON_NEGATIVE_INT)))
 
 
 def trusted_type():
-    return MapType(types.VYPER_ADDRESS, MapType(types.VYPER_ADDRESS, types.VYPER_BOOL))
+    return MapType(types.VYPER_ADDRESS, MapType(types.VYPER_ADDRESS, MapType(types.VYPER_ADDRESS, types.VYPER_BOOL)))
 
 
 def allocation_predicate(viper_ast: ViperAST, resource, address, pos=None):
@@ -113,8 +113,16 @@ def offer_predicate(viper_ast: ViperAST, from_resource, to_resource, from_val, t
     return viper_ast.PredicateAccess([from_resource, to_resource, from_val, to_val, from_addr, to_addr], mangled.OFFER, pos)
 
 
-def trust_predicate(viper_ast: ViperAST, address, by_address, pos=None):
-    return viper_ast.PredicateAccess([address, by_address], mangled.TRUST, pos)
+def no_offers(viper_ast: ViperAST, offered, resource, address, pos=None):
+    return viper_ast.FuncApp(mangled.NO_OFFERS, [offered, resource, address], pos, type=viper_ast.Bool)
+
+
+def trust_predicate(viper_ast: ViperAST, where, address, by_address, pos=None):
+    return viper_ast.PredicateAccess([where, address, by_address], mangled.TRUST, pos)
+
+
+def trust_no_one(viper_ast: ViperAST, trusted, who, where, pos=None):
+    return viper_ast.FuncApp(mangled.TRUST_NO_ONE, [trusted, who, where], pos, type=viper_ast.Bool)
 
 
 def performs_predicate(viper_ast: ViperAST, function: str, args, pos=None):
@@ -570,3 +578,41 @@ def havoc_var(viper_ast: ViperAST, viper_type, ctx: Context):
         havoc = viper_ast.LocalVarDecl(havoc_name, viper_type)
         ctx.new_local_vars.append(havoc)
         return havoc.localVar()
+
+
+def flattened_conditional(viper_ast: ViperAST, cond, thn, els, pos=None):
+    res = []
+
+    if_class = viper_ast.ast.If
+    seqn_class = viper_ast.ast.Seqn
+    assign_class = viper_ast.ast.LocalVarAssign
+    assume_or_check_stmts = [viper_ast.ast.Inhale, viper_ast.ast.Assert, viper_ast.ast.Exhale]
+    supported_classes = [*assume_or_check_stmts, if_class, seqn_class, assign_class]
+    if all(stmt.__class__ in supported_classes for stmt in thn + els):
+        not_cond = viper_ast.Not(cond, pos)
+        thn = [(stmt, cond) for stmt in thn]
+        els = [(stmt, not_cond) for stmt in els]
+        for stmt, cond in thn + els:
+            stmt_class = stmt.__class__
+            if stmt_class in assume_or_check_stmts:
+                implies = viper_ast.Implies(cond, stmt.exp(), stmt.pos())
+                res.append(stmt_class(implies, stmt.pos(), stmt.info(), stmt.errT()))
+            elif stmt_class == assign_class:
+                cond_expr = viper_ast.CondExp(cond, stmt.rhs(), stmt.lhs(), stmt.pos())
+                res.append(viper_ast.LocalVarAssign(stmt.lhs(), cond_expr, stmt.pos()))
+            elif stmt_class == if_class:
+                new_cond = viper_ast.And(stmt.cond(), cond, stmt.pos())
+                stmts = viper_ast.to_list(stmt.thn().ss())
+                res.extend(flattened_conditional(viper_ast, new_cond, stmts, [], stmt.pos()))
+                new_cond = viper_ast.And(viper_ast.Not(stmt.cond(), stmt.pos()), cond, stmt.pos())
+                stmts = viper_ast.to_list(stmt.els().ss())
+                res.extend(flattened_conditional(viper_ast, new_cond, stmts, [], stmt.pos()))
+            elif stmt_class == seqn_class:
+                seqn_as_list = viper_ast.to_list(stmt.ss())
+                transformed_stmts = flattened_conditional(viper_ast, cond, seqn_as_list, [], stmt.pos())
+                res.append(viper_ast.Seqn(transformed_stmts, stmt.pos(), stmt.info()))
+            else:
+                assert False
+    else:
+        res.append(viper_ast.If(cond, thn, [], pos))
+    return res

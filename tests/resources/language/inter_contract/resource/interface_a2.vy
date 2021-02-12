@@ -11,6 +11,8 @@
 
 #@ resource: a()
 
+#@ invariant: forall({a: address}, allocated[a](a) == 0)
+
 @public
 def foo():
     raise "Not implemented"

@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -25,6 +25,11 @@ class StateTranslator(CommonTranslator):
     def __init__(self, viper_ast: ViperAST):
         super().__init__(viper_ast)
         self.type_translator = TypeTranslator(self.viper_ast)
+
+    @property
+    def expression_translator(self):
+        from twovyper.translation.specification import ExpressionTranslator
+        return ExpressionTranslator(self.viper_ast)
 
     def state(self, name_transformation: Callable[[str], str], ctx: Context):
         def self_var(name):
@@ -59,8 +64,18 @@ class StateTranslator(CommonTranslator):
         return s
 
     @staticmethod
-    def _is_local(state_var: str) -> bool:
+    def _is_self(state_var: str) -> bool:
+        return state_var == mangled.SELF
+
+    @staticmethod
+    def _is_non_contracts(state_var: str) -> bool:
         return state_var != mangled.CONTRACTS
+
+    @staticmethod
+    def is_allocation(state_var: str) -> bool:
+        return (state_var == mangled.ALLOCATED
+                or state_var == mangled.TRUSTED
+                or state_var == mangled.OFFERED)
 
     def initialize_state(self, state: State, res: List[Stmt], ctx: Context):
         """
@@ -68,7 +83,7 @@ class StateTranslator(CommonTranslator):
         to its default value.
         """
         for var in state.values():
-            if self._is_local(var.name):
+            if self._is_non_contracts(var.name):
                 default = self.type_translator.default_value(None, var.type, res, ctx)
                 assign = self.viper_ast.LocalVarAssign(var.local_var(ctx), default)
                 res.append(assign)
@@ -95,9 +110,24 @@ class StateTranslator(CommonTranslator):
 
     def havoc_state_except_self(self, state: State, res: List[Stmt], ctx: Context, pos=None):
         """
-        Havocs all contract state except self and allocated.
+        Havocs all contract state except self and self-allocated.
         """
-        return self.havoc_state(state, res, ctx, pos, unless=self._is_local)
+
+        with ctx.inline_scope(None):
+            def inlined_pre_state(name: str) -> str:
+                return ctx.inline_prefix + mangled.pre_state_var_name(name)
+            old_state_for_performs = self.state(inlined_pre_state, ctx)
+
+        for val in old_state_for_performs.values():
+            ctx.new_local_vars.append(val.var_decl(ctx, pos))
+
+        self.copy_state(ctx.current_state, old_state_for_performs, res, ctx,
+                        unless=lambda n: not self.is_allocation(n))
+        self.copy_state(ctx.current_old_state, old_state_for_performs, res, ctx,
+                        unless=self.is_allocation)
+        self.havoc_state(state, res, ctx, pos, unless=self._is_self)
+        with ctx.state_scope(ctx.current_state, old_state_for_performs):
+            self.expression_translator.assume_own_resources_stayed_constant(res, ctx, pos)
 
     def havoc_state(self, state: State, res: List[Stmt], ctx: Context, pos=None, unless=None):
         havocs = []
@@ -146,7 +176,7 @@ class StateTranslator(CommonTranslator):
     def check_first_public_state(self, res: List[Stmt], ctx: Context, set_false: bool, pos=None, info=None):
         stmts = []
         for name in ctx.current_state:
-            if self._is_local(name):
+            if self._is_non_contracts(name):
                 current_var = ctx.current_state[name].local_var(ctx)
                 old_var = ctx.current_old_state[name].local_var(ctx)
                 assign = self.viper_ast.LocalVarAssign(old_var, current_var)
@@ -159,4 +189,4 @@ class StateTranslator(CommonTranslator):
             var_assign = self.viper_ast.LocalVarAssign(first_public_state, false, pos)
             stmts.append(var_assign)
 
-        res.append(self.viper_ast.If(first_public_state, stmts, [], pos, info))
+        res.extend(helpers.flattened_conditional(self.viper_ast, first_public_state, stmts, [], pos))

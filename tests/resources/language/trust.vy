@@ -58,14 +58,14 @@ def mintFrom(amount: uint256):
     assert self.trusted[msg.sender]
  
     self.balance_of[msg.sender] += amount
-    #@ create[token](amount, to=msg.sender, acting_for=self.minter)
+    #@ create[token](amount, to=msg.sender, actor=self.minter)
 
 
 @public
 def mintFrom_fail(amount: uint256): 
     self.balance_of[msg.sender] += amount
     #:: ExpectedOutput(create.failed:not.trusted)
-    #@ create[token](amount, to=msg.sender, acting_for=self.minter)
+    #@ create[token](amount, to=msg.sender, actor=self.minter)
 
 
 @public
@@ -73,7 +73,7 @@ def transferFromMinter(amount: uint256, to: address):
     assert self.trusted[msg.sender]
 
     self.balance_of[self.minter] -= amount
-    #@ reallocate[token](amount, to=to, acting_for=self.minter)
+    #@ reallocate[token](amount, to=to, actor=self.minter)
     self.balance_of[to] += amount
 
 
@@ -81,7 +81,7 @@ def transferFromMinter(amount: uint256, to: address):
 def transferFromMinter_fail(amount: uint256, to: address):
     self.balance_of[self.minter] -= amount
     #:: ExpectedOutput(reallocate.failed:not.trusted)
-    #@ reallocate[token](amount, to=to, acting_for=self.minter)
+    #@ reallocate[token](amount, to=to, actor=self.minter)
     self.balance_of[to] += amount
 
 
@@ -90,39 +90,39 @@ def burnFromMinter(amount: uint256):
     assert self.trusted[msg.sender]
 
     self.balance_of[self.minter] -= amount
-    #@ destroy[token](amount, acting_for=self.minter)
+    #@ destroy[token](amount, actor=self.minter)
 
 
 @public
 def burnFromMinter_fail(amount: uint256):
     self.balance_of[self.minter] -= amount
     #:: ExpectedOutput(destroy.failed:not.trusted)
-    #@ destroy[token](amount, acting_for=self.minter)
+    #@ destroy[token](amount, actor=self.minter)
 
 
 @public
 def offerFromMinter(to: address):
     assert self.trusted[msg.sender]
 
-    #@ offer[token <-> token](1, 1, to=to, acting_for=self.minter, times=1)
+    #@ offer[token <-> token](1, 1, to=to, actor=self.minter, times=1)
 
 
 @public
 def offerFromMinter_fail(to: address):
     pass
     #:: ExpectedOutput(offer.failed:not.trusted)
-    #@ offer[token <-> token](1, 1, to=to, acting_for=self.minter, times=1)
+    #@ offer[token <-> token](1, 1, to=to, actor=self.minter, times=1)
 
 
 @public
 def revokeFromMinter(to: address):
     assert self.trusted[msg.sender]
 
-    #@ revoke[token <-> token](1, 1, to=to, acting_for=self.minter)
+    #@ revoke[token <-> token](1, 1, to=to, actor=self.minter)
 
 
 @public
 def revokeFromMinter_fail(to: address):
     pass
     #:: ExpectedOutput(revoke.failed:not.trusted)
-    #@ revoke[token <-> token](1, 1, to=to, acting_for=self.minter)
+    #@ revoke[token <-> token](1, 1, to=to, actor=self.minter)

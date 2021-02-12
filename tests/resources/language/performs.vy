@@ -22,8 +22,6 @@ balance_of: map(address, uint256)
 #@ invariant: allocated[creator(token)](self.minter) == 1
 
 
-#@ performs: create[creator(token)](1)
-#@ performs: create[token](1)
 @public
 def __init__():
     self.minter = msg.sender

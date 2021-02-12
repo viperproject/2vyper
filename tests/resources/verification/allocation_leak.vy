@@ -26,6 +26,7 @@ def __init__():
     self.value = msg.value
 
 
+#@ performs: payable(msg.value)
 #:: ExpectedOutput(leakcheck.failed:allocation.leaked)
 @public
 @payable
@@ -33,6 +34,7 @@ def always_fail():
     assert False
 
 
+#@ performs: payable(msg.value)
 #:: ExpectedOutput(leakcheck.failed:allocation.leaked) | ExpectedOutput(carbon)(invariant.violated:assertion.false, INV)
 @public
 @payable
@@ -41,6 +43,7 @@ def pay_fail():
     assert msg.sender == self.owner
 
 
+#@ performs: payout(self.value)
 #:: ExpectedOutput(leakcheck.failed:allocation.leaked)
 @public
 def withdraw_fail():

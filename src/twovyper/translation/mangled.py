@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -24,6 +24,8 @@ TRUST = '$trust'
 
 CREATOR = '$creator'
 CREATOR_RESOURCE = '$resource'
+
+ORIGINAL_MSG = '$original_msg'
 
 PERFORMS = '$performs'
 
@@ -132,6 +134,9 @@ FORCED_ETHER_CHECK = '$forced_ether_check'
 
 PURE_SUCCESS = '$pure$success_get'
 PURE_RESULT = '$pure$return_get'
+
+TRUST_NO_ONE = '$trust_no_one'
+NO_OFFERS = '$no_offers'
 
 
 def method_name(vyper_name: str) -> str:

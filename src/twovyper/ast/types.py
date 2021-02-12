@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -125,6 +125,19 @@ class ResourceType(StructType):
         return 'resource'
 
 
+class UnknownResourceType(ResourceType):
+
+    def __init__(self):
+        super().__init__('$unknown', {})
+
+
+class DerivedResourceType(ResourceType):
+
+    def __init__(self, name: str, member_types: Dict[str, VyperType], underlying_resource: ResourceType):
+        super().__init__(name, member_types)
+        self.underlying_resource = underlying_resource
+
+
 class ContractType(VyperType):
 
     def __init__(self,
@@ -196,6 +209,8 @@ VYPER_ADDRESS = BoundedType(names.ADDRESS, 0, 2 ** 160 - 1)
 VYPER_BYTE = PrimitiveType(names.BYTE)
 VYPER_BYTES32 = ArrayType(VYPER_BYTE, 32, True)
 
+NON_NEGATIVE_INT = PrimitiveType(names.NON_NEGATIVE_INTEGER)
+
 TYPES = {
     VYPER_BOOL.name: VYPER_BOOL,
     VYPER_WEI_VALUE.name: VYPER_WEI_VALUE,
@@ -235,7 +250,7 @@ TX_TYPE = StructType(names.TX, {
 
 
 def is_numeric(type: VyperType) -> bool:
-    return type in [VYPER_INT128, VYPER_UINT256, VYPER_DECIMAL]
+    return type in [VYPER_INT128, VYPER_UINT256, VYPER_DECIMAL, NON_NEGATIVE_INT]
 
 
 def is_bounded(type: VyperType) -> bool:
@@ -243,11 +258,11 @@ def is_bounded(type: VyperType) -> bool:
 
 
 def is_integer(type: VyperType) -> bool:
-    return type == VYPER_INT128 or type == VYPER_UINT256
+    return type in [VYPER_INT128, VYPER_UINT256, NON_NEGATIVE_INT]
 
 
 def is_unsigned(type: VyperType) -> bool:
-    return type == VYPER_UINT256 or type == VYPER_ADDRESS
+    return type in [VYPER_UINT256, VYPER_ADDRESS, NON_NEGATIVE_INT]
 
 
 def has_strict_array_size(element_type: VyperType) -> bool:
@@ -258,7 +273,7 @@ def is_bytes_array(type: VyperType):
     return isinstance(type, ArrayType) and type.element_type == VYPER_BYTE
 
 
-def matches(t, m):
+def matches(t: VyperType, m: VyperType):
     """
     Determines whether a type t matches a required type m in the
     specifications.
@@ -268,9 +283,10 @@ def matches(t, m):
     as mathematical integers.
     """
 
-    a1 = isinstance(t, ArrayType)
-    a2 = isinstance(m, ArrayType) and not m.is_strict
-    if a1 and a2 and t.element_type == m.element_type:
+    if isinstance(t, MapType) and isinstance(m, MapType) and t.key_type == m.key_type:
+        return matches(t.value_type, m.value_type)
+    elif (isinstance(t, ArrayType) and (isinstance(m, ArrayType) and not m.is_strict)
+          and t.element_type == m.element_type):
         return t.size <= m.size
     elif is_integer(t) and is_integer(m):
         return True
@@ -284,10 +300,13 @@ def matches(t, m):
 
 class TypeBuilder(NodeVisitor):
 
-    def __init__(self, type_map: Dict[str, VyperType]):
+    def __init__(self, type_map: Dict[str, VyperType], is_stub: bool = False):
         self.type_map = type_map
+        self.is_stub = is_stub
 
     def build(self, node) -> VyperType:
+        if self.is_stub:
+            return VyperType('$unknown')
         return self.visit(node)
 
     @property
@@ -307,10 +326,18 @@ class TypeBuilder(NodeVisitor):
         members = {n.target.id: self.visit(n.annotation) for n in node.body}
         return StructType(node.name, members)
 
+    def _visit_EventDef(self, node: ast.EventDef) -> VyperType:
+        arg_types = [self.visit(n.annotation) for n in node.body]
+        return EventType(arg_types)
+
     def _visit_FunctionStub(self, node: ast.FunctionStub) -> VyperType:
+        from twovyper.ast.nodes import Resource
+        name, is_derived = Resource.get_name_and_derived_flag(node)
         members = {n.name: self.visit(n.annotation) for n in node.args}
         contract_name = os.path.split(os.path.abspath(node.file))[1].split('.')[0]
-        resource_name = f'{contract_name}${node.name}'
+        resource_name = f'{contract_name}${name}'
+        if is_derived:
+            return DerivedResourceType(resource_name, members, UnknownResourceType())
         return ResourceType(resource_name, members)
 
     def _visit_ContractDef(self, node: ast.ContractDef) -> VyperType:

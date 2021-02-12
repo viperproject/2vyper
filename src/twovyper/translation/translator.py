@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -14,8 +14,7 @@ from twovyper.translation.lemma import LemmaTranslator
 
 from twovyper.utils import flatten, seq_to_list
 
-from twovyper.ast import names
-from twovyper.ast import types
+from twovyper.ast import names, types, ast_nodes as ast
 from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction, Resource
 from twovyper.ast.types import AnyStructType
 
@@ -46,8 +45,9 @@ from twovyper.viper.typedefs import Program, Stmt
 
 class TranslationOptions:
 
-    def __init__(self, create_model: bool):
+    def __init__(self, create_model: bool, check_ast_inconsistencies: bool):
         self.create_model = create_model
+        self.check_ast_inconsistencies = check_ast_inconsistencies
 
 
 builtins: Optional[Program] = None
@@ -70,9 +70,10 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
     translator = ProgramTranslator(viper_ast, builtins)
 
     viper_program = translator.translate(vyper_program, options)
-    consistency_errors = seq_to_list(viper_program.checkTransitively())
-    if consistency_errors:
-        raise ConsistencyException(viper_program, "The AST contains inconsistencies.", consistency_errors)
+    if options.check_ast_inconsistencies:
+        consistency_errors = seq_to_list(viper_program.checkTransitively())
+        if consistency_errors:
+            raise ConsistencyException(viper_program, "The AST contains inconsistencies.", consistency_errors)
 
     sif.configure_mpp_transformation(jvm)
     viper_program = sif.transform(jvm, viper_program)
@@ -81,10 +82,10 @@ def translate(vyper_program: VyperProgram, options: TranslationOptions, jvm: JVM
 
 class ProgramTranslator(CommonTranslator):
 
-    def __init__(self, viper_ast: ViperAST, builtins: Program):
+    def __init__(self, viper_ast: ViperAST, twovyper_builtins: Program):
         viper_ast = WrappedViperAST(viper_ast)
         super().__init__(viper_ast)
-        self.builtins = builtins
+        self.builtins = twovyper_builtins
         self.allocation_translator = AllocationTranslator(viper_ast)
         self.function_translator = FunctionTranslator(viper_ast)
         self.pure_function_translator = PureFunctionTranslator(viper_ast)
@@ -109,10 +110,10 @@ class ProgramTranslator(CommonTranslator):
         predicates = seq_to_list(self.builtins.predicates())
 
         # Add self.$sent field
-        sent_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+        sent_type = types.MapType(types.VYPER_ADDRESS, types.NON_NEGATIVE_INT)
         vyper_program.fields.type.add_member(mangled.SENT_FIELD, sent_type)
         # Add self.$received field
-        received_type = types.MapType(types.VYPER_ADDRESS, types.VYPER_WEI_VALUE)
+        received_type = types.MapType(types.VYPER_ADDRESS, types.NON_NEGATIVE_INT)
         vyper_program.fields.type.add_member(mangled.RECEIVED_FIELD, received_type)
         # Add self.$selfdestruct field
         selfdestruct_type = types.VYPER_BOOL
@@ -137,7 +138,86 @@ class ProgramTranslator(CommonTranslator):
             offer_struct = VyperStruct(mangled.OFFER, helpers.offer_type(), None)
             domains.append(self._translate_struct(offer_struct, ctx))
 
+        def derived_resources_invariants(node: Optional[ast.Node] = None):
+            if not ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                return []
+
+            derived_resources_invs = []
+            trusted = ctx.current_state[mangled.TRUSTED].local_var(ctx)
+            offered = ctx.current_state[mangled.OFFERED].local_var(ctx)
+
+            self_address = ctx.self_address or helpers.self_address(self.viper_ast)
+
+            own_derived_resources = [(name, resource) for name, resource in ctx.program.own_resources.items()
+                                     if isinstance(resource.type, types.DerivedResourceType)]
+            translated_own_derived_resources = self.resource_translator\
+                .translate_resources_for_quantified_expr(own_derived_resources, ctx)
+            translated_own_underlying_resources = self.resource_translator\
+                .translate_resources_for_quantified_expr(own_derived_resources, ctx,
+                                                         translate_underlying=True,
+                                                         args_idx_start=len(translated_own_derived_resources))
+
+            for index, (name, resource) in enumerate(own_derived_resources):
+                if name == names.WEI:
+                    continue
+
+                pos_node = node or resource.node
+
+                invariants = []
+                assert resource.underlying_address is not None
+                assert resource.underlying_resource is not None
+
+                stmts = []
+                t_underlying_address = self.specification_translator.translate(resource.underlying_address, stmts, ctx)
+                with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
+                    t_old_underlying_address = self.specification_translator.translate(resource.underlying_address,
+                                                                                       stmts, ctx)
+                assert not stmts
+                # resource.underlying_address is not self
+                pos = self.to_position(resource.node, ctx, rules.UNDERLYING_ADDRESS_SELF_FAIL,
+                                       values={'resource': resource})
+                underlying_address_not_self = self.viper_ast.NeCmp(t_underlying_address, self_address, pos)
+                invariants.append(underlying_address_not_self)
+                # resource.underlying_address is constant once set
+                pos = self.to_position(pos_node, ctx, rules.UNDERLYING_ADDRESS_CONSTANT_FAIL,
+                                       values={'resource': resource})
+                old_underlying_address_neq_zero = self.viper_ast.NeCmp(t_old_underlying_address,
+                                                                       self.viper_ast.IntLit(0), pos)
+                underlying_address_eq = self.viper_ast.EqCmp(t_underlying_address, t_old_underlying_address, pos)
+                underlying_address_const = self.viper_ast.Implies(old_underlying_address_neq_zero,
+                                                                  underlying_address_eq, pos)
+                invariants.append(underlying_address_const)
+                # trust_no_one in resource.underlying_address
+                pos = self.to_position(pos_node, ctx, rules.UNDERLYING_ADDRESS_TRUST_NO_ONE_FAIL,
+                                       values={'resource': resource})
+                trust_no_one = helpers.trust_no_one(self.viper_ast, trusted, self_address, t_underlying_address, pos)
+                invariants.append(trust_no_one)
+                # no_offers for resource.underlying_resource
+                pos = self.to_position(pos_node, ctx, rules.UNDERLYING_RESOURCE_NO_OFFERS_FAIL,
+                                       values={'resource': resource})
+                t_resource, args, type_cond = translated_own_underlying_resources[index]
+                no_offers = helpers.no_offers(self.viper_ast, offered, t_resource, self_address, pos)
+                forall_no_offers = self.viper_ast.Forall([*args], [self.viper_ast.Trigger([no_offers], pos)],
+                                                         self.viper_ast.Implies(type_cond, no_offers, pos), pos)
+                invariants.append(forall_no_offers)
+                # forall derived resource the underlying resource is different
+                for i in range(index):
+                    pos = self.to_position(pos_node, ctx, rules.UNDERLYING_RESOURCE_NEQ_FAIL,
+                                           values={'resource': resource, 'other_resource': own_derived_resources[i][1]})
+                    t_other_resource, other_args, other_type_cond = translated_own_underlying_resources[i]
+                    neq_other_resource = self.viper_ast.NeCmp(t_resource, t_other_resource, pos)
+                    and_type_cond = self.viper_ast.And(type_cond, other_type_cond, pos)
+                    forall_neq_other_resource = self.viper_ast.Forall(
+                        [*args, *other_args], [self.viper_ast.Trigger([t_resource, t_other_resource], pos)],
+                        self.viper_ast.Implies(and_type_cond, neq_other_resource, pos), pos)
+                    invariants.append(forall_neq_other_resource)
+                derived_resources_invs.extend(invariants)
+            return derived_resources_invs
+
+        ctx.derived_resources_invariants = derived_resources_invariants
+
         def unchecked_invariants():
+            res = []
             self_var = ctx.self_var.local_var(ctx)
             address_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
 
@@ -150,8 +230,10 @@ class ProgramTranslator(CommonTranslator):
             expr = self.viper_ast.GeCmp(sent, old_sent)
             trigger = self.viper_ast.Trigger([sent])
             sent_inc = self.viper_ast.Forall([q_var], [trigger], expr)
+            res.append(sent_inc)
 
-            if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+            if (ctx.program.config.has_option(names.CONFIG_ALLOCATION)
+                    and not ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)):
                 # self.balance >= sum(allocated())
                 balance = self.balance_translator.get_balance(self_var, ctx)
                 allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
@@ -161,9 +243,10 @@ class ProgramTranslator(CommonTranslator):
                 allocated_map = self.allocation_translator.get_allocated_map(allocated, wei_resource, ctx)
                 allocated_sum = helpers.map_sum(self.viper_ast, allocated_map, address_type)
                 balance_geq_sum = self.viper_ast.GeCmp(balance, allocated_sum)
-                return [sent_inc, balance_geq_sum]
-            else:
-                return [sent_inc]
+                res.append(balance_geq_sum)
+
+            res.extend(derived_resources_invariants())
+            return res
 
         def unchecked_transitive_postconditions():
             assume_locked = []
@@ -246,7 +329,7 @@ class ProgramTranslator(CommonTranslator):
         init_name = mangled.struct_init_name(struct.name, struct.type.kind)
         init_parms = [var for _, var in members]
         resource_address_var = None
-        if isinstance(struct, Resource) and struct.name != mangled.CREATOR:
+        if isinstance(struct, Resource) and not (struct.name == mangled.CREATOR or struct.name == names.UNDERLYING_WEI):
             # First argument has to be an address for resources if it is not the creator resource
             resource_address_var = self.viper_ast.LocalVarDecl(f'$address_arg', address_type)
             init_parms.append(resource_address_var)
@@ -283,7 +366,7 @@ class ProgramTranslator(CommonTranslator):
             eq_eq = self.type_translator.eq(eq_get_l, eq_get_r, member_type, ctx)
             eq_expr = self.viper_ast.And(eq_expr, eq_eq)
 
-        if isinstance(struct, Resource) and struct.name != mangled.CREATOR:
+        if isinstance(struct, Resource) and not (struct.name == mangled.CREATOR or struct.name == names.UNDERLYING_WEI):
             init_get = helpers.struct_get_idx(self.viper_ast, init, number_of_members, address_type)
             init_eq = self.viper_ast.EqCmp(init_get, resource_address_var.localVar())
             init_expr = self.viper_ast.And(init_expr, init_eq)
@@ -323,7 +406,7 @@ class ProgramTranslator(CommonTranslator):
         for idx, var in enumerate(function.args.values()):
             args.append(TranslatedVar(var.name, f'$arg_{idx}', var.type, self.viper_ast, pos))
         args_var_decls = [arg.var_decl(ctx) for arg in args]
-        type = self.type_translator.translate(function.type.return_type, ctx)
+        viper_type = self.type_translator.translate(function.type.return_type, ctx)
 
         if ctx.program.config.has_option(names.CONFIG_TRUST_CASTS):
             pres = []
@@ -334,7 +417,7 @@ class ProgramTranslator(CommonTranslator):
             implements = helpers.implements(self.viper_ast, addr, interface.name, ctx, pos)
             pres = [implements]
 
-        result = self.viper_ast.Result(type)
+        result = self.viper_ast.Result(viper_type)
         posts = self.type_translator.type_assumptions(result, function.type.return_type, ctx)
 
         # If the ghost function has an implementation we add a postcondition for that
@@ -342,7 +425,10 @@ class ProgramTranslator(CommonTranslator):
         if implementation:
             with ctx.function_scope():
                 ctx.args = {arg.name: arg for arg in args}
-                expr = implementation.node.body[0].value
+                ctx.current_state = {mangled.SELF: self_var}
+                body = implementation.node.body[0]
+                assert isinstance(body, ast.ExprStmt)
+                expr = body.value
                 stmts = []
                 impl_expr = self.specification_translator.translate(expr, stmts, ctx)
                 assert not stmts
@@ -351,7 +437,7 @@ class ProgramTranslator(CommonTranslator):
                 is_self = self.viper_ast.EqCmp(addr_var.local_var(ctx), self_address, pos)
                 posts.append(self.viper_ast.Implies(is_self, definition, pos))
 
-        return self.viper_ast.Function(fname, args_var_decls, type, pres, posts, None, pos)
+        return self.viper_ast.Function(fname, args_var_decls, viper_type, pres, posts, None, pos)
 
     def _translate_implements(self, program: VyperProgram, ctx: Context):
         domain = mangled.IMPLEMENTS_DOMAIN
@@ -367,8 +453,8 @@ class ProgramTranslator(CommonTranslator):
 
     def _translate_event(self, event: VyperEvent, ctx: Context):
         name = mangled.event_name(event.name)
-        types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
-        args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', type) for idx, type in enumerate(types)]
+        viper_types = [self.type_translator.translate(arg, ctx) for arg in event.type.arg_types]
+        args = [self.viper_ast.LocalVarDecl(f'$arg{idx}', viper_type) for idx, viper_type in enumerate(viper_types)]
         return self.viper_ast.Predicate(name, args, None)
 
     def _translate_accessible(self, function: VyperFunction, ctx: Context):

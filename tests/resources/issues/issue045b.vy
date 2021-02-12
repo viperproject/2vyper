@@ -9,7 +9,7 @@
 
 #:: ExpectedOutput(invalid.program:invalid.local.var)
 #@ performs: reallocate(temp, to=msg.sender)
-@private
+@public
 def foo():
     temp: int128 = 0
     #@ reallocate(temp, to=msg.sender)

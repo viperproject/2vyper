@@ -1,5 +1,5 @@
 """
-Copyright (c) 2020 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -58,6 +58,11 @@ class FunctionTranslator(CommonTranslator):
             ctx.function = function
             is_init = (function.name == names.INIT)
 
+            do_performs = not ctx.program.config.has_option(names.CONFIG_NO_PERFORMS)
+
+            if is_init and do_performs:
+                ctx.program.config.options.append(names.CONFIG_NO_PERFORMS)
+
             args = {name: self._translate_var(var, ctx, False) for name, var in function.args.items()}
             # Local variables will be added when translating.
             local_vars = {
@@ -90,6 +95,7 @@ class FunctionTranslator(CommonTranslator):
             # We create copies of variable maps because ctx is allowed to modify them
             ctx.args = args.copy()
             ctx.locals = local_vars.copy()
+            ctx.locals[mangled.ORIGINAL_MSG] = local_vars[names.MSG]
 
             state_dicts = [ctx.present_state, ctx.old_state, ctx.pre_state, ctx.issued_state]
             if function.is_private():
@@ -287,9 +293,31 @@ class FunctionTranslator(CommonTranslator):
                 body.append(var_assign)
 
             # Translate the performs clauses
+            performs_clause_conditions = []
+            interface_files = [ctx.program.interfaces[impl.name].file for impl in ctx.program.implements]
             for performs in function.performs:
                 assert isinstance(performs, ast.FunctionCall)
+                with ctx.state_scope(ctx.pre_state, ctx.pre_state):
+                    address, resource = self.allocation_translator.location_address_of_performs(performs, body, ctx,
+                                                                                                return_resource=True)
+                if (resource is not None and resource.file is not None
+                        and resource.file != ctx.program.file and resource.file in interface_files):
+                    # All performs clauses with own resources of an implemented interface should be on that interface
+                    apos = self.to_position(performs, ctx, rules.INTERFACE_RESOURCE_PERFORMS,
+                                            values={'resource': resource})
+                    cond = self.viper_ast.NeCmp(address, self_address, apos)
+                    performs_clause_conditions.append(self.viper_ast.Assert(cond, apos))
                 _ = self.specification_translator.translate_ghost_statement(performs, body, ctx, is_performs=True)
+
+            for interface_type in ctx.program.implements:
+                interface = ctx.program.interfaces[interface_type.name]
+                interface_func = interface.functions.get(function.name)
+                if interface_func:
+                    with ctx.program_scope(interface):
+                        for performs in interface_func.performs:
+                            assert isinstance(performs, ast.FunctionCall)
+                            self.specification_translator.translate_ghost_statement(performs, body, ctx,
+                                                                                    is_performs=True)
 
             # Revert if a @nonreentrant lock is set
             self._assert_unlocked(function, body, ctx)
@@ -302,6 +330,23 @@ class FunctionTranslator(CommonTranslator):
                 # Havoc self.balance, because we are not allowed to assume self.balance == 0
                 # in the beginning
                 self._havoc_balance(body, ctx)
+                if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                    self.state_translator.copy_state(ctx.current_state, ctx.current_old_state, body, ctx,
+                                                     unless=lambda n: (n != mangled.ALLOCATED
+                                                                       and n != mangled.TRUSTED
+                                                                       and n != mangled.OFFERED))
+                    self.state_translator.havoc_state(ctx.current_state, body, ctx,
+                                                      unless=lambda n: (n != mangled.ALLOCATED
+                                                                        and n != mangled.TRUSTED
+                                                                        and n != mangled.OFFERED))
+                    self.expression_translator.assume_own_resources_stayed_constant(body, ctx, pos)
+                    for _, interface in ctx.program.interfaces.items():
+                        with ctx.quantified_var_scope():
+                            var_name = mangled.quantifier_var_name(names.INTERFACE)
+                            qvar = TranslatedVar(var_name, var_name, types.VYPER_ADDRESS, self.viper_ast)
+                            ctx.quantified_vars[var_name] = qvar
+                            self.expression_translator.implicit_resource_caller_private_expressions(
+                                interface, qvar.local_var(ctx), self_address, body, ctx)
 
             # For public function we can make further assumptions about msg.value
             if function.is_public():
@@ -326,9 +371,11 @@ class FunctionTranslator(CommonTranslator):
                     self.balance_translator.increase_received(msg_value, body, ctx)
 
                     # Allocate the received ether to the sender
-                    if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
+                    if (ctx.program.config.has_option(names.CONFIG_ALLOCATION)
+                            and not ctx.program.config.has_option(names.CONFIG_NO_DERIVED_WEI)):
                         resource = self.resource_translator.translate(None, body, ctx)  # Wei resource
-                        self.allocation_translator.allocate(resource, msg_sender, msg_value, body, ctx)
+                        self.allocation_translator.allocate_derived(
+                            function.node, resource, msg_sender, msg_sender, msg_value, body, ctx, pos)
 
             # If we are in a synthesized init, we don't have a function body
             if function.node:
@@ -339,6 +386,9 @@ class FunctionTranslator(CommonTranslator):
             # If we reach this point we either jumped to it by returning or got there directly
             # because we didn't revert (yet)
             body.append(return_label)
+
+            # Check that we were allowed to inhale the performs clauses
+            body.extend(performs_clause_conditions)
 
             # Unset @nonreentrant locks
             self._set_locked(function, False, body, ctx)
@@ -481,18 +531,16 @@ class FunctionTranslator(CommonTranslator):
                         cond_fail = self.specification_translator.translate_check(check, checks_fail, ctx, True)
                         checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
-                check_info = self.to_info(["Assert checks"])
-                if_stmt = self.viper_ast.If(success_var, checks_succ, checks_fail, info=check_info)
-                body.append(if_stmt)
-
+                body.extend(helpers.flattened_conditional(self.viper_ast, success_var, checks_succ, checks_fail))
                 # Havoc self.balance
                 self._havoc_balance(body, ctx)
-                # Havoc other contract state
-                self.state_translator.havoc_state_except_self(ctx.current_state, body, ctx)
 
                 # In init set old to current self, if this is the first public state
                 if is_init:
                     self.state_translator.check_first_public_state(body, ctx, False)
+
+                # Havoc other contract state
+                self.state_translator.havoc_state_except_self(ctx.current_state, body, ctx)
 
                 def assert_collected_invariants(collected_invariants) -> List[Expr]:
                     invariant_assertions = []
@@ -553,6 +601,16 @@ class FunctionTranslator(CommonTranslator):
 
                 invariant_stmts.extend(assert_collected_invariants(invariant_conditions))
                 self.seqn_with_info(invariant_stmts, "Assert Inter Contract Invariants", body)
+
+                if is_init:
+                    derived_resources_invariants = [
+                        self.viper_ast.Assert(self.viper_ast.Implies(success_var, expr, expr.pos()), expr.pos())
+                        for expr in ctx.derived_resources_invariants(function.node)]
+                else:
+                    derived_resources_invariants = [
+                        self.viper_ast.Assert(expr, expr.pos())
+                        for expr in ctx.derived_resources_invariants(function.node)]
+                self.seqn_with_info(derived_resources_invariants, "Assert derived resource invariants", body)
 
                 # We check that the invariant tracks all allocation by doing a leak check.
                 # We also check that all necessary operations stated in perform clauses were
@@ -620,6 +678,11 @@ class FunctionTranslator(CommonTranslator):
 
             viper_name = mangled.method_name(function.name)
             method = self.viper_ast.Method(viper_name, args_list, ret_list, [], [], locals_list, body, pos)
+
+            if is_init and do_performs:
+                ctx.program.config.options = [option for option in ctx.program.config.options
+                                              if option != names.CONFIG_NO_PERFORMS]
+
             return method
 
     @staticmethod

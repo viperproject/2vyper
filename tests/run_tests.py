@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -11,12 +11,13 @@ import os
 import glob
 
 from conftest import option
-from tests import _init_jvm, _init_model, _init_store_viper, _test
+from tests import _init_jvm, _init_model, _init_check_ast, _init_store_viper, _test
 
 
 def setup_module():
     _init_jvm(option.verifier)
     _init_model(option.model)
+    _init_check_ast(option.check_ast_inconsistencies)
     _init_store_viper(option.store_viper)
 
 
