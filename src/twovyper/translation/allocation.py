@@ -410,13 +410,11 @@ class AllocationTranslator(CommonTranslator):
 
         fresh_no_offers = helpers.no_offers(self.viper_ast, fresh_offered, *qlocals, pos)
         old_no_offers = helpers.no_offers(self.viper_ast, offered, *qlocals, pos)
-        nodes_in_from_resource = self.viper_ast.to_list(from_resource)
-        if any(qvar in nodes_in_from_resource for qvar in context_qvars):
+        if any(self.viper_ast.has_subnode(from_resource, qvar) for qvar in context_qvars):
             resource_eq = self.viper_ast.TrueLit()
         else:
             resource_eq = self.viper_ast.EqCmp(qlocals[0], from_resource, pos)
-        nodes_in_from_owner = self.viper_ast.to_list(from_owner)
-        if any(qvar in nodes_in_from_owner for qvar in context_qvars):
+        if any(self.viper_ast.has_subnode(from_owner, qvar) for qvar in context_qvars):
             address_eq = self.viper_ast.TrueLit()
         else:
             address_eq = self.viper_ast.EqCmp(qlocals[1], from_owner, pos)
@@ -568,13 +566,11 @@ class AllocationTranslator(CommonTranslator):
 
         fresh_trust_no_one = helpers.trust_no_one(self.viper_ast, fresh_trusted, *qlocals, pos)
         old_trust_no_one = helpers.trust_no_one(self.viper_ast, trusted, *qlocals, pos)
-        nodes_in_by_address = self.viper_ast.to_list(by_address)
-        if any(qvar in nodes_in_by_address for qvar in context_qvars):
+        if any(self.viper_ast.has_subnode(by_address, qvar) for qvar in context_qvars):
             by_address_eq = self.viper_ast.TrueLit()
         else:
             by_address_eq = self.viper_ast.EqCmp(qlocals[0], by_address, pos)
-        nodes_in_where = self.viper_ast.to_list(where)
-        if any(qvar in nodes_in_where for qvar in context_qvars):
+        if any(self.viper_ast.has_subnode(where, qvar) for qvar in context_qvars):
             where_eq = self.viper_ast.TrueLit()
         else:
             where_eq = self.viper_ast.EqCmp(qlocals[1], where, pos)

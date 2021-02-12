@@ -221,7 +221,7 @@ class ViperAST:
         type_passed_func = self.to_function0(type_passed)
         result = self.ast.DomainFuncApp(func_name, self.to_seq(args),
                                         self.to_map(type_var_map), position,
-                                        info, type_passed_func,
+                                        info, type_passed,
                                         domain_name, self.NoTrafos)
         return result
 
@@ -675,6 +675,11 @@ class ViperAST:
             if isinstance(n, self.ast.LocationAccess):
                 return True
         return False
+
+    def has_subnode(self, node, subnode) -> bool:
+        if node == subnode:
+            return True
+        return any(self.has_subnode(sn, subnode) for sn in self.to_list(node.subnodes()))
 
     # SIF extension AST nodes
 
