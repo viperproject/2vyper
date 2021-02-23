@@ -14,6 +14,7 @@ c6: constant(bool) = True and False
 c7: constant(int128) = min(c1, c2)
 c8: constant(int128) = max(c7, 1 + 3)
 c9: constant(int128) = 12 / -5
+c10: constant(uint256[3]) = [convert(1, uint256), convert(2, uint256), convert(3, uint256)]
 
 
 @public
@@ -36,6 +37,13 @@ def bool_ops() -> bool:
     b = c5
     b = c4
     return b
+
+#@ ensures: success() ==> result()[0] == 1
+#@ ensures: success() ==> result()[1] == 2
+#@ ensures: success() ==> result()[2] == 3
+@public
+def get_c10() -> uint256[3]:
+    return c10
 
 #@ ensures: success() ==> result() == 0x0000000000000000000000000000000000000000
 @public

@@ -78,6 +78,7 @@ class StructureChecker(NodeVisitor):
         self._num_visited_conditional = 0
         self._only_one_event_allowed = False
         self._function_pure_checker = _FunctionPureChecker()
+        self._inside_performs = False
 
     @contextmanager
     def _inside_old_scope(self):
@@ -87,6 +88,15 @@ class StructureChecker(NodeVisitor):
         yield
 
         self._inside_old = current_inside_old
+
+    @contextmanager
+    def _inside_performs_scope(self):
+        current_inside_performs = self._inside_performs
+        self._inside_performs = True
+
+        yield
+
+        self._inside_performs = current_inside_performs
 
     @contextmanager
     def _inside_pure_scope(self, node_description: str = None):
@@ -115,9 +125,8 @@ class StructureChecker(NodeVisitor):
 
     def check(self, program: VyperProgram):
         if program.resources and not program.config.has_option(names.CONFIG_ALLOCATION):
-            resource = first(program.resources.values())
             msg = "Resources require allocation config option."
-            raise InvalidProgramException(resource.node, 'alloc.not.alloc', msg)
+            raise InvalidProgramException(first(program.node.stmts) or program.node, 'alloc.not.alloc', msg)
 
         for function in program.functions.values():
             self.visit(function.node, _Context.CODE, program, function)
@@ -200,8 +209,10 @@ class StructureChecker(NodeVisitor):
         super().visit(node, ctx, program, function)
 
     def _visit_performs(self, node: ast.Expr, program: VyperProgram, function: VyperFunction):
-        _assert(isinstance(node, ast.FunctionCall) and node.name in names.GHOST_STATEMENTS, node, 'invalid.performs')
-        self.visit(node, _Context.CODE, program, function)
+        with self._inside_performs_scope():
+            _assert(isinstance(node, ast.FunctionCall) and node.name in names.GHOST_STATEMENTS,
+                    node, 'invalid.performs')
+            self.visit(node, _Context.CODE, program, function)
 
     def visit_BoolOp(self, node: ast.BoolOp, *args):
         with switch(node.op) as case:
@@ -292,11 +303,11 @@ class StructureChecker(NodeVisitor):
         if ctx == _Context.POSTCONDITION and function and function.name == names.INIT:
             _assert(node.name != names.OLD, node, 'postcondition.init.old')
 
-        if function and node.name == names.PUBLIC_OLD:
+        if node.name == names.PUBLIC_OLD:
             if ctx == _Context.POSTCONDITION:
-                _assert(function.is_private(), node, 'postcondition.public.old')
+                _assert(function and function.is_private(), node, 'postcondition.public.old')
             elif ctx == _Context.PRECONDITION:
-                _assert(function.is_private(), node, 'precondition.public.old')
+                _assert(function and function.is_private(), node, 'precondition.public.old')
 
         if function and node.name == names.EVENT:
             if ctx == _Context.POSTCONDITION:
@@ -304,8 +315,15 @@ class StructureChecker(NodeVisitor):
             elif ctx == _Context.PRECONDITION:
                 _assert(function.is_private(), node, 'precondition.event')
 
-        if function and node.name in program.ghost_functions.keys():
+        if node.name in program.ghost_functions:
             _assert(ctx != _Context.LEMMA, node, 'invalid.lemma')
+            if len(program.ghost_functions[node.name]) > 1:
+                if isinstance(program, VyperInterface):
+                    cond = node.name in program.own_ghost_functions
+                else:
+                    cond = node.name in program.ghost_function_implementations
+                _assert(cond, node, 'duplicate.ghost',
+                        f'Multiple interfaces declare the ghost function "{node.name}".')
 
         if node.name == names.CALLER:
             self._visited_caller_spec = True
@@ -382,6 +400,7 @@ class StructureChecker(NodeVisitor):
                 _assert(isinstance(call, ast.ReceiverCall), node, 'spec.accessible')
                 assert isinstance(call, ast.ReceiverCall)
                 _assert(isinstance(call.receiver, ast.Name), node, 'spec.accessible')
+                assert isinstance(call.receiver, ast.Name)
                 _assert(call.receiver.id == names.SELF, node, 'spec.accessible')
                 _assert(call.name in program.functions, node, 'spec.accessible')
                 _assert(program.functions[call.name].is_public(), node, 'spec.accessible',
@@ -506,18 +525,79 @@ class StructureChecker(NodeVisitor):
 
             _assert(node.name in names.ALLOCATION_FUNCTIONS, node, 'invalid.no.resources')
 
-            def check_resource(resource: ast.Node, top: bool):
+            # All allocation functions are allowed to have a resource with an address if the function is inside of a
+            # performs clause. Outside of performs clauses ghost statements are not allowed to have resources with
+            # addresses (They can only refer to their own resources).
+            resources_with_address_allowed = self._inside_performs or node.name not in names.GHOST_STATEMENTS
+
+            def check_resource_address(address):
+                _assert(resources_with_address_allowed, address, 'invalid.resource.address')
+
+                if isinstance(address, ast.Name):
+                    _assert(address.id == names.SELF, address, 'invalid.resource.address')
+                elif isinstance(address, ast.Attribute):
+                    _assert(isinstance(address.value, ast.Name), address, 'invalid.resource.address')
+                    assert isinstance(address.value, ast.Name)
+                    _assert(address.value.id == names.SELF, address, 'invalid.resource.address')
+                elif isinstance(address, ast.FunctionCall):
+                    # We only allow own ghost functions
+                    if isinstance(program, VyperInterface):
+                        f = program.own_ghost_functions.get(address.name)
+                    else:
+                        f = program.ghost_function_implementations.get(address.name)
+                    _assert(f is not None, address, 'invalid.resource.address')
+                    _assert(len(address.args) >= 1, address, 'invalid.resource.address')
+                    # The first argument has to be "SELF"
+                    ghost_address_arg = address.args[0]
+                    _assert(isinstance(ghost_address_arg, ast.Name), address, 'invalid.resource.address')
+                    assert isinstance(ghost_address_arg, ast.Name)
+                    _assert(ghost_address_arg.id == names.SELF, address, 'invalid.resource.address')
+                else:
+                    _assert(False, address, 'invalid.resource.address')
+
+            def check_resource(resource: ast.Node, top: bool, inside_subscript: bool = False):
                 if isinstance(resource, ast.Name):
                     return
-                elif isinstance(resource, ast.Exchange) and top:
-                    check_resource(resource.left, False)
-                    check_resource(resource.right, False)
-                elif isinstance(resource, ast.FunctionCall):
+                elif isinstance(resource, ast.Exchange) and top and not inside_subscript:
+                    check_resource(resource.left, False, inside_subscript)
+                    check_resource(resource.right, False, inside_subscript)
+                elif isinstance(resource, ast.FunctionCall) and not inside_subscript:
                     if resource.name == names.CREATOR:
                         _assert(len(resource.args) == 1 and not resource.keywords, resource, 'invalid.resource')
-                        check_resource(resource.args[0], False)
+                        check_resource(resource.args[0], False, inside_subscript)
                     else:
+                        if resource.resource is not None:
+                            check_resource_address(resource.resource)
                         self.generic_visit(resource, arg_ctx, program, function)
+                elif isinstance(resource, ast.Attribute):
+                    _assert(isinstance(resource.value, ast.Name), resource, 'invalid.resource')
+                    assert isinstance(resource.value, ast.Name)
+                    interface_name = resource.value.id
+                    interface = program.interfaces.get(interface_name)
+                    _assert(interface is not None, resource, 'invalid.resource')
+                    _assert(resource.attr in interface.own_resources, resource, 'invalid.resource')
+                elif isinstance(resource, ast.ReceiverCall) and not inside_subscript:
+                    if isinstance(resource.receiver, ast.Name):
+                        interface_name = resource.receiver.id
+                    elif isinstance(resource.receiver, ast.Subscript):
+                        _assert(isinstance(resource.receiver.value, ast.Attribute), resource, 'invalid.resource')
+                        assert isinstance(resource.receiver.value, ast.Attribute)
+                        _assert(isinstance(resource.receiver.value.value, ast.Name), resource, 'invalid.resource')
+                        assert isinstance(resource.receiver.value.value, ast.Name)
+                        interface_name = resource.receiver.value.value.id
+                        address = resource.receiver.index
+                        check_resource_address(address)
+                    else:
+                        _assert(False, resource, 'invalid.resource')
+                        return
+                    interface = program.interfaces.get(interface_name)
+                    _assert(interface is not None, resource, 'invalid.resource')
+                    _assert(resource.name in interface.own_resources, resource, 'invalid.resource')
+                    self.generic_visit(resource, arg_ctx, program, function)
+                elif isinstance(resource, ast.Subscript):
+                    address = resource.index
+                    check_resource(resource.value, False, True)
+                    check_resource_address(address)
                 else:
                     _assert(False, resource, 'invalid.resource')
 
@@ -531,10 +611,17 @@ class StructureChecker(NodeVisitor):
             _assert(False, node, 'spec.call')
         elif ctx.is_specification:
             receiver = node.receiver
-            if isinstance(receiver, ast.Name) and receiver.id == names.LEMMA:
-                other_lemma = program.lemmas.get(node.name)
-                _assert(other_lemma is not None, node, 'invalid.lemma',
-                        f'Unknown lemma to call: {node.name}')
+            if isinstance(receiver, ast.Name):
+                if receiver.id == names.LEMMA:
+                    other_lemma = program.lemmas.get(node.name)
+                    _assert(other_lemma is not None, node, 'invalid.lemma',
+                            f'Unknown lemma to call: {node.name}')
+                elif receiver.id in program.interfaces:
+                    interface = program.interfaces[receiver.id]
+                    _assert(node.name in interface.own_ghost_functions, node, 'spec.call',
+                            f'Unknown ghost function to call "{node.name}" in the interface "{receiver.id}"')
+                else:
+                    _assert(False, node, 'spec.call')
             elif ctx == _Context.GHOST_CODE:
                 _assert(False, node, 'invalid.ghost.code')
             else:
@@ -568,6 +655,7 @@ class StructureChecker(NodeVisitor):
             if isinstance(node, ast.Assert) and node.is_lemma:
                 return
             _assert(node.msg and isinstance(node.msg, ast.Name), node, 'invalid.ghost.code')
+            assert isinstance(node.msg, ast.Name)
             _assert(node.msg.id == names.UNREACHABLE, node, 'invalid.ghost.code')
 
     def visit_Assert(self, node: ast.Assert, ctx: _Context, program: VyperProgram, function: Optional[VyperFunction]):
@@ -686,6 +774,8 @@ class _FunctionPureChecker(NodeVisitor):
         self.generic_visit(node, program)
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall, program: VyperProgram):
+        if not isinstance(node.receiver, ast.Name):
+            _assert(False, node, 'invalid.receiver')
         with switch(node.receiver.id) as case:
             if case(names.SELF):
                 self.generic_visit(node, program)

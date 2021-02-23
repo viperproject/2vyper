@@ -327,7 +327,7 @@ class FunctionTranslator(CommonTranslator):
 
                     # Allocate the received ether to the sender
                     if ctx.program.config.has_option(names.CONFIG_ALLOCATION):
-                        resource = self.resource_translator.resource(names.WEI, [], ctx)
+                        resource = self.resource_translator.translate(None, body, ctx)  # Wei resource
                         self.allocation_translator.allocate(resource, msg_sender, msg_value, body, ctx)
 
             # If we are in a synthesized init, we don't have a function body

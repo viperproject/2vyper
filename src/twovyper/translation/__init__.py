@@ -11,4 +11,4 @@ from twovyper.translation.variable import TranslatedVar
 from twovyper.viper.typedefs import Var
 
 State = Dict[str, TranslatedVar]
-LocalVarSnapshot = Dict[str, Tuple[int, Var]]
+LocalVarSnapshot = Dict[str, Tuple[int, Var, bool]]

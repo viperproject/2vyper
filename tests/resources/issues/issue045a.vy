@@ -5,10 +5,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
-#:: ExpectedOutput(invalid.program:duplicate.ghost)
-from . import interface_a1
-from . import interface_b
-
-@public
+#:: ExpectedOutput(invalid.program:invalid.local.var)
+#@ requires: temp == 1
+@private
 def foo():
-    pass
+    temp: int128 = 1

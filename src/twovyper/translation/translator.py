@@ -16,7 +16,7 @@ from twovyper.utils import flatten, seq_to_list
 
 from twovyper.ast import names
 from twovyper.ast import types
-from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction
+from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction, Resource
 from twovyper.ast.types import AnyStructType
 
 from twovyper.exceptions import ConsistencyException
@@ -155,7 +155,9 @@ class ProgramTranslator(CommonTranslator):
                 # self.balance >= sum(allocated())
                 balance = self.balance_translator.get_balance(self_var, ctx)
                 allocated = ctx.current_state[mangled.ALLOCATED].local_var(ctx)
-                wei_resource = self.resource_translator.resource(names.WEI, [], ctx)
+                stmts = []
+                wei_resource = self.resource_translator.translate(None, stmts, ctx)
+                assert len(stmts) == 0
                 allocated_map = self.allocation_translator.get_allocated_map(allocated, wei_resource, ctx)
                 allocated_sum = helpers.map_sum(self.viper_ast, allocated_map, address_type)
                 balance_geq_sum = self.viper_ast.GeCmp(balance, allocated_sum)
@@ -181,12 +183,13 @@ class ProgramTranslator(CommonTranslator):
         domains.extend(self._translate_struct(struct, ctx) for struct in structs)
 
         # Resources
-        resources = vyper_program.resources.values()
-        domains.extend(self._translate_resource(resource, ctx) for resource in resources)
-        domains.append(self._translate_resource(helpers.creator_resource(), ctx))
+        all_resources = flatten(vyper_program.resources.values())
+        domains.extend(self._translate_struct(resource, ctx) for resource in all_resources)
+        domains.append(self._translate_struct(helpers.creator_resource(), ctx))
 
         # Ghost functions
-        functions.extend(self._translate_ghost_function(func, ctx) for func in vyper_program.ghost_functions.values())
+        functions.extend(self._translate_ghost_function(func, ctx)
+                         for func_list in vyper_program.ghost_functions.values() for func in func_list)
         domains.append(self._translate_implements(vyper_program, ctx))
 
         # Pure functions
@@ -230,16 +233,23 @@ class ProgramTranslator(CommonTranslator):
         # their corresponding axioms
         domain = mangled.struct_name(struct.name, struct.type.kind)
         struct_type = self.type_translator.translate(struct.type, ctx)
+        address_type = self.type_translator.translate(types.VYPER_ADDRESS, ctx)
 
-        members = [None] * len(struct.type.member_types)
-        for name, type in struct.type.member_types.items():
+        number_of_members = len(struct.type.member_types)
+        members = [None] * number_of_members
+        for name, vyper_type in struct.type.member_types.items():
             idx = struct.type.member_indices[name]
-            member_type = self.type_translator.translate(type, ctx)
+            member_type = self.type_translator.translate(vyper_type, ctx)
             var_decl = self.viper_ast.LocalVarDecl(f'$arg_{idx}', member_type)
             members[idx] = (name, var_decl)
 
         init_name = mangled.struct_init_name(struct.name, struct.type.kind)
         init_parms = [var for _, var in members]
+        resource_address_var = None
+        if isinstance(struct, Resource) and struct.name != mangled.CREATOR:
+            # First argument has to be an address for resources if it is not the creator resource
+            resource_address_var = self.viper_ast.LocalVarDecl(f'$address_arg', address_type)
+            init_parms.append(resource_address_var)
         init_f = self.viper_ast.DomainFunc(init_name, init_parms, struct_type, False, domain)
 
         eq_name = mangled.struct_eq_name(struct.name, struct.type.kind)
@@ -273,6 +283,16 @@ class ProgramTranslator(CommonTranslator):
             eq_eq = self.type_translator.eq(eq_get_l, eq_get_r, member_type, ctx)
             eq_expr = self.viper_ast.And(eq_expr, eq_eq)
 
+        if isinstance(struct, Resource) and struct.name != mangled.CREATOR:
+            init_get = helpers.struct_get_idx(self.viper_ast, init, number_of_members, address_type)
+            init_eq = self.viper_ast.EqCmp(init_get, resource_address_var.localVar())
+            init_expr = self.viper_ast.And(init_expr, init_eq)
+
+            eq_get_l = helpers.struct_get_idx(self.viper_ast, eq_left, number_of_members, address_type)
+            eq_get_r = helpers.struct_get_idx(self.viper_ast, eq_right, number_of_members, address_type)
+            eq_eq = self.type_translator.eq(eq_get_l, eq_get_r, types.VYPER_ADDRESS, ctx)
+            eq_expr = self.viper_ast.And(eq_expr, eq_eq)
+
         init_trigger = self.viper_ast.Trigger([init])
         init_quant = self.viper_ast.Forall(init_parms, [init_trigger], init_expr)
         init_ax_name = mangled.axiom_name(init_name)
@@ -289,16 +309,13 @@ class ProgramTranslator(CommonTranslator):
 
         return self.viper_ast.Domain(domain, [init_f, eq_f], [init_axiom, eq_axiom], [])
 
-    def _translate_resource(self, resource: VyperStruct, ctx: Context):
-        return self._translate_struct(resource, ctx)
-
     def _translate_ghost_function(self, function: GhostFunction, ctx: Context):
         # We translate a ghost function as a function where the first argument is the
         # self struct usually obtained through the contracts map
 
         pos = self.to_position(function.node, ctx)
 
-        fname = mangled.ghost_function_name(function.name)
+        fname = mangled.ghost_function_name(function.interface, function.name)
         addr_var = TranslatedVar(names.ADDRESS, '$addr', types.VYPER_ADDRESS, self.viper_ast, pos)
         self_var = TranslatedVar(names.SELF, '$self', AnyStructType(), self.viper_ast, pos)
         self_address = helpers.self_address(self.viper_ast, pos)

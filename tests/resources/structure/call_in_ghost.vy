@@ -5,6 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+from . import ghost_interface
+
+implements: ghost_interface
 
 #@ ghost:
     #@ @implements

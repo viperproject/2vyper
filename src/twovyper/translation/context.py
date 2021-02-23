@@ -35,6 +35,7 @@ class Context:
         self.unchecked_transitive_postconditions: Optional[Callable[[], List[Expr]]] = None
 
         self.function: Optional[VyperFunction] = None
+        self.is_pure_function = False
         self.inline_function: Optional[VyperFunction] = None
 
         self.args = {}
@@ -201,6 +202,7 @@ class Context:
         """
 
         function = self.function
+        is_pure_function = self.is_pure_function
 
         args = self.args
         local_variables = self.locals
@@ -251,6 +253,7 @@ class Context:
         pure_breaks = self.pure_breaks
 
         self.function = None
+        self.is_pure_function = False
 
         self.args = {}
         self.locals = {}
@@ -290,7 +293,7 @@ class Context:
 
         self.event_vars = {}
 
-        self.pure_conds = []
+        self.pure_conds = None
         self.pure_returns = []
         self.pure_success = []
         self._pure_var_index_counter = 1
@@ -300,6 +303,7 @@ class Context:
         yield
 
         self.function = function
+        self.is_pure_function = is_pure_function
 
         self.args = args
         self.locals = local_variables

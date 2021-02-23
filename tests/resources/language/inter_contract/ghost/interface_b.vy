@@ -6,6 +6,7 @@
 #
 
 from . import interface_a2
+import tests.resources.language.inter_contract.ghost.interface_a1 as Coin
 
 #@ interface
 
@@ -14,7 +15,8 @@ from . import interface_a2
     #@ def owner() -> address: ...
 
 
-#@ inter contract invariant: a(owner(self)) == 42
+#@ inter contract invariant: interface_a2.a(owner(self)) == 42
+#@ inter contract invariant: Coin.a(owner(self)) == 42
 
 @public
 def foo():

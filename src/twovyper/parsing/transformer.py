@@ -135,6 +135,42 @@ class ConstantInterpreter(NodeVisitor):
             return min(args)
         elif node.name == names.MAX:
             return max(args)
+        elif node.name == names.CONVERT:
+            arg = args[0]
+            second_arg = node.args[1]
+            assert isinstance(second_arg, ast.Name)
+            type_name = second_arg.id
+            if isinstance(arg, int):
+                with switch(type_name) as case:
+                    if case(names.BOOL):
+                        return bool(arg)
+                    elif case(names.DECIMAL):
+                        return Decimal[10](value=arg)
+                    elif (case(names.INT128)
+                          or case(names.UINT256)
+                          or case(names.BYTES32)):
+                        return arg
+            elif isinstance(arg, Decimal):
+                with switch(type_name) as case:
+                    if case(names.BOOL):
+                        # noinspection PyUnresolvedReferences
+                        return bool(arg.scaled_value)
+                    elif case(names.DECIMAL):
+                        return arg
+                    elif (case(names.INT128)
+                          or case(names.UINT256)
+                          or case(names.BYTES32)):
+                        # noinspection PyUnresolvedReferences
+                        return div(arg.scaled_value, arg.scaling_factor)
+            elif isinstance(arg, bool):
+                with switch(type_name) as case:
+                    if case(names.BOOL):
+                        return arg
+                    elif (case(names.DECIMAL)
+                          or case(names.INT128)
+                          or case(names.UINT256)
+                          or case(names.BYTES32)):
+                        return int(arg)
 
         raise UnsupportedException(node)
 
@@ -150,7 +186,10 @@ class ConstantInterpreter(NodeVisitor):
         return node.value
 
     def visit_Name(self, node: ast.Name):
-        return self.constants[node.id]
+        return self.constants.get(node.id)
+
+    def visit_List(self, node: ast.List):
+        return [self.visit(element) for element in node.elements]
 
 
 class ConstantCollector(NodeTransformer):

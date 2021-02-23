@@ -4,6 +4,8 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
+import os
+from collections import defaultdict
 from itertools import chain
 from typing import Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
@@ -105,6 +107,10 @@ class GhostFunction:
         self.node = node
         self.file = file
 
+    @property
+    def interface(self):
+        return os.path.split(self.file)[1].split('.')[0] if self.file else ''
+
 
 class VyperStruct:
 
@@ -120,10 +126,15 @@ class VyperStruct:
 class Resource(VyperStruct):
 
     def __init__(self,
-                 name: str,
-                 type: ResourceType,
-                 node: Optional[ast.Node]):
-        super().__init__(name, type, node)
+                 rtype: ResourceType,
+                 node: Optional[ast.Node],
+                 file: Optional[str]):
+        super().__init__(rtype.name, rtype, node)
+        self.file = file
+
+    @property
+    def interface(self):
+        return os.path.split(self.file)[1].split('.')[0] if self.file else ''
 
 
 class VyperContract:
@@ -153,7 +164,7 @@ class VyperProgram:
                  structs: Dict[str, VyperStruct],
                  contracts: Dict[str, VyperContract],
                  events: Dict[str, VyperEvent],
-                 resources: Dict[str, VyperStruct],
+                 resources: Dict[str, Resource],
                  local_state_invariants: List[ast.Expr],
                  inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
@@ -171,7 +182,13 @@ class VyperProgram:
         self.structs = structs
         self.contracts = contracts
         self.events = events
-        self.resources = resources
+        self.imported_resources: Dict[str, List[Resource]] = defaultdict(list)
+        for key, value in self._resources():
+            self.imported_resources[key].append(value)
+        self.own_resources = resources
+        self.resources: Dict[str, List[Resource]] = defaultdict(list, self.imported_resources)
+        for key, value in resources.items():
+            self.resources[key].append(value)
         self.local_state_invariants = local_state_invariants
         self.inter_contract_invariants = inter_contract_invariants
         self.general_postconditions = general_postconditions
@@ -179,7 +196,9 @@ class VyperProgram:
         self.general_checks = general_checks
         self.lemmas = lemmas
         self.implements = implements
-        self.ghost_functions = dict(self._ghost_functions())
+        self.ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list)
+        for key, value in self._ghost_functions():
+            self.ghost_functions[key].append(value)
         self.ghost_function_implementations = ghost_function_implementations
         self.type = fields.type
         # Is set in the analyzer
@@ -200,6 +219,11 @@ class VyperProgram:
             for name, func in interface.own_ghost_functions.items():
                 yield name, func
 
+    def _resources(self) -> Iterable[Tuple[str, Resource]]:
+        for interface in self.interfaces.values():
+            for name, resource in interface.own_resources.items():
+                yield name, resource
+
     @property
     def invariants(self):
         return chain(self.local_state_invariants, self.inter_contract_invariants)
@@ -214,6 +238,7 @@ class VyperInterface(VyperProgram):
                  config: Config,
                  functions: Dict[str, VyperFunction],
                  interfaces: Dict[str, 'VyperInterface'],
+                 resources: Dict[str, VyperStruct],
                  local_state_invariants: List[ast.Expr],
                  inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
@@ -231,7 +256,8 @@ class VyperInterface(VyperProgram):
                          empty_struct,
                          functions,
                          interfaces,
-                         {}, {}, {}, {},
+                         {}, {}, {},
+                         resources,
                          local_state_invariants,
                          inter_contract_invariants,
                          general_postconditions,
@@ -239,10 +265,13 @@ class VyperInterface(VyperProgram):
                          general_checks,
                          {}, [], {})
         self.name = name
-        self.imported_ghost_functions = dict(self._ghost_functions())
+        self.imported_ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list)
+        for key, value in self._ghost_functions():
+            self.imported_ghost_functions[key].append(value)
         self.own_ghost_functions = ghost_functions
-        self.ghost_functions = dict(self.imported_ghost_functions)
-        self.ghost_functions.update(ghost_functions)
+        self.ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list, self.imported_ghost_functions)
+        for key, value in ghost_functions.items():
+            self.ghost_functions[key].append(value)
         self.type = type
         self.caller_private = caller_private
 

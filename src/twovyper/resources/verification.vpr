@@ -29,6 +29,8 @@ predicate $performs$revoke($from_resource: $Struct, $to_resource: $Struct, $from
 
 predicate $performs$trust($address: Int, $by_address: Int, $value: Bool)
 
+predicate $performs$allocate_untracked_wei($address: Int)
+
 function $pure$success_get(x:$Struct): Bool
 {
   $struct_get($struct_loc(x, 0))

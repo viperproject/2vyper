@@ -5,6 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+import os
 from typing import Optional, List, Dict
 
 from twovyper.ast import ast_nodes as ast, names
@@ -57,6 +58,14 @@ class ArrayType(VyperType):
         self.size = size
         self.is_strict = is_strict
         id = f'{element_type}[{"" if is_strict else "<="}{size}]'
+        super().__init__(id)
+
+
+class TupleType(VyperType):
+
+    def __init__(self, element_types: List[VyperType]):
+        self.element_types = element_types
+        id = f'({element_types})'
         super().__init__(id)
 
 
@@ -300,7 +309,9 @@ class TypeBuilder(NodeVisitor):
 
     def _visit_FunctionStub(self, node: ast.FunctionStub) -> VyperType:
         members = {n.name: self.visit(n.annotation) for n in node.args}
-        return ResourceType(node.name, members)
+        contract_name = os.path.split(os.path.abspath(node.file))[1].split('.')[0]
+        resource_name = f'{contract_name}${node.name}'
+        return ResourceType(resource_name, members)
 
     def _visit_ContractDef(self, node: ast.ContractDef) -> VyperType:
         functions = {}
@@ -343,3 +354,7 @@ class TypeBuilder(NodeVisitor):
         # (which has already been replaced by an int)
         size = node.index.n
         return ArrayType(element_type, size, has_strict_array_size(element_type))
+
+    def _visit_Tuple(self, node: ast.Tuple) -> VyperType:
+        element_types = [self.visit(n) for n in node.elements]
+        return TupleType(element_types)

@@ -5,6 +5,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+c_u:  constant(uint256) = convert(1, uint256)
+c_i:  constant(int128)  = convert(1, int128)
+c_d:  constant(decimal) = convert(1, decimal)
+c_by: constant(bytes32) = convert(1, bytes32)
+c_bo: constant(bool)    = convert(1, bool)
 
 @public
 def test_convert():
@@ -45,6 +50,12 @@ def test_convert():
 
     assert convert(e, int128) == i, UNREACHABLE
     assert convert(-e, int128) == -i, UNREACHABLE
+
+    assert c_u == 1, UNREACHABLE
+    assert c_i == 1, UNREACHABLE
+    assert c_d == 1.0, UNREACHABLE
+    assert c_by == 0x0000000000000000000000000000000000000000000000000000000000000001, UNREACHABLE
+    assert c_bo == True, UNREACHABLE
 
     #:: ExpectedOutput(assert.failed:assertion.false)
     assert convert(i, uint256) == u + 1, UNREACHABLE

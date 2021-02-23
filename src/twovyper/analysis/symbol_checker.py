@@ -7,45 +7,97 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
 
+from twovyper.ast import names
 from twovyper.ast.nodes import VyperProgram, VyperInterface
 from twovyper.exceptions import InvalidProgramException
 from twovyper.utils import first
 
 
 def check_symbols(program: VyperProgram):
-    _check_unique_ghost_functions(program)
+    _check_ghost_functions(program)
     _check_ghost_implements(program)
+    _check_resources(program)
 
 
-def _check_unique_ghost_functions(program: VyperProgram):
-    if isinstance(program, VyperInterface):
-        for ghost_function in program.own_ghost_functions.values():
-            imported_ghost_function = program.imported_ghost_functions.get(ghost_function.name)
-            if imported_ghost_function is not None:
-                raise InvalidProgramException(ghost_function.node, 'duplicate.ghost',
-                                              f'There is already an imported ghost function with the same name '
-                                              f'"{ghost_function.name}" from '
-                                              f'"{os.path.basename(imported_ghost_function.file)}".')
-    else:
+def _check_resources(program: VyperProgram):
+    if not isinstance(program, VyperInterface):
         node = first(program.node.stmts) or program.node
         for interface in program.interfaces.values():
-            for ghost_function in interface.ghost_functions.values():
-                imported_ghost_function = program.ghost_functions.get(ghost_function.name)
-                if imported_ghost_function is None:
-                    prefix_length = len(os.path.commonprefix([ghost_function.file, program.file]))
-                    raise InvalidProgramException(node, 'missing.ghost',
-                                                  f'The interface "{interface.name}" '
-                                                  f'needs a ghost function "{ghost_function.name}" from '
-                                                  f'"{ghost_function.file[prefix_length:]}" but it was not imported '
-                                                  f'for this contract.')
-                if ghost_function.file != program.ghost_functions[ghost_function.name].file:
-                    prefix_length = len(os.path.commonprefix([ghost_function.file, imported_ghost_function.file]))
-                    ghost_function_file = ghost_function.file[prefix_length:]
-                    imported_ghost_function_file = imported_ghost_function.file[prefix_length:]
-                    raise InvalidProgramException(node, 'duplicate.ghost',
-                                                  f'There are two versions of the ghost function '
-                                                  f'"{ghost_function.name}" one from "{imported_ghost_function_file}" '
-                                                  f'the other from "{ghost_function_file}".')
+            for resource_name, resources_list in interface.resources.items():
+                for resource in resources_list:
+                    imported_resources = [r for r in program.resources.get(resource_name, [])
+                                          if r.file == resource.file]
+                    if not imported_resources:
+                        prefix_length = len(os.path.commonprefix([resource.file, program.file]))
+                        raise InvalidProgramException(node, 'missing.resource',
+                                                      f'The interface "{interface.name}" '
+                                                      f'needs a resource "{resource_name}" from '
+                                                      f'".{os.path.sep}{resource.file[prefix_length:]}" but it '
+                                                      f'was not imported for this contract.')
+                    imported_resources = [r for r in program.resources.get(resource_name)
+                                          if r.interface == resource.interface]
+                    for imported_resource in imported_resources:
+                        if resource.file != imported_resource.file:
+                            prefix_length = len(os.path.commonprefix([resource.file, imported_resource.file]))
+                            resource_file = resource.file[prefix_length:]
+                            imported_resource_file = imported_resource.file[prefix_length:]
+                            raise InvalidProgramException(node, 'duplicate.resource',
+                                                          f'There are two versions of the resource '
+                                                          f'"{resource_name}" defined in an interface '
+                                                          f'"{imported_resource.interface}" one from '
+                                                          f'[...]"{imported_resource_file}" the other from '
+                                                          f'[...]"{resource_file}".')
+
+        for interface_type in program.implements:
+            interface = program.interfaces[interface_type.name]
+            for resource_name, resource in program.own_resources.items():
+                if resource_name == names.WEI:
+                    continue
+                if resource_name in interface.own_resources:
+                    raise InvalidProgramException(resource.node, 'duplicate.resource',
+                                                  f'A contract cannot redeclare a resource it already imports. '
+                                                  f'The resource "{resource_name}" got already declared in the '
+                                                  f'interface {interface.name}.')
+
+
+def _check_ghost_functions(program: VyperProgram):
+    if not isinstance(program, VyperInterface):
+        node = first(program.node.stmts) or program.node
+        for implemented_ghost in program.ghost_function_implementations.values():
+            if program.ghost_functions.get(implemented_ghost.name) is None:
+                raise InvalidProgramException(implemented_ghost.node, 'missing.ghost',
+                                              f'This contract is implementing an unknown ghost function. '
+                                              f'None of the interfaces, this contract implements, declares a ghost '
+                                              f'function "{implemented_ghost.name}".')
+
+        for interface in program.interfaces.values():
+            for ghost_function_list in interface.ghost_functions.values():
+                for ghost_function in ghost_function_list:
+                    imported_ghost_functions = [ghost_func
+                                                for ghost_func in program.ghost_functions.get(ghost_function.name, [])
+                                                if ghost_func.file == ghost_function.file]
+                    if not imported_ghost_functions:
+                        prefix_length = len(os.path.commonprefix([ghost_function.file, program.file]))
+                        raise InvalidProgramException(node, 'missing.ghost',
+                                                      f'The interface "{interface.name}" '
+                                                      f'needs a ghost function "{ghost_function.name}" from '
+                                                      f'".{os.path.sep}{ghost_function.file[prefix_length:]}" but it '
+                                                      f'was not imported for this contract.')
+                    imported_ghost_functions = [ghost_func
+                                                for ghost_func in program.ghost_functions.get(ghost_function.name)
+                                                if ghost_func.interface == ghost_function.interface]
+                    for imported_ghost_function in imported_ghost_functions:
+                        if ghost_function.file != imported_ghost_function.file:
+                            prefix_length = len(os.path.commonprefix(
+                                [ghost_function.file, imported_ghost_function.file]))
+                            ghost_function_file = ghost_function.file[prefix_length:]
+                            imported_ghost_function_file = imported_ghost_function.file[prefix_length:]
+                            raise InvalidProgramException(node, 'duplicate.ghost',
+                                                          f'There are two versions of the ghost function '
+                                                          f'"{ghost_function.name}" defined in an interface '
+                                                          f'"{ghost_function.interface}" one from '
+                                                          f'[...]"{imported_ghost_function_file}" the other from '
+                                                          f'[...]"{ghost_function_file}".')
 
 
 def _check_ghost_implements(program: VyperProgram):
