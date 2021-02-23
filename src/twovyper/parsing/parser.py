@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -11,6 +11,7 @@ from contextlib import contextmanager
 
 from typing import Optional, Dict, Union, List
 
+from twovyper.parsing.lark import copy_pos_from
 from twovyper.utils import switch, first
 
 from twovyper.parsing import lark
@@ -26,20 +27,20 @@ from twovyper.ast.nodes import (
 )
 from twovyper.ast.types import (
     TypeBuilder, FunctionType, EventType, SelfType, InterfaceType, ResourceType,
-    StructType, ContractType
+    StructType, ContractType, DerivedResourceType
 )
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
 
-def parse(path: str, root: Optional[str], as_interface=False, name=None, parse_further_interfaces=True) -> VyperProgram:
+def parse(path: str, root: Optional[str], as_interface=False, name=None, parse_level=0) -> VyperProgram:
     with open(path, 'r') as file:
         contract = file.read()
 
     preprocessed_contract = preprocess(contract)
     contract_ast = lark.parse_module(preprocessed_contract, contract, path)
     contract_ast = transform(contract_ast)
-    program_builder = ProgramBuilder(path, root, as_interface, name, parse_further_interfaces)
+    program_builder = ProgramBuilder(path, root, as_interface, name, parse_level)
     return program_builder.build(contract_ast)
 
 
@@ -53,12 +54,13 @@ class ProgramBuilder(NodeVisitor):
     # top-level statements we gather pre and postconditions until we reach a function
     # definition.
 
-    def __init__(self, path: str, root: Optional[str], is_interface: bool, name: str, parse_further_interfaces: bool):
+    def __init__(self, path: str, root: Optional[str], is_interface: bool, name: str, parse_level: int):
         self.path = os.path.abspath(path)
         self.root = root
         self.is_interface = is_interface
         self.name = name
-        self.parse_further_interfaces = parse_further_interfaces
+        self.parse_further_interfaces = parse_level <= 3
+        self.parse_level = parse_level
 
         self.config = None
 
@@ -77,6 +79,7 @@ class ProgramBuilder(NodeVisitor):
         self.transitive_postconditions = []
         self.general_checks = []
         self.implements = []
+        self.additional_implements = []
         self.ghost_functions = {}
         self.ghost_function_implementations = {}
 
@@ -98,7 +101,7 @@ class ProgramBuilder(NodeVisitor):
         for name, interface in self.interfaces.items():
             type_map[name] = interface.type
 
-        return TypeBuilder(type_map)
+        return TypeBuilder(type_map, not self.parse_further_interfaces)
 
     def build(self, node) -> VyperProgram:
         self.visit(node)
@@ -107,9 +110,24 @@ class ProgramBuilder(NodeVisitor):
 
         self.config = self.config or Config([])
 
+        if self.config.has_option(names.CONFIG_ALLOCATION):
+            # Add wei underlying resource
+            underlying_wei_type = ResourceType(names.UNDERLYING_WEI, {})
+            underlying_wei_resource = Resource(underlying_wei_type, None, None)
+            self.resources[names.UNDERLYING_WEI] = underlying_wei_resource
+            # Create a fake node for the underlying wei resource
+            fake_node = ast.Name(names.UNDERLYING_WEI)
+            copy_pos_from(node, fake_node)
+            fake_node.is_ghost_code = True
+            if not self.config.has_option(names.CONFIG_NO_DERIVED_WEI):
+                # Add wei derived resource
+                wei_type = DerivedResourceType(names.WEI, {}, underlying_wei_type)
+                wei_resource = Resource(wei_type, None, None, fake_node)
+                self.resources[names.WEI] = wei_resource
+
         if self.is_interface:
             interface_type = InterfaceType(self.name)
-            if self.parse_further_interfaces:
+            if self.parse_level <= 2:
                 return VyperInterface(node,
                                       self.path,
                                       self.name,
@@ -129,11 +147,12 @@ class ProgramBuilder(NodeVisitor):
                 return VyperInterface(node,
                                       self.path,
                                       self.name,
-                                      Config([]), {}, {},
+                                      self.config, {}, {},
                                       self.resources,
                                       [], [], [], [], [], [],
                                       self.ghost_functions,
-                                      interface_type)
+                                      interface_type,
+                                      is_stub=True)
         else:
             if self.caller_private:
                 node = first(self.caller_private)
@@ -142,12 +161,6 @@ class ProgramBuilder(NodeVisitor):
             # Create the self-type
             self_type = SelfType(self.field_types)
             self_struct = VyperStruct(names.SELF, self_type, None)
-
-            # Add wei resource
-            if self.config.has_option(names.CONFIG_ALLOCATION):
-                wei_type = ResourceType(names.WEI, {})
-                wei_resource = Resource(wei_type, None, None)
-                self.resources[names.WEI] = wei_resource
 
             return VyperProgram(node,
                                 self.path,
@@ -166,6 +179,7 @@ class ProgramBuilder(NodeVisitor):
                                 self.general_checks,
                                 self.lemmas,
                                 self.implements,
+                                self.implements + self.additional_implements,
                                 self.ghost_function_implementations)
 
     def _check_no_local_spec(self):
@@ -214,6 +228,9 @@ class ProgramBuilder(NodeVisitor):
         if node.is_ghost_code:
             raise InvalidProgramException(node, 'invalid.ghost.code')
 
+        if not self.parse_further_interfaces:
+            return
+
         files = {}
         for alias in node.names:
             components = alias.name.split('.')
@@ -224,7 +241,7 @@ class ProgramBuilder(NodeVisitor):
         for file, name in files.items():
             if name in [names.SELF, names.LOG, names.LEMMA, *names.ENV_VARIABLES]:
                 raise UnsupportedException(node, 'Invalid file name.')
-            interface = parse(file, self.root, True, name, not self.is_interface)
+            interface = parse(file, self.root, True, name, self.parse_level + 1)
             self.interfaces[name] = interface
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
@@ -267,7 +284,7 @@ class ProgramBuilder(NodeVisitor):
         for file, name in files.items():
             if name in [names.SELF, names.LOG, names.LEMMA, *names.ENV_VARIABLES]:
                 raise UnsupportedException(node, 'Invalid file name.')
-            interface = parse(file, self.root, True, name, not self.is_interface)
+            interface = parse(file, self.root, True, name, self.parse_level + 1)
             self.interfaces[name] = interface
 
     def visit_StructDef(self, node: ast.StructDef):
@@ -276,26 +293,37 @@ class ProgramBuilder(NodeVisitor):
         struct = VyperStruct(node.name, vyper_type, node)
         self.structs[struct.name] = struct
 
+    def visit_EventDef(self, node: ast.EventDef):
+        vyper_type = self.type_builder.build(node)
+        if isinstance(vyper_type, EventType):
+            event = VyperEvent(node.name, vyper_type)
+            self.events[node.name] = event
+
     def visit_FunctionStub(self, node: ast.FunctionStub):
         # A function stub on the top-level is a resource declaration
         self._check_no_local_spec()
 
-        if node.name in self.resources or node.name in names.SPECIAL_RESOURCES:
+        name, is_derived = Resource.get_name_and_derived_flag(node)
+
+        if name in self.resources or name in names.SPECIAL_RESOURCES:
             raise InvalidProgramException(node, 'duplicate.resource')
 
         vyper_type = self.type_builder.build(node)
-        assert isinstance(vyper_type, ResourceType)
-        resource = Resource(vyper_type, node, self.path)
-        self.resources[node.name] = resource
+        if isinstance(vyper_type, ResourceType):
+            if is_derived:
+                resource = Resource(vyper_type, node, self.path, node.returns)
+            else:
+                resource = Resource(vyper_type, node, self.path)
+            self.resources[name] = resource
 
     def visit_ContractDef(self, node: ast.ContractDef):
         if node.is_ghost_code:
             raise InvalidProgramException(node, 'invalid.ghost.code')
 
         vyper_type = self.type_builder.build(node)
-        assert isinstance(vyper_type, ContractType)
-        contract = VyperContract(node.name, vyper_type, node)
-        self.contracts[contract.name] = contract
+        if isinstance(vyper_type, ContractType):
+            contract = VyperContract(node.name, vyper_type, node)
+            self.contracts[contract.name] = contract
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
         if node.is_ghost_code:
@@ -306,9 +334,13 @@ class ProgramBuilder(NodeVisitor):
 
         variable_name = node.target.id
         if variable_name == names.IMPLEMENTS:
-            if node.annotation.id not in [interfaces.ERC20, interfaces.ERC721]:
-                interface_type = InterfaceType(node.annotation.id)
+            interface_name = node.annotation.id
+            if interface_name not in [interfaces.ERC20, interfaces.ERC721] or interface_name in self.interfaces:
+                interface_type = InterfaceType(interface_name)
                 self.implements.append(interface_type)
+            elif interface_name in [interfaces.ERC20, interfaces.ERC721]:
+                interface_type = InterfaceType(interface_name)
+                self.additional_implements.append(interface_type)
         # We ignore the units declarations
         elif variable_name != names.UNITS:
             variable_type = self.type_builder.build(node.annotation)

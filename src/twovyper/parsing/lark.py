@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -15,11 +15,12 @@ from lark.indenter import Indenter
 from lark.tree import Meta
 from lark.visitors import Transformer, v_args
 
-from twovyper.ast import ast_nodes as ast
+from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.arithmetic import Decimal
 from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.exceptions import ParseException, InvalidProgramException
+from twovyper.vyper import select_version
 
 
 class PythonIndenter(Indenter):
@@ -32,8 +33,9 @@ class PythonIndenter(Indenter):
 
 
 _kwargs = dict(postlex=PythonIndenter(), parser='lalr', propagate_positions=True, maybe_placeholders=False)
-_vyper_module_parser = Lark.open('vyper.lark', rel_to=__file__, start='file_input', **_kwargs)
-_vyper_expr_parser = Lark.open('vyper.lark', rel_to=__file__, start='test', **_kwargs)
+_lark_file = select_version({'^0.2.0': 'vyper_0_2.lark', '>=0.1.0-beta.16 <0.1.0': 'vyper_0_1.lark'})
+_vyper_module_parser = Lark.open(_lark_file, rel_to=__file__, start='file_input', **_kwargs)
+_vyper_expr_parser = Lark.open(_lark_file, rel_to=__file__, start='test', **_kwargs)
 
 
 def copy_pos(function):
@@ -72,6 +74,7 @@ def copy_pos_between(node: ast.Node, left: ast.Node, right: ast.Node) -> ast.Nod
     return node
 
 
+# noinspection PyUnusedLocal
 @v_args(meta=True)
 class _PythonTransformer(Transformer):
 
@@ -96,6 +99,17 @@ class _PythonTransformer(Transformer):
         name = str(children[0])
         body = children[1]
         return ast.StructDef(name, body)
+
+    @copy_pos
+    def eventdef(self, children, meta):
+        name = str(children[0])
+        body = children[1]
+        return ast.EventDef(name, body)
+
+    @copy_pos
+    def mapdef(self, children, meta):
+        assert len(children) == 1
+        return ast.FunctionCall(names.MAP, children[0], [])
 
     @copy_pos
     def funcdef(self, children, meta):
@@ -276,6 +290,13 @@ class _PythonTransformer(Transformer):
             orelse = [self._if_stmt([test, body, orelse], meta)]
 
         return orelse[0]
+
+    @copy_pos
+    def log_stmt(self, children, meta):
+        assert len(children) == 1
+        assert len(children[0]) == 1
+        assert isinstance(children[0][0], ast.ExprStmt)
+        return ast.Log(children[0][0].value)
 
     @copy_pos
     def _if_stmt(self, children, meta):

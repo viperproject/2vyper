@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -128,6 +128,20 @@ class StructureChecker(NodeVisitor):
             msg = "Resources require allocation config option."
             raise InvalidProgramException(first(program.node.stmts) or program.node, 'alloc.not.alloc', msg)
 
+        seen_functions = set()
+        for implements in program.real_implements:
+            interface = program.interfaces.get(implements.name)
+            if interface is not None:
+                function_names = set(function.name for function in interface.functions.values())
+            else:
+                contract = program.contracts[implements.name]
+                function_names = set(contract.type.function_types)
+            _assert(not seen_functions & function_names, program.node, 'invalid.implemented.interfaces',
+                    f'Implemented interfaces should not have a function that shares the name with another function of '
+                    f'another implemented interface.\n'
+                    f'(Conflicting functions: {seen_functions & function_names})')
+            seen_functions.update(function_names)
+
         for function in program.functions.values():
             self.visit(function.node, _Context.CODE, program, function)
             if function.is_pure():
@@ -149,8 +163,10 @@ class StructureChecker(NodeVisitor):
                 self.visit(check, _Context.CHECK, program, function)
 
             if function.performs:
-                _assert(not program.is_interface(), function.performs[0],
-                        'invalid.performs', 'No performs are allowed in interfaces.')
+                _assert(function.name != names.INIT, function.performs[0],
+                        'invalid.performs', '__init__ does not require and must not have performs clauses.')
+                _assert(function.is_public(), function.performs[0],
+                        'invalid.performs', 'Private functions are not allowed to have performs clauses.')
             for performs in function.performs:
                 self._visit_performs(performs, program, function)
 
@@ -331,6 +347,10 @@ class StructureChecker(NodeVisitor):
         elif node.name == names.CONDITIONAL:
             self._num_visited_conditional += 1
 
+        if node.name == names.LOCKED:
+            _assert(not isinstance(program, VyperInterface), node, 'invalid.locked',
+                    'Locked cannot be used in an interface.')
+
         if node.name == names.SENT or node.name == names.RECEIVED:
             _assert(not program.is_interface(), node, f'invalid.{node.name}',
                     f'"{node.name}" cannot be used in interfaces')
@@ -382,7 +402,8 @@ class StructureChecker(NodeVisitor):
             elif (ctx == _Context.INVARIANT
                   or ctx == _Context.TRANSITIVE_POSTCONDITION
                   or ctx == _Context.LOOP_INVARIANT
-                  or ctx == _Context.GHOST_CODE):
+                  or ctx == _Context.GHOST_CODE
+                  or ctx == _Context.GHOST_FUNCTION):
                 _assert(False, node, f'{ctx.value}.call')
 
             return
@@ -437,6 +458,9 @@ class StructureChecker(NodeVisitor):
                 self.generic_visit(node, ctx, program, function)
 
             return
+        elif node.name in [names.RESOURCE_PAYABLE, names.RESOURCE_PAYOUT]:
+            _assert(self._inside_performs, node, f'invalid.{node.name}',
+                    f'{node.name} is only allowed in perform clauses.')
         elif node.name == names.RESULT or node.name == names.REVERT:
             if len(node.args) == 1:
                 argument = node.args[0]
@@ -449,6 +473,9 @@ class StructureChecker(NodeVisitor):
                         'Only pure functions can be called from the specification.')
                 self.generic_visit(argument, ctx, program, function)
 
+                if node.keywords:
+                    self.visit_nodes([kv.value for kv in node.keywords], ctx, program, function)
+
                 if node.name == names.RESULT:
                     _assert(func.type.return_type is not None, argument, f"spec.{node.name}",
                             'Only functions with a return type can be used in a result-expression.')
@@ -458,7 +485,8 @@ class StructureChecker(NodeVisitor):
                   or ctx == _Context.INVARIANT
                   or ctx == _Context.TRANSITIVE_POSTCONDITION
                   or ctx == _Context.LOOP_INVARIANT
-                  or ctx == _Context.GHOST_CODE):
+                  or ctx == _Context.GHOST_CODE
+                  or ctx == _Context.GHOST_FUNCTION):
                 _assert(False, node, f'{ctx.value}.call')
 
         elif node.name == names.INDEPENDENT:
@@ -510,12 +538,22 @@ class StructureChecker(NodeVisitor):
         if node.name in names.ALLOCATION_FUNCTIONS:
             msg = "Allocation statements require allocation config option."
             _assert(program.config.has_option(names.CONFIG_ALLOCATION), node, 'alloc.not.alloc', msg)
+            if isinstance(program, VyperInterface):
+                _assert(not program.config.has_option(names.CONFIG_NO_PERFORMS), node, 'alloc.not.alloc')
+            if self._inside_performs:
+                _assert(node.name not in names.ALLOCATION_SPECIFICATION_FUNCTIONS, node, 'alloc.in.alloc',
+                        'Allocation functions are not allowed in arguments of other allocation '
+                        'functions in a performs clause')
 
         if node.name in names.GHOST_STATEMENTS:
             msg = "Allocation statements are not allowed in constant functions."
             _assert(not (function and function.is_constant()), node, 'alloc.in.constant', msg)
 
-        arg_ctx = _Context.GHOST_STATEMENT if node.name in names.GHOST_STATEMENTS else ctx
+        arg_ctx = _Context.GHOST_STATEMENT if node.name in names.GHOST_STATEMENTS and not self._inside_performs else ctx
+
+        if node.name == names.TRUST and node.keywords:
+            _assert(not (function and function.name != names.INIT), node, 'invalid.trusted',
+                    f'Only the "{names.INIT}" function is allowed to have trust calls with keywords.')
 
         if node.resource:
             # Resources are only allowed in allocation functions. They can have the following structure:
@@ -532,6 +570,7 @@ class StructureChecker(NodeVisitor):
 
             def check_resource_address(address):
                 _assert(resources_with_address_allowed, address, 'invalid.resource.address')
+                self.generic_visit(address, ctx, program, function)
 
                 if isinstance(address, ast.Name):
                     _assert(address.id == names.SELF, address, 'invalid.resource.address')
@@ -540,18 +579,24 @@ class StructureChecker(NodeVisitor):
                     assert isinstance(address.value, ast.Name)
                     _assert(address.value.id == names.SELF, address, 'invalid.resource.address')
                 elif isinstance(address, ast.FunctionCall):
-                    # We only allow own ghost functions
-                    if isinstance(program, VyperInterface):
-                        f = program.own_ghost_functions.get(address.name)
+                    if address.name in program.ghost_functions:
+                        f = program.ghost_functions.get(address.name)
+                        _assert(f is None or len(f) == 1, address, 'invalid.resource.address',
+                                'The ghost function is not unique.')
+                        _assert(f is not None, address, 'invalid.resource.address')
+                        _assert(len(address.args) >= 1, address, 'invalid.resource.address')
                     else:
-                        f = program.ghost_function_implementations.get(address.name)
+                        _assert(program.config.has_option(names.CONFIG_TRUST_CASTS), address,
+                                'invalid.resource.address', 'Using casted addresses as resource address is only allowed'
+                                                            'when the "trust_casts" config is set.')
+                        _assert(address.name in program.interfaces, address, 'invalid.resource.address')
+                elif isinstance(address, ast.ReceiverCall):
+                    _assert(address.name in program.ghost_functions, address, 'invalid.resource.address')
+                    _assert(isinstance(address.receiver, ast.Name), address, 'invalid.resource.address')
+                    assert isinstance(address.receiver, ast.Name)
+                    f = program.interfaces[address.receiver.id].own_ghost_functions.get(address.name)
                     _assert(f is not None, address, 'invalid.resource.address')
                     _assert(len(address.args) >= 1, address, 'invalid.resource.address')
-                    # The first argument has to be "SELF"
-                    ghost_address_arg = address.args[0]
-                    _assert(isinstance(ghost_address_arg, ast.Name), address, 'invalid.resource.address')
-                    assert isinstance(ghost_address_arg, ast.Name)
-                    _assert(ghost_address_arg.id == names.SELF, address, 'invalid.resource.address')
                 else:
                     _assert(False, address, 'invalid.resource.address')
 
@@ -602,14 +647,14 @@ class StructureChecker(NodeVisitor):
                     _assert(False, resource, 'invalid.resource')
 
             check_resource(node.resource, True)
-        else:
-            self.visit_nodes(chain(node.args, node.keywords), arg_ctx, program, function)
+
+        self.visit_nodes(chain(node.args, node.keywords), arg_ctx, program, function)
 
     def visit_ReceiverCall(self, node: ast.ReceiverCall, ctx: _Context,
                            program: VyperProgram, function: Optional[VyperFunction]):
         if ctx == _Context.CALLER_PRIVATE:
             _assert(False, node, 'spec.call')
-        elif ctx.is_specification:
+        elif ctx.is_specification or self._inside_performs:
             receiver = node.receiver
             if isinstance(receiver, ast.Name):
                 if receiver.id == names.LEMMA:
@@ -687,8 +732,14 @@ class _FunctionPureChecker(NodeVisitor):
         self._ghost_allowed = ghost_allowed
 
     def check_function(self, function: VyperFunction, program: VyperProgram):
+
         # A function must be constant, private and non-payable to be valid
-        if not (function.is_constant() and function.is_private() and (not function.is_payable())):
+        ghost_pure_cond = not (function.is_constant() and function.is_private() and (not function.is_payable()))
+        pure_decorators = [decorator for decorator in function.decorators if decorator.name == names.PURE]
+        if len(pure_decorators) > 1:
+            _assert(False, pure_decorators[0], 'invalid.pure',
+                    'A pure function can only have exactly one pure decorator')
+        elif pure_decorators[0].is_ghost_code and ghost_pure_cond:
             _assert(False, function.node, 'invalid.pure', 'A pure function must be constant, private and non-payable')
         else:
             self.max_allowed_function_index = function.index - 1
@@ -789,3 +840,6 @@ class _FunctionPureChecker(NodeVisitor):
             else:
                 _assert(False, node, 'invalid.pure',
                         'Pure function must not call functions of another contract.')
+
+    def visit_Log(self, node: ast.Log, program: VyperProgram):
+        raise UnsupportedException(node, 'Pure functions that log events are not supported.')

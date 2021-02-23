@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -13,13 +13,13 @@ from time import time
 
 from jpype import JException
 
+########################################################################################################################
+#               DO NOT GLOBALLY IMPORT ANY SUBMODULE OF TWOVYPER THAT MIGHT DEPEND ON THE VYPER VERSION!               #
+########################################################################################################################
+
 from twovyper import config
 from twovyper import vyper
-
-from twovyper.parsing import parser
-from twovyper.analysis import analyzer
-from twovyper.translation import translator
-from twovyper.translation.translator import TranslationOptions
+from twovyper.utils import reload_package
 
 from twovyper.viper.jvmaccess import JVM
 from twovyper.viper.typedefs import Program
@@ -38,12 +38,18 @@ from twovyper.exceptions import (
 
 class TwoVyper:
 
-    def __init__(self, jvm: JVM, get_model: bool = False):
+    def __init__(self, jvm: JVM, get_model: bool = False, check_ast_inconsistencies: bool = False):
         self.jvm = jvm
         self.get_model = get_model
+        self.check_ast_inconsistencies = check_ast_inconsistencies
 
     def translate(self, path: str, vyper_root: str = None, skip_vyper: bool = False) -> Program:
         path = os.path.abspath(path)
+        if not os.path.isfile(path):
+            raise InvalidVyperException(f"Contract not found at the given location '{path}'.")
+
+        vyper.set_vyper_version(path)
+
         error_manager.clear()
 
         # Check that the file is a valid Vyper contract
@@ -52,11 +58,13 @@ class TwoVyper:
 
         logging.debug("Start parsing.")
 
+        from twovyper.parsing import parser
         vyper_program = parser.parse(path, vyper_root, name=os.path.basename(path.split('.')[0]))
 
         logging.info("Finished parsing.")
         logging.debug("Start analyzing.")
 
+        from twovyper.analysis import analyzer
         for interface in vyper_program.interfaces.values():
             analyzer.analyze(interface)
         analyzer.analyze(vyper_program)
@@ -64,7 +72,9 @@ class TwoVyper:
         logging.info("Finished analyzing.")
         logging.debug("Start translating.")
 
-        options = TranslationOptions(self.get_model)
+        from twovyper.translation import translator
+        from twovyper.translation.translator import TranslationOptions
+        options = TranslationOptions(self.get_model, self.check_ast_inconsistencies)
         translated = translator.translate(vyper_program, options, self.jvm)
 
         logging.info("Finished translating.")
@@ -119,6 +129,11 @@ def main() -> None:
         '--counterexample',
         action='store_true',
         help='print a counterexample if the verification fails',
+    )
+    parser.add_argument(
+        '--check-ast-inconsistencies',
+        action='store_true',
+        help='Check the generated Viper AST for potential inconsistencies.',
     )
     parser.add_argument(
         '--vyper-root',
@@ -186,7 +201,7 @@ def main() -> None:
 def translate_and_verify(vyper_file, jvm, args, print=print):
     try:
         start = time()
-        tw = TwoVyper(jvm, args.counterexample)
+        tw = TwoVyper(jvm, args.counterexample, args.check_ast_inconsistencies)
         program = tw.translate(vyper_file, args.vyper_root, args.skip_vyper)
         if args.print_viper:
             print(str(program))
@@ -222,6 +237,26 @@ def translate_and_verify(vyper_file, jvm, args, print=print):
     except JException as e:
         print(e.stacktrace())
         raise e
+
+
+def prepare_twovyper_for_vyper_version(path: str) -> bool:
+    """
+    Checks if the current loaded vyper version differs from the vyper version used in a vyper contract.
+    If it does differ, reload the whole twovyper module.
+
+    Please note that all references (e.g. via a "from ... import ...") to the twovyper module are not refreshed
+    automatically. Therefore, use this function with caution.
+
+    :param path: The path to a vyper contract.
+    :return: True iff a reload of the module was performed.
+    """
+    version = vyper.get_vyper_version()
+    vyper.set_vyper_version(path)
+    if version != vyper.get_vyper_version():
+        import twovyper
+        reload_package(twovyper)
+        return True
+    return False
 
 
 if __name__ == '__main__':

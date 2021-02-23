@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -25,6 +25,18 @@ def _check_resources(program: VyperProgram):
         for interface in program.interfaces.values():
             for resource_name, resources_list in interface.resources.items():
                 for resource in resources_list:
+                    if resource.file is None:
+                        if program.resources.get(resource_name) is None:
+                            if not program.config.has_option(names.CONFIG_ALLOCATION):
+                                raise InvalidProgramException(node, 'alloc.not.alloc',
+                                                              f'The interface "{interface.name}" uses the '
+                                                              f'allocation config option. Therefore, this contract '
+                                                              f'also has to enable this config option.')
+                            raise InvalidProgramException(node, 'missing.resource',
+                                                          f'The interface "{interface.name}" '
+                                                          f'needs a default resource "{resource_name}" '
+                                                          f'that is not present in this contract.')
+                        continue
                     imported_resources = [r for r in program.resources.get(resource_name, [])
                                           if r.file == resource.file]
                     if not imported_resources:
@@ -50,9 +62,7 @@ def _check_resources(program: VyperProgram):
 
         for interface_type in program.implements:
             interface = program.interfaces[interface_type.name]
-            for resource_name, resource in program.own_resources.items():
-                if resource_name == names.WEI:
-                    continue
+            for resource_name, resource in program.declared_resources.items():
                 if resource_name in interface.own_resources:
                     raise InvalidProgramException(resource.node, 'duplicate.resource',
                                                   f'A contract cannot redeclare a resource it already imports. '
@@ -101,16 +111,25 @@ def _check_ghost_functions(program: VyperProgram):
 
 
 def _check_ghost_implements(program: VyperProgram):
-    def check(cond, node):
+    def check(cond, node, ghost_name, interface_name):
         if not cond:
-            msg = "A ghost function has not been implemented correctly."
-            raise InvalidProgramException(node, 'ghost.not.implemented', msg)
+            raise InvalidProgramException(node, 'ghost.not.implemented',
+                                          f'The ghost function "{ghost_name}" from the interface "{interface_name}" '
+                                          f'has not been implemented correctly.')
+
+    ghost_function_implementations = dict(program.ghost_function_implementations)
 
     for itype in program.implements:
         interface = program.interfaces[itype.name]
         for ghost in interface.own_ghost_functions.values():
-            implementation = program.ghost_function_implementations.get(ghost.name)
-            check(implementation, program.node)
-            check(implementation.name == ghost.name, implementation.node)
-            check(len(implementation.args) == len(ghost.args), implementation.node)
-            check(implementation.type == ghost.type, implementation.node)
+            implementation = ghost_function_implementations.pop(ghost.name, None)
+            check(implementation is not None, program.node, ghost.name, itype.name)
+            check(implementation.name == ghost.name, implementation.node, ghost.name, itype.name)
+            check(len(implementation.args) == len(ghost.args), implementation.node, ghost.name, itype.name)
+            check(implementation.type == ghost.type, implementation.node, ghost.name, itype.name)
+
+    if len(ghost_function_implementations) > 0:
+        raise InvalidProgramException(first(ghost_function_implementations.values()).node, 'invalid.ghost.implemented',
+                                      f'This contract implements some ghost functions that have no declaration in '
+                                      f'any of the implemented interfaces.\n'
+                                      f'(Ghost functions without declaration: {list(ghost_function_implementations)})')

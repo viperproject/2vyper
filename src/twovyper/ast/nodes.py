@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -11,7 +11,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from twovyper.ast import ast_nodes as ast, names
 from twovyper.ast.types import (
-    VyperType, FunctionType, StructType, ResourceType, ContractType, EventType, InterfaceType
+    VyperType, FunctionType, StructType, ResourceType, ContractType, EventType, InterfaceType, DerivedResourceType
 )
 if TYPE_CHECKING:
     from twovyper.analysis.analyzer import FunctionAnalysis, ProgramAnalysis
@@ -46,7 +46,7 @@ class VyperFunction:
                  preconditions: List[ast.Expr],
                  checks: List[ast.Expr],
                  loop_invariants: Dict[ast.For, List[ast.Expr]],
-                 performs: List[ast.Expr],
+                 performs: List[ast.FunctionCall],
                  decorators: List[ast.Decorator],
                  node: Optional[ast.FunctionDef]):
         self.name = name
@@ -128,13 +128,43 @@ class Resource(VyperStruct):
     def __init__(self,
                  rtype: ResourceType,
                  node: Optional[ast.Node],
-                 file: Optional[str]):
+                 file: Optional[str],
+                 underlying_resource_node: Optional[ast.Expr] = None):
         super().__init__(rtype.name, rtype, node)
         self.file = file
+        self.analysed = False
+        self._own_address = None
+        self.underlying_resource = underlying_resource_node
+        self.underlying_address = None
+        self.derived_resources = []
 
     @property
     def interface(self):
         return os.path.split(self.file)[1].split('.')[0] if self.file else ''
+
+    @property
+    def underlying_resource_name(self):
+        return self.type.underlying_resource.name if isinstance(self.type, DerivedResourceType) else None
+
+    @property
+    def own_address(self):
+        if self.analysed:
+            raise AssertionError("The own address attribute is only available during the analysing phase.")
+        return self._own_address
+
+    @own_address.setter
+    def own_address(self, expr: ast.Expr):
+        self._own_address = expr
+
+    def is_derived_resource(self):
+        return self.underlying_resource_name is not None
+
+    @staticmethod
+    def get_name_and_derived_flag(node) -> Tuple[str, bool]:
+        if node.name.startswith(names.DERIVED_RESOURCE_PREFIX):
+            return node.name[len(names.DERIVED_RESOURCE_PREFIX):], True
+        assert node.name.startswith(names.RESOURCE_PREFIX)
+        return node.name[len(names.RESOURCE_PREFIX):], False
 
 
 class VyperContract:
@@ -172,6 +202,7 @@ class VyperProgram:
                  general_checks: List[ast.Expr],
                  lemmas: Dict[str, VyperFunction],
                  implements: List[InterfaceType],
+                 real_implements: List[InterfaceType],
                  ghost_function_implementations: Dict[str, GhostFunction]):
         self.node = node
         self.file = file
@@ -186,6 +217,8 @@ class VyperProgram:
         for key, value in self._resources():
             self.imported_resources[key].append(value)
         self.own_resources = resources
+        self.declared_resources = dict((name, resource) for name, resource in self.own_resources.items()
+                                       if name != names.WEI and name != names.UNDERLYING_WEI)
         self.resources: Dict[str, List[Resource]] = defaultdict(list, self.imported_resources)
         for key, value in resources.items():
             self.resources[key].append(value)
@@ -196,6 +229,7 @@ class VyperProgram:
         self.general_checks = general_checks
         self.lemmas = lemmas
         self.implements = implements
+        self.real_implements = real_implements
         self.ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list)
         for key, value in self._ghost_functions():
             self.ghost_functions[key].append(value)
@@ -221,7 +255,7 @@ class VyperProgram:
 
     def _resources(self) -> Iterable[Tuple[str, Resource]]:
         for interface in self.interfaces.values():
-            for name, resource in interface.own_resources.items():
+            for name, resource in interface.declared_resources.items():
                 yield name, resource
 
     @property
@@ -238,7 +272,7 @@ class VyperInterface(VyperProgram):
                  config: Config,
                  functions: Dict[str, VyperFunction],
                  interfaces: Dict[str, 'VyperInterface'],
-                 resources: Dict[str, VyperStruct],
+                 resources: Dict[str, Resource],
                  local_state_invariants: List[ast.Expr],
                  inter_contract_invariants: List[ast.Expr],
                  general_postconditions: List[ast.Expr],
@@ -246,7 +280,8 @@ class VyperInterface(VyperProgram):
                  general_checks: List[ast.Expr],
                  caller_private: List[ast.Expr],
                  ghost_functions: Dict[str, GhostFunction],
-                 type: InterfaceType):
+                 type: InterfaceType,
+                 is_stub=False):
         struct_name = f'{name}$self'
         empty_struct_type = StructType(struct_name, {})
         empty_struct = VyperStruct(struct_name, empty_struct_type, None)
@@ -263,7 +298,7 @@ class VyperInterface(VyperProgram):
                          general_postconditions,
                          transitive_postconditions,
                          general_checks,
-                         {}, [], {})
+                         {}, [], [], {})
         self.name = name
         self.imported_ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list)
         for key, value in self._ghost_functions():
@@ -274,6 +309,7 @@ class VyperInterface(VyperProgram):
             self.ghost_functions[key].append(value)
         self.type = type
         self.caller_private = caller_private
+        self.is_stub = is_stub
 
     def is_interface(self) -> bool:
         return True

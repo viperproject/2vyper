@@ -14,9 +14,9 @@
 @public
 def foo():
     a: address = 0x000000001000000000010000000000000600000a
-    #@ offer(0, 1, to=msg.sender, times=1, acting_for=a)
-    #@ offer(1, 1, to=msg.sender, times=0, acting_for=a)
-    #@ revoke(0, 1, to=msg.sender, acting_for=a)
-    #@ reallocate(0, to=msg.sender, acting_for=a)
-    #@ create[good](0, to=msg.sender, acting_for=a)
-    #@ destroy[good](0, acting_for=a)
+    #@ offer(0, 1, to=msg.sender, times=1, actor=a)
+    #@ offer(1, 1, to=msg.sender, times=0, actor=a)
+    #@ revoke(0, 1, to=msg.sender, actor=a)
+    #@ reallocate(0, to=msg.sender, actor=a)
+    #@ create[good](0, to=msg.sender, actor=a)
+    #@ destroy[good](0, actor=a)

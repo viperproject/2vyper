@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -110,7 +110,7 @@ class Carbon(AbstractVerifier):
         args = [
             '--boogieExe', config.boogie_path,
             '--z3Exe', config.z3_path,
-            *(['--model=variables'] if get_model else []),
+            *(['--counterexample=variables'] if get_model else []),
             filename
         ]
 

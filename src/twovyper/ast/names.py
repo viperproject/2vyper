@@ -1,24 +1,29 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+
+from twovyper.vyper import select_version
+
 # Constants for names in the original AST
 
 # Decorators
-PUBLIC = 'public'
-PRIVATE = 'private'
+PUBLIC = select_version({'^0.2.0': 'external', '>=0.1.0-beta.16 <0.1.0': 'public'})
+PRIVATE = select_version({'^0.2.0': 'internal', '>=0.1.0-beta.16 <0.1.0': 'private'})
 PAYABLE = 'payable'
-CONSTANT = 'constant'
+CONSTANT = select_version({'^0.2.0': 'view', '>=0.1.0-beta.16 <0.1.0': 'constant'})
 NONREENTRANT = 'nonreentrant'
 PURE = 'pure'
 INTERPRETED_DECORATOR = 'interpreted'
 
 # Modifiers
-assert CONSTANT == 'constant'  # CONSTANT = 'constant'
-MODIFYING = 'modifying'
+assert CONSTANT == select_version({'^0.2.0': 'view', '>=0.1.0-beta.16 <0.1.0': 'constant'})
+assert PURE == 'pure'
+MODIFYING = select_version({'^0.2.0': 'payable', '>=0.1.0-beta.16 <0.1.0': 'modifying'})
+NONPAYABLE = select_version({'^0.2.0': 'nonpayable'}, default="")
 
 # Types
 BOOL = 'bool'
@@ -29,11 +34,13 @@ WEI_VALUE = 'wei_value'
 TIMESTAMP = 'timestamp'
 TIMEDELTA = 'timedelta'
 ADDRESS = 'address'
-BYTE = 'bytes'
+BYTE = select_version({'^0.2.0': 'Bytes', '>=0.1.0-beta.16 <0.1.0': 'bytes'})
 BYTES32 = 'bytes32'
-STRING = 'string'
-MAP = 'map'
+STRING = select_version({'^0.2.0': 'String', '>=0.1.0-beta.16 <0.1.0': 'string'})
+MAP = select_version({'^0.2.0': 'HashMap', '>=0.1.0-beta.16 <0.1.0': 'map'})
 EVENT = 'event'
+
+NON_NEGATIVE_INTEGER = "non_negative_integer"
 
 # Functions
 INIT = '__init__'
@@ -119,7 +126,7 @@ AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 CONVERT = 'convert'
 EXTRACT32 = 'extract32'
-EXTRACT32_TYPE = 'type'
+EXTRACT32_TYPE = select_version({'^0.2.0': 'output_type', '>=0.1.0-beta.16 <0.1.0': 'type'})
 
 RANGE = 'range'
 LEN = 'len'
@@ -133,17 +140,20 @@ ECMUL = 'ecmul'
 
 BLOCKHASH = 'blockhash'
 METHOD_ID = 'method_id'
+METHOD_ID_OUTPUT_TYPE = select_version({'^0.2.0': 'output_type'}, default="")
+EMPTY = select_version({'^0.2.0': 'empty'}, default="")
 
-ASSERT_MODIFIABLE = 'assert_modifiable'
+ASSERT_MODIFIABLE = select_version({'>=0.1.0-beta.16 <0.1.0': 'assert_modifiable'}, default="")
 CLEAR = 'clear'
 SELFDESTRUCT = 'selfdestruct'
 SEND = 'send'
 
 RAW_CALL = 'raw_call'
-RAW_CALL_OUTSIZE = 'outsize'
+RAW_CALL_OUTSIZE = select_version({'^0.2.0': 'max_outsize', '>=0.1.0-beta.16 <0.1.0': 'outsize'})
 RAW_CALL_VALUE = 'value'
 RAW_CALL_GAS = 'gas'
 RAW_CALL_DELEGATE_CALL = 'delegate_call'
+RAW_CALL_IS_STATIC_CALL = select_version({'^0.2.0': 'is_static_call'}, default="")
 
 RAW_LOG = 'raw_log'
 
@@ -166,8 +176,10 @@ CONFIG_ALLOCATION = 'allocation'
 CONFIG_NO_GAS = 'no_gas'
 CONFIG_NO_OVERFLOWS = 'no_overflows'
 CONFIG_NO_PERFORMS = 'no_performs'
+CONFIG_NO_DERIVED_WEI = 'no_derived_wei_resource'
 CONFIG_TRUST_CASTS = 'trust_casts'
-CONFIG_OPTIONS = [CONFIG_ALLOCATION, CONFIG_NO_GAS, CONFIG_NO_OVERFLOWS, CONFIG_NO_PERFORMS, CONFIG_TRUST_CASTS]
+CONFIG_OPTIONS = [CONFIG_ALLOCATION, CONFIG_NO_GAS, CONFIG_NO_OVERFLOWS, CONFIG_NO_PERFORMS, CONFIG_NO_DERIVED_WEI,
+                  CONFIG_TRUST_CASTS]
 
 INTERFACE = 'interface'
 
@@ -175,7 +187,10 @@ IMPLIES = 'implies'
 FORALL = 'forall'
 SUM = 'sum'
 TUPLE = 'tuple'
+
 RESULT = 'result'
+RESULT_DEFAULT = 'default'
+
 STORAGE = 'storage'
 OLD = 'old'
 PUBLIC_OLD = 'public_old'
@@ -213,49 +228,67 @@ SUCCESS_SENDER_FAILED = 'sender_failed'
 SUCCESS_CONDITIONS = [SUCCESS_OVERFLOW, SUCCESS_OUT_OF_GAS, SUCCESS_SENDER_FAILED]
 
 WEI = 'wei'
+UNDERLYING_WEI = 'Wei'
 
 ALLOCATED = 'allocated'
 OFFERED = 'offered'
+NO_OFFERS = 'no_offers'
+TRUST_NO_ONE = 'trust_no_one'
 
 TRUSTED = 'trusted'
 TRUSTED_BY = 'by'
+TRUSTED_WHERE = 'where'
 
 REALLOCATE = 'reallocate'
 REALLOCATE_TO = 'to'
-REALLOCATE_ACTING_FOR = 'acting_for'
+REALLOCATE_ACTOR = 'actor'
+
+RESOURCE_PAYOUT = 'payout'
+RESOURCE_PAYOUT_ACTOR = 'actor'
+
+RESOURCE_PAYABLE = 'payable'
+RESOURCE_PAYABLE_ACTOR = 'actor'
 
 FOREACH = 'foreach'
 
 OFFER = 'offer'
 OFFER_TO = 'to'
-OFFER_ACTING_FOR = 'acting_for'
+OFFER_ACTOR = 'actor'
 OFFER_TIMES = 'times'
+
+ALLOW_TO_DECOMPOSE = 'allow_to_decompose'
+ALLOWED_TO_DECOMPOSE = 'allowed_to_decompose'
 
 REVOKE = 'revoke'
 REVOKE_TO = 'to'
-REVOKE_ACTING_FOR = 'acting_for'
+REVOKE_ACTOR = 'actor'
 
 EXCHANGE = 'exchange'
 EXCHANGE_TIMES = 'times'
 
 CREATE = 'create'
 CREATE_TO = 'to'
-CREATE_ACTING_FOR = 'acting_for'
+CREATE_ACTOR = 'actor'
 
 DESTROY = 'destroy'
-DESTROY_ACTING_FOR = 'acting_for'
+DESTROY_ACTOR = 'actor'
 
 TRUST = 'trust'
-TRUST_ACTING_FOR = 'acting_for'
+TRUST_ACTOR = 'actor'
 
-ALLOCATE_UNTRACKED_WEI = 'allocate_untracked_wei'
+ALLOCATE_UNTRACKED = 'allocate_untracked_wei'
 
 CREATOR = 'creator'
 
-GHOST_STATEMENTS = [REALLOCATE, FOREACH, OFFER, REVOKE, EXCHANGE, CREATE, DESTROY, TRUST, ALLOCATE_UNTRACKED_WEI]
+RESOURCE_PREFIX = "r_"
+DERIVED_RESOURCE_PREFIX = "d_"
+
+GHOST_STATEMENTS = [REALLOCATE, FOREACH, OFFER, REVOKE, EXCHANGE, CREATE, DESTROY, TRUST, ALLOCATE_UNTRACKED,
+                    ALLOW_TO_DECOMPOSE, RESOURCE_PAYABLE, RESOURCE_PAYOUT]
 QUANTIFIED_GHOST_STATEMENTS = [OFFER, REVOKE, CREATE, DESTROY, TRUST]
 SPECIAL_RESOURCES = [WEI, CREATOR]
-ALLOCATION_FUNCTIONS = [ALLOCATED, OFFERED, TRUSTED, *GHOST_STATEMENTS]
+ALLOCATION_SPECIFICATION_FUNCTIONS = [ALLOCATED, OFFERED, NO_OFFERS, TRUSTED, TRUST_NO_ONE, ALLOWED_TO_DECOMPOSE]
+ALLOCATION_FUNCTIONS = [*ALLOCATION_SPECIFICATION_FUNCTIONS, *GHOST_STATEMENTS]
 
 NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS = [PREVIOUS, LOOP_ARRAY, LOOP_ITERATION]
 
@@ -284,8 +317,8 @@ NOT_ALLOWED_IN_CALLER_PRIVATE = [*NOT_ALLOWED_IN_SPEC, IMPLIES, FORALL, SUM, RES
 NOT_ALLOWED_IN_GHOST_CODE = [*NOT_ALLOWED_IN_SPEC, CALLER, OVERFLOW, OUT_OF_GAS, FAILED, INDEPENDENT,
                              REORDER_INDEPENDENT, ACCESSIBLE, PUBLIC_OLD, SELFDESTRUCT,
                              CONDITIONAL, *NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS]
-NOT_ALLOWED_IN_GHOST_FUNCTION = [*NOT_ALLOWED_IN_SPEC, CALLER, SUCCESS, REVERT, OVERFLOW, OUT_OF_GAS, FAILED, RESULT,
-                                 STORAGE, OLD, PUBLIC_OLD, ISSUED, BLOCKHASH, LOCKED, SENT, RECEIVED, ACCESSIBLE,
+NOT_ALLOWED_IN_GHOST_FUNCTION = [*NOT_ALLOWED_IN_SPEC, CALLER, OVERFLOW, OUT_OF_GAS, FAILED,
+                                 STORAGE, OLD, PUBLIC_OLD, ISSUED, BLOCKHASH, SENT, RECEIVED, ACCESSIBLE,
                                  INDEPENDENT, REORDER_INDEPENDENT, SELFDESTRUCT, INTERPRETED, CONDITIONAL,
                                  *NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS, *GHOST_STATEMENTS]
 NOT_ALLOWED_IN_GHOST_STATEMENT = [*NOT_ALLOWED_IN_SPEC, CALLER, SUCCESS, REVERT, OVERFLOW, OUT_OF_GAS, FAILED, RESULT,

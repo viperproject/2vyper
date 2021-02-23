@@ -64,9 +64,9 @@ pendingReturns: public(map(address, wei_value))
 
 #@ invariant: forall({a: address}, accessible(a, self.pendingReturns[a]))
 
+#@ invariant: not self.ended ==> allowed_to_decompose[wei](self.beneficiary) == MAX_UINT256
 
-#@ performs: create[good](1, to=msg.sender)
-#@ performs: foreach({a: address, v: wei_value}, offer[good <-> wei](1, v, to=a, times=1))
+
 @public
 def __init__(_bidding_time: timedelta):    
     self.beneficiary = msg.sender
@@ -75,8 +75,10 @@ def __init__(_bidding_time: timedelta):
 
     #@ create[good](1, to=self.beneficiary)
     #@ foreach({a: address, v: wei_value}, offer[good <-> wei](1, v, to=a, times=1))
+    #@ allow_to_decompose[wei](MAX_UINT256, self.beneficiary)
 
 
+#@ performs: payable[wei](msg.value)
 #@ performs: offer[wei <-> good](msg.value, 1, to=self.beneficiary, times=1)
 @public
 @payable
@@ -93,6 +95,7 @@ def bid():
     self.highestBid = msg.value
 
 
+#@ performs: payout[wei](self.pendingReturns[msg.sender])
 @public
 def withdraw():
     pending_amount: wei_value = self.pendingReturns[msg.sender]
@@ -100,6 +103,8 @@ def withdraw():
     send(msg.sender, pending_amount)
 
 
+#@ performs: exchange[wei <-> good](self.highestBid, 1, self.highestBidder, self.beneficiary, times=1)
+#@ performs: payout[wei](self.highestBid, actor=self.beneficiary)
 @public
 def endAuction():
     assert block.timestamp >= self.auctionEnd

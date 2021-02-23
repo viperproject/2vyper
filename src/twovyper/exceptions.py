@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -86,3 +86,15 @@ class ConsistencyException(TwoVyperException):
         super().__init__(message)
         self.program = program
         self.errors = errors
+
+
+class UnsupportedVersionException(TwoVyperException):
+    """
+    Exception that is thrown when a unsupported Vyper version is used by a contract.
+    """
+
+    def __init__(self, message: str = None):
+        if message is None:
+            from twovyper.vyper import get_vyper_version
+            message = f"The Vyper version ({get_vyper_version()}) used by the contract is not supported."
+        super().__init__(message)

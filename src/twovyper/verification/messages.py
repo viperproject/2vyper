@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -75,6 +75,10 @@ ERRORS = {
         lambda i: f"Create might fail.",
     'destroy.failed':
         lambda i: f"Destroy might fail.",
+    'payable.failed':
+        lambda i: f"The function {i.function.name} is payable and must be granted to allocate resources.",
+    'payout.failed':
+        lambda i: f"Resource payout might fail.",
     'offer.failed':
         lambda i: f"Offer might fail.",
     'revoke.failed':
@@ -83,12 +87,15 @@ ERRORS = {
         lambda i: f"Exchange {pprint(i.node)} might fail.",
     'trust.failed':
         lambda i: f"Trust might fail.",
-    'allocate.untracked.wei.failed':
-        lambda i: f"The allocation of the untracked wei might fail.",
+    'allocate.untracked.failed':
+        lambda i: f"The allocation of untracked resources might fail.",
     'leakcheck.failed':
         lambda i: f"Leak check for resource {i.resource.name} might fail in {i.function.name}.",
     'performs.leakcheck.failed':
-        lambda i: f"Leakcheck for performs clauses might fail.",
+        lambda i: f"Leak check for performs clauses might fail.",
+    'interface.resource':
+        lambda i: f"The resource {i.resource.name} comes from an interface "
+                  f"and therefore its address must not be 'self'.",
     'fold.failed':
         lambda i: "Fold might fail.",
     'unfold.failed':
@@ -106,7 +113,9 @@ ERRORS = {
     'lemma.step.invalid':
         lambda i: f"A step in the lemma {i.function.name} might not hold.",
     'lemma.application.invalid':
-        lambda i: f"Cannot apply lemma {i.function.name}."
+        lambda i: f"Cannot apply lemma {i.function.name}.",
+    'derived.resource.invariant.failed':
+        lambda i: f"A property of the derived resource {i.resource.name} might not hold.",
 }
 
 REASONS = {
@@ -153,6 +162,18 @@ REASONS = {
     'insufficient.permission':
         lambda i: f"There might be insufficient permission to access {pprint(i.node)}.",
     'function.revert':
-        lambda i: f"The function {i.function.name} might revert."
-
+        lambda i: f"The function {i.function.name} might revert.",
+    'resource.address.self':
+        lambda i: f"The address of the resource might be equal to 'self'.",
+    'underlying.address.self':
+        lambda i: f"The address of the underlying resource might be equal to 'self'.",
+    'underlying.address.constant':
+        lambda i: f"The address of the underlying resource might got changed after initially setting it.",
+    'underlying.address.trust':
+        lambda i: f"The contract might trust others in the contract of the underlying resource.",
+    'underlying.resource.offers':
+        lambda i: f"The contract might have open offers using the underlying resource.",
+    'underlying.resource.eq':
+        lambda i: f"The derived resource {i.resource.name} and {i.other_resource.name} "
+                  f"might have the same underlying resource.",
 }

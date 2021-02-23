@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2019 ETH Zurich
+  Copyright (c) 2021 ETH Zurich
   This Source Code Form is subject to the terms of the Mozilla Public
   License, v. 2.0. If a copy of the MPL was not distributed with this
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -14,7 +14,7 @@ predicate $allocation($resource: $Struct, $address: Int)
 
 predicate $offer($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_address: Int)
 
-predicate $trust($address: Int, $by_address: Int)
+predicate $trust($where: Int, $address: Int, $by_address: Int)
 
 
 predicate $performs$create($resource: $Struct, $from_address: Int, $to_address: Int, $amount: Int)
@@ -25,18 +25,34 @@ predicate $performs$reallocate($resource: $Struct, $from_address: Int, $to_addre
 
 predicate $performs$offer($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_address: Int, $times: Int)
 
+predicate $performs$exchange($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_address: Int, $times: Int)
+
 predicate $performs$revoke($from_resource: $Struct, $to_resource: $Struct, $from_amount: Int, $to_amount: Int, $from_address: Int, $to_adress: Int)
 
 predicate $performs$trust($address: Int, $by_address: Int, $value: Bool)
 
-predicate $performs$allocate_untracked_wei($address: Int)
+predicate $performs$allocate_untracked_wei($resource: $Struct, $address: Int)
 
-function $pure$success_get(x:$Struct): Bool
+predicate $performs$payable($resource: $Struct, $to_address: Int, $amount: Int)
+
+predicate $performs$payout($resource: $Struct, $from_address: Int, $amount: Int)
+
+function $trust_no_one($trust_map: $Map[Int, $Map[Int, $Map[Int, Bool]]], $who: Int, $where: Int): Bool
+{
+  forall $whom: Int :: {$map_get($map_get($map_get($trust_map, $where), $whom), $who)} !$map_get($map_get($map_get($trust_map, $where), $whom), $who)
+}
+
+function $no_offers($offered_map: $Map[$Struct, $Map[$Struct, $Map[$Struct, Int]]], $r: $Struct, $who: Int): Bool
+{
+  forall $or: $Struct, $o: $Struct :: {$map_get($map_get($map_get($offered_map, $r), $or), $o)} ($struct_get($struct_loc($o, 2)): Int) == $who ==> $map_get($map_get($map_get($offered_map, $r), $or), $o) == 0
+}
+
+function $pure$success_get(x: $Struct): Bool
 {
   $struct_get($struct_loc(x, 0))
 }
 
-function $pure$return_get(x:$Struct): Int
+function $pure$return_get(x: $Struct): Int
   requires $pure$success_get(x)
 {
   $struct_loc(x, 1)

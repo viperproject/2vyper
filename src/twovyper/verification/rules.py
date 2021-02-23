@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -263,6 +263,11 @@ PRECONDITION_IMPLEMENTS_INTERFACE = {
         ('application.precondition', 'not.implements.interface')
 }
 
+INTERFACE_RESOURCE_PERFORMS = {
+    ('assert.failed', 'assertion.false'):
+        ('interface.resource', 'resource.address.self')
+}
+
 REALLOCATE_FAIL_INSUFFICIENT_FUNDS = {
     ('assert.failed', 'assertion.false'):
         ('reallocate.failed', 'insufficient.funds')
@@ -328,6 +333,23 @@ DESTROY_FAIL = {
         ('destroy.failed', 'not.trusted')
 }
 
+EXCHANGE_FAIL = {
+    ('$operation.failed', 'no.performs'):
+        ('exchange.failed', 'no.performs')
+}
+
+PAYABLE_FAIL = {
+    ('$operation.failed', 'no.performs'):
+        ('payable.failed', 'no.performs'),
+    ('$operation.failed', 'not.trusted'):
+        ('payable.failed', 'not.trusted')
+}
+
+PAYOUT_FAIL = {
+    ('$operation.failed', 'no.performs'):
+        ('payout.failed', 'no.performs')
+}
+
 OFFER_FAIL = {
     ('$operation.failed', 'offer.not.injective'):
         ('offer.failed', 'offer.not.injective'),
@@ -355,9 +377,9 @@ TRUST_FAIL = {
         ('trust.failed', 'not.trusted')
 }
 
-ALLOCATE_UNTRACKED_WEI_FAIL = {
+ALLOCATE_UNTRACKED_FAIL = {
     ('$operation.failed', 'no.performs'):
-        ('allocate.untracked.wei.failed', 'no.performs')
+        ('allocate.untracked.failed', 'no.performs')
 }
 
 ALLOCATION_LEAK_CHECK_FAIL = {
@@ -368,6 +390,31 @@ ALLOCATION_LEAK_CHECK_FAIL = {
 PERFORMS_LEAK_CHECK_FAIL = {
     ('assert.failed', 'assertion.false'):
         ('performs.leakcheck.failed', 'performs.leaked')
+}
+
+UNDERLYING_ADDRESS_SELF_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.address.self')
+}
+
+UNDERLYING_ADDRESS_CONSTANT_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.address.constant')
+}
+
+UNDERLYING_ADDRESS_TRUST_NO_ONE_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.address.trust')
+}
+
+UNDERLYING_RESOURCE_NO_OFFERS_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.resource.offers')
+}
+
+UNDERLYING_RESOURCE_NEQ_FAIL = {
+    ('assert.failed', 'assertion.false'):
+        ('derived.resource.invariant.failed', 'underlying.resource.eq')
 }
 
 PURE_FUNCTION_FAIL = {

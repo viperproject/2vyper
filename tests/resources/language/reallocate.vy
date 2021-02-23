@@ -22,18 +22,21 @@ def __init__():
     pass
 
 
+#@ performs: payable(msg.value)
 @public
 @payable
 def deposit():
     self.balance_of[msg.sender] += msg.value
 
 
+#@ performs: payout(amount)
 @public
 def withdraw(amount: wei_value):
     self.balance_of[msg.sender] -= amount
     send(msg.sender, amount)
 
 
+#@ performs: payout(self.balance_of[msg.sender])
 #:: ExpectedOutput(carbon)(invariant.violated:assertion.false, AB)
 @public
 def withdraw_fail():

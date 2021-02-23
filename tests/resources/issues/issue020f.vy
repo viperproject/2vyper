@@ -5,9 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
+#@ config: allocation
+
 #@ interface
 
-#:: ExpectedOutput(invalid.program:invalid.performs)
 #@ performs: trust(a, True)
 @public
 def foo(a: address):

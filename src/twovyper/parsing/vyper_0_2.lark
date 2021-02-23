@@ -23,8 +23,10 @@
 
 file_input: (_NEWLINE | stmt)*
 
-contractdef: "contract" NAME ":" suite
+contractdef: "interface" NAME ":" suite
 structdef: "struct" NAME ":" suite
+eventdef: "event" NAME ":" suite
+mapdef: "HashMap" "[" testlist "]"
 funcdef: decorators "def" NAME "(" parameter_list ")" [return_type] [":" suite]
 decorators: decorator*
 decorator: "@" NAME ["(" arguments ")"] _NEWLINE
@@ -39,14 +41,14 @@ parameter: NAME ":" test ["=" test]
 ?small_stmt: expr_stmt | pass_stmt | flow_stmt | import_stmt | assert_stmt
 expr_stmt: test [annassign | augassign | assign] | testlist assign
 assign: "=" testlist
-annassign: ":" test ["=" test]
+annassign: ":" [test | mapdef] ["=" test]
 augassign: aug_op test
 !aug_op: "+=" | "-=" | "*=" | "/=" | "%=" | "**="
 pass_stmt: "pass"
 ?flow_stmt: break_stmt | continue_stmt | return_stmt | raise_stmt
 break_stmt: "break"
 continue_stmt: "continue"
-return_stmt: "return" [testlist]
+return_stmt: "return" [testlist] | "return" "(" testlist ")"
 raise_stmt: "raise" [test]
 ?import_stmt: import_name | import_from
 import_name: "import" alias_list
@@ -58,7 +60,8 @@ alias: dotted_name ["as" NAME]
 dotted_name: NAME ("." NAME)*
 assert_stmt: "assert" test ["," test]
 
-?compound_stmt: if_stmt | for_stmt | with_stmt | funcdef | structdef | contractdef
+?compound_stmt: if_stmt | for_stmt | with_stmt | funcdef | structdef | contractdef | eventdef | log_stmt
+log_stmt: "log" suite
 if_stmt: "if" test ":" suite ("elif" test ":" suite)* ["else" ":" suite]
 for_stmt: "for" var "in" test ":" suite
 with_stmt: "with" test ":" suite

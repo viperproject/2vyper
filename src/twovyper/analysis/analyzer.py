@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 ETH Zurich
+Copyright (c) 2021 ETH Zurich
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from typing import Set, Dict, List
 
 from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.nodes import VyperProgram, VyperFunction
+from twovyper.ast.nodes import VyperProgram, VyperInterface, VyperFunction
 from twovyper.ast.visitors import NodeVisitor
 
 from twovyper.analysis import heuristics
@@ -26,6 +26,9 @@ def analyze(program: VyperProgram):
     Checks the program for structural errors, adds type information to all program expressions
     and creates an analysis for each function.
     """
+    if isinstance(program, VyperInterface) and program.is_stub:
+        return
+
     check_symbols(program)
     check_structure(program)
     TypeAnnotator(program).annotate_program()
