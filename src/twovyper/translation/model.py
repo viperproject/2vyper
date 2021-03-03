@@ -100,24 +100,4 @@ class ModelTranslator(CommonTranslator):
         transform[mangled.OVERFLOW] = f'{names.OVERFLOW}()'
         type_map[mangled.OVERFLOW] = types.VYPER_BOOL
 
-        def transform_value(type, value):
-            if isinstance(type, DecimalType):
-                assert isinstance(value, int)
-                return str(Decimal[type.number_of_digits](scaled_value=value))
-            elif type == types.VYPER_ADDRESS:
-                assert isinstance(value, int)
-                return f'{value:#0{40}x}'
-            else:
-                return value
-
-        # The model transformation transforms the name back to the Vyper expression ($succ --> success())
-        # It also transforms the parsed value (which can be an int, bool or name).
-        def model_transformation(name: str, value) -> Optional[Tuple[str, str]]:
-            transformed_name = transform.get(name)
-            if transformed_name is None:
-                return None
-            else:
-                transformed_value = transform_value(type_map[name], value)
-                return transformed_name, transformed_value
-
-        return model_transformation
+        return (transform, type_map)

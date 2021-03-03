@@ -100,7 +100,7 @@ class Error:
     """Wrapper around ``AbstractVerificationError``."""
 
     def __init__(self, error: AbstractVerificationError, rules: Rule,
-                 reason_item: ErrorInfo, error_item: ErrorInfo) -> None:
+                 reason_item: ErrorInfo, error_item: ErrorInfo, jvm) -> None:
 
         # Translate error id.
         viper_reason = error.reason()
@@ -122,7 +122,7 @@ class Error:
         self._error_info = error_item
         self.reason = Reason(reason_id, viper_reason, reason_item)
         if error.counterexample().isDefined():
-            self.model = Model(error, error_item.model_transformation)
+            self.model = Model(error, jvm, error_item.model_transformation)
         else:
             self._model = None
         self.position = Position(error.pos())

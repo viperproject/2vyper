@@ -57,7 +57,7 @@ class Silicon(AbstractVerifier):
         args = [
             '--z3Exe', config.z3_path,
             '--disableCatchingExceptions',
-            *(['--counterexample=variables'] if get_model else []),
+            *(['--counterexample=native'] if get_model else []),
             filename
         ]
 
