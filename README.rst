@@ -1,7 +1,7 @@
 
 2vyper is an automatic verifier for smart contracts written in Vyper, based on the `Viper <http://viper.ethz.ch>`_ verification infrastructure. It is being developed at the `Programming Methodology Group <http://www.pm.inf.ethz.ch/>`_ at ETH Zurich. 2vyper was mainly developed by Robin Sierra, Christian Bräm, and Marco Eilers. 
 
-For examples of the provided specification constructs, check out the `examples <tests/resources/examples>`_ and/or read `Robin Sierra's <https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Robin_Sierra_MA_Report.pdf>`_ and `Christian Bräm's <https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Christian%20Br%C3%A4m_MS_Report.pdf>`_ Master's theses on the tool. We are working on a short tutorial.
+For examples of the provided specification constructs, check out the `examples folder <tests/resources/examples>`_. Note that the examples are written in Vyper 0.1.0, but 2vyper supports different versions if a version pragma is set. For further documentation, read `Robin Sierra's <https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Robin_Sierra_MA_Report.pdf>`_ and `Christian Bräm's <https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Christian%20Br%C3%A4m_MS_Report.pdf>`_ Master's theses on the tool. We are working on a short tutorial.
 
 Dependencies (Ubuntu Linux, MacOS)
 ===================================
