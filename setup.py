@@ -24,6 +24,7 @@ setup(
         'jpype1==0.7.0',
         'lark-parser>=0.8.1',
         'vyper==0.1.0b16',
+        'vvm==0.1.0',
         'z3-solver',
     ],
     tests_require=[
