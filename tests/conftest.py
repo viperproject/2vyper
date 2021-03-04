@@ -11,7 +11,7 @@ option = None
 
 def pytest_addoption(parser):
     parser.addoption('--verifier', action='store', default='silicon')
-    parser.addoption('--model', action='store_true', default=False)
+    parser.addoption('--counterexample', action='store_true', default=False)
     parser.addoption('--check-ast-inconsistencies', action='store_true', default=False)
     parser.addoption('--store-viper', dest='store_viper', action='store_true')
 

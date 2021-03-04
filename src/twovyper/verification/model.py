@@ -29,8 +29,8 @@ class Model:
             self.extract_model_entry(entry, jvm, model)
         self._model = model
         self._store = ce.internalStore()
-        self._names = transform[0]
-        self._types = transform[1]
+        self._names = transform and transform[0]
+        self._types = transform and transform[1]
         self._jvm = jvm
         self.values()
 
@@ -58,7 +58,10 @@ class Model:
             for name_entry in keys:
                 name = str(name_entry)
                 term = store_map.get(name_entry).get()
-                value = evaluate_term(self._jvm, term, self._model)
+                try:
+                    value = evaluate_term(self._jvm, term, self._model)
+                except NoFittingValueException:
+                    continue
 
                 transformation = self.transform_variable(name, value, term.sort())
                 if transformation:
@@ -75,6 +78,11 @@ class Model:
             return vy_name, self.transform_value(value, vy_type, sort)
         return None
 
+    def parse_int(self, val):
+        if val.startswith('(-') and val.endswith(')'):
+            return - int(val[2:-1])
+        return int(val)
+
     def transform_value(self, value, vy_type, sort):
         if isinstance(sort, self._jvm.viper.silicon.state.terms.sorts.UserSort) and str(sort.id()) == '$Int':
             value = get_func_value(self._model, '$unwrap<Int>', (value,))
@@ -82,15 +90,19 @@ class Model:
         if isinstance(vy_type, PrimitiveType) and vy_type.name == 'bool':
             return value.capitalize()
         if isinstance(vy_type, DecimalType):
-            value = int(value)
+            value = self.parse_int(value)
             return str(Decimal[vy_type.number_of_digits](scaled_value=value))
         elif vy_type == types.VYPER_ADDRESS:
-            value = int(value)
+            value = self.parse_int(value)
             return f'{value:#0{40}x}'
+        elif isinstance(vy_type, PrimitiveType):
+            # assume int
+            value = self.parse_int(value)
+            return str(value)
         elif isinstance(vy_type, ArrayType):
             res = OrderedDict()
             length = get_func_value(self._model, SEQ_LENGTH, (value,))
-            parsed_length = int(length)
+            parsed_length = self.parse_int(length)
             if parsed_length > 0:
                 indices, els_index = get_func_values(self._model, SEQ_INDEX, (value,))
                 for ((index,), value) in indices:
@@ -233,7 +245,6 @@ def translate_sort(jvm, s):
 
 
 def evaluate_term(jvm, term, model):
-    print(term)
     if isinstance(term, getattr(jvm.viper.silicon.state.terms, 'Unit$')):
         return '$Snap.unit'
     if isinstance(term, jvm.viper.silicon.state.terms.IntLiteral):
