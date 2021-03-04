@@ -105,11 +105,16 @@ class Model:
             parsed_length = self.parse_int(length)
             if parsed_length > 0:
                 indices, els_index = get_func_values(self._model, SEQ_INDEX, (value,))
-                for ((index,), value) in indices:
-                    converted_value = self.transform_value(value, vy_type.element_type, sort.elementsSort)
-                    res[index] = converted_value
+                int_type = PrimitiveType('int')
+                for ((index,), val) in indices:
+                    print("index is " + str(index))
+                    print("val is " + str(val))
+                    converted_index = self.transform_value(index, int_type, self.translate_type_sort(int_type))
+                    converted_value = self.transform_value(val, vy_type.element_type, sort.elementsSort())
+                    res[str(converted_index)] = converted_value
                 if els_index is not None:
-                    converted_value = self.transform_value(els_index, vy_type.element_type, sort.elementsSort)
+                    print("els_index is " + str(els_index))
+                    converted_value = self.transform_value(els_index, vy_type.element_type, sort.elementsSort())
                     res['_'] = converted_value
             return "[ {} ]: {}".format(', '.join(['{} -> {}'.format(k, v) for k, v in res.items()]), parsed_length)
         elif isinstance(vy_type, MapType):
@@ -137,6 +142,8 @@ class Model:
             return 'Int'
         if isinstance(vy_type, StructType):
             return '$Struct'
+        if isinstance(vy_type, ArrayType):
+            return 'Seq<{}>'.format(self.translate_type_name(vy_type.element_type))
         raise Exception(vy_type)
 
     def translate_type_sort(self, vy_type):
@@ -145,7 +152,7 @@ class Model:
         Identifier = self._jvm.viper.silicon.state.SimpleIdentifier
 
         def get_sort_object(name):
-            return getattr(terms, 'sorts$' + name + '$')
+            return getattr(getattr(terms, 'sorts$' + name + '$'), "MODULE$")
 
         def get_sort_class(name):
             return getattr(terms, 'sorts$' + name)
@@ -159,6 +166,8 @@ class Model:
             return get_sort_object('Int')
         if isinstance(vy_type, StructType):
             return get_sort_class('UserSort')(Identifier('$Struct'))
+        if isinstance(vy_type, ArrayType):
+            return get_sort_class('Seq')(self.translate_type_sort(vy_type.element_type))
         raise Exception(vy_type)
 
     def __str__(self):
