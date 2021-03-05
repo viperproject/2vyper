@@ -57,6 +57,7 @@ class ViperAST:
         self.MethodWithLabelsInScope = getobject(self.ast, 'MethodWithLabelsInScope')
         self.BigInt = getobject(self.scala.math, 'BigInt')
         self.None_ = getobject(self.scala, 'None')
+        self.seq_types = set()
 
     def is_available(self) -> bool:
         """
@@ -179,6 +180,7 @@ class ViperAST:
         return self.ast.Unfolding(predicate, expr, position, info, self.NoTrafos)
 
     def SeqType(self, element_type):
+        self.seq_types.add(element_type)
         return self.ast.SeqType(element_type)
 
     def SetType(self, element_type):

@@ -104,16 +104,14 @@ class Model:
             length = get_func_value(self._model, SEQ_LENGTH, (value,))
             parsed_length = self.parse_int(length)
             if parsed_length > 0:
-                indices, els_index = get_func_values(self._model, SEQ_INDEX, (value,))
+                index_func_name = SEQ_INDEX + "<{}>".format(translate_sort(self._jvm, sort.elementsSort()))
+                indices, els_index = get_func_values(self._model, index_func_name, (value,))
                 int_type = PrimitiveType('int')
                 for ((index,), val) in indices:
-                    print("index is " + str(index))
-                    print("val is " + str(val))
                     converted_index = self.transform_value(index, int_type, self.translate_type_sort(int_type))
                     converted_value = self.transform_value(val, vy_type.element_type, sort.elementsSort())
                     res[str(converted_index)] = converted_value
                 if els_index is not None:
-                    print("els_index is " + str(els_index))
                     converted_value = self.transform_value(els_index, vy_type.element_type, sort.elementsSort())
                     res['_'] = converted_value
             return "[ {} ]: {}".format(', '.join(['{} -> {}'.format(k, v) for k, v in res.items()]), parsed_length)
@@ -176,8 +174,8 @@ class Model:
 
 
 SNAP_TO = '$SortWrappers.'
-SEQ_LENGTH = 'Seq_length'
-SEQ_INDEX = 'Seq_index'
+SEQ_LENGTH = 'seq_t_length<Int>'
+SEQ_INDEX = 'seq_t_index'
 
 UNIT = '$Snap.unit'
 
@@ -239,8 +237,8 @@ def translate_sort(jvm, s):
 
     if isinstance(s, get_sort_class('Set')):
         return 'Set<{}>'.format(translate_sort(jvm, s.elementsSort()))
-    if isinstance(s, terms.UserSort):
-        return '{}<{}>'.format(s.id(), translate_sort(jvm, s.elementsSort()))
+    if isinstance(s, get_sort_class('UserSort')):
+        return '{}'.format(s.id())
     elif isinstance(s, get_sort_object('Ref')):
         return '$Ref'
     elif isinstance(s, get_sort_object('Snap')):

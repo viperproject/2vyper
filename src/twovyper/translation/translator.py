@@ -307,6 +307,11 @@ class ProgramTranslator(CommonTranslator):
         methods.append(self._create_forced_ether_check(ctx))
         methods += [self.function_translator.translate(function, ctx) for function in vyper_functions]
 
+        for i, t in enumerate(self.viper_ast.seq_types):
+            type_vars = { self.viper_ast.TypeVar('$E') : t }
+            dt = self.viper_ast.DomainType('_array_ce_helper', type_vars, type_vars.keys())
+            functions.append(self.viper_ast.Function('___dummy' + str(i), [], dt, [], [], None))
+
         # Viper Program
         viper_program = self.viper_ast.Program(domains, [], functions, predicates, methods)
         return viper_program

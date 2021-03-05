@@ -19,3 +19,16 @@ domain $Array[$E] {
     }
 
 }
+
+domain _array_ce_helper[$E] {
+    function seq_t_length(___s: Seq[$E]): Int
+    function seq_t_index(___s: Seq[$E], i: Int): $E
+
+    axiom relate_length {
+        forall ___s: Seq[$E] :: {|___s|} |___s| == seq_t_length(___s)
+    }
+
+    axiom relate_index {
+        forall ___s: Seq[$E], ___i: Int :: { ___s[___i] } ___s[___i] == seq_t_index(___s, ___i)
+    }
+}
