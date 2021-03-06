@@ -44,3 +44,8 @@ Info = Any  # 'silver.ast.Info'
 # Verification
 AbstractVerificationError = Any  # 'silver.verifier.AbstractVerificationError'
 AbstractErrorReason = Any  # 'silver.verifier.AbstractErrorReason'
+
+# Counterexamples
+ModelEntry = Any  # 'silver.verifier.ModelEntry'
+Sort = Any  # 'silicon.state.terms.Sort'
+Term = Any  # 'silicon.state.terms.Term'

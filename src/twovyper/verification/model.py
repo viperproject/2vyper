@@ -5,39 +5,39 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-import logging
 from collections import OrderedDict
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from twovyper.utils import seq_to_list
 from twovyper.ast import types
-from twovyper.ast.types import StructType, DecimalType, ArrayType, MapType, PrimitiveType
 from twovyper.ast.arithmetic import Decimal
-from twovyper.viper.typedefs import AbstractVerificationError
+from twovyper.ast.types import ArrayType, DecimalType, MapType, PrimitiveType, StructType, VyperType
+from twovyper.viper.jvmaccess import JVM
+from twovyper.viper.typedefs import AbstractVerificationError, ModelEntry, Sort, Term
 
 
-ModelTransformation = Callable[[str, Any], Optional[Tuple[str, str]]]
+ModelTransformation = Tuple[Dict[str, str], Dict[str, VyperType]]
 
 
 class Model:
 
-    def __init__(self, error: AbstractVerificationError, jvm, transform: Optional[ModelTransformation]):
+    def __init__(self, error: AbstractVerificationError, jvm: JVM, transform: Optional[ModelTransformation]):
         ce = error.counterexample().get()
         scala_model = ce.model()
-        model = OrderedDict()
-        for entry in ScalaIterableWrapper(scala_model.entries()):
-            self.extract_model_entry(entry, jvm, model)
-        self._model = model
         self._store = ce.internalStore()
         self._names = transform and transform[0]
         self._types = transform and transform[1]
         self._jvm = jvm
+        model = OrderedDict()
+        for entry in ScalaIterableWrapper(scala_model.entries()):
+            self.extract_model_entry(entry, model)
+        self._model = model
         self.values()
 
-    def extract_model_entry(self, entry, jvm, target):
+    def extract_model_entry(self, entry: ModelEntry, target: Dict[str, Any]):
         name = str(entry._1())
         value = entry._2()
-        if isinstance(value, jvm.viper.silver.verifier.SingleEntry):
+        if isinstance(value, self._jvm.viper.silver.verifier.SingleEntry):
             target[name] = str(value.value())
         else:
             entry_val = OrderedDict()
@@ -70,7 +70,7 @@ class Model:
 
         return res
 
-    def transform_variable(self, name, value, sort):
+    def transform_variable(self, name: str, value: str, sort: Sort) -> Optional[Tuple[str, str]]:
         if name in self._names and name in self._types:
             vy_name = self._names[name]
             vy_type = self._types[name]
@@ -78,12 +78,12 @@ class Model:
             return vy_name, self.transform_value(value, vy_type, sort)
         return None
 
-    def parse_int(self, val):
+    def parse_int(self, val: str) -> int:
         if val.startswith('(-') and val.endswith(')'):
             return - int(val[2:-1])
         return int(val)
 
-    def transform_value(self, value, vy_type, sort):
+    def transform_value(self, value: str, vy_type: VyperType, sort: Sort) -> str:
         if isinstance(sort, self._jvm.viper.silicon.state.terms.sorts.UserSort) and str(sort.id()) == '$Int':
             value = get_func_value(self._model, '$unwrap<Int>', (value,))
 
@@ -131,7 +131,7 @@ class Model:
         else:
             return value
 
-    def translate_type_name(self, vy_type):
+    def translate_type_name(self, vy_type: VyperType) -> str:
         if isinstance(vy_type, MapType):
             return '$Map<{}~_{}>'.format(self.translate_type_name(vy_type.key_type), self.translate_type_name(vy_type.value_type))
         if isinstance(vy_type, PrimitiveType) and vy_type.name == 'bool':
@@ -144,7 +144,7 @@ class Model:
             return 'Seq<{}>'.format(self.translate_type_name(vy_type.element_type))
         raise Exception(vy_type)
 
-    def translate_type_sort(self, vy_type):
+    def translate_type_sort(self, vy_type: VyperType) -> Sort:
         terms = self._jvm.viper.silicon.state.terms
 
         Identifier = self._jvm.viper.silicon.state.SimpleIdentifier
@@ -172,12 +172,12 @@ class Model:
         return "\n".join(f"   {name} = {value}" for name, value in sorted(self.values().items()))
 
 
+# The following code is mostly lifted from Nagini
+
 
 SNAP_TO = '$SortWrappers.'
 SEQ_LENGTH = 'seq_t_length<Int>'
 SEQ_INDEX = 'seq_t_index'
-
-UNIT = '$Snap.unit'
 
 
 class ScalaIteratorWrapper:
@@ -203,7 +203,7 @@ class NoFittingValueException(Exception):
     pass
 
 
-def get_func_value(model, name, args):
+def get_func_value(model: Dict[str, Any], name: str, args: Tuple[str, ...]) -> str:
     args = tuple([' '.join(a.split()) for a in args])
     entry = model[name]
     if args == () and isinstance(entry, str):
@@ -214,21 +214,22 @@ def get_func_value(model, name, args):
     return model[name].get('else')
 
 
-def get_func_values(model, name, args):
+def get_func_values(model: Dict[str, Any], name: str, args: Tuple[str, ...]) -> Tuple[List[Tuple[List[str], str]], str]:
     args = tuple([' '.join(a.split()) for a in args])
     options = [(k[len(args):], v) for k, v in model[name].items() if k != 'else' and k[:len(args)] == args]
     els= model[name].get('else')
     return options, els
 
 
-def get_parts(jvm, val):
+def get_parts(jvm: JVM, val: str) -> List[str]:
     parser = getattr(getattr(jvm.viper.silver.verifier, 'ModelParser$'), 'MODULE$')
     res = []
     for part in ScalaIterableWrapper(parser.getApplication(val)):
         res.append(part)
     return res
 
-def translate_sort(jvm, s):
+
+def translate_sort(jvm: JVM, s: Sort) -> str:
     terms = jvm.viper.silicon.state.terms
     def get_sort_object(name):
         return getattr(terms, 'sorts$' + name + '$')
@@ -251,7 +252,7 @@ def translate_sort(jvm, s):
         return str(s)
 
 
-def evaluate_term(jvm, term, model):
+def evaluate_term(jvm: JVM, term: Term, model: Dict[str, Any]) -> str:
     if isinstance(term, getattr(jvm.viper.silicon.state.terms, 'Unit$')):
         return '$Snap.unit'
     if isinstance(term, jvm.viper.silicon.state.terms.IntLiteral):
