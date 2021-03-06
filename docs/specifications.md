@@ -1,4 +1,4 @@
-This document briefly describes most of the specification constructs currently available in 2vyper. For more in-depth descriptions, read Robin Sierra's and Christian Bräm's MSc theses (or check out the tests/resources folder for example usages).
+This document briefly describes most of the specification constructs currently available in 2vyper. For more in-depth descriptions, read Robin Sierra's and Christian Bräm's MSc theses (or check out the [tests folder](../tests/resources) for example usages).
 
 # Configuration
 2vyper does not explicitly track gas consumption; instead, it assumes that any function can fail at any point due to lack of gas. To configure 2vyper to ignore reverts because of gas (i.e., to assume this never happens), write 
@@ -124,7 +124,7 @@ Interfaces can also state that they offer conceptually private state to their cl
 #@ caller private: _balance(self)[caller()]
 ```
 
-This is a special case of a local check (see below). For more information on proving inter-contract invariants, see Christian Bräm's thesis and/or the examples in tests/resources/language/inter_contract.
+This is a special case of a local check (see below). For more information on proving inter-contract invariants, see Christian Bräm's thesis and/or the examples in [this folder](../tests/resources/language/inter_contract).
 
 
 # Advanced specifications
@@ -167,4 +167,4 @@ def approve(_spender: address, _value : uint256) -> bool:
 ```
 
 ## Resources
-2vyper allows stating that a contract offers a resource (e.g. a token) and to write specifications in terms of resource transfers. Some examples can be found in tests/resources/allocation; documentation on this will follow.
+2vyper allows stating that a contract offers a resource (e.g. a token) and to write specifications in terms of resource transfers. Some examples can be found in [this folder](../tests/resources/allocation), and some specification constructs are explained [here](allocation.md); more documentation on this will follow.
