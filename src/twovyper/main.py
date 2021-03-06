@@ -188,6 +188,8 @@ def main() -> None:
         parser.error('missing argument: --z3')
     if args.verifier == 'carbon' and not config.boogie_path:
         parser.error('missing argument: --boogie')
+    if args.verifier == 'carbon' and args.counterexample:
+        parser.error('counterexamples are only supported with the Silicon backend')
 
     formatter = logging.Formatter()
     handler = logging.StreamHandler()
