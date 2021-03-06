@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='2vyper',
-    version='0.1.0',
+    version='0.2.0',
     license='MPL-2.0',
 
     packages=find_packages('src'),

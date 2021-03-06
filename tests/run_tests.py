@@ -16,7 +16,7 @@ from tests import _init_jvm, _init_model, _init_check_ast, _init_store_viper, _t
 
 def setup_module():
     _init_jvm(option.verifier)
-    _init_model(option.model)
+    _init_model(option.counterexample)
     _init_check_ast(option.check_ast_inconsistencies)
     _init_store_viper(option.store_viper)
 
