@@ -12,6 +12,11 @@ This document briefly describes most of the specification constructs currently a
 #@ config: no_overflows
 ```
 
+2vyper will by default expect Vyper contracts that fit the version of Vyper that is currently installed. To fix a specific Vyper version in the contract, use the version pragma:
+```
+# @version 0.2.x
+```
+
 # Basic specifications
 
 2vyper supports most standard specification constructs as well as standard logical connectives, which we will show in this section. For specifiying concepts like locks and access control, 2vyper uses custom specification constructs, which we will show later.
