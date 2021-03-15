@@ -33,7 +33,7 @@ decorator: "@" NAME ["(" arguments ")"] _NEWLINE
 
 return_type: "->" test | "->" "(" test ("," test)+ ")"
 
-parameter_list: [parameter ("," parameter)*]
+parameter_list: [parameter ("," parameter)* [","]]
 parameter: NAME ":" test ["=" test]
 
 ?stmt: simple_stmt | compound_stmt

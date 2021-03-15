@@ -13,3 +13,9 @@
 @view
 def foo():
     x: uint256[2][5] = empty(uint256[2][5])
+
+
+@external
+@view
+def bar(a: uint256,):
+    x: uint256[2][5] = empty(uint256[2][5])
