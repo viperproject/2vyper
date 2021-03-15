@@ -40,7 +40,7 @@ parameter: NAME ":" test ["=" test]
 ?small_stmt: expr_stmt | pass_stmt | flow_stmt | import_stmt | assert_stmt
 expr_stmt: test [annassign | augassign | assign] | testlist assign
 assign: "=" testlist
-annassign: ":" [test] ["=" test]
+annassign: ":" test ["=" test]
 augassign: aug_op test
 !aug_op: "+=" | "-=" | "*=" | "/=" | "%=" | "**="
 pass_stmt: "pass"

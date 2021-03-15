@@ -27,7 +27,7 @@ def preprocess(program: str) -> str:
         program = re.sub(regex, repl, program, flags=re.MULTILINE)
 
     replace(r'#@\s*config\s*:', replacement('config', '='))
-    replace(r'#@\s*interface', replacement('interface', '=True'))
+    replace(r'#@\s*interface', replacement('inter', 'nal_interface=True'))
     replace(r'#@\s*ghost\s*:', replacement('with(g)', ':'))
     replace(r'#@\s*resource\s*:\s*', replacement('def ', RESOURCE_PREFIX))
     replace(r'#@\s*derived\s*resource\s*:\s*', replacement('def ', DERIVED_RESOURCE_PREFIX))

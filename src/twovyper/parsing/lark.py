@@ -440,9 +440,16 @@ class _PythonTransformer(Transformer):
 
     @copy_pos
     def getitem(self, children, meta):
-        if isinstance(children[0], ast.Name) and children[0].id == names.MAP:
-            assert len(children) == 3
-            return ast.FunctionCall(names.MAP, children[1:], [])
+        if isinstance(children[0], ast.Name):
+            if children[0].id == names.MAP:
+                assert len(children) == 3
+                return ast.FunctionCall(names.MAP, children[1:], [])
+            if children[0].id in (names.EXCHANGE, names.OFFER, names.OFFERED, names.REVOKE):
+                if len(children) == 3:
+                    value = children[0]
+                    index = ast.Exchange(children[1], children[2])
+                    copy_pos_from(children[1], index)
+                    return ast.Subscript(value, index)
         value = children[0]
         index = children[1]
         return ast.Subscript(value, index)
