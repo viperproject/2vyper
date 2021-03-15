@@ -780,10 +780,14 @@ class _FunctionPureChecker(NodeVisitor):
         self.generic_visit(node, program)
 
     def visit_ExprStmt(self, node: ast.ExprStmt, program: VyperProgram):
-        # A call to clear is an assignment, all other expressions are not valid.
         if isinstance(node.value, ast.FunctionCall) and node.value.name == names.CLEAR:
+            # A call to clear is an assignment
             self.generic_visit(node, program)
+        elif isinstance(node.value, ast.Str):
+            # long string comment
+            pass
         else:
+            # all other expressions are not valid.
             _assert(False, node, 'invalid.pure', 'Pure functions are not allowed to have just an expression as a '
                                                  'statement,  since expressions must not have side effects.')
 

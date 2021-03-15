@@ -224,6 +224,11 @@ class ProgramBuilder(NodeVisitor):
         for stmt in node.stmts:
             self.visit(stmt)
 
+    def visit_ExprStmt(self, node: ast.ExprStmt):
+        if not isinstance(node.value, ast.Str):
+            # Long string comment, ignore.
+            self.generic_visit(node)
+
     def visit_Import(self, node: ast.Import):
         if node.is_ghost_code:
             raise InvalidProgramException(node, 'invalid.ghost.code')
