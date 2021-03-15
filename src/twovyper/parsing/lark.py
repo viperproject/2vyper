@@ -440,6 +440,9 @@ class _PythonTransformer(Transformer):
 
     @copy_pos
     def getitem(self, children, meta):
+        if isinstance(children[0], ast.Name) and children[0].id == names.MAP:
+            assert len(children) == 3
+            return ast.FunctionCall(names.MAP, children[1:], [])
         value = children[0]
         index = children[1]
         return ast.Subscript(value, index)

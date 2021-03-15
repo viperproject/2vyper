@@ -9,7 +9,16 @@
 
 exampleMapping: HashMap[int128, decimal]
 
+pubExampleMapping: public(HashMap[int128, decimal])
+
+pubAddress: public(address)
+
+
 #@ ensures: success() ==> self.exampleMapping[0] == 10.1
+#@ ensures: success() ==> self.pubExampleMapping[0] == 10.1
+#@ ensures: success() ==> self.pubAddress == self
 @external
 def foo():
     self.exampleMapping[0] = 10.1
+    self.pubExampleMapping[0] = 10.1
+    self.pubAddress = self

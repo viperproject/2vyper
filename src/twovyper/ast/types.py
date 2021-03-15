@@ -359,7 +359,7 @@ class TypeBuilder(NodeVisitor):
         # Not allowed is
         #   - constant: should already be replaced
         # Anything else is treated as a unit
-        if node.name == names.PUBLIC or node.name == names.INDEXED:
+        if node.name == names.PUBLICFIELD or node.name == names.INDEXED:
             return self.visit(node.args[0])
         elif node.name == names.MAP:
             key_type = self.visit(node.args[0])

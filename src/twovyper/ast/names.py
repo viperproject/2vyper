@@ -24,6 +24,8 @@ assert CONSTANT == select_version({'^0.2.0': 'view', '>=0.1.0-beta.16 <0.1.0': '
 assert PURE == 'pure'
 MODIFYING = select_version({'^0.2.0': 'payable', '>=0.1.0-beta.16 <0.1.0': 'modifying'})
 NONPAYABLE = select_version({'^0.2.0': 'nonpayable'}, default="")
+PUBLICFIELD = 'public'
+
 
 # Types
 BOOL = 'bool'
