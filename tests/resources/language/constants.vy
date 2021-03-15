@@ -16,6 +16,7 @@ c8: constant(int128) = max(c7, 1 + 3)
 c9: constant(int128) = 12 / -5
 c10: constant(uint256[3]) = [convert(1, uint256), convert(2, uint256), convert(3, uint256)]
 
+API_VERSION: constant(string[5]) = "0.3.2"
 
 @public
 def sum_c1_c2() -> int128:

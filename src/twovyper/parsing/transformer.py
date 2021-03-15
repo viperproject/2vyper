@@ -185,6 +185,9 @@ class ConstantInterpreter(NodeVisitor):
     def visit_Bool(node: ast.Bool):
         return node.value
 
+    def visit_Str(self, node: ast.Str):
+        return '"{}"'.format(node.s)
+
     def visit_Name(self, node: ast.Name):
         return self.constants.get(node.id)
 
