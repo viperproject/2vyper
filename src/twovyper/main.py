@@ -24,13 +24,6 @@ from twovyper.utils import reload_package
 from twovyper.viper.jvmaccess import JVM
 from twovyper.viper.typedefs import Program
 
-from twovyper.verification import error_manager
-
-from twovyper.verification.verifier import (
-    VerificationResult,
-    ViperVerifier, AbstractVerifier
-)
-
 from twovyper.exceptions import (
     InvalidVyperException, ParseException, UnsupportedException, InvalidProgramException, ConsistencyException
 )
@@ -50,6 +43,7 @@ class TwoVyper:
 
         vyper.set_vyper_version(path)
 
+        from twovyper.verification import error_manager
         error_manager.clear()
 
         # Check that the file is a valid Vyper contract
@@ -81,12 +75,16 @@ class TwoVyper:
 
         return translated
 
-    def verify(self, program: Program, path: str, backend: str) -> VerificationResult:
+    def verify(self, program: Program, path: str, backend: str) -> 'VerificationResult':
         """
         Verifies the given Viper program
         """
         logging.debug("Start verifying.")
 
+        from twovyper.verification.verifier import (
+            VerificationResult,
+            ViperVerifier, AbstractVerifier
+        )
         verifier: AbstractVerifier = ViperVerifier[backend].value
         result = verifier.verify(program, self.jvm, path, self.get_model)
 
