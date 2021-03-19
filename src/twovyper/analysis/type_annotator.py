@@ -623,6 +623,18 @@ class TypeAnnotator(NodeVisitor):
                 self.annotate_expected(node.args[1], types.VYPER_INT128)
                 return_type = self.type_builder.build(node.keywords[0].value) if node.keywords else types.VYPER_BYTES32
                 return [return_type], [node]
+            elif case(names.SLICE):
+                self.check_number_of_arguments(node, 3)
+                self.annotate_expected(node.args[0], types.is_bytes_array)
+                self.annotate_expected(node.args[1], types.VYPER_UINT256)
+                self.annotate_expected(node.args[2], types.VYPER_UINT256)
+                orig_type = node.args[0].type
+                new_size = node.args[2].n if isinstance(node.args[2], ast.Num) else orig_type.size
+                if isinstance(orig_type, types.StringType):
+                    return_type = StringType(new_size)
+                else:
+                    return_type = ArrayType(orig_type.element_type, new_size, orig_type.is_strict)
+                return [return_type], [node]
             elif case(names.CONCAT):
                 _check(bool(node.args), node, 'invalid.no.args')
 

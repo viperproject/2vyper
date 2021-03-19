@@ -127,6 +127,7 @@ BITWISE_XOR = 'bitwise_xor'
 AS_WEI_VALUE = 'as_wei_value'
 AS_UNITLESS_NUMBER = 'as_unitless_number'
 CONVERT = 'convert'
+SLICE = 'slice'
 EXTRACT32 = 'extract32'
 EXTRACT32_TYPE = select_version({'^0.2.0': 'output_type', '>=0.1.0-beta.16 <0.1.0': 'type'})
 

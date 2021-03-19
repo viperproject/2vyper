@@ -440,6 +440,18 @@ class ExpressionTranslator(NodeTranslator):
             return i
         elif name == names.EMPTY:
             return self.type_translator.default_value(node, node.type, res, ctx)
+        elif name == names.SLICE:
+            from_type = node.args[0].type
+
+            arg_arr = self.translate(node.args[0], res, ctx)
+            arg_start = self.translate(node.args[1], res, ctx)
+            arg_len = self.translate(node.args[2], res, ctx)
+
+            arr_len = helpers.array_length(self.viper_ast, arg_arr, pos)
+            end = self.viper_ast.Add(arg_start, arg_len, pos)
+            cond = self.viper_ast.GtCmp(end, arr_len, pos)
+            self.fail_if(cond, [], res, ctx, pos)
+            return self.viper_ast.SeqTake(self.viper_ast.SeqDrop(arg_arr, arg_start, pos), arg_len, pos)
         elif name == names.CONVERT:
             from_type = node.args[0].type
             to_type = node.type
