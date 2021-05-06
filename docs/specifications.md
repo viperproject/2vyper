@@ -1,4 +1,4 @@
-This document briefly describes most of the specification constructs currently available in 2vyper. For more in-depth descriptions, read Robin Sierra's and Christian Bräm's MSc theses (or check out the [tests folder](../tests/resources) for example usages).
+This document briefly describes most of the specification constructs currently available in 2vyper. For more in-depth descriptions, read [our paper on arXiv]( https://arxiv.org/abs/2104.10274) (which uses some different terminology), Robin Sierra's and Christian Bräm's MSc theses (or check out the [tests folder](../tests/resources) for example usages).
 
 # Configuration
 2vyper does not explicitly track gas consumption; instead, it assumes that any function can fail at any point due to lack of gas. To configure 2vyper to ignore reverts because of gas (i.e., to assume this never happens), write 
