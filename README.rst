@@ -3,7 +3,7 @@
 
 For examples of the provided specification constructs, check out the `examples folder <tests/resources/examples>`_. Note that the examples are written in Vyper 0.1.0, but 2vyper supports different versions if a version pragma is set. 
 A short overview of the most important specification constructs can be found `here <docs/specifications.md>`_.
-For further documentation, read `Robin Sierra's <https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Robin_Sierra_MA_Report.pdf>`_ and `Christian Bräm's <https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Christian%20Br%C3%A4m_MS_Report.pdf>`_ Master's theses on the tool.
+For further documentation, read `our paper <https://arxiv.org/abs/2104.10274>`_ about 2vyper's specification constructs,  `Robin Sierra's <https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Robin_Sierra_MA_Report.pdf>`_ and `Christian Bräm's <https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Christian%20Br%C3%A4m_MS_Report.pdf>`_ Master's theses on the tool.
 
 Dependencies (Ubuntu Linux, MacOS)
 ===================================
