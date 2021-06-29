@@ -155,7 +155,7 @@ class ProgramBuilder(NodeVisitor):
                                       is_stub=True)
         else:
             if self.caller_private:
-                node = first(self.caller_private)
+                node = first(self.caller_private)[0]
                 raise InvalidProgramException(node, 'invalid.caller.private',
                                               'Caller private is only allowed in interfaces')
             # Create the self-type
@@ -418,7 +418,12 @@ class ProgramBuilder(NodeVisitor):
                 # No local specifications allowed before caller private
                 self._check_no_local_spec()
 
-                self.caller_private.append(node.value)
+                self.caller_private.append((node.value, '=='))
+            elif case(names.CALLER_PRIVATE_INCREASING):
+                # No local specifications allowed before caller private
+                self._check_no_local_spec()
+
+                self.caller_private.append((node.value, '>='))
             elif case(names.PERFORMS):
                 self.performs.append(node.value)
             else:

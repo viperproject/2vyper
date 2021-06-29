@@ -771,7 +771,7 @@ class ExpressionTranslator(NodeTranslator):
             interface = ctx.program.interfaces[interface_type.name]
             with ctx.program_scope(interface):
                 with ctx.state_scope(ctx.current_state, ctx.current_old_state):
-                    for caller_private in interface.caller_private:
+                    for caller_private, cmp in interface.caller_private:
                         pos = self.to_position(caller_private, ctx, rules.CALLER_PRIVATE_FAIL, vias or [], modelt)
                         # Quantified variable
                         q_name = mangled.quantifier_var_name(mangled.CALLER)
@@ -786,7 +786,13 @@ class ExpressionTranslator(NodeTranslator):
                             cond, old_caller_private = self.spec_translator\
                                 .translate_caller_private(caller_private, ctx)
                         ignore_cond = self.viper_ast.And(ignore_cond, cond, pos)
-                        caller_private_cond = self.viper_ast.EqCmp(curr_caller_private, old_caller_private, pos)
+                        if cmp == '==':
+                            viper_cmp = self.viper_ast.EqCmp
+                        elif cmp == '>=':
+                            viper_cmp = self.viper_ast.GeCmp
+                        else:
+                            assert False
+                        caller_private_cond = viper_cmp(curr_caller_private, old_caller_private, pos)
                         expr = self.viper_ast.Implies(ignore_cond, caller_private_cond, pos)
 
                         # Address type assumption
@@ -1049,7 +1055,7 @@ class ExpressionTranslator(NodeTranslator):
                         body.append(assign)
 
                         with ctx.self_address_scope(interface_ref):
-                            for caller_private in interface.caller_private:
+                            for caller_private, cmp in interface.caller_private:
                                 pos = self.to_position(caller_private, ctx, rules.INHALE_CALLER_PRIVATE_FAIL)
                                 # Caller private assumption
                                 _, curr_caller_private = self.spec_translator\
@@ -1057,7 +1063,13 @@ class ExpressionTranslator(NodeTranslator):
                                 with ctx.state_scope(ctx.current_old_state, ctx.current_old_state):
                                     cond, old_caller_private = self.spec_translator\
                                         .translate_caller_private(caller_private, ctx)
-                                caller_private_cond = self.viper_ast.EqCmp(curr_caller_private, old_caller_private, pos)
+                                if cmp == '==':
+                                    viper_cmp = self.viper_ast.EqCmp
+                                elif cmp == '>=':
+                                    viper_cmp = self.viper_ast.GeCmp
+                                else:
+                                    assert False
+                                caller_private_cond = viper_cmp(curr_caller_private, old_caller_private, pos)
                                 caller_private_cond = self.viper_ast.Implies(cond, caller_private_cond, pos)
                                 body.append(self.viper_ast.Inhale(caller_private_cond, pos))
 

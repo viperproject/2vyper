@@ -226,7 +226,7 @@ class TypeAnnotator(NodeVisitor):
             self.annotate_expected(check, types.VYPER_BOOL, resolve=True)
 
         if isinstance(self.program, VyperInterface):
-            for caller_private in self.program.caller_private:
+            for caller_private, _ in self.program.caller_private:
                 self.annotate(caller_private, resolve=True)
 
     def resolve_type(self, node: ast.Node):

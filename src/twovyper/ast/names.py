@@ -171,6 +171,7 @@ POSTCONDITION = 'ensures'
 PRECONDITION = 'requires'
 CHECK = 'check'
 CALLER_PRIVATE = 'caller_private'
+CALLER_PRIVATE = 'caller_private_increasing'
 PERFORMS = 'performs'
 
 CONFIG = 'config'

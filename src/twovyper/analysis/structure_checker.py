@@ -209,7 +209,7 @@ class StructureChecker(NodeVisitor):
             self.visit(ghost_function.node, _Context.GHOST_FUNCTION, program, None)
 
         if isinstance(program, VyperInterface):
-            for caller_private in program.caller_private:
+            for caller_private, _ in program.caller_private:
                 self._visited_caller_spec = False
                 self._num_visited_conditional = 0
                 self.visit(caller_private, _Context.CALLER_PRIVATE, program, None)
