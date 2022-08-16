@@ -225,6 +225,9 @@ class TypeAnnotator(NodeVisitor):
         for check in self.program.general_checks:
             self.annotate_expected(check, types.VYPER_BOOL, resolve=True)
 
+        for thing in self.program.mynewspec:
+            self.annotate_expected(thing, types.VYPER_BOOL, resolve=True)
+
         if isinstance(self.program, VyperInterface):
             for caller_private in self.program.caller_private:
                 self.annotate(caller_private, resolve=True)
@@ -704,6 +707,10 @@ class TypeAnnotator(NodeVisitor):
                     _check(False, node.keywords[0].value, 'spec.result',
                            'The default keyword argument can only be used in combination with a pure function.')
                 return [self.current_func.type.return_type], [node]
+            elif case("mynewnot"):
+                self.check_number_of_arguments(node, 1)
+                self.annotate_expected(node.args[0], types.VYPER_BOOL)
+                return [types.VYPER_BOOL], [node]
             elif case(names.SUM):
                 self.check_number_of_arguments(node, 1)
 

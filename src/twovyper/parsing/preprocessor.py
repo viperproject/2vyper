@@ -45,4 +45,5 @@ def preprocess(program: str) -> str:
     replace(r'#@\s*interpreted', replacement('@interpreted', ''))
     replace(r'#@\s*lemma_def', replacement('def', ''))
     replace(r'#@\s*lemma_assert', replacement('assert', ''))
+    replace(r'#@\s*marcos_spec\s*:', replacement('myspecialspec', '='))
     return program

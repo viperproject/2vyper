@@ -531,7 +531,18 @@ class FunctionTranslator(CommonTranslator):
                         cond_fail = self.specification_translator.translate_check(check, checks_fail, ctx, True)
                         checks_fail.append(self.viper_ast.Assert(cond_fail, check_pos))
 
+                mynewassertions = []
+                for newthingy in ctx.program.mynewspec:
+                    new_stmts = []
+                    thing_pos = self.to_position(newthingy, ctx, modelt=model_translator)
+                    new_assert = self.viper_ast.Assert(self.specification_translator.translate(newthingy, new_stmts, ctx), thing_pos)
+                    if new_stmts:
+                        # expression should be side effect free (i.e., not generate any state-changing statements):
+                        assert False
+                    mynewassertions.append(new_assert)
+
                 body.extend(helpers.flattened_conditional(self.viper_ast, success_var, checks_succ, checks_fail))
+                body.extend(mynewassertions)
                 # Havoc self.balance
                 self._havoc_balance(body, ctx)
 

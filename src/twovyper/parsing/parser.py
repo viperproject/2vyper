@@ -78,6 +78,7 @@ class ProgramBuilder(NodeVisitor):
         self.general_postconditions = []
         self.transitive_postconditions = []
         self.general_checks = []
+        self.mynewspec = []
         self.implements = []
         self.additional_implements = []
         self.ghost_functions = {}
@@ -177,6 +178,7 @@ class ProgramBuilder(NodeVisitor):
                                 self.general_postconditions,
                                 self.transitive_postconditions,
                                 self.general_checks,
+                                self.mynewspec,
                                 self.lemmas,
                                 self.implements,
                                 self.implements + self.additional_implements,
@@ -408,6 +410,8 @@ class ProgramBuilder(NodeVisitor):
                 self._check_no_local_spec()
 
                 self.general_checks.append(node.value)
+            elif case('myspecialspec'):
+                self.mynewspec.append(node.value)
             elif case(names.POSTCONDITION):
                 self.postconditions.append(node.value)
             elif case(names.PRECONDITION):

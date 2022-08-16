@@ -200,6 +200,7 @@ class VyperProgram:
                  general_postconditions: List[ast.Expr],
                  transitive_postconditions: List[ast.Expr],
                  general_checks: List[ast.Expr],
+                 mynewspec: List[ast.Expr],
                  lemmas: Dict[str, VyperFunction],
                  implements: List[InterfaceType],
                  real_implements: List[InterfaceType],
@@ -237,6 +238,7 @@ class VyperProgram:
         self.type = fields.type
         # Is set in the analyzer
         self.analysis: Optional[ProgramAnalysis] = None
+        self.mynewspec = mynewspec
 
     def is_interface(self) -> bool:
         return False
@@ -298,7 +300,7 @@ class VyperInterface(VyperProgram):
                          general_postconditions,
                          transitive_postconditions,
                          general_checks,
-                         {}, [], [], {})
+                         [], {}, [], [], {})
         self.name = name
         self.imported_ghost_functions: Dict[str, List[GhostFunction]] = defaultdict(list)
         for key, value in self._ghost_functions():

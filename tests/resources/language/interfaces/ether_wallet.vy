@@ -18,6 +18,8 @@ balance_of: map(address, wei_value)
 
 #@ always check: forall({a: address}, {sent(a)}, implies(a != msg.sender, sent(a) == old(sent(a))))
 
+# should generate an assertion for every function that says that "not (sum(self.balanceof) == 0)"
+#@ marcos_spec: mynewnot(sum(self.balance_of) == 0)
 
 @public
 @payable

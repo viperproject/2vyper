@@ -290,6 +290,10 @@ class SpecificationTranslator(ExpressionTranslator):
                     ctx.locals = ChainMap(ctx.old_locals, ctx.locals)
                 arg = node.args[0]
                 return self.translate(arg, res, ctx)
+        elif name == "mynewnot":
+            arg = node.args[0]
+            expr = self.translate(arg, res, ctx)
+            return self.viper_ast.Not(expr, pos)
         elif name == names.SUM:
             arg = node.args[0]
             expr = self.translate(arg, res, ctx)
