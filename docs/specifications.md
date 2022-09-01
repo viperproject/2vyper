@@ -1,175 +1,208 @@
-This document briefly describes most of the specification constructs currently available in 2vyper. For more in-depth descriptions, read [our paper on arXiv]( https://arxiv.org/abs/2104.10274) (which uses some different terminology), Robin Sierra's and Christian Bräm's MSc theses (or check out the [tests folder](../tests/resources) for example usages).
+# Specifications
 
-# Configuration
-2vyper does not explicitly track gas consumption; instead, it assumes that any function can fail at any point due to lack of gas. To configure 2vyper to ignore reverts because of gas (i.e., to assume this never happens), write 
-```
-#@ config: no_gas
+As an example of a (partial) annotated contract, see this part of the auction contract written with Vyper 0.1.0b16 syntax:
+
+```python
+beneficiary: public(address)
+auctionStart: public(timestamp)
+auctionEnd: public(timestamp)
+
+highestBidder: public(address)
+highestBid: public(wei_value)
+
+ended: public(bool)
+
+pendingReturns: public(map(address, wei_value))
+
+#@ invariant: old(self.ended) ==> self.ended
+#@ invariant: not self.ended ==> 
+#@   sum(self.pendingReturns) + self.highestBid <= self.balance
+
+# more specification
+
+@public
+def __init__(_beneficiary: address, _bidding_time: timedelta):
+    assert _beneficiary != ZERO_ADDRESS
+    
+    self.beneficiary = _beneficiary
+    self.auctionStart = block.timestamp
+    self.auctionEnd = self.auctionStart + _bidding_time
+
+
+#@ ensures: success() ==> self.highestBid > old(self.highestBid)
+@public
+@payable
+def bid():
+    assert block.timestamp < self.auctionEnd
+    assert not self.ended
+    assert msg.value > self.highestBid
+    assert msg.sender != self.beneficiary
+
+    self.pendingReturns[self.highestBidder] += self.highestBid
+    self.highestBidder = msg.sender
+    self.highestBid = msg.value
+    
+# more functions
 ```
 
-2vyper does accurately model reverts because of arithmetic overflows. To assume overflows do not happen, write
+The code first declares the contract's fields, and subsequently defines its constructor and other functions. 
+Specifications are written in the contract as special comments starting with ``#@}``. Some specifications are on the level of the contract (such as the invariants, i.e. transitive segment constraints, written after the field declarations in the example), while others refer to specific functions (such as the postcondition of function ``bid``, declared using the ``ensures`` keyword). All specifications can refer to specification functions, like ``old(...)``, ``success()``, or  ``sum(...)``.
 
-```
-#@ config: no_overflows
-```
+We will now first show the most important configuration options 2vyper supports inside a given contract. Then, we will
+describe the syntax for the specification constructs we introduce in the paper, and subsequently explain the most important specification functions. 
+Note that the terminology used in the tool, and the resulting syntax of some specification constructs, differs from the one used in the paper, but all specification constructs described in the paper are implemented in the tool. 
 
-2vyper will by default expect Vyper contracts that fit the version of Vyper that is currently installed. To fix a specific Vyper version in the contract, use the version pragma:
+## Configuration:
+2vyper supports different versions of the Vyper language, up until version 0.2.11, which was the most recent version when the paper was submitted. 
+Contracts can contain version pragmas to force the use of a specific version:
 ```
 # @version 0.2.x
 ```
+If no version pragma is present, 2vyper assumes the code is written in Vyper 0.1.0b16, which is the version used in all examples.
 
-# Basic specifications
-
-2vyper supports most standard specification constructs as well as standard logical connectives, which we will show in this section. For specifiying concepts like locks and access control, 2vyper uses custom specification constructs, which we will show later.
-
-## Postconditions
-
-Postconditions can be written as function annotations using the ``ensures`` keyword. Here is an example from an ERC20 contract:
+Additionally, 2vyper supports different per-file configuration options, which can be written inside a contract as follows:
 ```
-#@ ensures: implies(success(), result() == sum(self.balanceOf))
-@public
-@constant
-def totalSupply() -> uint256:
-    return self.total_supply
+#@ config: no_overflows
 ```
-This postcondition states that, if the function succeeds (i.e., does not revert), then the returned result is equal to the sum of the values of the ``balanceOf`` map. This also shows some of the special specification functions 2vyper offers; see below for other examples.
+Different options must be separated by commas. For example, the option ``no_overflows`` shown above instructs the verifier to assume that there are no reverts due to integer over- or underflows.
+Important options used in the examples are:
+  - ``allocation``: enables the resource reasoning described in Sec. 5 of the paper.
+  - ``no_derived_wei_resource``: As described in the paper, when the resource system is enabled, by default, the verifier implicitly assumes that every contract declares a derived resource for Ether, i.e. it assumes that Ether sent to a contract should still logically belong to the sender. This option disables this implicitly-declared resource.
+  - ``no_performs``: As described in Sec. 5.4 of the paper, when using the resource system, functions must declare each resource effect they directly cause; the syntax for doing this in 2vyper starts with the keyword ``#@ performs: ...``. This configuration option disables the obligation to declare all resource effects; i.e. it allows users to let 2vyper check the resource properties as described in Sec. 5.1-5.3 without the potential overhead of writing effects-clauses as client specifications. 
 
-## Invariants and history constraints
+## Central specification constructs
+The central specification constructs we introduce in Sec. 3 in the paper can be declared in the tool as follows:
 
-Contract invariants that must hold in every state while the contract is not executing (i.e., in every public state) can be written as follows:
+### Segment constraints:
+A segment constraint P can be written in the tool using the syntax ``#@ always check: P``. As an example, the line 
 ```
-#@ invariant: self.total_supply == sum(self.balanceOf)
+#@ always check: implies(msg.sender != self.minter, 
+#@   old(self.total_supply) == self.total_supply)
 ```
+states that at the end of each segment, the value of the ``total_supply`` field must not have changed unless the function was claled by ``self.minter``. 
 
-Additionally, invariants can contain two-state assertions that specify how the contract state can change over time, i.e., between public states. This can for example be used to specify that some values must stay constant, or cannot decrease. One can use the ``old(e)`` function to refer to the old value of expression ``e``. Here is an example from ERC20 that states that the value of the ``minter`` field can never change:
+### Transitive segment constraints: 
+A transitive segment constraint P can be written in the tool using the syntax ``#@ invariant: P``.
+As an example, the partial auction contract above contains two transitive segment constraints: one that states that once the auction has ended, it will never be restarted; the second is a single-state transitive segment constraint that states that while the auction has not ended, the contract's balance must be sufficient to pay the pending returns and pay the seller the current highest bid.
+
+### Function constraints: 
+A function constraint P can be written in the tool using the syntax ``#@ preserves: #@ always ensures: P``.
+For example, the following function constraint
 ```
-#@ invariant: self.minter == old(self.minter)
+#@ preserves:
+    #@ always ensures: locked("lock") and old(self.state) == 3 ==> 
+    #@   self.state == old(self.state)
 ```
-These two-state assertions must be reflexive and transitive.
+ensures that, if the contract was in state 3 at the beginning of the function, and lock "lock" is locked, then the value of ``self.state`` must be unchanged at the end of the function. 
 
-## Specification functions
+### Specifications for collaborating contracts
+The specification constructs for modularly verifying collaborating contracts that we introduce in Sec. 4 in the paper can be declared in the tool as follows:
 
-Execution state:
-- ``success()``: Is true if the function returned successfully (without reverting)
-- ``result()``: the value returned by the current function
-- ``event(e, n)``: Is true if the event ``e`` has been fired exactly ``n`` times since the last public state. ``n`` defaults to 1. See below for information about specifications about events.
-- ``locked("lock")``: Is true if the "lock" (created by annotation ``@nonreentrant("lock")``) is currently locked. See below for information about specifications about locks. 
-
-Contract ghost state:
-- ``sent()``: Returns a ``map(address, wei_value)`` that contains the amount of Ether the current contract has sent to other addresses.
-- ``received()``:  Returns a ``map(address, wei_value)`` that contains the amount of Ether the current contract has received from other addresses.
-
-Logical connectives:
-- ``implies(e, P)``: Logical implication. Can also be written ``e ==> P``. 
-- ``forall({x: T1, y: T2}, triggers, P)``: Universal quantification, i.e., ``P`` holds for all values ``x`` and ``y`` of types ``T1`` and ``T2``. ``triggers`` is an optional hint to the SMT solver on when to instantiate the quantifier, and should the form ``{e1, ..., en}`` where the ``e``s must be some expression that, as a whole, contain all quantified variables. 
-
-Convenience functions:
-- ``sum(e)``: Sum of all values in map ``e``.
-- ``storage(a)``: Refers to the entire storage of address ``a``. Useful e.g. to express that some contract's state has not changed (``storage(self) == old(storage(self))``).
-
-## Loops and private functions
-
-By defaults, loops are unrolled, and calls to private functions are inlined. If this is not desired, loops can be verified in terms of invariants; to achieve this, simply annotate a loop with an invariant as follows:
-```
-for i in range(NUM_TOKENS):
-    #@ invariant: self.ownerToNFTokenCount[ZERO_ADDRESS] == 0
-```
-
-Similarly, private functions will not be inlined if they are annotated with a precondition:
-```
-#@ requires: self.val >= 0
-@private
-def inc_val() -> address:
-    ...
-```
-For more information about loop invariants and private functions, see Christian Bräm's thesis.
-
-## Pure functions
-Constant functions (views) that do not log events can be annotated as pure, meaning that they can be used inside other specifications like postconditions or invariants (note that pure has a different meaning here than the pure decorator in Vyper 0.2):
-
-```
-#@ pure
-@private
-@constant
-def get_a() -> int128:
-    return self.a
-    
-#@ invariant: result(self.get_a()) >= 0
-```
-
-References to such a function can either refer to their result, as shown in the example, which is valid only if the function does not revert when called with the used arguments, or they can explicitly refer to the success of the function call by writing ``success(self.get_a())`` (which returns a boolean). For more information, see Christian Bräm's thesis.
-
-
-# Interfaces
-2vyper can prove invariants between multiple contracts. Such invariants have to be declared on a primary contract, and are verified against the interfaces of the other involved contracts. 
-Contracts can be explicitly marked to be interfaces by writing
+#### Interfaces:
+Vyper contracts can interact with other contracts through interfaces, and can declare interfaces themselves. Interfaces are contracts in separate files that must be marked with the line
 ```
 #@ interface
 ```
-Like actual contracts, interfaces can be annotated with invariants, and interface functions with postconditions. Instead of referring to concrete contract state, interfaces can declare ghost functions:
-
+As described in the paper, in 2vyper, interfaces can be annotated with transitive segment constraints and privacy constraints, and functions in interfaces can be annotated as usual with postconditions. To allow reasoning about the state of a contract that implements an interface, without fixing how exactly this state is implemented in the contract, 2vyper allows declaring abstract ``ghost`` functions that each contract that implements an interface must then define. For example, an interface can declare that a contract's state contains a notion of a balance by making the following declaration:
 ```
 #@ ghost:
-    #@ def user_balance(a: address) -> int128: ...
-    
-#@ invariant: forall({a: address}, user_balance(self, a) >= -1000)
+    #@ def balance() -> uint256: ...
 ```
-
-Contracts that implement such an interface then have to provide an implementation (i.e., some expression) for each ghost function:
+A contract that implements the interface then has to define how this notion of balance is represented in the actual contract state. For example, the following declaration
 ```
 #@ ghost:
     #@ @implements
-    #@ def user_balance(a: address) -> int128: self.amounts[a]
+    #@ def balance() -> uint256: self.balance
+```
+states that the field ``self.balance`` represents this notion of balance. 
+
+#### Inter-contract invariants
+In 2vyper, standard transitive segment constraints that are declared using the ``invariant`` keyword must not refer to other contracts. Transitive segment constraints that do refer to other contracts, i.e., inter-contract invariants as described in the paper, must be specially marked as such; a declaration of an inter-contract invariant P looks like this:
+```
+#@ inter contract invariant: P
 ```
 
-Interfaces can also state that they offer conceptually private state to their clients (e.g., a token contract's balance may be private state of its clients). For example, the following interface states that the balance of each address is their private state and cannot be changed by others:
+#### Privacy constraints: 
+As stated above and in the paper, interfaces can contain privacy constraints, which are special segment constraints of the form ``forall a. msg.sender != a ==> P``, where P is reflexive and transitive. 2vyper implements a special case of this feature: 
+The declaration
 ```
-#@ ghost:
-    #@ def _balance() -> map(address, uint256): ...
-
-#@ caller private: _balance(self)[caller()]
+#@ caller private: mapping(self)[caller()]
 ```
-
-This is a special case of a local check (see below). For more information on proving inter-contract invariants, see Christian Bräm's thesis and/or the examples in [this folder](../tests/resources/language/inter_contract).
-
-
-# Advanced specifications
-
-2vyper contains some specification constructs specifically created for the domain of smart contracts. For more information on these, see Robin Sierra's thesis.
-
-## General postconditions
-It is possible to state that some (two-state) postconditions hold for every function in the contract. This is especially useful to specify the behavior of locks that the contract implements either manually or through ``@nonreentrant`` annotations. E.g., one can specify that the lock ``"lock"`` ensures that, when set, the field ``self.val`` is not changed and no Ether is set to anyone, as follows:
-
+expresses the privacy constraint ``forall a. msg.sender != a ==> mapping(self) =old(mapping(self))``. More generally, 
 ```
-#@ preserves:
-    #@ always ensures: old(locked('lock')) ==> locked('lock')
-    #@ always ensures: old(locked('lock')) ==> sent() == old(sent())
-    #@ always ensures: old(locked('lock')) ==> self.val == old(self.val)
+#@ caller private: e
+```
+where ``e`` contains ``caller()``, expresses that ``e`` can only be modified by the caller; i.e. it represents a privacy constraint stating that ``forall a. msg.sender != a ==> e[a/caller()] = old(e[a/caller()])``. 
+
+
+### Resources
+The specifications for the resource reasoning described in Sec. 5 of the paper can be written as follows (note that, as described above, resource reasoning has to be enabled for each contract by using the ``allocation`` configuration option):
+
+#### Resource declarations:
+A contract can, for example, declare a resource called ``token`` as follows:
+```
+#@ resource: token()
 ```
 
-
-## Local checks
-Local checks are two-state assertions that must hold for each local segment of the contract (i.e., for each segment code that is executed without interruption or calls to the outside). They are especially useful to specify access control properties. Here is an example for a kind of token contract:
-
+As briefly mentioned in the paper, 2vyper also supports reasoning about resources that have identifiers, which can be declared as follows:
 ```
-#@ always check: msg.sender != self.minter ==> sum(self.balanceOf) == old(sum(self.balanceOf))
+#@ resource: token(id: uint256)
 ```
 
-This states that for each segment of the contract, the sum of balances must not change unless the function has been invoked by ``self.minter``. Essentially, this means that only the minter can change the number of existing tokens.
-
-Local checks are also useful to specify events, here is an example:
+#### Ghost commands and ghost state
+Resource ghost commands can simply be written as commands starting with ``#@``. For example, the command
 ```
-#@ always check: forall({a: address, b: address}, implies(self.balanceOf[a] > old(self.balanceOf[a]) and self.balanceOf[b] < old(self.balanceOf[b]), event(Transfer(b, a, self.balanceOf[a] - old(self.balanceOf[a])))))
+#@ create[token](init_supply)
 ```
-This states that, if in a segment, the balances of ``a`` increases and that of ``b`` decreases, the event ``Transfer(a, b, v)`` must be triggered (where ``v`` is the difference in ``a``'s balance). 
-
-Checks can also be applied to a single function by using them as a function annotation and removing the ``àlways``. For example, the following check ensures that (every segment of the function) triggers the ``Approval`` event:
-
+creates ``init_supply`` new instances of the ``token`` resource (and the verifier will automatically check the conditions that must be fulfilled for this to be allowed, e.g. in this case that the caller of the function has the right to create new instances of this resource). Similarly, 
 ```
-#@ check: implies(success(), event(Approval(msg.sender, _spender, _value)))
+#@ exchange[token <-> nothing](1, 0, f, msg.sender, times=v)
+```
+performs an exchange of 1 instance of resource ``token`` from ``f`` against zero instances of resource ``nothing`` from ``msg.sender``, and does so ``v`` times. The syntax matches the terminology used in the paper, with the exception of the command for transferring resources, which is ``transfer_R(f, t, a)`` in the paper but is written as 
+```
+#@ reallocate[R](a, to=t)
+```
+in the tool. Note that the sender of the transfer defaults to ``msg.sender``, and the resource defaults to ``wei``. Similarly, the map ``balances_R`` from the paper that contains the balances of all contracts in resource ``R`` is written as ``allocated[R]`` in the tool.
+
+#### Effects-clauses
+As described in the paper, functions must declare which effects they cause. They can be declared in the tool using the ``performs`` keyword:
+```
+#@ performs: exchange[token <-> token](1, 0, f, msg.sender, times=v)
+#@ performs: reallocate[token](v, to=_to)
 @public
-def approve(_spender: address, _value : uint256) -> bool:
+def transferFrom(f: address, _to: address, v: uint256) -> bool:
     ...
 ```
 
-## Resources
-2vyper allows stating that a contract offers a resource (e.g. a token) and to write specifications in terms of resource transfers. Some examples can be found in [this folder](../tests/resources/allocation), and some specification constructs are explained [here](allocation.md); more documentation on this will follow.
+The effects are named as in the paper, except for the transfer-effect, which, as shown in the example, is again called a reallocate-effect in the tool. 
+Additionally, the effects for creating and destroying derived resources are called ``payable`` and ``payout``, respectively, in the tool.
+
+#### Derived resources
+A contract can declare a resource ``dtoken`` that is derived from resource ``token`` declared by contract ``self.other`` as follows:
+```
+#@ derived resource: dtoken() -> token[self.other]
+```
+
+## Specification functions
+
+Throughout the aforementioned specification constructs, the following specification functions can be used (among others):
+  - ``success()``, used in postconditions, is true iff the function returned successfully (without reverting); this can be used in function postconditions to specify under which conditions functions should terminate successfully, and therefore specify certain kinds of liveness properties.
+  - ``result()``, used in postconditions, is the value returned by the current function
+  - ``event(e, n)`` is true iff the event ``e`` has been fired exactly ``n`` times since the beginning of the current local segment. ``n`` defaults to 1.
+  - ``locked("lock")``  is true iff the "lock" (created by the standard Vyper function annotation ``@nonreentrant("lock")``) is currently locked
+  - ``sent()`` returns a map that contains the amount of Ether the current contract has sent to other addresses
+  - ``received()`` returns a map that contains the amount of Ether the current contract has received from other addresses.
+  - ``sum(e)`` denotes the sum of all values in map ``e``
+  - ``implies(e, P)`` denotes logical implication and can also be written as ``e ==> P``
+  - ``forall({x: T1, y: T2}, triggers, P)`` denotes universal quantification, i.e. ``P`` holds for all values ``x`` and ``y`` of types ``T1`` and ``T2``. ``triggers`` is an optional hint to the SMT solver on when to instantiate the quantifier, and should have the form ``{e1, ..., en}``, where the ``e``s must be some expression that, as a whole, contain all quantified variables.
+  - ``accessible(o, a, f)`` states another liveness property (inside a transitive segment constraint), namely that ``a`` amount of Ether is guaranteed to be accessible to contract ``o`` by calling function ``f`` (i.e., ``o`` will definitely receive this amount when calling ``f``, and this cannot be prevented by any other contracts). 
+
+## Other specification constructs
+2vyper supports some other specification constructs that are not mentioned directly in the paper. We list some of them here to enable the reader to understand the specified properties where they are used in examples in our evaluation. 
+
+#### Function-specific segment constraints: 
+By writing ``check`` before a function instead of ``always check`` on the contract level, one can specify segment constraints that should hold only for the local segments of a specific function.
+
+#### Contractwide postconditions: 
+When writing a contract-level specificatio using the keyword ``always ensures`` (similar to the declaration of function constraints, as shown above, but without the ``preserves`` keyword), one can write postconditions that must hold for *every* function in the contract. However, unlike function constraints, these do not have to be transitive, and may not be assumed at any point during verification; they exist only because occasionally, common postconditions must hold for all functions in a contract, and writing them once using a contractwide postcondition is more convenient than writing them separately for every function. 
+
