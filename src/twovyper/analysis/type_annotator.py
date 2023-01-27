@@ -635,6 +635,10 @@ class TypeAnnotator(NodeVisitor):
                 self.check_number_of_arguments(node, 1)
                 self.annotate_expected(node.args[0], types.is_bytes_array)
                 return [types.VYPER_BYTES32], [node]
+            elif case(names.KECCAK256_INVERSE) or case(names.SHA256_INVERSE):
+                self.check_number_of_arguments(node, 1)
+                self.annotate_expected(node.args[0], types.is_bytes_array)
+                return [types.VYPER_BYTES32], [node]
             elif case(names.BLOCKHASH):
                 self.check_number_of_arguments(node, 1)
 

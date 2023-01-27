@@ -13,7 +13,11 @@ domain $Blockchain {
 
     function $keccak256($s: Seq[Int]): Seq[Int]
 
+    function $keccak256_inv($s: Seq[Int]): Seq[Int]
+
     function $sha256($s: Seq[Int]): Seq[Int]
+
+    function $sha256_inv($s: Seq[Int]): Seq[Int]
 
     function $ecrecover($s: Seq[Int], v: Int, r: Int, s: Int): Int
 
@@ -45,6 +49,14 @@ domain $Blockchain {
 
     axiom $ecmul_ax {
         forall $p: Seq[Int], $s: Int :: { $ecmul($p, $s) } |$ecmul($p, $s)| == 2
+    }
+
+    axiom $keccak256_inverse {
+        forall $p: Seq[Int] :: { $keccak256_inv($keccak256($p)) } $keccak256_inv($keccak256($p)) == $p
+    }
+
+    axiom $sha256_inverse {
+        forall $p: Seq[Int] :: { $sha256_inv($sha256($p)) } $sha256_inv($sha256($p)) == $p
     }
 
 }

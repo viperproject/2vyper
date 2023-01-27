@@ -535,9 +535,15 @@ class ExpressionTranslator(NodeTranslator):
         elif name == names.KECCAK256:
             arg = self.translate(node.args[0], res, ctx)
             return helpers.keccak256(self.viper_ast, arg, pos)
+        elif name == names.KECCAK256_INVERSE:
+            arg = self.translate(node.args[0], res, ctx)
+            return helpers.keccak256_inverse(self.viper_ast, arg, pos)
         elif name == names.SHA256:
             arg = self.translate(node.args[0], res, ctx)
             return helpers.sha256(self.viper_ast, arg, pos)
+        elif name == names.SHA256_INVERSE:
+            arg = self.translate(node.args[0], res, ctx)
+            return helpers.sha256_inverse(self.viper_ast, arg, pos)
         elif name == names.BLOCKHASH:
             arg = self.translate(node.args[0], res, ctx)
 

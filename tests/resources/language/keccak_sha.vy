@@ -27,6 +27,35 @@ def hash(b: bytes[64]) -> bytes32:
     else:
         return keccak256(b)
 
+@public
+def hash_revert(b: bytes[64]) -> bytes32:
+    if self.use_sha:
+        #@ assert sha256_inv(sha256(b)) == b, UNREACHABLE
+        return sha256(b)
+    else:
+        #@ assert keccak256_inv(keccak256(b)) == b, UNREACHABLE
+        return keccak256(b)
+
+@public
+def hash_revert_fail_1(b: bytes[64]) -> bytes32:
+    #:: ExpectedOutput(assert.failed:assertion.false)
+    #@ assert keccak256_inv(sha256(b)) == b, UNREACHABLE
+    return sha256(b)
+
+
+@public
+def hash_revert_fail_2(b: bytes[64]) -> bytes32:
+    #:: ExpectedOutput(assert.failed:assertion.false)
+    #@ assert sha256_inv(keccak256(b)) == b, UNREACHABLE
+    return sha256(b)
+
+
+@public
+def hash_revert_fail_3(b: bytes[64], c: bytes[64]) -> bytes32:
+    #:: ExpectedOutput(assert.failed:assertion.false)
+    #@ assert sha256_inv(sha256(b)) == c, UNREACHABLE
+    return sha256(b)
+
 
 #@ ensures: implies(a == b, result())
 @public
