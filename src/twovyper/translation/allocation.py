@@ -978,7 +978,7 @@ class AllocationTranslator(CommonTranslator):
 
         self._set_offered(resource, underlying_resource, const_one, const_one, owner, owner, amount, stmts, ctx, pos)
 
-        self.seqn_with_info(stmts, "Allow to decompose", res)
+        self.seqn_with_info(stmts, "Allow to liquidate", res)
 
     def revoke(self, node: ast.Node,
                from_resource: Expr, to_resource: Expr,

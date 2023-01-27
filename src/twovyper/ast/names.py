@@ -258,8 +258,8 @@ OFFER_TO = 'to'
 OFFER_ACTOR = 'actor'
 OFFER_TIMES = 'times'
 
-ALLOW_TO_DECOMPOSE = 'allow_to_decompose'
-ALLOWED_TO_DECOMPOSE = 'allowed_to_decompose'
+ALLOW_TO_DECOMPOSE = 'allow_to_liquidate'
+ALLOWED_TO_DECOMPOSE = 'allowed_to_liquidate'
 
 REVOKE = 'revoke'
 REVOKE_TO = 'to'
