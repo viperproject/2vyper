@@ -1,13 +1,20 @@
 # step 1
 #@ config: allocation
 
+#@ resource: won_bet()
 
 #step 2 and 10 (allowed to liquidate
 #@ invariant: ((self.state == BET_PLACED and self.guess == (convert(keccak256_inv(self.hashedNumber), uint256) % 2 == 0)) ==>
-#@             (allocated(self.operator) == self.pot and allocated(self.player) == self.bet and allowed_to_liquidate[wei](self.player) >= (2 * self.bet)))
+#@             (allocated(self.operator) == self.pot and allocated(self.player) == self.bet and
+#@              allocated[won_bet](self.player) == self.bet and offered[won_bet <-> wei](1, 1, self.player, self.operator) >= self.bet and
+#@              allowed_to_liquidate[wei](self.player) >= (2 * self.bet)))
 #@ invariant: (not (self.state == BET_PLACED and self.guess == (convert(keccak256_inv(self.hashedNumber), uint256) % 2 == 0)) ==>
-#@             (allocated(self.operator) == self.pot + self.bet and allocated(self.player) == 0))
+#@             (allocated(self.operator) == self.pot + self.bet and allocated(self.player) == 0 and allocated[won_bet](self.player) == 0))
 #@ invariant: forall({a: address}, {allocated(a)}, a != self.operator and a != self.player ==> allocated(a) == 0)
+#@ invariant: forall({a: address}, {allocated[won_bet](a)}, a != self.player ==> allocated[won_bet](a) == 0)
+#@ invariant: forall({a: address}, {allocated[creator(won_bet)](a)}, allocated[creator(won_bet)](a) == 1)
+#@ invariant: (forall({a: address}, offered[wei <-> won_bet](1, 1, self.operator, a) >= self.pot))
+
 
 # step 3
 #@ invariant: self.player != self.operator
@@ -53,21 +60,30 @@ def __init__():
     self.state = IDLE
     self.pot = 0
     self.bet = 0
+    #@ foreach({a: address}, create[creator(won_bet)](1, to=a))
 
 #@ performs: payable[wei](msg.value)
+#@ performs: foreach({a: address}, offer[wei <-> won_bet](1, 1, to=a, times=msg.value))
 @public
 @payable
 def addToPot():
     assert msg.sender == self.operator
     self.pot = self.pot + msg.value
+    #@ foreach({a: address}, offer[wei <-> won_bet](1, 1, to=a, times=msg.value))
 
 
 #@ performs: payout[wei](amount)
+#@ performs: foreach({a: address}, revoke[wei <-> won_bet](1, 1, to=a))
+#@ performs: foreach({a: address}, offer[wei <-> won_bet](1, 1, to=a, times=self.pot - amount))
 @public
 def removeFromPot(amount: uint256):
     assert self.state != BET_PLACED
     assert msg.sender == self.operator
     self.pot = self.pot - amount # step 4: moved from below send
+
+    #@ foreach({a: address}, revoke[wei <-> won_bet](1, 1, to=a))
+    #@ foreach({a: address}, offer[wei <-> won_bet](1, 1, to=a, times=self.pot))
+
     send(self.operator, amount)  # possible bug
 
 
@@ -79,9 +95,12 @@ def createGame(_hashedNumber: bytes32):
     self.hashedNumber = _hashedNumber
     self.state = GAME_AVAILABLE
 
+
 #@ performs: payable[wei](msg.value)
 #@ performs: reallocate(msg.value if (_guess != (convert(keccak256_inv(self.hashedNumber), uint256) % 2 == 0)) else 0, to=self.operator)
 #@ performs: allow_to_liquidate[wei](2 * msg.value if (_guess == (convert(keccak256_inv(self.hashedNumber), uint256) % 2 == 0)) else 0, msg.sender)
+#@ performs: create[won_bet](msg.value if (_guess == (convert(keccak256_inv(self.hashedNumber), uint256) % 2 == 0)) else 0, to=msg.sender)
+#@ performs: offer[won_bet <-> wei](1, 1, to=self.operator, times=msg.value if (_guess == (convert(keccak256_inv(self.hashedNumber), uint256) % 2 == 0)) else 0)
 @public
 @payable
 def placeBet(_guess: bool):
@@ -99,11 +118,15 @@ def placeBet(_guess: bool):
     #@ if _guess != (convert(keccak256_inv(self.hashedNumber), uint256) % 2 == 0):
         #@ reallocate(msg.value, to=self.operator)
     #@ else:
+        #@ create[won_bet](msg.value, to=msg.sender)
+        #@ offer[won_bet <-> wei](1, 1, to=self.operator, times=self.bet)
         #@ allow_to_liquidate[wei](2 * msg.value, msg.sender)  # step 10
 
 
-#@ performs: reallocate(self.bet if (self.guess == (secretNumber % 2 == 0)) else 0, to=self.player)
+#@ performs: exchange[wei <-> won_bet](1, 1, msg.sender, self.player, times = self.bet if (self.guess == (secretNumber % 2 == 0)) else 0)
+#@ performs: destroy[won_bet](self.bet if (self.guess == (secretNumber % 2 == 0)) else 0)
 #@ performs: payout[wei](2 * self.bet if (self.guess == (secretNumber % 2 == 0)) else 0, actor=self.player)
+#@ performs: foreach({a: address}, offer[wei <-> won_bet](1, 1, to=a, times=self.bet if (self.guess != (secretNumber % 2 == 0)) else 0))
 @public
 def decideBet(secretNumber: uint256):
     assert self.state == BET_PLACED
@@ -118,7 +141,8 @@ def decideBet(secretNumber: uint256):
         # step 9
         #@ assert self.guess == (convert(keccak256_inv(self.hashedNumber), uint256) % 2 == 0), UNREACHABLE
         # step 7
-        #@ reallocate(self.bet, to=self.player)
+        #@ exchange[wei <-> won_bet](1, 1, msg.sender, self.player, times=self.bet)
+        #@ destroy[won_bet](self.bet)
         self.pot = self.pot - self.bet
 
         tmp: wei_value = self.bet  # moved and introd, step 11
@@ -128,6 +152,7 @@ def decideBet(secretNumber: uint256):
         # self.bet = 0  # moved (step 11
     else:
         self.pot = self.pot + self.bet
+        #@ foreach({a: address}, offer[wei <-> won_bet](1, 1, to=a, times=self.bet))
         self.bet = 0
 
     # self.state = IDLE # moved, step 12
