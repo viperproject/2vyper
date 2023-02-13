@@ -7,8 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from functools import reduce
 from typing import Optional, List
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.types import (
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.types import (
     VyperType, PrimitiveType, MapType, ArrayType, TupleType, AnyStructType, StructType, ContractType, InterfaceType
 )
 

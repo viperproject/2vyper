@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import Any, Dict, List, Optional
 
-from twovyper.ast import ast_nodes as ast
+from twovyper.vyper_ast import ast_nodes as ast
 
 from twovyper.viper.typedefs import Node, AbstractSourcePosition
 from twovyper.viper.typedefs import AbstractVerificationError, AbstractErrorReason

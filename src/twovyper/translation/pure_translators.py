@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import List
 
-from twovyper.ast.types import VYPER_BOOL
+from twovyper.vyper_ast.types import VYPER_BOOL
 
 from twovyper.translation.abstract import CommonTranslator
 from twovyper.translation.arithmetic import ArithmeticTranslator

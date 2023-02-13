@@ -14,9 +14,9 @@ from twovyper.translation.lemma import LemmaTranslator
 
 from twovyper.utils import flatten, seq_to_list
 
-from twovyper.ast import names, types, ast_nodes as ast
-from twovyper.ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction, Resource
-from twovyper.ast.types import AnyStructType
+from twovyper.vyper_ast import names, types, ast_nodes as ast
+from twovyper.vyper_ast.nodes import VyperProgram, VyperEvent, VyperStruct, VyperFunction, GhostFunction, Resource
+from twovyper.vyper_ast.types import AnyStructType
 
 from twovyper.exceptions import ConsistencyException
 

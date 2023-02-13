@@ -10,10 +10,10 @@ from itertools import chain
 from typing import List, Optional, Tuple, Callable
 
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.arithmetic import Decimal
-from twovyper.ast.nodes import VyperFunction, VyperInterface, VyperVar, VyperEvent, VyperProgram
-from twovyper.ast.types import MapType, ArrayType, StructType, AddressType, ContractType, InterfaceType
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.arithmetic import Decimal
+from twovyper.vyper_ast.nodes import VyperFunction, VyperInterface, VyperVar, VyperEvent, VyperProgram
+from twovyper.vyper_ast.types import MapType, ArrayType, StructType, AddressType, ContractType, InterfaceType
 
 from twovyper.exceptions import UnsupportedException
 

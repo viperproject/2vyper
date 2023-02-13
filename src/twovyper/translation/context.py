@@ -9,9 +9,9 @@ from contextlib import contextmanager
 from collections import ChainMap, defaultdict
 from typing import Dict, TYPE_CHECKING, List, Any, Optional, Tuple, Callable
 
-from twovyper.ast import names
-from twovyper.ast.ast_nodes import Expr, Node
-from twovyper.ast.nodes import VyperFunction, VyperProgram
+from twovyper.vyper_ast import names
+from twovyper.vyper_ast.ast_nodes import Expr, Node
+from twovyper.vyper_ast.nodes import VyperFunction, VyperProgram
 from twovyper.translation import mangled
 
 if TYPE_CHECKING:

@@ -7,9 +7,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import List, Dict, Any, Tuple
 
-from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.arithmetic import div, mod, Decimal
-from twovyper.ast.visitors import NodeVisitor, NodeTransformer, descendants
+from twovyper.vyper_ast import ast_nodes as ast, names
+from twovyper.vyper_ast.arithmetic import div, mod, Decimal
+from twovyper.vyper_ast.visitors import NodeVisitor, NodeTransformer, descendants
 
 from twovyper.exceptions import UnsupportedException
 
@@ -26,7 +26,7 @@ def transform(vyper_ast: ast.Module) -> ast.Module:
 
 def _parse_value(val) -> ast.Expr:
     """
-    Returns a new ast.Node containing the value.
+    Returns a new vyper_ast.Node containing the value.
     """
     return lark.parse_expr(f'{val}', None)
 

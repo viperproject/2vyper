@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import re
 
-from twovyper.ast.names import RESOURCE_PREFIX, DERIVED_RESOURCE_PREFIX
+from twovyper.vyper_ast.names import RESOURCE_PREFIX, DERIVED_RESOURCE_PREFIX
 
 
 def preprocess(program: str) -> str:

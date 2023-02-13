@@ -7,9 +7,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import Union
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.types import FunctionType, MapType, StructType, AnyStructType, ResourceType
-from twovyper.ast.nodes import VyperFunction, Resource
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.types import FunctionType, MapType, StructType, AnyStructType, ResourceType
+from twovyper.vyper_ast.nodes import VyperFunction, Resource
 
 from twovyper.analysis.analyzer import FunctionAnalysis
 

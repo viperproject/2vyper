@@ -9,8 +9,8 @@ from functools import reduce
 from itertools import chain
 from typing import List
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.nodes import VyperFunction, VyperVar
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.nodes import VyperFunction, VyperVar
 
 from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context

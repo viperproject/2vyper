@@ -11,18 +11,18 @@ from typing import Optional, Union, Dict, Iterable
 
 from twovyper.utils import first_index, switch, first
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.arithmetic import Decimal
-from twovyper.ast.types import (
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.arithmetic import Decimal
+from twovyper.vyper_ast.types import (
     TypeBuilder, VyperType, MapType, ArrayType, StringType, StructType, AnyStructType,
     SelfType, ContractType, InterfaceType, TupleType
 )
-from twovyper.ast.nodes import VyperProgram, VyperFunction, GhostFunction, VyperInterface
-from twovyper.ast.text import pprint
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.vyper_ast.nodes import VyperProgram, VyperFunction, GhostFunction, VyperInterface
+from twovyper.vyper_ast.text import pprint
+from twovyper.vyper_ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
-from twovyper.vyper import is_compatible_version, select_version
+from twovyper.vyper_access import is_compatible_version, select_version
 
 
 def _check(condition: bool, node: ast.Node, reason_code: str, msg: Optional[str] = None):

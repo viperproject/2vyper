@@ -8,9 +8,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from itertools import chain
 from typing import List, Optional, Tuple
 
-from twovyper.ast import names, types
-from twovyper.ast.arithmetic import Decimal
-from twovyper.ast.types import StructType, DecimalType
+from twovyper.vyper_ast import names, types
+from twovyper.vyper_ast.arithmetic import Decimal
+from twovyper.vyper_ast.types import StructType, DecimalType
 
 from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context

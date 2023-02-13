@@ -9,9 +9,9 @@ from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple
 
 from twovyper.utils import seq_to_list
-from twovyper.ast import types
-from twovyper.ast.arithmetic import Decimal
-from twovyper.ast.types import ArrayType, DecimalType, MapType, PrimitiveType, StructType, VyperType
+from twovyper.vyper_ast import types
+from twovyper.vyper_ast.arithmetic import Decimal
+from twovyper.vyper_ast.types import ArrayType, DecimalType, MapType, PrimitiveType, StructType, VyperType
 from twovyper.viper.jvmaccess import JVM
 from twovyper.viper.typedefs import AbstractVerificationError, ModelEntry, Sort, Term
 

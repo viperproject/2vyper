@@ -8,8 +8,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from functools import reduce
 from typing import List, Optional, Tuple, Union
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.nodes import Resource
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.nodes import Resource
 
 from twovyper.translation import helpers
 from twovyper.translation.abstract import NodeTranslator

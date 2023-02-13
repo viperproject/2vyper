@@ -7,8 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import List
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.types import PrimitiveType, BoundedType
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.types import PrimitiveType, BoundedType
 
 from twovyper.translation import helpers
 from twovyper.translation.abstract import CommonTranslator
@@ -18,7 +18,7 @@ from twovyper.utils import switch
 
 from twovyper.viper.ast import ViperAST
 from twovyper.viper.typedefs import Expr, Stmt
-from twovyper.vyper import is_compatible_version
+from twovyper.vyper_access import is_compatible_version
 
 
 class ArithmeticTranslator(CommonTranslator):

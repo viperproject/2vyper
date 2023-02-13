@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 
-from twovyper.vyper import select_version
+from twovyper.vyper_access import select_version
 
 # Constants for names in the original AST
 

@@ -7,9 +7,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import List
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.nodes import VyperProgram, VyperFunction
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.nodes import VyperProgram, VyperFunction
+from twovyper.vyper_ast.visitors import NodeVisitor
 
 from twovyper.utils import first
 

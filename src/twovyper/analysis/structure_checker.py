@@ -12,9 +12,9 @@ from typing import Optional, Union
 
 from twovyper.utils import switch, first
 
-from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.nodes import VyperProgram, VyperFunction, VyperInterface
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.vyper_ast import ast_nodes as ast, names
+from twovyper.vyper_ast.nodes import VyperProgram, VyperFunction, VyperInterface
+from twovyper.vyper_ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException, UnsupportedException
 
