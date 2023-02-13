@@ -700,6 +700,10 @@ class AllocationTranslator(CommonTranslator):
         self._exhale_performs_if_non_zero_amount(node, names.RESOURCE_PAYOUT, [resource, address, amount], amount,
                                                  rules.PAYOUT_FAIL, stmts, ctx, pos)
 
+        self._check_allocation(node, resource, address, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS,
+                               stmts, ctx, pos)
+        self._change_allocation(resource, address, amount, False, stmts, ctx, pos)
+
         offer_check_stmts = []
 
         def check_offer(then):
@@ -718,10 +722,6 @@ class AllocationTranslator(CommonTranslator):
         is_trusted_address = self.viper_ast.Or(is_itself, is_trusted_address, pos)
         not_trusted_address = self.viper_ast.Not(is_trusted_address, pos)
         stmts.extend(helpers.flattened_conditional(self.viper_ast, not_trusted_address, offer_check_stmts, [], pos))
-
-        self._check_allocation(node, resource, address, amount, rules.REALLOCATE_FAIL_INSUFFICIENT_FUNDS,
-                               stmts, ctx, pos)
-        self._change_allocation(resource, address, amount, False, stmts, ctx, pos)
 
         self.seqn_with_info(stmts, "Deallocate", res)
 
