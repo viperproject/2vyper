@@ -38,13 +38,27 @@ domain $Convert {
             MIN_INT <= $i && $i <= MAX_INT ==> |$signed_int_to_bytes32($i)| == 32
     }
 
+    axiom $signed_int_to_bytes32_ax_reversible {
+        forall $i: Int :: { $signed_int_to_bytes32($i) }
+            MIN_INT <= $i && $i <= MAX_INT ==> $bytes32_to_signed_int($signed_int_to_bytes32($i)) == $i
+    }
+
     axiom $unsigned_int_to_bytes32_ax {
         forall $i: Int :: { $unsigned_int_to_bytes32($i) }
-            MIN_INT <= $i && $i <= MAX_INT ==> |$unsigned_int_to_bytes32($i)| == 32
+            MIN_UINT <= $i && $i <= MAX_UINT ==> |$unsigned_int_to_bytes32($i)| == 32
+    }
+
+    axiom $unsigned_int_to_bytes32_reversible {
+        forall $i: Int :: { $unsigned_int_to_bytes32($i) }
+            MIN_UINT <= $i && $i <= MAX_UINT ==> $bytes32_to_unsigned_int($unsigned_int_to_bytes32($i)) == $i
     }
 
     axiom $pad32_len_ax {
         forall $bb: Seq[Int] :: { $pad32($bb) } |$pad32($bb)| == 32
+    }
+
+    axiom $pad32_len_ax_ident {
+        forall $bb: Seq[Int] :: { $pad32($bb) } |$bb| == 32 ==> $pad32($bb) == $bb
     }
 
     axiom $pad32_vals_ax {
