@@ -8,8 +8,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
 from typing import Optional, List, Dict
 
-from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.vyper_ast import ast_nodes as ast, names
+from twovyper.vyper_ast.visitors import NodeVisitor
 
 from twovyper.exceptions import InvalidProgramException
 
@@ -331,7 +331,7 @@ class TypeBuilder(NodeVisitor):
         return EventType(arg_types)
 
     def _visit_FunctionStub(self, node: ast.FunctionStub) -> VyperType:
-        from twovyper.ast.nodes import Resource
+        from twovyper.vyper_ast.nodes import Resource
         name, is_derived = Resource.get_name_and_derived_flag(node)
         members = {n.name: self.visit(n.annotation) for n in node.args}
         contract_name = os.path.split(os.path.abspath(node.file))[1].split('.')[0]

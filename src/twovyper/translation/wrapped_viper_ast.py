@@ -119,7 +119,7 @@ def wrapped_integer_decorator(*possible_wrapped_integer_inputs: str, wrap_output
                     else:  # There are only two ways to get "arg" and the first one was not it.
                         new_kwargs[arg_name] = new_arg
 
-            # Call ast function
+            # Call vyper_ast function
             value = func(*new_args, **new_kwargs)
 
             # Wrap output if one or more inputs were wrapped

@@ -6,7 +6,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
 
-from twovyper.vyper import select_version
+from twovyper.vyper_access import select_version
 
 # Constants for names in the original AST
 
@@ -135,7 +135,9 @@ LEN = 'len'
 CONCAT = 'concat'
 
 KECCAK256 = 'keccak256'
+KECCAK256_INVERSE = 'keccak256_inv'
 SHA256 = 'sha256'
+SHA256_INVERSE = 'sha256_inv'
 ECRECOVER = 'ecrecover'
 ECADD = 'ecadd'
 ECMUL = 'ecmul'
@@ -258,8 +260,8 @@ OFFER_TO = 'to'
 OFFER_ACTOR = 'actor'
 OFFER_TIMES = 'times'
 
-ALLOW_TO_DECOMPOSE = 'allow_to_decompose'
-ALLOWED_TO_DECOMPOSE = 'allowed_to_decompose'
+ALLOW_TO_DECOMPOSE = 'allow_to_liquidate'
+ALLOWED_TO_DECOMPOSE = 'allowed_to_liquidate'
 
 REVOKE = 'revoke'
 REVOKE_TO = 'to'
@@ -315,7 +317,8 @@ NOT_ALLOWED_IN_TRANSITIVE_POSTCONDITION = [*NOT_ALLOWED_IN_SPEC, CALLER, OVERFLO
 NOT_ALLOWED_IN_CALLER_PRIVATE = [*NOT_ALLOWED_IN_SPEC, IMPLIES, FORALL, SUM, RESULT, STORAGE, OLD, PUBLIC_OLD, ISSUED,
                                  SENT, RECEIVED, ACCESSIBLE, INDEPENDENT, REORDER_INDEPENDENT, EVENT, SELFDESTRUCT,
                                  IMPLEMENTS, LOCKED, REVERT, OVERFLOW, OUT_OF_GAS, FAILED, SUCCESS,
-                                 BLOCKHASH, *ALLOCATION_FUNCTIONS, INTERPRETED, *NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS]
+                                 BLOCKHASH, *ALLOCATION_FUNCTIONS, INTERPRETED, SHA256_INVERSE, KECCAK256_INVERSE,
+                                 *NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS]
 NOT_ALLOWED_IN_GHOST_CODE = [*NOT_ALLOWED_IN_SPEC, CALLER, OVERFLOW, OUT_OF_GAS, FAILED, INDEPENDENT,
                              REORDER_INDEPENDENT, ACCESSIBLE, PUBLIC_OLD, SELFDESTRUCT,
                              CONDITIONAL, *NOT_ALLOWED_BUT_IN_LOOP_INVARIANTS]

@@ -7,8 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import Any, Dict, List, Iterable
 
-from twovyper.ast import ast_nodes as ast
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.vyper_ast import ast_nodes as ast
+from twovyper.vyper_ast.visitors import NodeVisitor
 
 from twovyper.translation.context import Context
 

@@ -18,7 +18,7 @@ from jpype import JException
 ########################################################################################################################
 
 from twovyper import config
-from twovyper import vyper
+from twovyper import vyper_access
 from twovyper.utils import reload_package
 
 from twovyper.viper.jvmaccess import JVM
@@ -41,14 +41,14 @@ class TwoVyper:
         if not os.path.isfile(path):
             raise InvalidVyperException(f"Contract not found at the given location '{path}'.")
 
-        vyper.set_vyper_version(path)
+        vyper_access.set_vyper_version(path)
 
         from twovyper.verification import error_manager
         error_manager.clear()
 
         # Check that the file is a valid Vyper contract
         if not skip_vyper:
-            vyper.check(path, vyper_root)
+            vyper_access.check(path, vyper_root)
 
         logging.debug("Start parsing.")
 
@@ -250,9 +250,9 @@ def prepare_twovyper_for_vyper_version(path: str) -> bool:
     :param path: The path to a vyper contract.
     :return: True iff a reload of the module was performed.
     """
-    version = vyper.get_vyper_version()
-    vyper.set_vyper_version(path)
-    if version != vyper.get_vyper_version():
+    version = vyper_access.get_vyper_version()
+    vyper_access.set_vyper_version(path)
+    if version != vyper_access.get_vyper_version():
         import twovyper
         reload_package(twovyper)
         return True

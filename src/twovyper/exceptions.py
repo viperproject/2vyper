@@ -7,8 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
 
-from twovyper.ast import ast_nodes as ast
-from twovyper.ast.text import pprint
+from twovyper.vyper_ast import ast_nodes as ast
+from twovyper.vyper_ast.text import pprint
 
 
 class TwoVyperException(Exception):
@@ -95,6 +95,6 @@ class UnsupportedVersionException(TwoVyperException):
 
     def __init__(self, message: str = None):
         if message is None:
-            from twovyper.vyper import get_vyper_version
+            from twovyper.vyper_access import get_vyper_version
             message = f"The Vyper version ({get_vyper_version()}) used by the contract is not supported."
         super().__init__(message)

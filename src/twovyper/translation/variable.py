@@ -9,7 +9,7 @@ from typing import Optional
 
 from twovyper.translation import helpers
 
-from twovyper.ast.types import VyperType
+from twovyper.vyper_ast.types import VyperType
 
 from twovyper.translation.context import Context
 from twovyper.translation.type import TypeTranslator

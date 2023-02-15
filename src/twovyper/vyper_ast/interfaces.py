@@ -5,9 +5,9 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from twovyper.ast import names
-from twovyper.ast import types
-from twovyper.ast.types import ContractType, FunctionType, ArrayType
+from twovyper.vyper_ast import names
+from twovyper.vyper_ast import types
+from twovyper.vyper_ast.types import ContractType, FunctionType, ArrayType
 
 
 VYPER_INTERFACES = ['vyper', 'interfaces']

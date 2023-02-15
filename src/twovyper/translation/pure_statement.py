@@ -7,8 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import List, Optional
 
-from twovyper.ast import ast_nodes as ast, types
-from twovyper.ast.types import StructType, VYPER_BOOL, VYPER_UINT256
+from twovyper.vyper_ast import ast_nodes as ast, types
+from twovyper.vyper_ast.types import StructType, VYPER_BOOL, VYPER_UINT256
 
 from twovyper.exceptions import UnsupportedException
 

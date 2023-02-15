@@ -9,37 +9,37 @@ from typing import Any
 
 
 # AST abstract
-Node = Any  # 'silver.ast.Node'
-Stmt = Any  # 'silver.ast.Stmt'
-Expr = Any  # 'silver.ast.Exp'
+Node = Any  # 'silver.vyper_ast.Node'
+Stmt = Any  # 'silver.vyper_ast.Stmt'
+Expr = Any  # 'silver.vyper_ast.Exp'
 
 # AST
-Program = Any  # 'silver.ast.Program'
-Field = Any  # 'silver.ast.Field'
-Method = Any  # 'silver.ast.Method'
-Function = Any  # 'silver.ast.Function'
+Program = Any  # 'silver.vyper_ast.Program'
+Field = Any  # 'silver.vyper_ast.Field'
+Method = Any  # 'silver.vyper_ast.Method'
+Function = Any  # 'silver.vyper_ast.Function'
 
-Domain = Any  # 'silver.ast.Domain'
-DomainAxiom = Any  # 'silver.ast.DomainAxiom'
-DomainFunc = Any  # 'silver.ast.DomainFunc'
-DomainFuncApp = Any  # 'silver.ast.DomainFuncApp'
-DomainType = Any  # 'silver.ast.DomainType'
+Domain = Any  # 'silver.vyper_ast.Domain'
+DomainAxiom = Any  # 'silver.vyper_ast.DomainAxiom'
+DomainFunc = Any  # 'silver.vyper_ast.DomainFunc'
+DomainFuncApp = Any  # 'silver.vyper_ast.DomainFuncApp'
+DomainType = Any  # 'silver.vyper_ast.DomainType'
 
-TypeVar = Any  # 'silver.ast.TypeVar'
-Type = Any  # 'silver.ast.Type'
+TypeVar = Any  # 'silver.vyper_ast.TypeVar'
+Type = Any  # 'silver.vyper_ast.Type'
 
-Seqn = Any  # 'silver.ast.Seqn'
+Seqn = Any  # 'silver.vyper_ast.Seqn'
 
-Trigger = Any  # 'silver.ast.Trigger'
+Trigger = Any  # 'silver.vyper_ast.Trigger'
 
-Var = Any  # 'silver.ast.LocalVar'
-VarDecl = Any  # 'silver.ast.LocalVarDecl'
-VarAssign = Any  # 'silver.ast.LocalVarAssign'
+Var = Any  # 'silver.vyper_ast.LocalVar'
+VarDecl = Any  # 'silver.vyper_ast.LocalVarDecl'
+VarAssign = Any  # 'silver.vyper_ast.LocalVarAssign'
 
 # Error handling
-AbstractSourcePosition = Any  # 'silver.ast.AbstractSourcePosition'
-Position = Any  # 'silver.ast.Position'
-Info = Any  # 'silver.ast.Info'
+AbstractSourcePosition = Any  # 'silver.vyper_ast.AbstractSourcePosition'
+Position = Any  # 'silver.vyper_ast.Position'
+Info = Any  # 'silver.vyper_ast.Info'
 
 # Verification
 AbstractVerificationError = Any  # 'silver.verifier.AbstractVerificationError'

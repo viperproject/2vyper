@@ -9,8 +9,8 @@ from collections import defaultdict
 from itertools import chain
 from typing import Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
-from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.types import (
+from twovyper.vyper_ast import ast_nodes as ast, names
+from twovyper.vyper_ast.types import (
     VyperType, FunctionType, StructType, ResourceType, ContractType, EventType, InterfaceType, DerivedResourceType
 )
 if TYPE_CHECKING:

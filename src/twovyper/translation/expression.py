@@ -10,10 +10,10 @@ from itertools import chain
 from typing import List, Optional, Tuple, Callable
 
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.arithmetic import Decimal
-from twovyper.ast.nodes import VyperFunction, VyperInterface, VyperVar, VyperEvent, VyperProgram
-from twovyper.ast.types import MapType, ArrayType, StructType, AddressType, ContractType, InterfaceType
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.arithmetic import Decimal
+from twovyper.vyper_ast.nodes import VyperFunction, VyperInterface, VyperVar, VyperEvent, VyperProgram
+from twovyper.vyper_ast.types import MapType, ArrayType, StructType, AddressType, ContractType, InterfaceType
 
 from twovyper.exceptions import UnsupportedException
 
@@ -535,9 +535,15 @@ class ExpressionTranslator(NodeTranslator):
         elif name == names.KECCAK256:
             arg = self.translate(node.args[0], res, ctx)
             return helpers.keccak256(self.viper_ast, arg, pos)
+        elif name == names.KECCAK256_INVERSE:
+            arg = self.translate(node.args[0], res, ctx)
+            return helpers.keccak256_inverse(self.viper_ast, arg, pos)
         elif name == names.SHA256:
             arg = self.translate(node.args[0], res, ctx)
             return helpers.sha256(self.viper_ast, arg, pos)
+        elif name == names.SHA256_INVERSE:
+            arg = self.translate(node.args[0], res, ctx)
+            return helpers.sha256_inverse(self.viper_ast, arg, pos)
         elif name == names.BLOCKHASH:
             arg = self.translate(node.args[0], res, ctx)
 

@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # Conversion of errors to human readable messages.
 
-from twovyper.ast.text import pprint
+from twovyper.vyper_ast.text import pprint
 
 
 ERRORS = {

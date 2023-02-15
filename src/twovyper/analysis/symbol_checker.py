@@ -7,8 +7,8 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
 
-from twovyper.ast import names
-from twovyper.ast.nodes import VyperProgram, VyperInterface
+from twovyper.vyper_ast import names
+from twovyper.vyper_ast.nodes import VyperProgram, VyperInterface
 from twovyper.exceptions import InvalidProgramException
 from twovyper.utils import first
 

@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from itertools import chain
 
-from twovyper.ast import ast_nodes as ast
+from twovyper.vyper_ast import ast_nodes as ast
 
 
 def _split_lines(source):

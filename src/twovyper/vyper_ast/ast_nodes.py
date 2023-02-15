@@ -550,7 +550,7 @@ class Continue(Stmt):
 
 def compare_nodes(first_node: Node, second_node: Node) -> bool:
     """
-    Similar as vyper/ast/nodes.py:compare_nodes
+    Similar as vyper/vyper_ast/nodes.py:compare_nodes
     """
     if not isinstance(first_node, type(second_node)):
         return False

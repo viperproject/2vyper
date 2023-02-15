@@ -10,10 +10,10 @@ from functools import reduce
 from itertools import chain, starmap, zip_longest
 from typing import List, Optional, Iterable
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.nodes import VyperInterface
-from twovyper.ast.types import VyperType
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.nodes import VyperInterface
+from twovyper.vyper_ast.types import VyperType
+from twovyper.vyper_ast.visitors import NodeVisitor
 
 from twovyper.translation import helpers, mangled
 from twovyper.translation.context import Context

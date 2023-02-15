@@ -36,7 +36,7 @@ def create_test_with_redeclare():
 
 #@ performs: payable[token](1)
 #@ performs: create[interface.r[self.i]](1, to=self, actor=self)
-#@ performs: allow_to_decompose[token](1, msg.sender)
+#@ performs: allow_to_liquidate[token](1, msg.sender)
 #@ performs: payout[token](1)
 #@ performs: reallocate[interface.r[self.i]](1, to=msg.sender, actor=self)
 @public
@@ -45,7 +45,7 @@ def reallocate_test():
 
     self.m[msg.sender] += 1
     self.i.create_r()
-    #@ allow_to_decompose[token](1, msg.sender)
+    #@ allow_to_liquidate[token](1, msg.sender)
     self.m[msg.sender] -= 1
     self.i.reallocate_r(msg.sender)
 

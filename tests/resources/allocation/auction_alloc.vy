@@ -64,7 +64,7 @@ pendingReturns: public(map(address, wei_value))
 
 #@ invariant: forall({a: address}, accessible(a, self.pendingReturns[a]))
 
-#@ invariant: not self.ended ==> allowed_to_decompose[wei](self.beneficiary) == MAX_UINT256
+#@ invariant: not self.ended ==> allowed_to_liquidate[wei](self.beneficiary) == MAX_UINT256
 
 
 @public
@@ -75,7 +75,7 @@ def __init__(_bidding_time: timedelta):
 
     #@ create[good](1, to=self.beneficiary)
     #@ foreach({a: address, v: wei_value}, offer[good <-> wei](1, v, to=a, times=1))
-    #@ allow_to_decompose[wei](MAX_UINT256, self.beneficiary)
+    #@ allow_to_liquidate[wei](MAX_UINT256, self.beneficiary)
 
 
 #@ performs: payable[wei](msg.value)

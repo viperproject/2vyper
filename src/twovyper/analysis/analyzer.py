@@ -8,9 +8,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from contextlib import contextmanager
 from typing import Set, Dict, List
 
-from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.nodes import VyperProgram, VyperInterface, VyperFunction
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.vyper_ast import ast_nodes as ast, names
+from twovyper.vyper_ast.nodes import VyperProgram, VyperInterface, VyperFunction
+from twovyper.vyper_ast.visitors import NodeVisitor
 
 from twovyper.analysis import heuristics
 from twovyper.analysis.structure_checker import check_structure
@@ -62,7 +62,7 @@ class ProgramAnalysis:
         # Each invariant has a tag that is used in accessible so we know which invariant fails
         # if we cannot prove the accessibility
         self.inv_tags = {}
-        # Maps accessible ast.ReceiverCall nodes to their tag
+        # Maps accessible vyper_ast.ReceiverCall nodes to their tag
         self.accessible_tags = {}
         # All invariants that contain allocated
         self.allocated_invariants = []

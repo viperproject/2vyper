@@ -18,14 +18,14 @@ from twovyper.parsing import lark
 from twovyper.parsing.preprocessor import preprocess
 from twovyper.parsing.transformer import transform
 
-from twovyper.ast import ast_nodes as ast, interfaces, names
-from twovyper.ast.visitors import NodeVisitor, NodeTransformer
+from twovyper.vyper_ast import ast_nodes as ast, interfaces, names
+from twovyper.vyper_ast.visitors import NodeVisitor, NodeTransformer
 
-from twovyper.ast.nodes import (
+from twovyper.vyper_ast.nodes import (
     VyperProgram, VyperFunction, VyperStruct, VyperContract, VyperEvent, VyperVar,
     Config, VyperInterface, GhostFunction, Resource
 )
-from twovyper.ast.types import (
+from twovyper.vyper_ast.types import (
     TypeBuilder, FunctionType, EventType, SelfType, InterfaceType, ResourceType,
     StructType, ContractType, DerivedResourceType
 )

@@ -8,9 +8,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from contextlib import contextmanager, ExitStack
 from typing import List
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.types import MapType, ArrayType, StructType, VYPER_UINT256
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.types import MapType, ArrayType, StructType, VYPER_UINT256
+from twovyper.vyper_ast.visitors import NodeVisitor
 
 from twovyper.exceptions import UnsupportedException
 

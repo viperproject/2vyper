@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import Iterable, List, Optional, Tuple, Union
 
-from twovyper.ast import ast_nodes as ast
+from twovyper.vyper_ast import ast_nodes as ast
 
 
 def children(node: ast.Node) -> Iterable[Tuple[str, Union[Optional[ast.Node], List[ast.Node]]]]:

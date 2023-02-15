@@ -15,12 +15,12 @@ from lark.indenter import Indenter
 from lark.tree import Meta
 from lark.visitors import Transformer, v_args
 
-from twovyper.ast import ast_nodes as ast, names
-from twovyper.ast.arithmetic import Decimal
-from twovyper.ast.visitors import NodeVisitor
+from twovyper.vyper_ast import ast_nodes as ast, names
+from twovyper.vyper_ast.arithmetic import Decimal
+from twovyper.vyper_ast.visitors import NodeVisitor
 
 from twovyper.exceptions import ParseException, InvalidProgramException
-from twovyper.vyper import select_version
+from twovyper.vyper_access import select_version
 
 
 class PythonIndenter(Indenter):

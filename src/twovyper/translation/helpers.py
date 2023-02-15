@@ -7,9 +7,9 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import Union
 
-from twovyper.ast import ast_nodes as ast, names, types
-from twovyper.ast.types import FunctionType, MapType, StructType, AnyStructType, ResourceType
-from twovyper.ast.nodes import VyperFunction, Resource
+from twovyper.vyper_ast import ast_nodes as ast, names, types
+from twovyper.vyper_ast.types import FunctionType, MapType, StructType, AnyStructType, ResourceType
+from twovyper.vyper_ast.nodes import VyperFunction, Resource
 
 from twovyper.analysis.analyzer import FunctionAnalysis
 
@@ -156,11 +156,25 @@ def keccak256(viper_ast: ViperAST, arg, pos=None, info=None):
     return viper_ast.DomainFuncApp(keccak, [arg], int_array_type, pos, info, domain)
 
 
+def keccak256_inverse(viper_ast: ViperAST, arg, pos=None, info=None):
+    int_array_type = viper_ast.SeqType(viper_ast.Int)
+    keccak_inv = mangled.BLOCKCHAIN_KECCAK256_INVERSE
+    domain = mangled.BLOCKCHAIN_DOMAIN
+    return viper_ast.DomainFuncApp(keccak_inv, [arg], int_array_type, pos, info, domain)
+
+
 def sha256(viper_ast: ViperAST, arg, pos=None, info=None):
     int_array_type = viper_ast.SeqType(viper_ast.Int)
     sha = mangled.BLOCKCHAIN_SHA256
     domain = mangled.BLOCKCHAIN_DOMAIN
     return viper_ast.DomainFuncApp(sha, [arg], int_array_type, pos, info, domain)
+
+
+def sha256_inverse(viper_ast: ViperAST, arg, pos=None, info=None):
+    int_array_type = viper_ast.SeqType(viper_ast.Int)
+    sha_inv = mangled.BLOCKCHAIN_SHA256_INVERSE
+    domain = mangled.BLOCKCHAIN_DOMAIN
+    return viper_ast.DomainFuncApp(sha_inv, [arg], int_array_type, pos, info, domain)
 
 
 def ecrecover(viper_ast: ViperAST, args, pos=None, info=None):

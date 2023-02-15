@@ -69,7 +69,7 @@ token: ERC20
 #@ invariant: self.highestBidder != ZERO_ADDRESS and not self.ended ==> \
     #@ offered[token <-> good](self.highestBid, 1, self.highestBidder, self.beneficiary) >= 1
 
-#@ invariant: not self.ended ==> allowed_to_decompose[token](self.beneficiary) == MAX_UINT256
+#@ invariant: not self.ended ==> allowed_to_liquidate[token](self.beneficiary) == MAX_UINT256
 
 #@ invariant: forall({a: address}, trusted(self.token, by=a))
 
@@ -85,7 +85,7 @@ def __init__(_bidding_time: timedelta, token_address: address):
     #@ create[good](1, to=self.beneficiary)
     #@ foreach({a: address, v: wei_value}, offer[good <-> token](1, v, to=a, times=1))
     #@ assert no_offers[ERC20.token[self.token]](self), UNREACHABLE
-    #@ allow_to_decompose[token](MAX_UINT256, msg.sender)
+    #@ allow_to_liquidate[token](MAX_UINT256, msg.sender)
 
     #@ foreach({a: address}, trust(self.token, True, actor=a))
 
@@ -132,14 +132,14 @@ def onApprovalReceived(sender: address, amount: uint256, data: bytes[1024]) -> b
     return 0x000000000000000000000000000000000000000000000000000000007b04a2d0
 
 
-#@ performs: allow_to_decompose[token](self.pendingReturns[msg.sender], msg.sender)
+#@ performs: allow_to_liquidate[token](self.pendingReturns[msg.sender], msg.sender)
 #@ performs: payout[token](self.pendingReturns[msg.sender], actor=msg.sender)
 @public
 def withdraw():
     assert msg.sender != self and msg.sender != self.beneficiary
     pending_amount: uint256 = self.pendingReturns[msg.sender]
     self.pendingReturns[msg.sender] = 0
-    #@ allow_to_decompose[token](pending_amount, msg.sender)
+    #@ allow_to_liquidate[token](pending_amount, msg.sender)
 
     # Deallocate the tokens
     self.token.transfer(msg.sender, pending_amount)

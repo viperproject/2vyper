@@ -7,7 +7,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import Callable, List
 
-from twovyper.ast import names
+from twovyper.vyper_ast import names
 
 from twovyper.translation import helpers, mangled, State
 from twovyper.translation.abstract import CommonTranslator

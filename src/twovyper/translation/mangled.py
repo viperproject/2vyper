@@ -5,7 +5,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from twovyper.ast import names
+from twovyper.vyper_ast import names
 
 
 # Constants for names in translated AST
@@ -57,7 +57,9 @@ BLOCKCHAIN_DOMAIN = '$Blockchain'
 BLOCKCHAIN_BLOCKHASH = '$blockhash'
 BLOCKCHAIN_METHOD_ID = '$method_id'
 BLOCKCHAIN_KECCAK256 = '$keccak256'
+BLOCKCHAIN_KECCAK256_INVERSE = '$keccak256_inv'
 BLOCKCHAIN_SHA256 = '$sha256'
+BLOCKCHAIN_SHA256_INVERSE = '$sha256_inv'
 BLOCKCHAIN_ECRECOVER = '$ecrecover'
 BLOCKCHAIN_ECADD = '$ecadd'
 BLOCKCHAIN_ECMUL = '$ecmul'
